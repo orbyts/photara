@@ -1,0 +1,13 @@
+[package]
+name = "photara"
+version = "0.0.0"
+edition = "2024"
+description = "A photography workflow and publishing tool."
+license = "MIT"
+repository = "https://github.com/orbyts/photara"
+homepage = "https://github.com/orbyts/photara"
+readme = "README.md"
+keywords = ["photography", "workflow", "lightroom", "publishing"]
+categories = ["command-line-utilities"]
+
+[dependencies]
