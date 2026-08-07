@@ -8,10 +8,10 @@ publication bookkeeping.
 
 ## Status
 
-`v0.0.3` adds application-managed people, location, and scene registries plus
-transactional project reconfiguration on top of Storexa 0.1. Photara owns its
-schemas, SQL, repositories, and photography workflow; Storexa owns connection
-and transaction plumbing.
+`v0.0.4` adds durable asset identity, representation provenance, and a pure
+Lightroom reconciliation plan on top of Storexa 0.1. Photara owns its schemas,
+SQL, repositories, and photography workflow; Storexa owns connection and
+transaction plumbing.
 
 See [ROADMAP.md](ROADMAP.md) for the path to the first supported release and
 [METADATA.md](METADATA.md) for the Lightroom metadata ownership contract.
@@ -104,12 +104,29 @@ $ photara project configure red-meridian \
     --person trinity-woodward
 ```
 
+Generate the JSON contract that the thin Lightroom plugin will apply in the
+next milestone. This command is read-only with respect to Lightroom:
+
+```console
+$ photara metadata plan red-meridian
+```
+
+The plan contains Photara-managed IPTC values, hierarchical people and
+workflow keywords, and idempotent smart-collection definitions for the People,
+Locations, Scenes, and Projects trees.
+
 ## Representation ownership
 
 Camera RAW names are immutable. RAWs and XMP sidecars live only in the dated
 image archive; working DNGs live in Lightroom Cloud; layered PSBs return beside
 their original RAWs; and flattened TIFF masters live in their project folder.
 Photara records relationships and never creates permanent convenience copies.
+
+An asset is identified by the SHA-256 fingerprint of its original RAW. The
+camera filename remains unchanged in the archive. Only downstream
+representations use the expanded `<ORIGINAL_STEM>_<YYYY_MM_DD>_<AUTHOR>`
+basename; a deterministic fingerprint suffix resolves the rare collision
+without overwriting an existing file.
 
 The connection URL must remain outside the repository. Non-secret application
 settings will belong under `$XDG_CONFIG_HOME/photara/` as they are introduced.

@@ -5,6 +5,10 @@ a thin adapter: it gathers the operator's selections, asks the Rust core for a
 reconciliation plan, applies that plan through Lightroom's SDK, and reports the
 result. Lua does not duplicate Photara's business rules.
 
+The current JSON contract can be inspected with
+`photara metadata plan <project-slug>`. Generating a plan does not modify a
+Lightroom catalog.
+
 ## Whole-shoot workflow
 
 1. The operator selects the entire shoot in Lightroom Classic.

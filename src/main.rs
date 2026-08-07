@@ -34,6 +34,10 @@ enum Command {
         #[command(subcommand)]
         command: LocationsCommand,
     },
+    Metadata {
+        #[command(subcommand)]
+        command: MetadataCommand,
+    },
     Scenes {
         #[command(subcommand)]
         command: ScenesCommand,
@@ -48,6 +52,11 @@ enum Command {
 enum ConfigCommand {
     Init,
     Validate,
+}
+
+#[derive(Debug, Subcommand)]
+enum MetadataCommand {
+    Plan { project: String },
 }
 
 #[derive(Debug, Subcommand)]
@@ -188,9 +197,29 @@ async fn main() -> Result<()> {
         Command::Config { command } => config(command)?,
         Command::People { command } => people(command)?,
         Command::Locations { command } => locations(command)?,
+        Command::Metadata { command } => metadata(command).await?,
         Command::Scenes { command } => scenes(command)?,
         Command::Project { command } => project(command).await?,
     }
+    Ok(())
+}
+
+async fn metadata(command: MetadataCommand) -> Result<()> {
+    let config = PhotaraConfig::discover()?;
+    config.validate()?;
+    let database = persistence::connect_development().await?;
+    match command {
+        MetadataCommand::Plan { project: slug } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&photara::metadata::plan(&config, &project)?)?
+            );
+        }
+    }
+    database.close().await;
     Ok(())
 }
 

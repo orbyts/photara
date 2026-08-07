@@ -12,6 +12,8 @@ use crate::{PhotaraError, Result};
 const SETTINGS: &str = r#"images_root = "/Volumes/whisk/Pictures/images"
 projects_root = "/Volumes/whisk/Pictures/projects"
 default_catalog = "Lr_Photara"
+default_creator = "Suhail"
+default_copyright = "@suhail"
 default_country = "United States"
 default_iso_country_code = "US"
 proof_provider = "pixieset"
@@ -23,6 +25,10 @@ pub struct Settings {
     pub images_root: PathBuf,
     pub projects_root: PathBuf,
     pub default_catalog: String,
+    #[serde(default)]
+    pub default_creator: Option<String>,
+    #[serde(default)]
+    pub default_copyright: Option<String>,
     pub default_country: String,
     pub default_iso_country_code: String,
     pub proof_provider: String,
@@ -131,6 +137,16 @@ impl PhotaraConfig {
             return Err(PhotaraError::Configuration(
                 "default_catalog must not be empty".into(),
             ));
+        }
+        for (name, value) in [
+            ("default_creator", &self.settings.default_creator),
+            ("default_copyright", &self.settings.default_copyright),
+        ] {
+            if value.as_ref().is_some_and(|value| value.trim().is_empty()) {
+                return Err(PhotaraError::Configuration(format!(
+                    "{name} must be omitted or non-empty"
+                )));
+            }
         }
         validate_registry("person", &self.people)?;
         validate_registry("location", &self.locations)?;

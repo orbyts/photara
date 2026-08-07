@@ -57,7 +57,7 @@ Version lineage is explicitly deferred until after `0.1.0`.
 - Reconfigure an existing project transactionally without changing its ID.
 - Correct Red Meridian's model association to Trinity Woodward.
 
-### 0.0.4 — asset identity and metadata plans
+### 0.0.4 — asset identity and metadata plans (complete)
 
 - Add assets, project membership, asset files, fingerprints, and provenance.
 - Preserve original RAW filenames and archive paths.

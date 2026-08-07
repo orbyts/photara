@@ -2,6 +2,14 @@
 
 All notable changes to Photara will be documented in this file.
 
+## 0.0.4 - 2026-08-07
+
+- Add durable asset, project membership, representation, and provenance tables.
+- Identify original assets by SHA-256 while preserving camera filenames.
+- Add collision-safe downstream basename generation.
+- Add a deterministic, read-only metadata and Lightroom collection plan.
+- Keep all Lightroom mutations deferred to the thin plugin milestone.
+
 ## 0.0.3 - 2026-08-07
 
 - Revise milestones around registry services, metadata planning, and the Lightroom plugin.
