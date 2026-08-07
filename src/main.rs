@@ -1,10 +1,13 @@
+use std::collections::BTreeMap;
+
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use photara::{
     Result,
-    config::{PhotaraConfig, config_root},
+    config::{Location, Person, PhotaraConfig, Scene, config_root},
     persistence,
     project::{self, NewProject, ProjectOrigin},
 };
+use serde::Serialize;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -23,6 +26,18 @@ enum Command {
         #[command(subcommand)]
         command: ConfigCommand,
     },
+    People {
+        #[command(subcommand)]
+        command: PeopleCommand,
+    },
+    Locations {
+        #[command(subcommand)]
+        command: LocationsCommand,
+    },
+    Scenes {
+        #[command(subcommand)]
+        command: ScenesCommand,
+    },
     Project {
         #[command(subcommand)]
         command: ProjectCommand,
@@ -36,13 +51,86 @@ enum ConfigCommand {
 }
 
 #[derive(Debug, Subcommand)]
-enum ProjectCommand {
-    Init(ProjectInit),
+enum PeopleCommand {
+    Add(PersonAdd),
+    List(OutputArgs),
     Show { slug: String },
 }
 
 #[derive(Debug, Args)]
-struct ProjectInit {
+struct PersonAdd {
+    slug: String,
+    #[arg(long)]
+    display_name: String,
+    #[arg(long = "alias")]
+    aliases: Vec<String>,
+    #[arg(long = "role", required = true)]
+    roles: Vec<String>,
+    #[arg(long = "social", value_parser = parse_pair)]
+    social: Vec<(String, String)>,
+    #[arg(long)]
+    replace: bool,
+}
+
+#[derive(Debug, Subcommand)]
+enum LocationsCommand {
+    Add(LocationAdd),
+    List(OutputArgs),
+    Show { slug: String },
+}
+
+#[derive(Debug, Args)]
+struct LocationAdd {
+    slug: String,
+    #[arg(long)]
+    display_name: String,
+    #[arg(long)]
+    sublocation: String,
+    #[arg(long)]
+    city: String,
+    #[arg(long)]
+    state: String,
+    #[arg(long)]
+    country: String,
+    #[arg(long)]
+    iso_country_code: String,
+    #[arg(long)]
+    replace: bool,
+}
+
+#[derive(Debug, Subcommand)]
+enum ScenesCommand {
+    Add(SceneAdd),
+    List(OutputArgs),
+    Show { slug: String },
+}
+
+#[derive(Debug, Args)]
+struct SceneAdd {
+    slug: String,
+    #[arg(long)]
+    display_name: String,
+    #[arg(long)]
+    description: Option<String>,
+    #[arg(long)]
+    replace: bool,
+}
+
+#[derive(Debug, Args)]
+struct OutputArgs {
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Debug, Subcommand)]
+enum ProjectCommand {
+    Init(ProjectArguments),
+    Configure(ProjectArguments),
+    Show { slug: String },
+}
+
+#[derive(Debug, Args)]
+struct ProjectArguments {
     slug: String,
     #[arg(long)]
     display_name: String,
@@ -73,6 +161,19 @@ impl From<Origin> for ProjectOrigin {
     }
 }
 
+impl From<ProjectArguments> for NewProject {
+    fn from(arguments: ProjectArguments) -> Self {
+        Self {
+            slug: arguments.slug,
+            display_name: arguments.display_name,
+            scene: arguments.scene,
+            location: arguments.location,
+            people: arguments.people,
+            origin: arguments.origin.into(),
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -85,6 +186,9 @@ async fn main() -> Result<()> {
         Command::Health => health().await?,
         Command::Migrate => migrate().await?,
         Command::Config { command } => config(command)?,
+        Command::People { command } => people(command)?,
+        Command::Locations { command } => locations(command)?,
+        Command::Scenes { command } => scenes(command)?,
         Command::Project { command } => project(command).await?,
     }
     Ok(())
@@ -129,38 +233,132 @@ fn config(command: ConfigCommand) -> Result<()> {
     Ok(())
 }
 
+fn people(command: PeopleCommand) -> Result<()> {
+    let mut config = PhotaraConfig::discover()?;
+    match command {
+        PeopleCommand::Add(arguments) => {
+            let slug = arguments.slug;
+            config.add_person(
+                slug.clone(),
+                Person {
+                    display_name: arguments.display_name,
+                    aliases: arguments.aliases,
+                    roles: arguments.roles,
+                    social: arguments.social.into_iter().collect(),
+                },
+                arguments.replace,
+            )?;
+            info!(%slug, "person registry entry saved");
+        }
+        PeopleCommand::List(output) => list(&config.people, output.json)?,
+        PeopleCommand::Show { slug } => show(&config.people, &slug)?,
+    }
+    Ok(())
+}
+
+fn locations(command: LocationsCommand) -> Result<()> {
+    let mut config = PhotaraConfig::discover()?;
+    match command {
+        LocationsCommand::Add(arguments) => {
+            let slug = arguments.slug;
+            config.add_location(
+                slug.clone(),
+                Location {
+                    display_name: arguments.display_name,
+                    sublocation: arguments.sublocation,
+                    city: arguments.city,
+                    state: arguments.state,
+                    country: arguments.country,
+                    iso_country_code: arguments.iso_country_code,
+                },
+                arguments.replace,
+            )?;
+            info!(%slug, "location registry entry saved");
+        }
+        LocationsCommand::List(output) => list(&config.locations, output.json)?,
+        LocationsCommand::Show { slug } => show(&config.locations, &slug)?,
+    }
+    Ok(())
+}
+
+fn scenes(command: ScenesCommand) -> Result<()> {
+    let mut config = PhotaraConfig::discover()?;
+    match command {
+        ScenesCommand::Add(arguments) => {
+            let slug = arguments.slug;
+            config.add_scene(
+                slug.clone(),
+                Scene {
+                    display_name: arguments.display_name,
+                    description: arguments.description,
+                },
+                arguments.replace,
+            )?;
+            info!(%slug, "scene registry entry saved");
+        }
+        ScenesCommand::List(output) => list(&config.scenes, output.json)?,
+        ScenesCommand::Show { slug } => show(&config.scenes, &slug)?,
+    }
+    Ok(())
+}
+
 async fn project(command: ProjectCommand) -> Result<()> {
     let config = PhotaraConfig::discover()?;
     config.validate()?;
     let database = persistence::connect_development().await?;
 
-    match command {
+    let record = match command {
         ProjectCommand::Init(arguments) => {
-            let record = project::initialize(
-                &database,
-                &config,
-                NewProject {
-                    slug: arguments.slug,
-                    display_name: arguments.display_name,
-                    scene: arguments.scene,
-                    location: arguments.location,
-                    people: arguments.people,
-                    origin: arguments.origin.into(),
-                },
-            )
-            .await?;
-            info!(project.id = %record.id, project.slug = %record.slug, "project initialized");
+            Some(project::initialize(&database, &config, arguments.into()).await?)
+        }
+        ProjectCommand::Configure(arguments) => {
+            Some(project::reconfigure(&database, &config, arguments.into()).await?)
         }
         ProjectCommand::Show { slug } => match project::find(&database, &slug).await? {
-            Some(project) => println!("{project:#?}"),
+            Some(project) => {
+                println!("{project:#?}");
+                None
+            }
             None => {
                 return Err(photara::PhotaraError::Configuration(format!(
                     "project {slug:?} was not found"
                 )));
             }
         },
-    }
+    };
 
+    if let Some(record) = record {
+        info!(project.id = %record.id, project.slug = %record.slug, "project saved");
+    }
     database.close().await;
     Ok(())
+}
+
+fn list<T: Serialize>(entries: &BTreeMap<String, T>, json: bool) -> Result<()> {
+    if json {
+        println!("{}", serde_json::to_string_pretty(entries)?);
+    } else {
+        for slug in entries.keys() {
+            println!("{slug}");
+        }
+    }
+    Ok(())
+}
+
+fn show<T: Serialize>(entries: &BTreeMap<String, T>, slug: &str) -> Result<()> {
+    let entry = entries.get(slug).ok_or_else(|| {
+        photara::PhotaraError::Configuration(format!("registry entry {slug:?} was not found"))
+    })?;
+    println!("{}", serde_json::to_string_pretty(entry)?);
+    Ok(())
+}
+
+fn parse_pair(value: &str) -> std::result::Result<(String, String), String> {
+    let (key, value) = value
+        .split_once('=')
+        .ok_or_else(|| "expected PLATFORM=HANDLE".to_owned())?;
+    if key.is_empty() || value.is_empty() {
+        return Err("platform and handle must not be empty".into());
+    }
+    Ok((key.to_owned(), value.to_owned()))
 }

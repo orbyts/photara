@@ -24,7 +24,7 @@ pub enum PhotaraError {
         source: toml::de::Error,
     },
 
-    #[error("could not parse YAML registry {path}")]
+    #[error("could not process YAML registry {path}")]
     Yaml {
         path: PathBuf,
         #[source]

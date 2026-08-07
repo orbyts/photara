@@ -2,6 +2,14 @@
 
 All notable changes to Photara will be documented in this file.
 
+## 0.0.3 - 2026-08-07
+
+- Revise milestones around registry services, metadata planning, and the Lightroom plugin.
+- Model social profiles as platform-to-handle maps.
+- Add friendly CLI management for people, locations, and scenes.
+- Add supported project reconfiguration for corrected registry associations.
+- Correct Red Meridian's model from Valentina Reneff-Olson to Trinity Woodward.
+
 ## 0.0.2 - 2026-08-07
 
 - Add the first full development roadmap through 0.1.0.

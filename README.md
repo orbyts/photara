@@ -8,12 +8,13 @@ publication bookkeeping.
 
 ## Status
 
-`v0.0.2` establishes Photara-owned configuration, migrations, and project
-initialization on top of Storexa 0.1. Photara owns its schemas, SQL,
-repositories, and photography workflow; Storexa owns connection and
-transaction plumbing.
+`v0.0.3` adds application-managed people, location, and scene registries plus
+transactional project reconfiguration on top of Storexa 0.1. Photara owns its
+schemas, SQL, repositories, and photography workflow; Storexa owns connection
+and transaction plumbing.
 
-See [ROADMAP.md](ROADMAP.md) for the path to the first supported release.
+See [ROADMAP.md](ROADMAP.md) for the path to the first supported release and
+[METADATA.md](METADATA.md) for the Lightroom metadata ownership contract.
 
 ## Configuration
 
@@ -39,6 +40,24 @@ registry entries:
 $ photara config init
 $ photara config validate
 ```
+
+Manage registry entries through Photara so the same application services can
+later back the Lightroom plugin or a GUI:
+
+```console
+$ photara people add trinity-woodward \
+    --display-name "Trinity Woodward" \
+    --alias Trin --alias Trinity \
+    --role model \
+    --social instagram=@theetr1n1ty \
+    --social threads=@theetr1n1ty
+$ photara people list --json
+$ photara people show trinity-woodward
+```
+
+Locations and scenes follow the same `add`, `list`, and `show` pattern. Pass
+`--replace` to intentionally update an existing registry entry; omission is a
+guard against accidental replacement.
 
 ## Development database
 
@@ -68,12 +87,22 @@ $ photara project init red-meridian \
     --display-name "Red Meridian" \
     --scene architectural-portrait \
     --location golden-gate-bridge \
-    --person valentina-reneff-olson
+    --person trinity-woodward
 ```
 
 The operation is idempotent. Repeating the same command verifies the existing
 database record and `project.json`; supplying conflicting values fails rather
 than silently changing project identity.
+
+Correct an existing project's associations without changing its durable ID:
+
+```console
+$ photara project configure red-meridian \
+    --display-name "Red Meridian" \
+    --scene architectural-portrait \
+    --location golden-gate-bridge \
+    --person trinity-woodward
+```
 
 ## Representation ownership
 

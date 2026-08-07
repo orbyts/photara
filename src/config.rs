@@ -29,18 +29,18 @@ pub struct Settings {
     pub delivery_provider: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Person {
     pub display_name: String,
-    #[serde(default)]
-    pub instagram: Option<String>,
     #[serde(default)]
     pub aliases: Vec<String>,
     #[serde(default)]
     pub roles: Vec<String>,
+    #[serde(default)]
+    pub social: BTreeMap<String, String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Location {
     pub display_name: String,
     pub sublocation: String,
@@ -50,7 +50,7 @@ pub struct Location {
     pub iso_country_code: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Scene {
     pub display_name: String,
     #[serde(default)]
@@ -135,7 +135,37 @@ impl PhotaraConfig {
         validate_registry("person", &self.people)?;
         validate_registry("location", &self.locations)?;
         validate_registry("scene", &self.scenes)?;
+        for person in self.people.values() {
+            validate_person(person)?;
+        }
+        for location in self.locations.values() {
+            validate_location(location)?;
+        }
+        for scene in self.scenes.values() {
+            validate_scene(scene)?;
+        }
         Ok(())
+    }
+
+    pub fn add_person(&mut self, slug: String, person: Person, replace: bool) -> Result<()> {
+        validate_entry("person", &slug, &person.display_name)?;
+        validate_person(&person)?;
+        insert(&mut self.people, &slug, person, replace)?;
+        write_yaml_atomic(self.root.join("config/people.yml"), &self.people)
+    }
+
+    pub fn add_location(&mut self, slug: String, location: Location, replace: bool) -> Result<()> {
+        validate_entry("location", &slug, &location.display_name)?;
+        validate_location(&location)?;
+        insert(&mut self.locations, &slug, location, replace)?;
+        write_yaml_atomic(self.root.join("config/locations.yml"), &self.locations)
+    }
+
+    pub fn add_scene(&mut self, slug: String, scene: Scene, replace: bool) -> Result<()> {
+        validate_entry("scene", &slug, &scene.display_name)?;
+        validate_scene(&scene)?;
+        insert(&mut self.scenes, &slug, scene, replace)?;
+        write_yaml_atomic(self.root.join("config/scenes.yml"), &self.scenes)
     }
 }
 
@@ -171,6 +201,103 @@ fn write_new(path: PathBuf, contents: &str) -> Result<()> {
         Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
         Err(source) => Err(PhotaraError::filesystem("create file", path, source)),
     }
+}
+
+fn write_yaml_atomic<T: Serialize>(path: PathBuf, entries: &T) -> Result<()> {
+    let contents = serde_yaml::to_string(entries).map_err(|source| PhotaraError::Yaml {
+        path: path.clone(),
+        source,
+    })?;
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| PhotaraError::Configuration("registry path has no filename".into()))?;
+    let temporary = path.with_file_name(format!(".{file_name}.{}.tmp", std::process::id()));
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|source| PhotaraError::filesystem("create file", &temporary, source))?;
+    file.write_all(contents.as_bytes())
+        .and_then(|()| file.sync_all())
+        .map_err(|source| PhotaraError::filesystem("write file", &temporary, source))?;
+    fs::rename(&temporary, &path)
+        .map_err(|source| PhotaraError::filesystem("replace file", path, source))
+}
+
+fn insert<T>(entries: &mut BTreeMap<String, T>, slug: &str, value: T, replace: bool) -> Result<()> {
+    if entries.contains_key(slug) && !replace {
+        return Err(PhotaraError::Configuration(format!(
+            "registry entry {slug:?} already exists; pass --replace to update it"
+        )));
+    }
+    entries.insert(slug.to_owned(), value);
+    Ok(())
+}
+
+fn validate_entry(kind: &str, slug: &str, display_name: &str) -> Result<()> {
+    validate_slug(slug).map_err(|message| {
+        PhotaraError::Configuration(format!("invalid {kind} slug {slug:?}: {message}"))
+    })?;
+    if display_name.trim().is_empty() {
+        return Err(PhotaraError::Configuration(format!(
+            "{kind} display name must not be empty"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_person(person: &Person) -> Result<()> {
+    if person.display_name.trim().is_empty() {
+        return Err(PhotaraError::Configuration(
+            "person display name must not be empty".into(),
+        ));
+    }
+    if person.roles.is_empty() {
+        return Err(PhotaraError::Configuration(
+            "a person must have at least one role".into(),
+        ));
+    }
+    for role in &person.roles {
+        validate_slug(role).map_err(|message| {
+            PhotaraError::Configuration(format!("invalid person role {role:?}: {message}"))
+        })?;
+    }
+    for (platform, handle) in &person.social {
+        validate_slug(platform).map_err(|message| {
+            PhotaraError::Configuration(format!("invalid social platform {platform:?}: {message}"))
+        })?;
+        if handle.trim().is_empty() {
+            return Err(PhotaraError::Configuration(format!(
+                "social handle for {platform:?} must not be empty"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_location(location: &Location) -> Result<()> {
+    if location.display_name.trim().is_empty() || location.sublocation.trim().is_empty() {
+        return Err(PhotaraError::Configuration(
+            "location display name and sublocation must not be empty".into(),
+        ));
+    }
+    let code = location.iso_country_code.as_bytes();
+    if code.len() != 2 || !code.iter().all(u8::is_ascii_uppercase) {
+        return Err(PhotaraError::Configuration(
+            "location ISO country code must be two uppercase ASCII letters".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_scene(scene: &Scene) -> Result<()> {
+    if scene.display_name.trim().is_empty() {
+        return Err(PhotaraError::Configuration(
+            "scene display name must not be empty".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_registry<T>(kind: &str, entries: &BTreeMap<String, T>) -> Result<()> {
@@ -217,5 +344,32 @@ mod tests {
         assert!(validate_slug("red-meridian").is_ok());
         assert!(validate_slug("Red Meridian").is_err());
         assert!(validate_slug("red_meridian").is_err());
+    }
+
+    #[test]
+    fn registry_write_is_sorted_and_round_trips_social_profiles() {
+        let temporary = tempfile::tempdir().unwrap();
+        PhotaraConfig::initialize(temporary.path()).unwrap();
+        let mut config = PhotaraConfig::load(temporary.path()).unwrap();
+        config
+            .add_person(
+                "trinity-woodward".into(),
+                Person {
+                    display_name: "Trinity Woodward".into(),
+                    aliases: vec!["Trin".into(), "Trinity".into()],
+                    roles: vec!["model".into()],
+                    social: BTreeMap::from([
+                        ("instagram".into(), "@theetr1n1ty".into()),
+                        ("threads".into(), "@theetr1n1ty".into()),
+                    ]),
+                },
+                false,
+            )
+            .unwrap();
+        let loaded = PhotaraConfig::load(temporary.path()).unwrap();
+        assert_eq!(
+            loaded.people["trinity-woodward"],
+            config.people["trinity-woodward"]
+        );
     }
 }

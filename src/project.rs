@@ -72,10 +72,50 @@ pub async fn initialize(
     let manifest = validate_and_manifest(config, project)?;
     let mut transaction = database.begin().await?;
     let record = insert_or_verify(&mut transaction, config, &manifest).await?;
-    materialize_directory(&config.settings.projects_root, &manifest)?;
-    record_event(&mut transaction, record.id, "project.initialized").await?;
+    materialize_directory(&config.settings.projects_root, &manifest, false)?;
+    record_event(
+        &mut transaction,
+        record.id,
+        "project.initialized",
+        format!("project:{}:initialized", record.id),
+        serde_json::to_value(&manifest)?,
+    )
+    .await?;
     transaction.commit().await?;
     Ok(record)
+}
+
+pub async fn reconfigure(
+    database: &Database,
+    config: &PhotaraConfig,
+    project: NewProject,
+) -> Result<ProjectRecord> {
+    let manifest = validate_and_manifest(config, project)?;
+    let mut transaction = database.begin().await?;
+    let existing = find_on(&mut transaction, &manifest.slug)
+        .await?
+        .ok_or_else(|| {
+            PhotaraError::Configuration(format!("project {:?} was not found", manifest.slug))
+        })?;
+    update(&mut transaction, config, existing.id, &manifest).await?;
+    materialize_directory(&config.settings.projects_root, &manifest, true)?;
+    let event_key = format!(
+        "project:{}:configured:{}",
+        existing.id,
+        serde_json::to_string(&manifest)?
+    );
+    record_event(
+        &mut transaction,
+        existing.id,
+        "project.configured",
+        event_key,
+        serde_json::to_value(&manifest)?,
+    )
+    .await?;
+    transaction.commit().await?;
+    find(database, &manifest.slug)
+        .await?
+        .ok_or_else(|| PhotaraError::Configuration("project update did not persist".into()))
 }
 
 pub async fn find(database: &Database, slug: &str) -> Result<Option<ProjectRecord>> {
@@ -210,6 +250,48 @@ async fn insert_or_verify(
     Ok(record)
 }
 
+async fn update(
+    connection: &mut PgConnection,
+    config: &PhotaraConfig,
+    project_id: Uuid,
+    manifest: &ProjectManifest,
+) -> Result<()> {
+    let scene = serde_json::to_value(&config.scenes[&manifest.scene])?;
+    let location = serde_json::to_value(&config.locations[&manifest.location])?;
+    sqlx::query(
+        "UPDATE projects SET display_name = $2, scene_slug = $3, scene_snapshot = $4, \
+         location_slug = $5, location_snapshot = $6, origin = $7, status = $8, \
+         updated_at = now() WHERE id = $1",
+    )
+    .bind(project_id)
+    .bind(&manifest.display_name)
+    .bind(&manifest.scene)
+    .bind(scene)
+    .bind(&manifest.location)
+    .bind(location)
+    .bind(&manifest.origin)
+    .bind(&manifest.status)
+    .execute(&mut *connection)
+    .await?;
+
+    sqlx::query("DELETE FROM project_people WHERE project_id = $1")
+        .bind(project_id)
+        .execute(&mut *connection)
+        .await?;
+    for person in &manifest.people {
+        sqlx::query(
+            "INSERT INTO project_people (project_id, person_slug, person_snapshot) \
+             VALUES ($1, $2, $3)",
+        )
+        .bind(project_id)
+        .bind(person)
+        .bind(serde_json::to_value(&config.people[person])?)
+        .execute(&mut *connection)
+        .await?;
+    }
+    Ok(())
+}
+
 fn ensure_project_matches(record: &ProjectRecord, manifest: &ProjectManifest) -> Result<()> {
     ensure_project_core_matches(record, manifest)?;
     if record.people != manifest.people {
@@ -249,7 +331,11 @@ async fn people(connection: &mut PgConnection, project_id: Uuid) -> Result<Vec<S
         .collect()
 }
 
-fn materialize_directory(root: &Path, manifest: &ProjectManifest) -> Result<PathBuf> {
+fn materialize_directory(
+    root: &Path,
+    manifest: &ProjectManifest,
+    replace: bool,
+) -> Result<PathBuf> {
     if !root.is_dir() {
         return Err(PhotaraError::Configuration(format!(
             "projects_root {} is not an available directory",
@@ -276,12 +362,13 @@ fn materialize_directory(root: &Path, manifest: &ProjectManifest) -> Result<Path
     let contents = format!("{}\n", serde_json::to_string_pretty(manifest)?);
     match fs::read_to_string(&manifest_path) {
         Ok(existing) if existing == contents => return Ok(project_root),
-        Ok(_) => {
+        Ok(_) if !replace => {
             return Err(PhotaraError::Configuration(format!(
                 "{} already exists with different contents",
                 manifest_path.display()
             )));
         }
+        Ok(_) => {}
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(source) => {
             return Err(PhotaraError::filesystem("read file", manifest_path, source));
@@ -306,14 +393,17 @@ async fn record_event(
     connection: &mut PgConnection,
     project_id: Uuid,
     event_type: &str,
+    idempotency_key: String,
+    payload: serde_json::Value,
 ) -> Result<()> {
     sqlx::query(
         "INSERT INTO workflow_events (project_id, event_type, payload, idempotency_key) \
-         VALUES ($1, $2, '{}'::jsonb, $3) ON CONFLICT (idempotency_key) DO NOTHING",
+         VALUES ($1, $2, $3, $4) ON CONFLICT (idempotency_key) DO NOTHING",
     )
     .bind(project_id)
     .bind(event_type)
-    .bind(format!("project:{project_id}:initialized"))
+    .bind(payload)
+    .bind(idempotency_key)
     .execute(&mut *connection)
     .await?;
     Ok(())
