@@ -2,6 +2,15 @@
 
 All notable changes to Photara will be documented in this file.
 
+## 0.0.5 - 2026-08-07
+
+- Add the thin `photara.lrplugin` Lightroom Classic adapter.
+- Add a read-only connection validator for the CLI, Storexa, and PostgreSQL bridge.
+- Add a project-selection and confirmation flow for the selected shoot.
+- Reconcile managed IPTC fields, hierarchical people keywords, and smart collections.
+- Add a Lua serialization bridge while preserving JSON as the public plan format.
+- Preserve user metadata and collections and require explicit XMP persistence.
+
 ## 0.0.4 - 2026-08-07
 
 - Add durable asset, project membership, representation, and provenance tables.

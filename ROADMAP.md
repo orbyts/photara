@@ -67,13 +67,14 @@ Version lineage is explicitly deferred until after `0.1.0`.
   managed IPTC fields, hierarchical keywords, and collection membership.
 - Keep Lightroom mutation out of this milestone.
 
-### 0.0.5 — thin Lightroom Classic plugin MVP
+### 0.0.5 — thin Lightroom Classic plugin MVP (complete)
 
 - Scaffold `photara.lrplugin` as a thin Lua adapter to the Photara CLI.
 - Show a whole-shoot dialog for project, people, location, and scene.
 - Apply only Photara-managed IPTC fields and hierarchical keywords.
 - Reconcile the People, Locations, Scenes, and Projects collection trees.
-- Save metadata to XMP sidecars and preserve every user-owned field.
+- Preserve every user-owned field and guide XMP persistence through Lightroom's
+  supported automatic-write preference or Save Metadata command.
 - Make repeated execution converge without duplicate keywords or collections.
 
 ### 0.0.6 — client-selection workflow

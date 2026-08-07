@@ -52,7 +52,7 @@ pub struct ProjectManifest {
     pub status: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ProjectRecord {
     pub id: Uuid,
     pub slug: String,
@@ -121,6 +121,20 @@ pub async fn reconfigure(
 pub async fn find(database: &Database, slug: &str) -> Result<Option<ProjectRecord>> {
     let mut connection = database.acquire().await?;
     find_on(&mut connection, slug).await
+}
+
+pub async fn list(database: &Database) -> Result<Vec<ProjectRecord>> {
+    let mut connection = database.acquire().await?;
+    let slugs: Vec<String> = sqlx::query_scalar("SELECT slug FROM projects ORDER BY slug")
+        .fetch_all(&mut *connection)
+        .await?;
+    let mut projects = Vec::with_capacity(slugs.len());
+    for slug in slugs {
+        if let Some(project) = find_on(&mut connection, &slug).await? {
+            projects.push(project);
+        }
+    }
+    Ok(projects)
 }
 
 async fn find_on(connection: &mut PgConnection, slug: &str) -> Result<Option<ProjectRecord>> {

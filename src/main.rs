@@ -38,6 +38,10 @@ enum Command {
         #[command(subcommand)]
         command: MetadataCommand,
     },
+    Plugin {
+        #[command(subcommand)]
+        command: PluginCommand,
+    },
     Scenes {
         #[command(subcommand)]
         command: ScenesCommand,
@@ -56,7 +60,19 @@ enum ConfigCommand {
 
 #[derive(Debug, Subcommand)]
 enum MetadataCommand {
-    Plan { project: String },
+    Plan {
+        project: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum PluginCommand {
+    Context {
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -160,6 +176,12 @@ enum Origin {
     Adopted,
 }
 
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum SerializationFormat {
+    Json,
+    Lua,
+}
+
 impl From<Origin> for ProjectOrigin {
     fn from(value: Origin) -> Self {
         match value {
@@ -187,6 +209,7 @@ impl From<ProjectArguments> for NewProject {
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_target(false)
+        .with_writer(std::io::stderr)
         .with_env_filter(EnvFilter::from_default_env())
         .try_init()
         .ok();
@@ -198,6 +221,7 @@ async fn main() -> Result<()> {
         Command::People { command } => people(command)?,
         Command::Locations { command } => locations(command)?,
         Command::Metadata { command } => metadata(command).await?,
+        Command::Plugin { command } => plugin(command).await?,
         Command::Scenes { command } => scenes(command)?,
         Command::Project { command } => project(command).await?,
     }
@@ -209,17 +233,38 @@ async fn metadata(command: MetadataCommand) -> Result<()> {
     config.validate()?;
     let database = persistence::connect_development().await?;
     match command {
-        MetadataCommand::Plan { project: slug } => {
+        MetadataCommand::Plan {
+            project: slug,
+            format,
+        } => {
             let project = project::find(&database, &slug).await?.ok_or_else(|| {
                 photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
             })?;
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&photara::metadata::plan(&config, &project)?)?
-            );
+            print_serialized(&photara::metadata::plan(&config, &project)?, format)?;
         }
     }
     database.close().await;
+    Ok(())
+}
+
+async fn plugin(command: PluginCommand) -> Result<()> {
+    let config = PhotaraConfig::discover()?;
+    config.validate()?;
+    let database = persistence::connect_development().await?;
+    match command {
+        PluginCommand::Context { format } => {
+            print_serialized(&photara::plugin::context(&database, &config).await?, format)?;
+        }
+    }
+    database.close().await;
+    Ok(())
+}
+
+fn print_serialized<T: Serialize>(value: &T, format: SerializationFormat) -> Result<()> {
+    match format {
+        SerializationFormat::Json => println!("{}", serde_json::to_string_pretty(value)?),
+        SerializationFormat::Lua => print!("{}", photara::plugin::to_lua(value)?),
+    }
     Ok(())
 }
 

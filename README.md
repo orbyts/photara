@@ -8,10 +8,9 @@ publication bookkeeping.
 
 ## Status
 
-`v0.0.4` adds durable asset identity, representation provenance, and a pure
-Lightroom reconciliation plan on top of Storexa 0.1. Photara owns its schemas,
-SQL, repositories, and photography workflow; Storexa owns connection and
-transaction plumbing.
+`v0.0.5` adds the thin Lightroom Classic adapter that applies Photara's Rust-
+owned reconciliation plan. Photara owns its schemas, SQL, repositories, and
+photography workflow; Storexa owns connection and transaction plumbing.
 
 See [ROADMAP.md](ROADMAP.md) for the path to the first supported release and
 [METADATA.md](METADATA.md) for the Lightroom metadata ownership contract.
@@ -114,6 +113,25 @@ $ photara metadata plan red-meridian
 The plan contains Photara-managed IPTC values, hierarchical people and
 workflow keywords, and idempotent smart-collection definitions for the People,
 Locations, Scenes, and Projects trees.
+
+## Lightroom Classic plugin
+
+The development plugin lives at `lightroom/photara.lrplugin`. Install it through
+Lightroom Classic's Plug-in Manager, then run **Library > Plug-in Extras >
+Validate Photara Connection** for a read-only bridge check. Select the shoot
+photos, then choose
+**Library > Plug-in Extras > Apply Project to Selected Shoot**. The plugin asks
+for an existing Photara project, previews the managed values, and requires
+confirmation before changing the catalog.
+
+The Lua layer only executes the plan. It preserves titles, captions, ratings,
+flags, color labels, unrelated keywords, and unrelated collections. Lightroom's
+public SDK does not provide a supported command to force an XMP write, so after
+application use **Metadata > Save Metadata to File**, or enable Lightroom's
+automatic XMP writing preference.
+
+See [lightroom/README.md](lightroom/README.md) for development installation and
+bridge configuration.
 
 ## Representation ownership
 

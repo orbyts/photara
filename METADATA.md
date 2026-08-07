@@ -17,9 +17,10 @@ Lightroom catalog.
 3. The operator chooses the project, participating people, location, and scene.
 4. Photara validates those references and returns an inspectable metadata and
    collection reconciliation plan.
-5. The plugin applies the plan idempotently and writes Lightroom metadata to
-   the RAW files' XMP sidecars.
-6. Photara records the outcome through its application-owned repositories.
+5. The plugin applies the plan idempotently to the Lightroom catalog.
+6. Lightroom persists those changes beside proprietary RAWs when automatic XMP
+   writing is enabled or the operator invokes Save Metadata to File.
+7. Photara records the outcome through its application-owned repositories.
 
 ## Photara-managed metadata
 
@@ -56,3 +57,10 @@ Camera-original filenames remain unchanged while RAWs are managed by the
 Lightroom Classic catalog. See `ROADMAP.md` for the single-authoritative-home
 rules for RAW/XMP, DNG, PSB, TIFF, delivery renditions, and temporary proofs.
 Detailed edit-version lineage is intentionally deferred until after 0.1.0.
+
+## Configuration visibility
+
+`$XDG_CONFIG_HOME/photara` is user-owned data. Photara does not classify the
+registry as inherently public or private; whether it is published is determined
+by the user's version-control and ignore policy. Secrets remain outside this
+tree and are supplied through the process environment.

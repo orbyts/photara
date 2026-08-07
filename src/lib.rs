@@ -5,6 +5,7 @@ pub mod config;
 mod error;
 pub mod metadata;
 pub mod persistence;
+pub mod plugin;
 pub mod project;
 
 pub use error::{PhotaraError, Result};
