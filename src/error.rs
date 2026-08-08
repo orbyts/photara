@@ -34,6 +34,9 @@ pub enum PhotaraError {
     #[error("could not serialize project manifest")]
     Json(#[from] serde_json::Error),
 
+    #[error("could not parse selection CSV")]
+    Csv(#[from] csv::Error),
+
     #[error(transparent)]
     Storexa(#[from] storexa::StorexaError),
 

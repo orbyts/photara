@@ -77,19 +77,29 @@ Version lineage is explicitly deferred until after `0.1.0`.
   supported automatic-write preference or Save Metadata command.
 - Make repeated execution converge without duplicate keywords or collections.
 
-### 0.0.6 — client-selection workflow
+### 0.0.6 — client-selection workflow (complete)
 
+- Replace numeric collection prefixes with semantic collection sets for
+  Originals, Selections, Cloud, and Masters.
 - Export temporary Pixieset proofs while retaining original filenames.
-- Reconcile favorites and shortlist results back to source assets.
-- Apply client-favorite, client-shortlist, and photographer-final keywords.
+- Import and retain explicitly assigned Pixieset favorite-list CSV evidence.
+- Reconcile favorites, shortlist, and hero results back to unique source RAWs.
+- Apply client-favorite, client-shortlist, and hero keywords while preserving
+  photographer-final as an application-owned later decision.
 
 ### 0.0.7 — Lightroom Cloud baseline and guarded delivery
 
+- Import the legacy Proetus packaging ledger as migration evidence without
+  treating its local/uploaded lifecycle fields as authoritative Cloud presence.
+- Persist independent Photographer Final decisions for any project asset.
 - Add Adobe authorization and a read-only Lightroom Cloud adapter.
 - Inventory all 1,520 existing Cloud assets before enabling uploads.
+- Reconcile the Proetus evidence against Adobe inventory, then mark confirmed
+  catalog originals with `workflow|cloud|present` through Lightroom Classic.
 - Persist Adobe catalog IDs, asset IDs, SHA-256 values, and import runs.
 - Generate selected DNGs with expanded basenames.
-- Plan uploads against the complete Cloud inventory.
+- Plan uploads as a subset of Photographer Final against the complete Cloud
+  inventory, while allowing observed legacy Cloud assets outside that set.
 - Reserve operations transactionally and treat duplicates as already present.
 - Remove temporary local DNGs only after Cloud presence is verified.
 

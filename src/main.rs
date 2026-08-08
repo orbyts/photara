@@ -6,6 +6,7 @@ use photara::{
     config::{Location, Person, PhotaraConfig, Scene, config_root},
     persistence,
     project::{self, NewProject, ProjectOrigin},
+    selection::{self, SelectionKind, SelectionSource},
 };
 use serde::Serialize;
 use tracing::info;
@@ -50,6 +51,10 @@ enum Command {
         #[command(subcommand)]
         command: ProjectCommand,
     },
+    Selections {
+        #[command(subcommand)]
+        command: SelectionCommand,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -73,6 +78,29 @@ enum PluginCommand {
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
+}
+
+#[derive(Debug, Subcommand)]
+enum SelectionCommand {
+    ImportPixieset(PixiesetImport),
+    Plan {
+        project: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+}
+
+#[derive(Debug, Args)]
+struct PixiesetImport {
+    project: String,
+    #[arg(long)]
+    source_root: std::path::PathBuf,
+    #[arg(long)]
+    client_favorites: std::path::PathBuf,
+    #[arg(long)]
+    client_shortlist: std::path::PathBuf,
+    #[arg(long)]
+    hero: std::path::PathBuf,
 }
 
 #[derive(Debug, Subcommand)]
@@ -224,7 +252,63 @@ async fn main() -> Result<()> {
         Command::Plugin { command } => plugin(command).await?,
         Command::Scenes { command } => scenes(command)?,
         Command::Project { command } => project(command).await?,
+        Command::Selections { command } => selections(command).await?,
     }
+    Ok(())
+}
+
+async fn selections(command: SelectionCommand) -> Result<()> {
+    let config = PhotaraConfig::discover()?;
+    config.validate()?;
+    let database = persistence::connect_development().await?;
+    match command {
+        SelectionCommand::ImportPixieset(arguments) => {
+            let project = project::find(&database, &arguments.project)
+                .await?
+                .ok_or_else(|| {
+                    photara::PhotaraError::Configuration(format!(
+                        "project {:?} was not found",
+                        arguments.project
+                    ))
+                })?;
+            let sources = [
+                SelectionSource {
+                    kind: SelectionKind::ClientFavorite,
+                    path: arguments.client_favorites,
+                },
+                SelectionSource {
+                    kind: SelectionKind::ClientShortlist,
+                    path: arguments.client_shortlist,
+                },
+                SelectionSource {
+                    kind: SelectionKind::Hero,
+                    path: arguments.hero,
+                },
+            ];
+            println!(
+                "{}",
+                serde_json::to_string_pretty(
+                    &selection::import_pixieset(
+                        &database,
+                        &project,
+                        &arguments.source_root,
+                        &sources,
+                    )
+                    .await?
+                )?
+            );
+        }
+        SelectionCommand::Plan {
+            project: slug,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(&selection::plan(&database, &project).await?, format)?;
+        }
+    }
+    database.close().await;
     Ok(())
 }
 

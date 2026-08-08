@@ -7,5 +7,6 @@ pub mod metadata;
 pub mod persistence;
 pub mod plugin;
 pub mod project;
+pub mod selection;
 
 pub use error::{PhotaraError, Result};

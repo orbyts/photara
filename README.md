@@ -8,9 +8,10 @@ publication bookkeeping.
 
 ## Status
 
-`v0.0.5` adds the thin Lightroom Classic adapter that applies Photara's Rust-
-owned reconciliation plan. Photara owns its schemas, SQL, repositories, and
-photography workflow; Storexa owns connection and transaction plumbing.
+`v0.0.6` is developing the client-selection workflow and replaces numeric
+Lightroom collection prefixes with semantic nested groups. Photara owns its
+schemas, SQL, repositories, and photography workflow; Storexa owns connection
+and transaction plumbing.
 
 See [ROADMAP.md](ROADMAP.md) for the path to the first supported release and
 [METADATA.md](METADATA.md) for the Lightroom metadata ownership contract.
@@ -103,8 +104,8 @@ $ photara project configure red-meridian \
     --person trinity-woodward
 ```
 
-Generate the JSON contract that the thin Lightroom plugin will apply in the
-next milestone. This command is read-only with respect to Lightroom:
+Generate the JSON contract that the thin Lightroom plugin applies. This command
+is read-only with respect to Lightroom:
 
 ```console
 $ photara metadata plan red-meridian
@@ -129,6 +130,35 @@ flags, color labels, unrelated keywords, and unrelated collections. Lightroom's
 public SDK does not provide a supported command to force an XMP write, so after
 application use **Metadata > Save Metadata to File**, or enable Lightroom's
 automatic XMP writing preference.
+
+Each project branch uses semantic collection sets: `Originals`, `Selections`,
+`Cloud`, and `Masters`. Numeric ordering prefixes are intentionally avoided
+because Lightroom displays actual asset counts beside collection names.
+The `Selections` group includes Client Favorites, Client Shortlist, Hero, and
+Photographer Final; Hero is intentionally neutral about who chose it.
+
+## Client selections
+
+Pixieset proofing remains temporary and provider-specific. Photara imports the
+three exported favorite-list CSVs into durable, provider-neutral selection
+memberships and maps proof basenames back to unique original RAW filenames.
+Because Pixieset's downloaded filenames are opaque, callers must explicitly
+assign each CSV rather than relying on its filename:
+
+```console
+$ photara selections import-pixieset red-meridian \
+    --source-root /path/to/originals \
+    --client-favorites /path/to/favorites.csv \
+    --client-shortlist /path/to/shortlist.csv \
+    --hero /path/to/hero.csv
+```
+
+The import is validated and atomic, stores the source evidence and checksum,
+and can be repeated safely. In Lightroom, run **Library > Plug-in Extras >
+Apply Imported Selections** to apply the resulting keywords and reconcile the
+smart collections. Effective workflow membership is hierarchical: Hero implies
+Client Shortlist and Client Favorite, and Client Shortlist implies Client
+Favorite. Direct provider memberships remain unchanged for auditing.
 
 See [lightroom/README.md](lightroom/README.md) for development installation and
 bridge configuration.

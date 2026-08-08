@@ -47,6 +47,7 @@ pub struct CollectionTree {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct SmartCollection {
+    pub collection_set_path: Vec<String>,
     pub name: String,
     pub rules: Vec<CollectionRule>,
 }
@@ -124,7 +125,7 @@ pub fn plan(config: &PhotaraConfig, project: &ProjectRecord) -> Result<Reconcili
     ]);
 
     Ok(ReconciliationPlan {
-        schema_version: 1,
+        schema_version: 2,
         project: ProjectRef {
             id: project.id.to_string(),
             slug: project.slug.clone(),
@@ -157,6 +158,7 @@ fn managed_keyword_catalog() -> Vec<KeywordPath> {
     [
         &["workflow", "selection", "client-favorite"][..],
         &["workflow", "selection", "client-shortlist"],
+        &["workflow", "selection", "hero"],
         &["workflow", "selection", "photographer-final"],
         &["workflow", "cloud", "present"],
         &["asset_type", "master", "psb"],
@@ -175,31 +177,41 @@ fn smart_collections(project: &str) -> Vec<SmartCollection> {
         value: project.into(),
     };
     [
-        ("00 All", None),
-        ("10 RAWs", Some((RuleField::FileType, "raw"))),
+        (&[][..], "All", None),
         (
-            "30 Client Favorites",
-            Some((RuleField::Keyword, "workflow|selection|client-favorite")),
+            &["Originals"][..],
+            "RAW",
+            Some((RuleField::FileType, "raw")),
         ),
         (
-            "31 Client Shortlist",
-            Some((RuleField::Keyword, "workflow|selection|client-shortlist")),
+            &["Selections"][..],
+            "Client Favorites",
+            Some((RuleField::Keyword, "client-favorite")),
         ),
         (
-            "40 Photographer Final",
-            Some((RuleField::Keyword, "workflow|selection|photographer-final")),
+            &["Selections"][..],
+            "Client Shortlist",
+            Some((RuleField::Keyword, "client-shortlist")),
         ),
         (
-            "50 Lightroom Cloud",
-            Some((RuleField::Keyword, "workflow|cloud|present")),
+            &["Selections"][..],
+            "Hero",
+            Some((RuleField::Keyword, "hero")),
         ),
         (
-            "60 PSB Masters",
-            Some((RuleField::Keyword, "asset_type|master|psb")),
+            &["Selections"][..],
+            "Photographer Final",
+            Some((RuleField::Keyword, "photographer-final")),
         ),
+        (
+            &["Cloud"][..],
+            "Lightroom",
+            Some((RuleField::Keyword, "present")),
+        ),
+        (&["Masters"][..], "PSB", Some((RuleField::Keyword, "psb"))),
     ]
     .into_iter()
-    .map(|(name, extra)| {
+    .map(|(collection_set_path, name, extra)| {
         let mut rules = vec![project_rule.clone()];
         if let Some((field, value)) = extra {
             rules.push(CollectionRule {
@@ -213,6 +225,10 @@ fn smart_collections(project: &str) -> Vec<SmartCollection> {
             });
         }
         SmartCollection {
+            collection_set_path: collection_set_path
+                .iter()
+                .map(|part| (*part).to_owned())
+                .collect(),
             name: name.into(),
             rules,
         }
@@ -292,7 +308,27 @@ mod tests {
         assert!(
             plan.collection_trees
                 .iter()
-                .all(|tree| tree.smart_collections.len() == 7)
+                .all(|tree| tree.smart_collections.len() == 8)
         );
+        let collections = &plan.collection_trees[0].smart_collections;
+        assert_eq!(collections[0].name, "All");
+        assert!(collections[0].collection_set_path.is_empty());
+        assert_eq!(collections[1].name, "RAW");
+        assert_eq!(collections[1].collection_set_path, ["Originals"]);
+        assert_eq!(collections[2].collection_set_path, ["Selections"]);
+        assert_eq!(collections[4].name, "Hero");
+        assert_eq!(collections[4].collection_set_path, ["Selections"]);
+        assert_eq!(collections[6].collection_set_path, ["Cloud"]);
+        assert_eq!(collections[7].collection_set_path, ["Masters"]);
+        for collection in collections {
+            for rule in &collection.rules {
+                if rule.field == RuleField::Keyword {
+                    assert!(
+                        !rule.value.contains('|'),
+                        "Lightroom smart collections require keyword leaf labels"
+                    );
+                }
+            }
+        }
     }
 }

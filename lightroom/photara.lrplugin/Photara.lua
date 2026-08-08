@@ -87,7 +87,8 @@ local function chooseProject(context, photoCount)
                 bind_to_object = properties,
                 spacing = factory:control_spacing(),
                 factory:static_text({
-                    title = tostring(photoCount) .. " selected photo(s)",
+                    title = photoCount and (tostring(photoCount) .. " selected photo(s)")
+                        or "Reconcile imported selections",
                     font = "<system/bold>",
                 }),
                 factory:row({
@@ -108,6 +109,10 @@ local function chooseProject(context, photoCount)
         if result ~= "ok" then return nil end
         return properties.project
     end)
+end
+
+local function keywordKey(keywordPath)
+    return table.concat(keywordPath.path or {}, "\31")
 end
 
 local function keywordLabel(keywordPath)
@@ -158,8 +163,7 @@ local function ensureSet(catalog, parent, name)
     return created or childSetByName(catalog, parent, name)
 end
 
-local function ensureSetPath(catalog, path)
-    local parent = nil
+local function ensureSetPath(catalog, parent, path)
     for _, name in ipairs(path or {}) do
         parent = ensureSet(catalog, parent, name)
         if not parent then error("Could not create collection set " .. tostring(name)) end
@@ -244,9 +248,14 @@ end
 
 local function reconcileCollections(catalog, plan, progress)
     for index, tree in ipairs(plan.collection_trees or {}) do
-        local parent = ensureSetPath(catalog, tree.path)
+        local parent = ensureSetPath(catalog, nil, tree.path)
         for _, collection in ipairs(tree.smart_collections or {}) do
-            ensureSmartCollection(catalog, parent, collection)
+            local collectionParent = ensureSetPath(
+                catalog,
+                parent,
+                collection.collection_set_path or {}
+            )
+            ensureSmartCollection(catalog, collectionParent, collection)
         end
         progress:setCaption("Collection tree " .. tostring(index) .. "/" .. tostring(#plan.collection_trees))
         progress:setPortionComplete(index, #plan.collection_trees)
@@ -322,6 +331,88 @@ function M.applyProjectToSelection()
         "Photara",
         "Applied " .. plan.project.display_name .. " to " .. tostring(#photos) .. " photo(s).\n\n" ..
         "To persist metadata beside proprietary RAW files, enable Automatically Write Changes Into XMP or use Metadata > Save Metadata to File.",
+        "info"
+    )
+end
+
+function M.applyImportedSelections()
+    local catalog = LrApplication.activeCatalog()
+    local context = runPhotara("plugin context --format lua")
+    local projectSlug = chooseProject(context, nil)
+    if not projectSlug then return end
+    local plan = runPhotara("selections plan " .. shellQuote(projectSlug) .. " --format lua")
+    local metadataPlan = runPhotara("metadata plan " .. shellQuote(projectSlug) .. " --format lua")
+
+    local counts = plan.effective_counts or {}
+    local message = table.concat({
+        "Project: " .. tostring(plan.project.display_name),
+        "Client Favorites: " .. tostring(counts["client-favorite"] or 0),
+        "Client Shortlist: " .. tostring(counts["client-shortlist"] or 0),
+        "Hero: " .. tostring(counts.hero or 0),
+        "",
+        "Photara will replace only imported selection keywords for this project.",
+    }, "\n")
+    if LrDialogs.confirm("Apply imported selections?", message, "Apply", "Cancel") ~= "ok" then
+        return
+    end
+
+    local projectPhotos = {}
+    local photosByFilename = {}
+    local filenameByPhoto = {}
+    for _, photo in ipairs(catalog:getAllPhotos() or {}) do
+        if photo:getFormattedMetadata("jobIdentifier") == plan.project.display_name then
+            local filename = photo:getFormattedMetadata("fileName")
+            if photosByFilename[filename] then
+                error("Project contains duplicate catalog filename: " .. tostring(filename))
+            end
+            photosByFilename[filename] = photo
+            filenameByPhoto[photo] = filename
+            table.insert(projectPhotos, photo)
+        end
+    end
+
+    local managedKeywords = {}
+    local keywordsByKey = {}
+    for _, keywordPath in ipairs(plan.managed_keywords or {}) do
+        local keyword = ensureKeywordPath(catalog, keywordPath.path)
+        table.insert(managedKeywords, keyword)
+        keywordsByKey[keywordKey(keywordPath)] = keyword
+    end
+
+    local desiredByFilename = {}
+    for _, assignment in ipairs(plan.assignments or {}) do
+        if not photosByFilename[assignment.original_filename] then
+            error("Imported selection is missing from the Lightroom project: " .. assignment.original_filename)
+        end
+        local desired = {}
+        for _, keywordPath in ipairs(assignment.keywords or {}) do
+            local keyword = keywordsByKey[keywordKey(keywordPath)]
+            if not keyword then error("Selection plan references an unmanaged keyword") end
+            table.insert(desired, keyword)
+        end
+        desiredByFilename[assignment.original_filename] = desired
+    end
+
+    local progress = LrProgressScope({ title = "Apply Photara selections" })
+    catalog:withWriteAccessDo("Photara: apply imported selections", function()
+        for index, photo in ipairs(projectPhotos) do
+            for _, keyword in ipairs(managedKeywords) do photo:removeKeyword(keyword) end
+            local filename = filenameByPhoto[photo]
+            for _, keyword in ipairs(desiredByFilename[filename] or {}) do
+                photo:addKeyword(keyword)
+            end
+            progress:setCaption("Selections " .. tostring(index) .. "/" .. tostring(#projectPhotos))
+            progress:setPortionComplete(index, #projectPhotos)
+            if index % 25 == 0 then LrTasks.yield() end
+        end
+    end)
+    reconcileCollections(catalog, metadataPlan, progress)
+    progress:done()
+
+    LrDialogs.message(
+        "Photara",
+        "Applied imported selections to " .. tostring(#projectPhotos) .. " project photo(s).\n\n" ..
+        "Select the project photos and use Metadata > Save Metadata to File to persist the keywords to XMP.",
         "info"
     )
 end

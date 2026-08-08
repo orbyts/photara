@@ -14,12 +14,16 @@ return {
             title = "Apply Project to Selected Shoot",
             file = "ApplyProjectMain.lua",
         },
+        {
+            title = "Apply Imported Selections",
+            file = "ApplySelectionsMain.lua",
+        },
     },
 
     VERSION = {
         major = 0,
         minor = 0,
-        revision = 5,
-        build = 0,
+        revision = 6,
+        build = 3,
     },
 }

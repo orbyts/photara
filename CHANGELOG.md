@@ -2,6 +2,25 @@
 
 All notable changes to Photara will be documented in this file.
 
+## 0.0.6 - 2026-08-08
+
+- Replace numeric Lightroom collection prefixes with semantic nested groups.
+- Keep workflow ordering understandable without names that resemble asset counts.
+- Add a provider-neutral Hero selection state and smart collection.
+- Add atomic Pixieset CSV imports with validation, source evidence, checksums,
+  direct memberships, and idempotent replacement semantics.
+- Add provider-neutral effective selection plans where shortlist implies favorite
+  and hero implies both shortlist and favorite.
+- Add a Lightroom action that applies imported selection keywords and reconciles
+  their smart collections without modifying unrelated metadata.
+- Read the project Job Identifier through Lightroom's formatted-metadata API so
+  selection reconciliation can identify project photos on supported SDK versions.
+- Read and cache catalog filenames through the same supported formatted-metadata
+  API before entering the catalog write transaction.
+- Match Lightroom smart collections against keyword leaf labels while retaining
+  hierarchical keyword creation and assignment.
+- Verify the applied Red Meridian XMP state across all 266 camera originals.
+
 ## 0.0.5 - 2026-08-07
 
 - Add the thin `photara.lrplugin` Lightroom Classic adapter.
