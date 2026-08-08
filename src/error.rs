@@ -37,6 +37,15 @@ pub enum PhotaraError {
     #[error("could not parse selection CSV")]
     Csv(#[from] csv::Error),
 
+    #[error("Adobe HTTP request failed")]
+    Http(#[from] reqwest::Error),
+
+    #[error("credential storage failed: {0}")]
+    Credential(String),
+
+    #[error("could not parse URL")]
+    Url(#[from] url::ParseError),
+
     #[error(transparent)]
     Storexa(#[from] storexa::StorexaError),
 

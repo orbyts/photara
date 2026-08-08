@@ -13,6 +13,7 @@ const SETTINGS: &str = r#"images_root = "/Volumes/whisk/Pictures/images"
 projects_root = "/Volumes/whisk/Pictures/projects"
 default_catalog = "Lr_Photara"
 default_creator = "Suhail"
+default_author_code = "SUHAIL"
 default_copyright = "@suhail"
 default_country = "United States"
 default_iso_country_code = "US"
@@ -27,6 +28,8 @@ pub struct Settings {
     pub default_catalog: String,
     #[serde(default)]
     pub default_creator: Option<String>,
+    #[serde(default = "default_author_code")]
+    pub default_author_code: String,
     #[serde(default)]
     pub default_copyright: Option<String>,
     pub default_country: String,
@@ -82,10 +85,12 @@ impl PhotaraConfig {
         let config = root.join("config");
         let settings_path = config.join("photara.toml");
         let settings_text = read(&settings_path)?;
-        let settings = toml::from_str(&settings_text).map_err(|source| PhotaraError::Toml {
-            path: settings_path,
-            source,
-        })?;
+        let mut settings: Settings =
+            toml::from_str(&settings_text).map_err(|source| PhotaraError::Toml {
+                path: settings_path,
+                source,
+            })?;
+        settings.apply_environment();
 
         Ok(Self {
             root,
@@ -138,6 +143,7 @@ impl PhotaraConfig {
                 "default_catalog must not be empty".into(),
             ));
         }
+        validate_author_code(&self.settings.default_author_code)?;
         for (name, value) in [
             ("default_creator", &self.settings.default_creator),
             ("default_copyright", &self.settings.default_copyright),
@@ -182,6 +188,35 @@ impl PhotaraConfig {
         validate_scene(&scene)?;
         insert(&mut self.scenes, &slug, scene, replace)?;
         write_yaml_atomic(self.root.join("config/scenes.yml"), &self.scenes)
+    }
+}
+
+fn default_author_code() -> String {
+    "SUHAIL".into()
+}
+
+fn validate_author_code(value: &str) -> Result<()> {
+    if value.is_empty()
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'-')
+    {
+        return Err(PhotaraError::Configuration(
+            "default_author_code must contain only uppercase ASCII letters, digits, and hyphens"
+                .into(),
+        ));
+    }
+    Ok(())
+}
+
+impl Settings {
+    fn apply_environment(&mut self) {
+        if let Some(value) = env::var_os("PHOTARA_IMAGES_ROOT") {
+            self.images_root = PathBuf::from(value);
+        }
+        if let Some(value) = env::var_os("PHOTARA_PROJECTS_ROOT") {
+            self.projects_root = PathBuf::from(value);
+        }
     }
 }
 

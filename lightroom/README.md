@@ -46,6 +46,45 @@ managed smart collections. A Hero implies Client Shortlist and Client Favorite;
 a Client Shortlist implies Client Favorite, while the original provider lists
 remain preserved unchanged in the database.
 
+## Verified Lightroom Cloud presence
+
+After `photara cloud adobe-inventory` reports a completely reconciled Adobe
+inventory, choose **Library > Plug-in Extras > Apply Verified Cloud Presence**.
+Photara matches the verified evidence to Classic originals using the full path
+below the archive's `Images` directory, never the camera filename alone.
+
+The dialog defaults to selected verified originals when any are selected, so
+test one photo first. A second run can apply all matched originals. The action
+only adds `workflow|cloud|present`; it does not upload, remove, or rename files.
+
+## Photographer Final
+
+Select camera originals belonging to one Photara project, then use **Add
+Selected to Photographer Final** or **Remove Selected from Photographer
+Final**. The plugin asks for confirmation, Photara fingerprints and records the
+decision, and Lightroom receives only the corresponding managed keyword.
+
+Do not type the hierarchical keyword manually. The explicit add/remove actions
+are idempotent, preserve client selections, reject virtual copies and mixed
+projects, and provide the application boundary later used by the standalone
+UI. Save metadata after the action to persist the keyword to XMP.
+
+When the final set is ready, choose **Prepare Photographer Final DNGs**. The
+first dialog is a read-only comparison against the latest complete Adobe
+inventory. Confirming it reserves a durable batch with one state per asset;
+already-present assets are skipped. A second confirmation renders the pending
+camera originals as DNGs into
+`$PHOTARA_STAGING_ROOT/<batch-id>` or the default
+`$XDG_CACHE_HOME/photara/transfers/<batch-id>`. Photara validates the exact
+reserved filename, TIFF/DNG header, byte size, SHA-256, and RAW provenance
+before recording each item as exported. Interrupted batches are resumable and
+existing staged files are validated rather than overwritten. This action does
+not upload or delete anything.
+
+Choose **Test One** for the first run. Photara records one canary DNG and leaves
+the batch resumable. Inspect that file, then run the same action again and
+choose **Prepare All** for the remaining items.
+
 The committed `Config.lua` contains paths, not credentials. Other users can
 replace those paths with their own executable and environment loader.
 

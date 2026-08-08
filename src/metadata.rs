@@ -252,6 +252,7 @@ mod tests {
                 projects_root: PathBuf::from("/projects"),
                 default_catalog: "Lr_Photara".into(),
                 default_creator: Some("Suhail".into()),
+                default_author_code: "SUHAIL".into(),
                 default_copyright: Some("@suhail".into()),
                 default_country: "United States".into(),
                 default_iso_country_code: "US".into(),

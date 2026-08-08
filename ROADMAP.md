@@ -87,7 +87,7 @@ Version lineage is explicitly deferred until after `0.1.0`.
 - Apply client-favorite, client-shortlist, and hero keywords while preserving
   photographer-final as an application-owned later decision.
 
-### 0.0.7 — Lightroom Cloud baseline and guarded delivery
+### 0.0.7 — Lightroom Cloud baseline and guarded delivery (complete)
 
 - Import the legacy Proetus packaging ledger as migration evidence without
   treating its local/uploaded lifecycle fields as authoritative Cloud presence.
@@ -127,3 +127,9 @@ Version lineage is explicitly deferred until after `0.1.0`.
 - Granular Lightroom named-version and Photoshop revision lineage.
 - Historical Proetus adoption at scale.
 - Layout generation and richer Codexa integration.
+- Profile CLI startup, database round trips, serialization, and Lightroom
+  catalog matching; publish latency budgets for interactive actions.
+- Add an optional local read-through cache for provider inventory snapshots and
+  computed reconciliation plans, invalidated by account, catalog, and snapshot
+  hash. Adobe and PostgreSQL remain authoritative; cached state must always be
+  disposable and must never become a second operational ledger.

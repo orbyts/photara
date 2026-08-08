@@ -1,6 +1,8 @@
 local LrApplication = import "LrApplication"
 local LrBinding = import "LrBinding"
 local LrDialogs = import "LrDialogs"
+local LrExportSession = import "LrExportSession"
+local LrFileUtils = import "LrFileUtils"
 local LrFunctionContext = import "LrFunctionContext"
 local LrPathUtils = import "LrPathUtils"
 local LrProgressScope = import "LrProgressScope"
@@ -26,6 +28,13 @@ local function removeFile(path)
     if path and path ~= "" then pcall(os.remove, path) end
 end
 
+local function regularFileExists(path)
+    local file = io.open(path, "rb")
+    if not file then return false end
+    file:close()
+    return true
+end
+
 local function runPhotara(arguments)
     local config = dofile(_PLUGIN.path .. "/Config.lua")
     local temp = LrPathUtils.getStandardFilePath("temp")
@@ -40,13 +49,24 @@ local function runPhotara(arguments)
         local message = readFile(errorPath)
         removeFile(outputPath)
         removeFile(errorPath)
-        error("Photara command failed (exit " .. tostring(status) .. ").\n" .. message)
+        message = tostring(message or ""):gsub("^%s+", ""):gsub("%s+$", "")
+        message = message:gsub('^Error: Configuration%("', ""):gsub('"%)$', "")
+        local exitCode = status
+        if status > 255 and status % 256 == 0 then exitCode = status / 256 end
+        if message == "" then
+            message = "The Photara command returned no diagnostic details."
+        end
+        error(
+            "Photara could not complete this action (command exit " .. tostring(exitCode) .. ").\n\n" ..
+            message .. "\n\nNo Lightroom metadata was changed.",
+            0
+        )
     end
     local ok, result = pcall(dofile, outputPath)
     local parseError = ok and nil or result
     removeFile(outputPath)
     removeFile(errorPath)
-    if not ok then error("Could not read Photara response: " .. tostring(parseError)) end
+    if not ok then error("Could not read Photara response: " .. tostring(parseError), 0) end
     return result
 end
 
@@ -68,6 +88,15 @@ local function tableCount(values)
     local count = 0
     for _ in pairs(values or {}) do count = count + 1 end
     return count
+end
+
+local function archiveRelativePath(path)
+    local normalized = tostring(path or ""):gsub("\\", "/")
+    local lower = string.lower(normalized)
+    local marker = "/images/"
+    local start = string.find(lower, marker, 1, true)
+    if not start then return nil end
+    return string.sub(normalized, start + #marker)
 end
 
 local function chooseProject(context, photoCount)
@@ -413,6 +442,444 @@ function M.applyImportedSelections()
         "Photara",
         "Applied imported selections to " .. tostring(#projectPhotos) .. " project photo(s).\n\n" ..
         "Select the project photos and use Metadata > Save Metadata to File to persist the keywords to XMP.",
+        "info"
+    )
+end
+
+function M.applyVerifiedCloudPresence()
+    local catalog = LrApplication.activeCatalog()
+    local preparationProgress = LrProgressScope({ title = "Photara — Verify Cloud presence" })
+    preparationProgress:setCaption("Loading the latest verified Cloud mappings…")
+    preparationProgress:setPortionComplete(0, 2)
+    LrTasks.yield()
+
+    local planOk, plan = LrTasks.pcall(function()
+        return runPhotara("cloud presence-plan --account personal --format lua")
+    end)
+    if not planOk then
+        preparationProgress:done()
+        error(plan, 0)
+    end
+    preparationProgress:setCaption("Matching verified assets to this Lightroom catalog…")
+    preparationProgress:setPortionComplete(1, 2)
+    LrTasks.yield()
+
+    local plannedByRelativePath = {}
+    for _, original in ipairs(plan.originals or {}) do
+        if plannedByRelativePath[original.original_relative_path] then
+            error("Cloud plan contains duplicate original path: " .. original.original_relative_path)
+        end
+        plannedByRelativePath[original.original_relative_path] = original
+    end
+
+    local photosByRelativePath = {}
+    local duplicatePaths = {}
+    local catalogPhotos = catalog:getAllPhotos() or {}
+    for index, photo in ipairs(catalogPhotos) do
+        if not photo:getRawMetadata("isVirtualCopy") then
+            local relativePath = archiveRelativePath(photo:getRawMetadata("path"))
+            if relativePath and plannedByRelativePath[relativePath] then
+                if photosByRelativePath[relativePath] then
+                    duplicatePaths[relativePath] = true
+                else
+                    photosByRelativePath[relativePath] = photo
+                end
+            end
+        end
+        if index % 250 == 0 then
+            preparationProgress:setCaption(
+                "Matching catalog photos " .. tostring(index) .. "/" .. tostring(#catalogPhotos) .. "…"
+            )
+            LrTasks.yield()
+        end
+    end
+    if next(duplicatePaths) then
+        preparationProgress:done()
+        error("The Lightroom catalog contains duplicate originals for a verified archive path")
+    end
+
+    local foundCount = tableCount(photosByRelativePath)
+    local missingCount = (plan.verified_count or 0) - foundCount
+    local selected = {}
+    for _, photo in ipairs(catalog:getTargetPhotos() or {}) do selected[photo] = true end
+    local selectedVerifiedCount = 0
+    for _, photo in pairs(photosByRelativePath) do
+        if selected[photo] then selectedVerifiedCount = selectedVerifiedCount + 1 end
+    end
+    preparationProgress:setPortionComplete(2, 2)
+    preparationProgress:done()
+
+    local scope = LrFunctionContext.callWithContext("Photara Cloud scope", function(functionContext)
+        local properties = LrBinding.makePropertyTable(functionContext)
+        properties.scope = selectedVerifiedCount > 0 and "selected" or "all"
+        local items = {}
+        if selectedVerifiedCount > 0 then
+            table.insert(items, {
+                title = "Selected verified originals (" .. tostring(selectedVerifiedCount) .. ")",
+                value = "selected",
+            })
+        end
+        table.insert(items, {
+            title = "All matched verified originals (" .. tostring(foundCount) .. ")",
+            value = "all",
+        })
+        local factory = LrView.osFactory()
+        local result = LrDialogs.presentModalDialog({
+            title = "Photara — Verified Cloud Presence",
+            actionVerb = "Continue",
+            cancelVerb = "Cancel",
+            contents = factory:column({
+                bind_to_object = properties,
+                spacing = factory:control_spacing(),
+                factory:static_text({
+                    title = "Adobe inventory: " .. tostring(plan.inventory_asset_count) ..
+                        " asset(s)\nMapped to Classic originals: " .. tostring(plan.verified_count) ..
+                        "\nCloud assets without a known Classic original: " ..
+                        tostring(plan.unmapped_inventory_count or 0),
+                    font = "<system/bold>",
+                    width = 480,
+                    height_in_lines = 3,
+                }),
+                factory:static_text({
+                    title = "Matched Classic originals: " .. tostring(foundCount) ..
+                        "\nMissing from this catalog: " .. tostring(missingCount),
+                    width = 480,
+                    height_in_lines = 2,
+                }),
+                factory:row({
+                    factory:static_text({ title = "Apply to:", width = 90 }),
+                    factory:popup_menu({
+                        value = bind("scope"),
+                        items = items,
+                        width = 350,
+                    }),
+                }),
+            }),
+        })
+        if result ~= "ok" then return nil end
+        return properties.scope
+    end)
+    if not scope then return end
+
+    local photos = {}
+    for _, photo in pairs(photosByRelativePath) do
+        if scope == "all" or selected[photo] then table.insert(photos, photo) end
+    end
+    if #photos == 0 then
+        LrDialogs.message("Photara", "No verified Cloud originals matched the chosen scope.", "warning")
+        return
+    end
+    local message = table.concat({
+        "Adobe catalog: " .. tostring(plan.remote_catalog_id),
+        "Adobe inventory: " .. tostring(plan.inventory_asset_count),
+        "Mapped verified originals: " .. tostring(plan.verified_count),
+        "Applying to Classic originals: " .. tostring(#photos),
+        "Missing from this catalog: " .. tostring(missingCount),
+        "Cloud assets without a known Classic original: " ..
+            tostring(plan.unmapped_inventory_count or 0),
+        "",
+        "Photara will add only workflow | cloud | present.",
+    }, "\n")
+    if LrDialogs.confirm("Apply verified Cloud presence?", message, "Apply", "Cancel") ~= "ok" then
+        return
+    end
+
+    local keyword = ensureKeywordPath(catalog, plan.keyword_path)
+    local progress = LrProgressScope({ title = "Apply verified Cloud presence" })
+    catalog:withWriteAccessDo("Photara: apply verified Cloud presence", function()
+        for index, photo in ipairs(photos) do
+            photo:addKeyword(keyword)
+            progress:setCaption("Cloud presence " .. tostring(index) .. "/" .. tostring(#photos))
+            progress:setPortionComplete(index, #photos)
+            if index % 25 == 0 then LrTasks.yield() end
+        end
+    end)
+    progress:done()
+
+    LrDialogs.message(
+        "Photara",
+        "Marked " .. tostring(#photos) .. " original(s) as present in Lightroom Cloud.\n\n" ..
+        "Use Metadata > Save Metadata to File to persist the keyword to XMP.",
+        "info"
+    )
+end
+
+function M.updatePhotographerFinal(selected)
+    local catalog = LrApplication.activeCatalog()
+    local photos = catalog:getTargetPhotos() or {}
+    if #photos == 0 then
+        LrDialogs.message("Photara", "Select one or more camera originals first.", "warning")
+        return
+    end
+    local context = runPhotara("plugin context --format lua")
+    local projectSlug = chooseProject(context, #photos)
+    if not projectSlug then return end
+    local projectDisplayName = nil
+    for _, project in ipairs(context.projects or {}) do
+        if project.slug == projectSlug then projectDisplayName = project.display_name end
+    end
+    if not projectDisplayName then error("Photara project is missing from plugin context") end
+
+    local paths = {}
+    local seen = {}
+    for _, photo in ipairs(photos) do
+        if photo:getRawMetadata("isVirtualCopy") then
+            error("Photographer Final must reference camera originals, not virtual copies")
+        end
+        local jobIdentifier = photo:getFormattedMetadata("jobIdentifier")
+        if jobIdentifier ~= projectDisplayName then
+            error("Every selected photo must belong to " .. projectDisplayName)
+        end
+        local path = photo:getRawMetadata("path")
+        if not path or path == "" then error("A selected photo has no local camera-original path") end
+        if seen[path] then error("The selection contains a duplicate camera-original path") end
+        seen[path] = true
+        table.insert(paths, path)
+    end
+
+    local verb = selected and "Add" or "Remove"
+    local preposition = selected and "to" or "from"
+    local message = table.concat({
+        "Project: " .. projectDisplayName,
+        "Selected originals: " .. tostring(#paths),
+        "",
+        verb .. " these originals " .. preposition .. " Photographer Final?",
+        "Photara will fingerprint the originals, persist the decision, and update only the Photographer Final keyword.",
+    }, "\n")
+    if LrDialogs.confirm(verb .. " Photographer Final?", message, verb, "Cancel") ~= "ok" then
+        return
+    end
+
+    local command = "decisions " .. (selected and "add " or "remove ") .. shellQuote(projectSlug)
+    for _, path in ipairs(paths) do
+        command = command .. " --original " .. shellQuote(path)
+    end
+    command = command .. " --format lua"
+    local report = runPhotara(command)
+    if report.affected_count ~= #photos then
+        error("Photara persisted a different number of decisions than Lightroom selected")
+    end
+
+    local keyword = ensureKeywordPath(catalog, report.keyword_path)
+    local progress = LrProgressScope({ title = verb .. " Photographer Final" })
+    catalog:withWriteAccessDo("Photara: " .. string.lower(verb) .. " Photographer Final", function()
+        for index, photo in ipairs(photos) do
+            if selected then photo:addKeyword(keyword) else photo:removeKeyword(keyword) end
+            progress:setCaption("Photographer Final " .. tostring(index) .. "/" .. tostring(#photos))
+            progress:setPortionComplete(index, #photos)
+            if index % 25 == 0 then LrTasks.yield() end
+        end
+    end)
+    progress:done()
+
+    LrDialogs.message(
+        "Photara",
+        (selected and "Added " or "Removed ") .. tostring(#photos) ..
+        " original(s) " .. preposition .. " Photographer Final.\n\n" ..
+        "Use Metadata > Save Metadata to File to persist the decision to XMP.",
+        "info"
+    )
+end
+
+function M.planPhotographerFinalTransfer()
+    local context = runPhotara("plugin context --format lua")
+    local projectSlug = chooseProject(context, nil)
+    if not projectSlug then return end
+    local plan = runPhotara(
+        "cloud transfer-plan " .. shellQuote(projectSlug) .. " --account personal --format lua"
+    )
+    local preview = {}
+    for _, item in ipairs(plan.items or {}) do
+        if item.state == "planned" and #preview < 5 then
+            table.insert(preview, item.planned_filename)
+        end
+    end
+    local lines = {
+        "Project: " .. tostring(plan.project),
+        "Photographer Final: " .. tostring(plan.photographer_final_count),
+        "DNGs to prepare: " .. tostring(plan.planned_count),
+        "Already verified in Cloud: " .. tostring(plan.skipped_already_present_count),
+        "",
+        "Example planned filenames:",
+    }
+    for _, filename in ipairs(preview) do table.insert(lines, "• " .. filename) end
+    table.insert(lines, "")
+    table.insert(lines, "Reserve this immutable transfer batch? No files will be generated or uploaded yet.")
+    if LrDialogs.confirm("Reserve Photographer Final transfer?", table.concat(lines, "\n"), "Reserve", "Cancel") ~= "ok" then
+        return
+    end
+    local reservation = runPhotara(
+        "cloud reserve-transfer " .. shellQuote(projectSlug) ..
+        " --account personal --format lua"
+    )
+    LrDialogs.message(
+        "Photara",
+        "Transfer batch reserved.\n\n" ..
+        "Batch: " .. tostring(reservation.batch_id) .. "\n" ..
+        "DNGs to prepare: " .. tostring(reservation.expected_upload_count) .. "\n" ..
+        "Already present: " .. tostring(reservation.skipped_already_present_count) .. "\n" ..
+        "Reused existing batch: " .. tostring(reservation.reused_existing_batch) .. "\n\n" ..
+        "No DNGs have been generated or uploaded yet.",
+        "info"
+    )
+    if reservation.expected_upload_count == 0 then return end
+    if reservation.state ~= "planned" and reservation.state ~= "exporting" then
+        LrDialogs.message(
+            "Photara",
+            "This batch is already in state " .. tostring(reservation.state) ..
+            ". No DNGs were rendered again.",
+            "info"
+        )
+        return
+    end
+    local prepareChoice = LrDialogs.confirm(
+        "Prepare reserved DNGs?",
+        "Lightroom Classic will now render the " .. tostring(reservation.expected_upload_count) ..
+        " reserved camera originals as DNGs.\n\n" ..
+        "Photara will place them in an isolated XDG cache directory, validate each file, and " ..
+        "record its SHA-256 fingerprint. Nothing will be uploaded or deleted.",
+        "Prepare All",
+        "Later",
+        "Test One"
+    )
+    if prepareChoice == "ok" then
+        M.exportTransferBatch(reservation.batch_id, nil)
+    elseif prepareChoice == "other" then
+        M.exportTransferBatch(reservation.batch_id, 1)
+    end
+end
+
+function M.exportTransferBatch(batchId, maximumCount)
+    local catalog = LrApplication.activeCatalog()
+    local batch = runPhotara(
+        "cloud export-batch " .. shellQuote(batchId) .. " --format lua"
+    )
+    local wantedByRelativePath = {}
+    local pending = {}
+    for _, item in ipairs(batch.items or {}) do
+        if item.state == "planned" then
+            local relativePath = tostring(item.source_key):match("^images:(.+)$")
+            if not relativePath then error("Transfer item has a non-portable source key") end
+            if wantedByRelativePath[relativePath] then
+                error("Transfer batch contains a duplicate camera-original path")
+            end
+            wantedByRelativePath[relativePath] = item
+            table.insert(pending, item)
+        end
+    end
+
+    local photosByRelativePath = {}
+    for _, photo in ipairs(catalog:getAllPhotos() or {}) do
+        if not photo:getRawMetadata("isVirtualCopy") then
+            local relativePath = archiveRelativePath(photo:getRawMetadata("path"))
+            if relativePath and wantedByRelativePath[relativePath] then
+                if photosByRelativePath[relativePath] then
+                    error("The Lightroom catalog contains duplicate originals for " .. relativePath)
+                end
+                photosByRelativePath[relativePath] = photo
+            end
+        end
+    end
+    for relativePath in pairs(wantedByRelativePath) do
+        if not photosByRelativePath[relativePath] then
+            error("Reserved original is missing from this Lightroom catalog: " .. relativePath)
+        end
+    end
+
+    local workCount = #pending
+    if maximumCount and maximumCount < workCount then workCount = maximumCount end
+    local progress = LrProgressScope({ title = "Prepare Photara DNGs" })
+    for index = 1, workCount do
+        local item = pending[index]
+        local relativePath = tostring(item.source_key):match("^images:(.+)$")
+        local targetPath = item.staged_path
+        progress:setCaption("DNG " .. tostring(index) .. "/" .. tostring(workCount) ..
+            ": " .. tostring(item.planned_filename))
+        progress:setPortionComplete(index - 1, workCount)
+
+        if not regularFileExists(targetPath) then
+            local renderDirectory = LrPathUtils.child(
+                batch.staging_directory,
+                ".render-" .. tostring(item.asset_id)
+            )
+            local created, createError = LrFileUtils.createAllDirectories(renderDirectory)
+            if created == false then
+                error("Could not create DNG render directory: " .. tostring(createError))
+            end
+            local exportSession = LrExportSession({
+                photosToExport = { photosByRelativePath[relativePath] },
+                exportSettings = {
+                    LR_export_destinationType = "specificFolder",
+                    LR_export_destinationPathPrefix = renderDirectory,
+                    LR_export_destinationPathSuffix = "",
+                    LR_export_useSubfolder = false,
+                    LR_collisionHandling = "ask",
+                    LR_format = "DNG",
+                    LR_DNG_compatibility = 84148224,
+                    LR_DNG_compressed = true,
+                    LR_DNG_conversionMethod = "preserveRAW",
+                    LR_DNG_embedRAW = false,
+                    LR_DNG_previewSize = "medium",
+                    LR_extensionCase = "uppercase",
+                    LR_includeVideoFiles = false,
+                    LR_minimizeEmbeddedMetadata = false,
+                    LR_outputSharpeningOn = false,
+                    LR_reimportExportedPhoto = false,
+                    LR_renamingTokensOn = false,
+                    LR_size_doConstrain = false,
+                    LR_useWatermark = false,
+                },
+            })
+            local renderedPath = nil
+            for _, rendition in exportSession:renditions({ stopIfCanceled = true }) do
+                local success, pathOrMessage = rendition:waitForRender()
+                if not success then error("Lightroom DNG export failed: " .. tostring(pathOrMessage)) end
+                renderedPath = pathOrMessage
+            end
+            if not renderedPath or not regularFileExists(renderedPath) then
+                error("Lightroom did not produce the reserved DNG")
+            end
+            if regularFileExists(targetPath) then
+                error("Photara will not overwrite an existing staged DNG: " .. targetPath)
+            end
+            local moved, moveError = LrFileUtils.move(renderedPath, targetPath)
+            if moved == false then error("Could not stage rendered DNG: " .. tostring(moveError)) end
+            pcall(LrFileUtils.delete, renderDirectory)
+        end
+
+        runPhotara(
+            "cloud record-export " .. shellQuote(batchId) ..
+            " --asset " .. shellQuote(item.asset_id) ..
+            " --file " .. shellQuote(targetPath) .. " --format lua"
+        )
+        progress:setPortionComplete(index, workCount)
+        LrTasks.yield()
+    end
+    if workCount < #pending then
+        progress:done()
+        LrDialogs.message(
+            "Photara",
+            "Canary DNG prepared and recorded.\n\n" ..
+            "Validated: " .. tostring(workCount) .. "\n" ..
+            "Still pending: " .. tostring(#pending - workCount) .. "\n" ..
+            "Staging: " .. tostring(batch.staging_directory) .. "\n\n" ..
+            "Inspect the DNG, then run Prepare Photographer Final DNGs again to resume the batch.",
+            "info"
+        )
+        return
+    end
+    local completion = runPhotara(
+        "cloud finish-export " .. shellQuote(batchId) .. " --format lua"
+    )
+    progress:done()
+    LrDialogs.message(
+        "Photara",
+        "DNG preparation complete.\n\n" ..
+        "Batch: " .. tostring(completion.batch_id) .. "\n" ..
+        "Validated DNGs: " .. tostring(completion.exported_count) .. "\n" ..
+        "Already present in Cloud: " .. tostring(completion.skipped_already_present_count) .. "\n" ..
+        "Staging: " .. tostring(completion.staging_directory) .. "\n\n" ..
+        "No files were uploaded or deleted.",
         "info"
     )
 end

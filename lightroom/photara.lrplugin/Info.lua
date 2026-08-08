@@ -18,12 +18,28 @@ return {
             title = "Apply Imported Selections",
             file = "ApplySelectionsMain.lua",
         },
+        {
+            title = "Apply Verified Cloud Presence",
+            file = "ApplyCloudPresenceMain.lua",
+        },
+        {
+            title = "Add Selected to Photographer Final",
+            file = "AddPhotographerFinalMain.lua",
+        },
+        {
+            title = "Remove Selected from Photographer Final",
+            file = "RemovePhotographerFinalMain.lua",
+        },
+        {
+            title = "Prepare Photographer Final DNGs",
+            file = "PlanTransferMain.lua",
+        },
     },
 
     VERSION = {
         major = 0,
         minor = 0,
-        revision = 6,
+        revision = 7,
         build = 3,
     },
 }

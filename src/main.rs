@@ -2,11 +2,14 @@ use std::collections::BTreeMap;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use photara::{
-    Result,
+    Result, adobe,
+    cloud::{self, ProetusImport},
     config::{Location, Person, PhotaraConfig, Scene, config_root},
+    decision::{self, DecisionValue},
     persistence,
     project::{self, NewProject, ProjectOrigin},
     selection::{self, SelectionKind, SelectionSource},
+    transfer,
 };
 use serde::Serialize;
 use tracing::info;
@@ -23,9 +26,17 @@ struct Cli {
 enum Command {
     Health,
     Migrate,
+    Cloud {
+        #[command(subcommand)]
+        command: CloudCommand,
+    },
     Config {
         #[command(subcommand)]
         command: ConfigCommand,
+    },
+    Decisions {
+        #[command(subcommand)]
+        command: DecisionCommand,
     },
     People {
         #[command(subcommand)]
@@ -61,6 +72,134 @@ enum Command {
 enum ConfigCommand {
     Init,
     Validate,
+}
+
+#[derive(Debug, Subcommand)]
+enum DecisionCommand {
+    Add(DecisionUpdateArgs),
+    Remove(DecisionUpdateArgs),
+    Plan {
+        project: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+}
+
+#[derive(Debug, Args)]
+struct DecisionUpdateArgs {
+    project: String,
+    #[arg(long = "original", required = true)]
+    originals: Vec<std::path::PathBuf>,
+    #[arg(long, value_enum, default_value = "json")]
+    format: SerializationFormat,
+}
+
+#[derive(Debug, Subcommand)]
+enum CloudCommand {
+    AdobeLogin {
+        #[arg(long, default_value = "personal")]
+        account: String,
+    },
+    AdobeLogout {
+        #[arg(long, default_value = "personal")]
+        account: String,
+    },
+    AdobeInventory {
+        #[arg(long, default_value = "personal")]
+        account: String,
+    },
+    AdobeProbe,
+    AdobeVerify {
+        #[arg(long, default_value = "personal")]
+        account: String,
+    },
+    CleanupBatch {
+        batch: uuid::Uuid,
+        #[arg(long)]
+        confirm: bool,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    ExportBatch {
+        batch: uuid::Uuid,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    FinishExport {
+        batch: uuid::Uuid,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    ImportProetus(ProetusImportArgs),
+    PresencePlan {
+        #[arg(long, default_value = "personal")]
+        account: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    RecordExport {
+        batch: uuid::Uuid,
+        #[arg(long)]
+        asset: uuid::Uuid,
+        #[arg(long)]
+        file: std::path::PathBuf,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    ReserveTransfer {
+        project: String,
+        #[arg(long, default_value = "personal")]
+        account: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Status {
+        #[arg(long, default_value = "personal")]
+        account: String,
+    },
+    StorageAudit,
+    TransferPlan {
+        project: String,
+        #[arg(long, default_value = "personal")]
+        account: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    UploadPreflight {
+        batch: uuid::Uuid,
+        #[arg(long, default_value = "personal")]
+        account: String,
+    },
+    UploadCanary {
+        batch: uuid::Uuid,
+        #[arg(long, default_value = "personal")]
+        account: String,
+    },
+    UploadRemaining {
+        batch: uuid::Uuid,
+        #[arg(long, default_value = "personal")]
+        account: String,
+    },
+    VerifyCanary {
+        batch: uuid::Uuid,
+        #[arg(long, default_value = "personal")]
+        account: String,
+    },
+    VerifyBatch {
+        batch: uuid::Uuid,
+        #[arg(long, default_value = "personal")]
+        account: String,
+    },
+}
+
+#[derive(Debug, Args)]
+struct ProetusImportArgs {
+    #[arg(long)]
+    database: std::path::PathBuf,
+    #[arg(long, default_value = "personal")]
+    account: String,
+    #[arg(long)]
+    confirmed_present: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -245,7 +384,9 @@ async fn main() -> Result<()> {
     match Cli::parse().command {
         Command::Health => health().await?,
         Command::Migrate => migrate().await?,
+        Command::Cloud { command } => cloud_command(command).await?,
         Command::Config { command } => config(command)?,
+        Command::Decisions { command } => decisions(command).await?,
         Command::People { command } => people(command)?,
         Command::Locations { command } => locations(command)?,
         Command::Metadata { command } => metadata(command).await?,
@@ -254,6 +395,295 @@ async fn main() -> Result<()> {
         Command::Project { command } => project(command).await?,
         Command::Selections { command } => selections(command).await?,
     }
+    Ok(())
+}
+
+async fn decisions(command: DecisionCommand) -> Result<()> {
+    let config = PhotaraConfig::discover()?;
+    config.validate()?;
+    let database = persistence::connect_development().await?;
+    match command {
+        DecisionCommand::Add(arguments) => {
+            let project = project::find(&database, &arguments.project)
+                .await?
+                .ok_or_else(|| {
+                    photara::PhotaraError::Configuration(format!(
+                        "project {:?} was not found",
+                        arguments.project
+                    ))
+                })?;
+            print_serialized(
+                &decision::update(
+                    &database,
+                    &config,
+                    &project,
+                    DecisionValue::Selected,
+                    &arguments.originals,
+                )
+                .await?,
+                arguments.format,
+            )?;
+        }
+        DecisionCommand::Remove(arguments) => {
+            let project = project::find(&database, &arguments.project)
+                .await?
+                .ok_or_else(|| {
+                    photara::PhotaraError::Configuration(format!(
+                        "project {:?} was not found",
+                        arguments.project
+                    ))
+                })?;
+            print_serialized(
+                &decision::update(
+                    &database,
+                    &config,
+                    &project,
+                    DecisionValue::Rejected,
+                    &arguments.originals,
+                )
+                .await?,
+                arguments.format,
+            )?;
+        }
+        DecisionCommand::Plan {
+            project: slug,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(&decision::plan(&database, &project).await?, format)?;
+        }
+    }
+    database.close().await;
+    Ok(())
+}
+
+async fn cloud_command(command: CloudCommand) -> Result<()> {
+    let database = persistence::connect_development().await?;
+    match command {
+        CloudCommand::AdobeLogin { account } => {
+            let report = adobe::login(&account).await?;
+            cloud::register_remote_catalog(&database, &account, &report.catalog_id).await?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+        CloudCommand::AdobeLogout { account } => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&adobe::logout(&account)?)?
+            );
+        }
+        CloudCommand::AdobeInventory { account } => {
+            let inventory = adobe::inventory(&account).await?;
+            cloud::register_remote_catalog(&database, &account, &inventory.catalog_id).await?;
+            let report = cloud::record_adobe_inventory(&database, &account, &inventory).await?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+        CloudCommand::AdobeProbe => {
+            let report = adobe::probe().await?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+        CloudCommand::AdobeVerify { account } => {
+            let report = adobe::verify(&account).await?;
+            cloud::register_remote_catalog(&database, &account, &report.catalog_id).await?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+        CloudCommand::CleanupBatch {
+            batch,
+            confirm,
+            format,
+        } => {
+            print_serialized(
+                &transfer::cleanup_batch(&database, batch, confirm).await?,
+                format,
+            )?;
+        }
+        CloudCommand::ExportBatch { batch, format } => {
+            print_serialized(&transfer::begin_export(&database, batch).await?, format)?;
+        }
+        CloudCommand::FinishExport { batch, format } => {
+            print_serialized(&transfer::finish_export(&database, batch).await?, format)?;
+        }
+        CloudCommand::ImportProetus(arguments) => {
+            let report = cloud::import_proetus_evidence(
+                &database,
+                &ProetusImport {
+                    database_path: arguments.database,
+                    account_label: arguments.account,
+                    confirmed_present: arguments.confirmed_present,
+                },
+            )
+            .await?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+        CloudCommand::PresencePlan { account, format } => {
+            print_serialized(&cloud::presence_plan(&database, &account).await?, format)?;
+        }
+        CloudCommand::RecordExport {
+            batch,
+            asset,
+            file,
+            format,
+        } => {
+            print_serialized(
+                &transfer::record_export(&database, batch, asset, &file).await?,
+                format,
+            )?;
+        }
+        CloudCommand::ReserveTransfer {
+            project: slug,
+            account,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &transfer::reserve(&database, &project, &account).await?,
+                format,
+            )?;
+        }
+        CloudCommand::Status { account } => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&cloud::status(&database, &account).await?)?
+            );
+        }
+        CloudCommand::StorageAudit => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&cloud::storage_audit(&database).await?)?
+            );
+        }
+        CloudCommand::TransferPlan {
+            project: slug,
+            account,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &transfer::plan(&database, &project, &account).await?,
+                format,
+            )?;
+        }
+        CloudCommand::UploadPreflight { batch, account } => {
+            let requirements = transfer::upload_requirements(&database, batch).await?;
+            let adobe = adobe::upload_preflight(&account, requirements.required_bytes).await?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "batch": requirements,
+                    "adobe": adobe,
+                }))?
+            );
+        }
+        CloudCommand::UploadCanary { batch, account } => {
+            let requirements = transfer::upload_requirements(&database, batch).await?;
+            let preflight = adobe::upload_preflight(&account, requirements.required_bytes).await?;
+            if !preflight.ready {
+                return Err(photara::PhotaraError::Configuration(
+                    "Adobe upload preflight did not pass".into(),
+                ));
+            }
+            let canary = transfer::prepare_canary_upload(&database, batch, &account).await?;
+            let upload = adobe::upload_asset(
+                &account,
+                &canary.remote_asset_id,
+                &canary.filename,
+                &canary.sha256,
+                canary.byte_size,
+                canary.capture_date,
+                &canary.staged_path,
+            )
+            .await?;
+            transfer::mark_canary_uploaded(&database, &canary).await?;
+            tokio::time::sleep(std::time::Duration::from_secs(8)).await;
+            let inventory = adobe::inventory(&account).await?;
+            cloud::register_remote_catalog(&database, &account, &inventory.catalog_id).await?;
+            let inventory_report =
+                cloud::record_adobe_inventory(&database, &account, &inventory).await?;
+            let verification = transfer::verify_canary(&database, batch).await?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "upload": upload,
+                    "inventory": inventory_report,
+                    "verification": verification,
+                }))?
+            );
+        }
+        CloudCommand::VerifyCanary { batch, account } => {
+            let inventory = adobe::inventory(&account).await?;
+            cloud::register_remote_catalog(&database, &account, &inventory.catalog_id).await?;
+            let inventory_report =
+                cloud::record_adobe_inventory(&database, &account, &inventory).await?;
+            let verification = transfer::verify_canary(&database, batch).await?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "inventory": inventory_report,
+                    "verification": verification,
+                }))?
+            );
+        }
+        CloudCommand::UploadRemaining { batch, account } => {
+            let requirements = transfer::upload_requirements(&database, batch).await?;
+            let preflight = adobe::upload_preflight(&account, requirements.required_bytes).await?;
+            if !preflight.ready {
+                return Err(photara::PhotaraError::Configuration(
+                    "Adobe upload preflight did not pass".into(),
+                ));
+            }
+            let mut uploads = Vec::with_capacity(requirements.upload_count);
+            for _ in 0..requirements.upload_count {
+                let item = transfer::prepare_canary_upload(&database, batch, &account).await?;
+                let upload = adobe::upload_asset(
+                    &account,
+                    &item.remote_asset_id,
+                    &item.filename,
+                    &item.sha256,
+                    item.byte_size,
+                    item.capture_date,
+                    &item.staged_path,
+                )
+                .await?;
+                transfer::mark_canary_uploaded(&database, &item).await?;
+                uploads.push(upload);
+            }
+            transfer::begin_batch_verification(&database, batch).await?;
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            let inventory = adobe::inventory(&account).await?;
+            cloud::register_remote_catalog(&database, &account, &inventory.catalog_id).await?;
+            let inventory_report =
+                cloud::record_adobe_inventory(&database, &account, &inventory).await?;
+            let verification = transfer::verify_uploaded_batch(&database, batch).await?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "uploads": uploads,
+                    "inventory": inventory_report,
+                    "verification": verification,
+                }))?
+            );
+        }
+        CloudCommand::VerifyBatch { batch, account } => {
+            let inventory = adobe::inventory(&account).await?;
+            cloud::register_remote_catalog(&database, &account, &inventory.catalog_id).await?;
+            let inventory_report =
+                cloud::record_adobe_inventory(&database, &account, &inventory).await?;
+            let verification = transfer::verify_uploaded_batch(&database, batch).await?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "inventory": inventory_report,
+                    "verification": verification,
+                }))?
+            );
+        }
+    }
+    database.close().await;
     Ok(())
 }
 

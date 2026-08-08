@@ -67,6 +67,7 @@ pub async fn register_original(
             "original RAW location must be an absolute path".into(),
         ));
     }
+    let location = camera_raw_key(&input.original_path)?;
 
     let mut transaction = database.begin().await?;
     let asset_id = Uuid::new_v4();
@@ -116,7 +117,7 @@ pub async fn register_original(
     .bind(Uuid::new_v4())
     .bind(record.id)
     .bind(Representation::CameraRaw.as_str())
-    .bind(input.original_path.to_string_lossy().as_ref())
+    .bind(&location)
     .bind(&input.sha256)
     .bind(input.byte_size)
     .execute(&mut *transaction)
@@ -126,7 +127,7 @@ pub async fn register_original(
         "SELECT asset_id FROM asset_files \
          WHERE location = $1 AND representation = 'camera-raw' AND state = 'current'",
     )
-    .bind(input.original_path.to_string_lossy().as_ref())
+    .bind(&location)
     .fetch_one(&mut *transaction)
     .await?;
     if raw_asset_id != record.id {
@@ -138,6 +139,33 @@ pub async fn register_original(
 
     transaction.commit().await?;
     Ok(record)
+}
+
+pub fn camera_raw_key(path: &Path) -> Result<String> {
+    let components = path.components().collect::<Vec<_>>();
+    let images = components
+        .iter()
+        .position(|component| {
+            matches!(component, std::path::Component::Normal(value) if value.eq_ignore_ascii_case("images"))
+        })
+        .ok_or_else(|| {
+            PhotaraError::Configuration(format!(
+                "camera RAW path {} has no Images component",
+                path.display()
+            ))
+        })?;
+    let relative = components[images + 1..]
+        .iter()
+        .collect::<PathBuf>()
+        .to_string_lossy()
+        .replace('\\', "/");
+    if relative.is_empty() {
+        return Err(PhotaraError::Configuration(format!(
+            "camera RAW path {} has nothing below Images",
+            path.display()
+        )));
+    }
+    Ok(format!("images:{relative}"))
 }
 
 pub async fn find_by_sha256(database: &Database, sha256: &str) -> Result<Option<AssetRecord>> {
@@ -260,5 +288,16 @@ mod tests {
     fn rejects_noncanonical_fingerprints() {
         assert!(validate_sha256("ABC").is_err());
         assert!(validate_sha256(HASH).is_ok());
+    }
+
+    #[test]
+    fn camera_raw_identity_is_independent_of_volume_root() {
+        assert_eq!(
+            camera_raw_key(Path::new(
+                "/Volumes/whisk/work/ml/datasets/proetus/images/2021/2021-06/2021-06-11/DSC05181.ARW"
+            ))
+            .unwrap(),
+            "images:2021/2021-06/2021-06-11/DSC05181.ARW"
+        );
     }
 }
