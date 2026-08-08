@@ -105,31 +105,98 @@ Version lineage is explicitly deferred until after `0.1.0`.
 
 ### 0.0.8 — PSB and flattened-master workflow
 
-- Register layered PSBs beside original RAWs.
-- Register flattened TIFFs in project directories.
-- Verify authoritative location and provenance without permanent copies.
+- Take the 14 Red Meridian Photographer Final assets through manual Lightroom
+  Desktop and Photoshop editing as the first complete master workflow.
+- Register layered PSBs beside their corresponding camera RAWs without moving
+  or copying either representation.
+- Register flattened TIFFs under
+  `projects_root/<project>/masters/flattened/` without creating another
+  permanent copy.
+- Preserve immutable camera-original names and use the expanded
+  `<camera-stem>_<capture-date>_<author>` basename for downstream masters.
+- Associate masters with source assets deterministically and reject ambiguous
+  filenames, collisions, unexpected locations, and mismatched representations.
+- Validate actual file type, location, byte size, and SHA-256 before
+  registration.
+- Record the provenance chain from camera RAW through the verified Lightroom
+  Cloud DNG to layered PSB and flattened TIFF.
+- Enforce one authoritative current PSB and one authoritative current flattened
+  TIFF per asset while retaining historical database evidence.
+- Add idempotent discovery, registration, verification, and master-status
+  commands that a future GUI can call without embedding rules in Lua.
+- Project verified master readiness into Lightroom/XMP while keeping the
+  database and filesystem as the authoritative state.
+- Complete and verify all 14 Red Meridian master chains with no permanent local
+  DNGs.
 
-### 0.0.9 — publication workflow
+### 0.0.9 — layouts, HDR export, and publication
 
-- Add WSP, Cloudinary, and social-publication adapters.
-- Add retryable publication operations and a photography ledger.
-- Define the handoff contract consumed later by Codexa.
+- Add a versioned project-owned JSON layout specification that references
+  stable Photara asset IDs rather than filenames.
+- Support one or more flattened TIFFs in a frame with explicit canvas, aspect
+  ratio, crop, scale, translation, rotation, stacking order, and output intent.
+- Model many-to-one provenance so a single published frame can derive from
+  multiple edited assets.
+- Validate layouts independently from rendering and support a manual
+  JSON-plus-preview authoring loop for the 0.1.0 vertical slice.
+- Model SDR-base and HDR-layer inputs for HDR gain-map output.
+- Treat Web Sharp Pro as an adapter: support the current Photoshop-assisted
+  workflow and add a headless adapter later if a stable CLI becomes available.
+  Do not make Photara core depend on Photoshop or WSP internals.
+- Keep libvips or Sharp available as alternative rendering adapters where they
+  can satisfy the output contract.
+- Add Cloudinary archival/delivery and Instagram and Threads publication
+  adapters, with a manual-posting fallback when an API cannot preserve required
+  media capabilities.
+- Add retryable publication operations and an evidence-backed photography
+  ledger. Mark media published only after a provider receipt is stored or the
+  user explicitly confirms a manual publication.
+- Clean temporary publication outputs only after delivery evidence is durable.
+- Keep website generation, Codexa, Loomara, and a polished visual layout editor
+  outside the 0.1.0 scope.
 
 ### 0.1.0 — first supported release
 
-- Complete the Red Meridian vertical slice.
+- Complete the Red Meridian vertical slice from RAW ingest, metadata, Pixieset
+  selections, Photographer Final, Lightroom Cloud DNG, Lightroom Desktop edit,
+  layered PSB, flattened TIFF, layout, and HDR gain-map output through verified
+  Instagram and Threads publication.
 - Prove repeated reconciliation creates no duplicate records, collections, or
-  Lightroom Cloud assets.
+  Lightroom Cloud assets, authoritative masters, layouts, or publications.
+- Require verifiable provenance for every representation and evidence-backed
+  publication state.
+- Keep temporary-file cleanup guarded, restart-safe, and independently
+  repeatable.
 - Stabilize migrations, configuration, recovery, CI, and operator docs.
+- Decide Photara's commercial product boundary and future license before
+  publishing 0.1.0. Existing MIT releases remain MIT; do not automatically
+  publish Photara 0.1.0 to crates.io until this decision is complete.
 
-## After 0.1.0
+## 0.2.0 — product experience, website artifacts, and performance
 
-- Granular Lightroom named-version and Photoshop revision lineage.
-- Historical Proetus adoption at scale.
-- Layout generation and richer Codexa integration.
+- Add the standalone Photara desktop experience, installer-managed Lightroom
+  plugin, background jobs, notifications, account management, and onboarding
+  for nontechnical photographers.
+- Add visual layout authoring and website-specific photography layouts without
+  coupling social layouts to website presentation.
+- Define a versioned, target-neutral Photara artifact contract for media,
+  layouts, attribution, accessibility, visibility, and provenance.
+- Allow Photara artifacts to flow directly to Loomara or through a Codexa
+  content projection. Photara remains the photography source of truth; Codexa
+  compiles Git-native structured content; Loomara owns website assembly,
+  rendering, application integration, and deployment.
+- Keep Photara independent of Loomara's website framework and keep Codexa free
+  of media processing or website rendering responsibilities.
 - Profile CLI startup, database round trips, serialization, and Lightroom
   catalog matching; publish latency budgets for interactive actions.
 - Add an optional local read-through cache for provider inventory snapshots and
   computed reconciliation plans, invalidated by account, catalog, and snapshot
   hash. Adobe and PostgreSQL remain authoritative; cached state must always be
   disposable and must never become a second operational ledger.
+
+## Later
+
+- Granular Lightroom named-version and Photoshop revision lineage.
+- Historical Proetus adoption at scale.
+- Additional publication, delivery, content, and website targets after their
+  artifact contracts are proven independently.
