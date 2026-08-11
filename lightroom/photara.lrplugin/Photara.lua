@@ -236,6 +236,13 @@ local function collectKeywordTree(keyword, output)
     end
 end
 
+local function photoHasKeyword(photo, expected)
+    for _, keyword in ipairs(photo:getRawMetadata("keywords") or {}) do
+        if keyword.localIdentifier == expected.localIdentifier then return true end
+    end
+    return false
+end
+
 local function sdkRule(rule)
     if rule.field == "job-identifier" then
         return { criteria = "jobIdentifier", operation = "==", value = rule.value }
@@ -292,7 +299,7 @@ local function reconcileCollections(catalog, plan, progress)
     end
 end
 
-local function applyMetadata(catalog, photos, plan, peopleKeywords, managedPeopleKeywords, progress)
+local function applyMetadata(catalog, photos, plan, projectKeyword, peopleKeywords, progress)
     local iptc = plan.managed_iptc
     catalog:withWriteAccessDo("Photara: apply project metadata", function()
         for index, photo in ipairs(photos) do
@@ -305,7 +312,7 @@ local function applyMetadata(catalog, photos, plan, peopleKeywords, managedPeopl
             photo:setRawMetadata("isoCountryCode", iptc.iso_country_code)
             if iptc.creator then photo:setRawMetadata("creator", iptc.creator) end
             if iptc.copyright then photo:setRawMetadata("copyright", iptc.copyright) end
-            for _, keyword in ipairs(managedPeopleKeywords) do photo:removeKeyword(keyword) end
+            photo:addKeyword(projectKeyword)
             for _, keyword in ipairs(peopleKeywords) do photo:addKeyword(keyword) end
             progress:setCaption("Metadata " .. tostring(index) .. "/" .. tostring(#photos))
             progress:setPortionComplete(index, #photos)
@@ -350,9 +357,8 @@ function M.applyProjectToSelection()
     for _, keyword in ipairs(plan.managed_keyword_catalog or {}) do
         ensureKeywordPath(catalog, keyword.path)
     end
-    local managedPeopleKeywords = {}
-    collectKeywordTree(keywordChild(catalog, nil, "people"), managedPeopleKeywords)
-    applyMetadata(catalog, photos, plan, peopleKeywords, managedPeopleKeywords, progress)
+    local projectKeyword = ensureKeywordPath(catalog, plan.project_keyword.path)
+    applyMetadata(catalog, photos, plan, projectKeyword, peopleKeywords, progress)
     reconcileCollections(catalog, plan, progress)
     progress:done()
 
@@ -385,19 +391,17 @@ function M.applyImportedSelections()
         return
     end
 
-    local projectPhotos = {}
+    local projectKeyword = ensureKeywordPath(catalog, metadataPlan.project_keyword.path)
+    local projectPhotos = projectKeyword:getPhotos() or {}
     local photosByFilename = {}
     local filenameByPhoto = {}
-    for _, photo in ipairs(catalog:getAllPhotos() or {}) do
-        if photo:getFormattedMetadata("jobIdentifier") == plan.project.display_name then
-            local filename = photo:getFormattedMetadata("fileName")
-            if photosByFilename[filename] then
-                error("Project contains duplicate catalog filename: " .. tostring(filename))
-            end
-            photosByFilename[filename] = photo
-            filenameByPhoto[photo] = filename
-            table.insert(projectPhotos, photo)
+    for _, photo in ipairs(projectPhotos) do
+        local filename = photo:getFormattedMetadata("fileName")
+        if photosByFilename[filename] then
+            error("Project contains duplicate catalog filename: " .. tostring(filename))
         end
+        photosByFilename[filename] = photo
+        filenameByPhoto[photo] = filename
     end
 
     local managedKeywords = {}
@@ -615,10 +619,15 @@ function M.updatePhotographerFinal(selected)
     local projectSlug = chooseProject(context, #photos)
     if not projectSlug then return end
     local projectDisplayName = nil
+    local projectKeywordPath = nil
     for _, project in ipairs(context.projects or {}) do
-        if project.slug == projectSlug then projectDisplayName = project.display_name end
+        if project.slug == projectSlug then
+            projectDisplayName = project.display_name
+            projectKeywordPath = { "projects", project.display_name }
+        end
     end
     if not projectDisplayName then error("Photara project is missing from plugin context") end
+    local projectKeyword = ensureKeywordPath(catalog, projectKeywordPath)
 
     local paths = {}
     local seen = {}
@@ -626,8 +635,7 @@ function M.updatePhotographerFinal(selected)
         if photo:getRawMetadata("isVirtualCopy") then
             error("Photographer Final must reference camera originals, not virtual copies")
         end
-        local jobIdentifier = photo:getFormattedMetadata("jobIdentifier")
-        if jobIdentifier ~= projectDisplayName then
+        if not photoHasKeyword(photo, projectKeyword) then
             error("Every selected photo must belong to " .. projectDisplayName)
         end
         local path = photo:getRawMetadata("path")
@@ -675,8 +683,80 @@ function M.updatePhotographerFinal(selected)
     LrDialogs.message(
         "Photara",
         (selected and "Added " or "Removed ") .. tostring(#photos) ..
-        " original(s) " .. preposition .. " Photographer Final.\n\n" ..
+        " original(s) " .. preposition .. " Photographer Final.\n" ..
+        "Changed: " .. tostring(report.changed_count or report.affected_count) ..
+        "; already in that state: " .. tostring(report.unchanged_count or 0) .. ".\n\n" ..
+        "Cloud presence, transfer history, and registered representations were preserved.\n\n" ..
         "Use Metadata > Save Metadata to File to persist the decision to XMP.",
+        "info"
+    )
+end
+
+function M.applyVerifiedCloudWithdrawal()
+    local catalog = LrApplication.activeCatalog()
+    local photos = catalog:getTargetPhotos() or {}
+    if #photos == 0 then
+        LrDialogs.message("Photara", "Select one or more retained camera originals first.", "warning")
+        return
+    end
+    local context = runPhotara("plugin context --format lua")
+    local projectSlug = chooseProject(context, #photos)
+    if not projectSlug then return end
+    local projectDisplayName = nil
+    local projectKeywordPath = nil
+    for _, project in ipairs(context.projects or {}) do
+        if project.slug == projectSlug then
+            projectDisplayName = project.display_name
+            projectKeywordPath = { "projects", project.display_name }
+        end
+    end
+    if not projectDisplayName then error("Photara project is missing from plugin context") end
+    local projectKeyword = ensureKeywordPath(catalog, projectKeywordPath)
+
+    local paths = {}
+    for _, photo in ipairs(photos) do
+        if photo:getRawMetadata("isVirtualCopy") then
+            error("Cloud withdrawal must reference camera originals, not virtual copies")
+        end
+        if not photoHasKeyword(photo, projectKeyword) then
+            error("Every selected photo must belong to " .. projectDisplayName)
+        end
+        local path = photo:getRawMetadata("path")
+        if not path or path == "" then error("A selected photo has no local camera-original path") end
+        table.insert(paths, path)
+    end
+    local command = "cloud withdrawal-keywords " .. shellQuote(projectSlug)
+    for _, path in ipairs(paths) do command = command .. " --original " .. shellQuote(path) end
+    command = command .. " --format lua"
+
+    local progress = LrProgressScope({ title = "Verify Cloud withdrawal" })
+    progress:setCaption("Checking Photara ledger and Adobe verification...")
+    progress:setIndeterminate(true)
+    local plan = runPhotara(command)
+    progress:setIndeterminate(false)
+    if plan.verified_count ~= #photos then
+        progress:done()
+        error("Photara verified a different number of withdrawals than Lightroom selected")
+    end
+    local keywords = {}
+    for _, path in ipairs(plan.keyword_paths_to_remove or {}) do
+        table.insert(keywords, ensureKeywordPath(catalog, path))
+    end
+    catalog:withWriteAccessDo("Photara: apply verified Cloud withdrawal", function()
+        for index, photo in ipairs(photos) do
+            for _, keyword in ipairs(keywords) do photo:removeKeyword(keyword) end
+            progress:setCaption("Updating retained original " .. tostring(index) .. "/" .. tostring(#photos))
+            progress:setPortionComplete(index, #photos)
+            if index % 25 == 0 then LrTasks.yield() end
+        end
+    end)
+    progress:done()
+    LrDialogs.message(
+        "Photara",
+        "Applied " .. tostring(#photos) .. " verified Cloud withdrawal(s).\n\n" ..
+        "Removed Photographer Final and Cloud Present keywords only. " ..
+        "The RAW, XMP, asset record, transfer evidence, and decision history remain intact.\n\n" ..
+        "Use Metadata > Save Metadata to File to update the XMP sidecar.",
         "info"
     )
 end

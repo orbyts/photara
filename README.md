@@ -8,7 +8,7 @@ publication bookkeeping.
 
 ## Status
 
-`v0.0.7` is developing the guarded Lightroom Cloud delivery workflow. Photara owns its
+`v0.0.8` is developing reversible editorial state and the PSB/flattened-master workflow. Photara owns its
 schemas, SQL, repositories, and photography workflow; Storexa owns connection
 and transaction plumbing.
 
@@ -47,7 +47,16 @@ without changing database identities:
 ```console
 $ export PHOTARA_IMAGES_ROOT=/Volumes/whisk/Pictures/Images
 $ export PHOTARA_PROJECTS_ROOT=/Volumes/whisk/Pictures/Projects
+$ export PHOTARA_LIGHTROOM_INBOX="$HOME/Pictures/Photara/Inbox"
 ```
+
+`lightroom_inbox` defaults to `~/Pictures/Photara/Inbox` and is stored in
+`$XDG_CONFIG_HOME/photara/config/photara.toml`. Lightroom Desktop exports
+edited DNGs there with **Original + Settings**. After the first export, its
+**Export With Previous** command (`Command-E`) reuses the same settings and
+destination. Photara keeps manifests, reports, and generated master output in
+the inbox's internal `.photara` directory; users never need to navigate into
+`~/.cache`. A future GUI will read and update this same TOML setting.
 
 The database stores `images:<relative-path>` and the logical `images` root,
 whose registered resolver is `PHOTARA_IMAGES_ROOT`; it never stores the current
@@ -58,6 +67,12 @@ Audit those invariants without modifying data:
 ```console
 $ photara cloud storage-audit
 ```
+
+An asset may belong to more than one Photara project. PostgreSQL project
+membership, the additive `projects > <project>` Lightroom keyword, and Adobe
+album membership express that relationship without duplicating the asset.
+IPTC Job Identifier remains the original/primary shoot label and is not used
+to decide project membership.
 
 Manage registry entries through Photara so the same application services can
 later back the Lightroom plugin or a GUI:
@@ -206,6 +221,50 @@ $ photara decisions plan red-meridian
 These services are intentionally outside Lua so a future standalone Photara UI
 can call the same decision boundary. Lightroom keywords and XMP are the
 portable projection of the database state, not the business-rule engine.
+
+Changing an editorial decision after Cloud delivery uses a guarded withdrawal.
+Photara records the exact Adobe asset ID and DNG filename before the operator
+deletes it in Lightroom Desktop. Because Adobe's public Lightroom API does not
+document asset deletion, Photara never calls an inferred endpoint. It refreshes
+the complete provider inventory and finalizes the withdrawal only after that
+exact ID is absent:
+
+```console
+$ photara cloud withdrawal-plan red-meridian --account personal --original /path/to/DSC05424.ARW
+$ photara cloud begin-withdrawal red-meridian --account personal --original /path/to/DSC05424.ARW --confirm
+# Delete the reported DNG from All Photos and then permanently from Deleted.
+$ photara cloud verify-withdrawal <withdrawal-id> --account personal
+```
+
+After verification, select the retained RAW in Lightroom Classic and choose
+**Apply Verified Cloud Withdrawal**. Photara removes only Photographer Final
+and Cloud Present, after which **Metadata > Save Metadata to File** updates the
+existing XMP. The RAW, XMP, asset record, transfer batch, hashes, remote ID,
+and append-only decision history remain intact.
+
+Photara can also project project organization into Lightroom Cloud without
+copying any media. The compact hierarchy uses provider-owned folders and a
+project leaf album:
+
+```text
+Locations / <location> / <project>
+Scenes    / <scene>    / <project>
+People    / <person>   / <project>
+Projects  / <project>
+```
+
+Preview and then synchronize the projection explicitly:
+
+```console
+$ photara cloud collection-plan red-meridian --account personal
+$ photara cloud sync-collections red-meridian --account personal --confirm
+```
+
+The same provider-verified DNG may be referenced by every relevant project
+album. Adobe stores one asset; album membership does not create another file.
+Photara uses deterministic IDs, manages only collections created by its own
+Adobe client, verifies every expected membership, and records the completed
+projection in PostgreSQL.
 
 Preview the guarded Cloud transfer derived from Photographer Final, then
 reserve its immutable manifest separately:
@@ -357,6 +416,59 @@ Camera RAW names are immutable. RAWs and XMP sidecars live only in the dated
 image archive; working DNGs live in Lightroom Cloud; layered PSBs return beside
 their original RAWs; and flattened TIFF masters live in their project folder.
 Photara records relationships and never creates permanent convenience copies.
+
+After the UXP report verifies every generated master, preview and then confirm
+promotion into the authoritative archive location:
+
+```console
+$ photara masters promote red-meridian
+$ photara masters promote red-meridian --confirm
+```
+
+Promotion copies each PSB beside its RAW through a verified temporary file,
+atomically installs it with the uppercase downstream name, records the edited
+DNG and layered PSB provenance in PostgreSQL, begins the PSB in `editing`
+state, and only then removes the redundant inbox PSB. DNG cleanup is a later,
+separately guarded operation.
+
+During Photoshop raster work, checkpoint the authoritative layered documents
+whenever useful. When dodging, burning, Generative Fill, canvas extension, and
+other raster edits are complete, preview and confirm the transition to
+flattening readiness:
+
+```console
+$ photara masters checkpoint red-meridian
+$ photara masters mark-ready red-meridian
+$ photara masters mark-ready red-meridian --confirm
+```
+
+Each checkpoint refreshes the current PSB size and SHA-256 and records an
+append-only workflow event. `mark-ready` uses the same inspection but requires
+explicit confirmation before changing workflow state.
+
+The final layered-master contract is 32-bit HDR P3. After raster editing,
+refresh and confirm readiness, then generate the project-scoped flattening
+handoff:
+
+```console
+$ photara masters mark-ready red-meridian --confirm
+$ photara masters prepare-flattening red-meridian
+```
+
+Run the generated **Flatten Photara Masters.psjs** through Photoshop. Choose
+the reported Red Meridian project directory first and the configured Images
+root second. The UXP script opens each authoritative PSB, duplicates and
+flattens it without modifying the layered source, writes one uppercase `.TIF`
+directly to `projects_root/red-meridian/masters/flattened/`, reopens it, and
+records 32-bit depth, Photoshop's Display P3 Linear HDR working profile, and a
+one-layer result. Photara then
+independently verifies the TIFF headers and fingerprints before registration:
+
+```console
+$ photara masters verify-flattening red-meridian
+$ photara masters register-flattening red-meridian
+$ photara masters register-flattening red-meridian --confirm
+```
 
 An asset is identified by the SHA-256 fingerprint of its original RAW. The
 camera filename remains unchanged in the archive. Only downstream

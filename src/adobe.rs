@@ -16,6 +16,7 @@ use url::Url;
 use crate::{
     PhotaraError, Result,
     cloud::ADOBE_LIGHTROOM_PROVIDER,
+    cloud_collection::CloudCollectionPlan,
     credentials::{CredentialStore, SecretId, SystemCredentialStore},
 };
 
@@ -116,6 +117,41 @@ struct AdobeLink {
     href: String,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+struct AdobeAlbum {
+    id: String,
+    subtype: String,
+    #[serde(rename = "serviceId")]
+    service_id: Option<String>,
+    #[serde(default)]
+    payload: AdobeAlbumPayload,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+struct AdobeAlbumPayload {
+    name: Option<String>,
+    parent: Option<AdobeResourceId>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AdobeResourceId {
+    id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct AdobeAlbumAssetPage {
+    base: String,
+    #[serde(default)]
+    resources: Vec<AdobeAlbumAsset>,
+    #[serde(default)]
+    links: AdobePageLinks,
+}
+
+#[derive(Debug, Deserialize)]
+struct AdobeAlbumAsset {
+    asset: AdobeResourceId,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct AdobeProbeReport {
     pub provider: String,
@@ -163,6 +199,19 @@ pub struct AdobeUploadReport {
     pub byte_size: u64,
     pub asset_reused: bool,
     pub master_uploaded: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct AdobeCollectionSyncReport {
+    pub provider: String,
+    pub account_label: String,
+    pub catalog_id: String,
+    pub collection_count: usize,
+    pub created_collection_count: usize,
+    pub verified_collection_count: usize,
+    pub leaf_album_count: usize,
+    pub cloud_asset_count: usize,
+    pub verified_membership_count: usize,
 }
 
 impl AdobeOAuthConfig {
@@ -515,6 +564,247 @@ pub async fn upload_asset(
         asset_reused,
         master_uploaded: true,
     })
+}
+
+pub async fn sync_collections(
+    account_label: &str,
+    plan: &CloudCollectionPlan,
+) -> Result<AdobeCollectionSyncReport> {
+    if plan.provider != ADOBE_LIGHTROOM_PROVIDER || plan.account_label != account_label {
+        return Err(PhotaraError::Configuration(
+            "Cloud collection plan does not match the requested Adobe account".into(),
+        ));
+    }
+    let (client, config, token) = refreshed_session(account_label).await?;
+    let catalog = catalog(&client, &config, &token.access_token).await?;
+    let mut created_collection_count = 0;
+    let mut verified_collection_count = 0;
+    let mut verified_membership_count = 0;
+    for node in &plan.nodes {
+        if ensure_album(&client, &config, &token.access_token, &catalog.id, node).await? {
+            created_collection_count += 1;
+        }
+        verified_collection_count += 1;
+        if node.node_kind == "album" {
+            add_album_assets(
+                &client,
+                &config,
+                &token.access_token,
+                &catalog.id,
+                &node.remote_id,
+                &plan.assets,
+            )
+            .await?;
+            let actual = list_album_asset_ids(
+                &client,
+                &config,
+                &token.access_token,
+                &catalog.id,
+                &node.remote_id,
+            )
+            .await?;
+            for asset in &plan.assets {
+                if !actual.contains(&asset.remote_asset_id) {
+                    return Err(PhotaraError::Configuration(format!(
+                        "Adobe album {:?} does not contain verified asset {} after synchronization",
+                        node.display_name, asset.remote_filename
+                    )));
+                }
+                verified_membership_count += 1;
+            }
+        }
+    }
+    Ok(AdobeCollectionSyncReport {
+        provider: ADOBE_LIGHTROOM_PROVIDER.into(),
+        account_label: account_label.into(),
+        catalog_id: catalog.id,
+        collection_count: plan.collection_count,
+        created_collection_count,
+        verified_collection_count,
+        leaf_album_count: plan.leaf_album_count,
+        cloud_asset_count: plan.cloud_asset_count,
+        verified_membership_count,
+    })
+}
+
+async fn ensure_album(
+    client: &Client,
+    config: &AdobeOAuthConfig,
+    access_token: &str,
+    catalog_id: &str,
+    node: &crate::cloud_collection::CloudCollectionNode,
+) -> Result<bool> {
+    let url = format!(
+        "https://lr.adobe.io/v2/catalogs/{catalog_id}/albums/{}",
+        node.remote_id
+    );
+    let response = client
+        .get(&url)
+        .header("X-API-Key", &config.client_id)
+        .bearer_auth(access_token)
+        .send()
+        .await?;
+    match response.status() {
+        StatusCode::OK => {
+            let body = response.text().await?;
+            let album: AdobeAlbum = serde_json::from_str(strip_lightroom_json_prefix(&body))?;
+            let expected_subtype = if node.node_kind == "set" {
+                "project_set"
+            } else {
+                "project"
+            };
+            let actual_parent = album
+                .payload
+                .parent
+                .as_ref()
+                .map(|parent| parent.id.as_str());
+            if album.id != node.remote_id
+                || album.subtype != expected_subtype
+                || album.service_id.as_deref() != Some(config.client_id.as_str())
+                || album.payload.name.as_deref() != Some(node.display_name.as_str())
+                || actual_parent != node.parent_remote_id.as_deref()
+            {
+                return Err(PhotaraError::Configuration(format!(
+                    "Adobe collection ID {} exists with metadata not owned by this Photara plan",
+                    node.remote_id
+                )));
+            }
+            Ok(false)
+        }
+        StatusCode::NOT_FOUND => {
+            let now = chrono::Utc::now().to_rfc3339();
+            let mut payload = serde_json::json!({
+                "userCreated": now,
+                "userUpdated": now,
+                "name": node.display_name,
+                "publishInfo": {
+                    "version": 3,
+                    "created": now,
+                    "updated": now,
+                    "remoteId": node.semantic_path,
+                    "servicePayload": "photara-cloud-collection-v1"
+                }
+            });
+            if let Some(parent) = &node.parent_remote_id {
+                payload["parent"] = serde_json::json!({ "id": parent });
+            }
+            let subtype = if node.node_kind == "set" {
+                "project_set"
+            } else {
+                "project"
+            };
+            let created = client
+                .put(&url)
+                .header("X-API-Key", &config.client_id)
+                .bearer_auth(access_token)
+                .json(&serde_json::json!({
+                    "subtype": subtype,
+                    "serviceId": config.client_id,
+                    "payload": payload
+                }))
+                .send()
+                .await?;
+            if created.status() != StatusCode::CREATED {
+                let status = created.status();
+                let body = created.text().await.unwrap_or_default();
+                return Err(PhotaraError::Configuration(format!(
+                    "Adobe collection creation failed for {:?} with {status}: {}",
+                    node.semantic_path,
+                    body.trim()
+                )));
+            }
+            Ok(true)
+        }
+        status => {
+            let body = response.text().await.unwrap_or_default();
+            Err(PhotaraError::Configuration(format!(
+                "Adobe collection lookup failed with {status}: {}",
+                body.trim()
+            )))
+        }
+    }
+}
+
+async fn add_album_assets(
+    client: &Client,
+    config: &AdobeOAuthConfig,
+    access_token: &str,
+    catalog_id: &str,
+    album_id: &str,
+    assets: &[crate::cloud_collection::CloudCollectionAsset],
+) -> Result<()> {
+    for chunk in assets.chunks(50) {
+        let resources = chunk
+            .iter()
+            .map(|asset| {
+                serde_json::json!({
+                    "id": asset.remote_asset_id,
+                    "payload": {
+                        "cover": false,
+                        "publishInfo": {
+                            "remoteId": asset.asset_id.to_string(),
+                            "servicePayload": "photara-project-membership-v1"
+                        }
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+        let response = client
+            .put(format!(
+                "https://lr.adobe.io/v2/catalogs/{catalog_id}/albums/{album_id}/assets"
+            ))
+            .header("X-API-Key", &config.client_id)
+            .bearer_auth(access_token)
+            .json(&serde_json::json!({ "resources": resources }))
+            .send()
+            .await?;
+        if response.status() != StatusCode::CREATED {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            return Err(PhotaraError::Configuration(format!(
+                "Adobe album membership synchronization failed with {status}: {}",
+                body.trim()
+            )));
+        }
+    }
+    Ok(())
+}
+
+async fn list_album_asset_ids(
+    client: &Client,
+    config: &AdobeOAuthConfig,
+    access_token: &str,
+    catalog_id: &str,
+    album_id: &str,
+) -> Result<HashSet<String>> {
+    let mut url = Url::parse(&format!(
+        "https://lr.adobe.io/v2/catalogs/{catalog_id}/albums/{album_id}/assets"
+    ))?;
+    let mut ids = HashSet::new();
+    let mut visited_pages = HashSet::new();
+    loop {
+        validate_lightroom_url(&url)?;
+        if !visited_pages.insert(url.as_str().to_owned()) {
+            return Err(PhotaraError::Configuration(
+                "Adobe album pagination returned a repeated page".into(),
+            ));
+        }
+        let response = client
+            .get(url.clone())
+            .header("X-API-Key", &config.client_id)
+            .bearer_auth(access_token)
+            .send()
+            .await?
+            .error_for_status()?;
+        let body = response.text().await?;
+        let page: AdobeAlbumAssetPage = serde_json::from_str(strip_lightroom_json_prefix(&body))?;
+        ids.extend(page.resources.into_iter().map(|item| item.asset.id));
+        let Some(next) = page.links.next else {
+            break;
+        };
+        url = Url::parse(&page.base)?.join(&next.href)?;
+    }
+    Ok(ids)
 }
 
 async fn refreshed_session(

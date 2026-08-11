@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use sqlx::Row;
@@ -37,8 +37,29 @@ pub struct DecisionReport {
     pub decision: String,
     pub selected: bool,
     pub affected_count: usize,
+    pub changed_count: usize,
+    pub unchanged_count: usize,
     pub keyword_path: Vec<String>,
     pub originals: Vec<DecisionOriginal>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct DecisionHistory {
+    pub schema_version: u32,
+    pub project: String,
+    pub decision: String,
+    pub event_count: usize,
+    pub events: Vec<DecisionEvent>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct DecisionEvent {
+    pub original_filename: String,
+    pub selected: bool,
+    pub source: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    pub changed_at: DateTime<Utc>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -103,7 +124,20 @@ pub async fn update(
     }
 
     let mut transaction = database.begin().await?;
+    let mut changed_count = 0;
     for asset_id in asset_ids {
+        let previous: Option<bool> = sqlx::query_scalar(
+            "SELECT selected FROM project_asset_decisions \
+             WHERE project_id = $1 AND asset_id = $2 AND decision = 'photographer-final' \
+             FOR UPDATE",
+        )
+        .bind(project.id)
+        .bind(asset_id)
+        .fetch_optional(&mut *transaction)
+        .await?;
+        if previous == Some(value.selected()) {
+            continue;
+        }
         sqlx::query(
             "INSERT INTO project_asset_decisions \
              (project_id, asset_id, decision, selected, decided_at) \
@@ -116,6 +150,17 @@ pub async fn update(
         .bind(value.selected())
         .execute(&mut *transaction)
         .await?;
+        sqlx::query(
+            "INSERT INTO project_asset_decision_events \
+             (project_id, asset_id, decision, selected, source) \
+             VALUES ($1, $2, 'photographer-final', $3, 'operator-command')",
+        )
+        .bind(project.id)
+        .bind(asset_id)
+        .bind(value.selected())
+        .execute(&mut *transaction)
+        .await?;
+        changed_count += 1;
     }
     transaction.commit().await?;
 
@@ -125,8 +170,42 @@ pub async fn update(
         decision: "photographer-final".into(),
         selected: value.selected(),
         affected_count: originals.len(),
+        changed_count,
+        unchanged_count: originals.len() - changed_count,
         keyword_path: keyword().path,
         originals,
+    })
+}
+
+pub async fn history(database: &Database, project: &ProjectRecord) -> Result<DecisionHistory> {
+    let events = sqlx::query(
+        "SELECT asset.original_filename, event.selected, event.source, event.note, \
+                event.changed_at \
+         FROM project_asset_decision_events AS event \
+         JOIN assets AS asset ON asset.id = event.asset_id \
+         WHERE event.project_id = $1 AND event.decision = 'photographer-final' \
+         ORDER BY event.changed_at, event.id",
+    )
+    .bind(project.id)
+    .fetch_all(database.pool())
+    .await?
+    .into_iter()
+    .map(|row| {
+        Ok(DecisionEvent {
+            original_filename: row.try_get("original_filename")?,
+            selected: row.try_get("selected")?,
+            source: row.try_get("source")?,
+            note: row.try_get("note")?,
+            changed_at: row.try_get("changed_at")?,
+        })
+    })
+    .collect::<std::result::Result<Vec<_>, sqlx::Error>>()?;
+    Ok(DecisionHistory {
+        schema_version: 1,
+        project: project.slug.clone(),
+        decision: "photographer-final".into(),
+        event_count: events.len(),
+        events,
     })
 }
 

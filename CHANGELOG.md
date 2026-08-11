@@ -2,6 +2,56 @@
 
 All notable changes to Photara will be documented in this file.
 
+## 0.0.8 - Unreleased
+
+- Promote the final layered-master contract to 32-bit HDR P3 and refresh its
+  byte size, SHA-256, and bit-depth evidence after raster editing.
+- Add a manifest-driven Photoshop UXP flattening handoff that duplicates each
+  authoritative PSB, flattens the duplicate, writes exactly one uppercase
+  32-bit `.TIF` directly to the configured project directory, reopens it, and
+  reports the Display P3 Linear profile, bit depth, and layer count for
+  independent verification.
+- Add guarded flattened-master verification and registration with
+  PSB-to-TIFF provenance and an atomic `flattened` workflow transition.
+
+- Model Lightroom project membership with additive hierarchical project
+  keywords instead of the singular IPTC Job Identifier, allowing one asset and
+  its shared Cloud representation to belong to multiple projects.
+- Build the layered-master smart collection from Lightroom's native PSB file
+  type rather than an incidental `psb` keyword.
+- Keep capture IPTC and additive project membership as separate concepts; the
+  selected-shoot action still applies the chosen shoot metadata, while future
+  membership-only actions must not rewrite that intrinsic metadata.
+
+- Add a configurable Lightroom handoff inbox, defaulting to the visible
+  `~/Pictures/Photara/Inbox`, while keeping batch artifacts in its internal
+  `.photara` workspace and preserving the same XDG TOML setting for a future
+  GUI.
+- Add a guarded layered-master promotion that copies each UXP-verified PSB
+  beside its camera RAW, verifies the destination before registration, records
+  RAW-to-DNG-to-PSB provenance, begins the editing lifecycle, and removes only
+  the redundant staged PSB after the database commit.
+- Track the raster-editing lifecycle with idempotent PSB checkpoints and a
+  separately confirmed `ready-for-flattening` transition, refreshing current
+  file evidence while retaining append-only workflow events.
+- Preflight every configured camera RAW before hashing or promoting masters and
+  report a stale storage-root override with an actionable manifest-regeneration
+  command.
+- Support verified promotion to SMB/network archives that do not implement
+  `fsync`, while retaining mandatory byte-size and SHA-256 readback before the
+  same-filesystem atomic rename.
+
+- Preserve append-only Photographer Final decision history while maintaining a
+  separate idempotent current-state projection.
+- Add a guarded two-phase Cloud withdrawal that records the exact Adobe asset,
+  requires manual deletion through Lightroom Desktop, verifies absence through
+  a fresh provider inventory, and preserves transfer evidence and prior state.
+- Reconcile a verified withdrawal back to Lightroom Classic by removing only
+  Photographer Final and Cloud Present keywords from the retained RAW/XMP.
+- Add a provider-neutral Cloud collection projection and Adobe album adapter
+  for idempotent Locations, Scenes, People, and Projects hierarchies, using
+  project leaf albums without duplicating Cloud assets.
+
 ## 0.0.7 - 2026-08-08
 
 - Add an asset-scoped, provider-neutral Cloud evidence and presence schema.

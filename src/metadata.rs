@@ -6,6 +6,7 @@ use crate::{PhotaraError, Result, config::PhotaraConfig, project::ProjectRecord}
 pub struct ReconciliationPlan {
     pub schema_version: u32,
     pub project: ProjectRef,
+    pub project_keyword: KeywordPath,
     pub managed_iptc: ManagedIptc,
     pub people_keywords: Vec<KeywordPath>,
     pub managed_keyword_catalog: Vec<KeywordPath>,
@@ -125,11 +126,14 @@ pub fn plan(config: &PhotaraConfig, project: &ProjectRecord) -> Result<Reconcili
     ]);
 
     Ok(ReconciliationPlan {
-        schema_version: 2,
+        schema_version: 3,
         project: ProjectRef {
             id: project.id.to_string(),
             slug: project.slug.clone(),
             display_name: project.display_name.clone(),
+        },
+        project_keyword: KeywordPath {
+            path: vec!["projects".into(), project.display_name.clone()],
         },
         managed_iptc: ManagedIptc {
             job_identifier: project.display_name.clone(),
@@ -172,8 +176,8 @@ fn managed_keyword_catalog() -> Vec<KeywordPath> {
 
 fn smart_collections(project: &str) -> Vec<SmartCollection> {
     let project_rule = CollectionRule {
-        field: RuleField::JobIdentifier,
-        operator: RuleOperator::Equals,
+        field: RuleField::Keyword,
+        operator: RuleOperator::Contains,
         value: project.into(),
     };
     [
@@ -208,7 +212,7 @@ fn smart_collections(project: &str) -> Vec<SmartCollection> {
             "Lightroom",
             Some((RuleField::Keyword, "present")),
         ),
-        (&["Masters"][..], "PSB", Some((RuleField::Keyword, "psb"))),
+        (&["Masters"][..], "PSB", Some((RuleField::FileType, "psb"))),
     ]
     .into_iter()
     .map(|(collection_set_path, name, extra)| {
@@ -250,6 +254,7 @@ mod tests {
             settings: Settings {
                 images_root: PathBuf::from("/images"),
                 projects_root: PathBuf::from("/projects"),
+                lightroom_inbox: PathBuf::from("/Pictures/Photara/Inbox"),
                 default_catalog: "Lr_Photara".into(),
                 default_creator: Some("Suhail".into()),
                 default_author_code: "SUHAIL".into(),
@@ -300,6 +305,12 @@ mod tests {
 
         let plan = plan(&config, &project).unwrap();
         assert_eq!(
+            plan.project_keyword,
+            KeywordPath {
+                path: vec!["projects".into(), "Red Meridian".into()]
+            }
+        );
+        assert_eq!(
             plan.people_keywords,
             vec![KeywordPath {
                 path: vec!["people".into(), "model".into(), "Trinity Woodward".into()]
@@ -321,6 +332,22 @@ mod tests {
         assert_eq!(collections[4].collection_set_path, ["Selections"]);
         assert_eq!(collections[6].collection_set_path, ["Cloud"]);
         assert_eq!(collections[7].collection_set_path, ["Masters"]);
+        assert_eq!(
+            collections[7].rules[1],
+            CollectionRule {
+                field: RuleField::FileType,
+                operator: RuleOperator::Equals,
+                value: "psb".into(),
+            }
+        );
+        assert!(collections.iter().all(|collection| {
+            collection.rules[0]
+                == CollectionRule {
+                    field: RuleField::Keyword,
+                    operator: RuleOperator::Contains,
+                    value: "Red Meridian".into(),
+                }
+        }));
         for collection in collections {
             for rule in &collection.rules {
                 if rule.field == RuleField::Keyword {

@@ -11,6 +11,7 @@ use crate::{PhotaraError, Result};
 
 const SETTINGS: &str = r#"images_root = "/Volumes/whisk/Pictures/images"
 projects_root = "/Volumes/whisk/Pictures/projects"
+lightroom_inbox = "~/Pictures/Photara/Inbox"
 default_catalog = "Lr_Photara"
 default_creator = "Suhail"
 default_author_code = "SUHAIL"
@@ -25,6 +26,8 @@ delivery_provider = "cloudinary"
 pub struct Settings {
     pub images_root: PathBuf,
     pub projects_root: PathBuf,
+    #[serde(default = "default_lightroom_inbox")]
+    pub lightroom_inbox: PathBuf,
     pub default_catalog: String,
     #[serde(default)]
     pub default_creator: Option<String>,
@@ -90,7 +93,7 @@ impl PhotaraConfig {
                 path: settings_path,
                 source,
             })?;
-        settings.apply_environment();
+        settings.apply_environment()?;
 
         Ok(Self {
             root,
@@ -131,6 +134,11 @@ impl PhotaraConfig {
         if !self.settings.projects_root.is_absolute() {
             return Err(PhotaraError::Configuration(
                 "projects_root must be an absolute path".into(),
+            ));
+        }
+        if !self.settings.lightroom_inbox.is_absolute() {
+            return Err(PhotaraError::Configuration(
+                "lightroom_inbox must resolve to an absolute path".into(),
             ));
         }
         if self.settings.images_root == self.settings.projects_root {
@@ -195,6 +203,13 @@ fn default_author_code() -> String {
     "SUHAIL".into()
 }
 
+fn default_lightroom_inbox() -> PathBuf {
+    env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("~"))
+        .join("Pictures/Photara/Inbox")
+}
+
 fn validate_author_code(value: &str) -> Result<()> {
     if value.is_empty()
         || !value
@@ -210,13 +225,33 @@ fn validate_author_code(value: &str) -> Result<()> {
 }
 
 impl Settings {
-    fn apply_environment(&mut self) {
+    fn apply_environment(&mut self) -> Result<()> {
         if let Some(value) = env::var_os("PHOTARA_IMAGES_ROOT") {
             self.images_root = PathBuf::from(value);
         }
         if let Some(value) = env::var_os("PHOTARA_PROJECTS_ROOT") {
             self.projects_root = PathBuf::from(value);
         }
+        if let Some(value) = env::var_os("PHOTARA_LIGHTROOM_INBOX") {
+            self.lightroom_inbox = PathBuf::from(value);
+        }
+        self.lightroom_inbox = expand_home(&self.lightroom_inbox)?;
+        Ok(())
+    }
+}
+
+fn expand_home(path: &Path) -> Result<PathBuf> {
+    let mut components = path.components();
+    if components
+        .next()
+        .is_some_and(|part| part.as_os_str() == "~")
+    {
+        let home = env::var_os("HOME").ok_or_else(|| {
+            PhotaraError::Configuration("lightroom_inbox uses ~ but HOME is not configured".into())
+        })?;
+        Ok(PathBuf::from(home).join(components.as_path()))
+    } else {
+        Ok(path.to_path_buf())
     }
 }
 

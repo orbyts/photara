@@ -4,12 +4,13 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use photara::{
     Result, adobe,
     cloud::{self, ProetusImport},
+    cloud_collection,
     config::{Location, Person, PhotaraConfig, Scene, config_root},
     decision::{self, DecisionValue},
-    persistence,
+    master, persistence,
     project::{self, NewProject, ProjectOrigin},
     selection::{self, SelectionKind, SelectionSource},
-    transfer,
+    transfer, withdrawal,
 };
 use serde::Serialize;
 use tracing::info;
@@ -50,6 +51,10 @@ enum Command {
         #[command(subcommand)]
         command: MetadataCommand,
     },
+    Masters {
+        #[command(subcommand)]
+        command: MasterCommand,
+    },
     Plugin {
         #[command(subcommand)]
         command: PluginCommand,
@@ -78,6 +83,11 @@ enum ConfigCommand {
 enum DecisionCommand {
     Add(DecisionUpdateArgs),
     Remove(DecisionUpdateArgs),
+    History {
+        project: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
     Plan {
         project: String,
         #[arg(long, value_enum, default_value = "json")]
@@ -120,6 +130,26 @@ enum CloudCommand {
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
+    CollectionPlan {
+        project: String,
+        #[arg(long, default_value = "personal")]
+        account: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    BeginWithdrawal {
+        project: String,
+        #[arg(long)]
+        original: std::path::PathBuf,
+        #[arg(long, default_value = "personal")]
+        account: String,
+        #[arg(long)]
+        reason: Option<String>,
+        #[arg(long)]
+        confirm: bool,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
     ExportBatch {
         batch: uuid::Uuid,
         #[arg(long, value_enum, default_value = "json")]
@@ -132,6 +162,29 @@ enum CloudCommand {
     },
     ImportProetus(ProetusImportArgs),
     PresencePlan {
+        #[arg(long, default_value = "personal")]
+        account: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    WithdrawalPlan {
+        project: String,
+        #[arg(long)]
+        original: std::path::PathBuf,
+        #[arg(long, default_value = "personal")]
+        account: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    WithdrawalKeywords {
+        project: String,
+        #[arg(long = "original", required = true)]
+        originals: Vec<std::path::PathBuf>,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    VerifyWithdrawal {
+        withdrawal: uuid::Uuid,
         #[arg(long, default_value = "personal")]
         account: String,
         #[arg(long, value_enum, default_value = "json")]
@@ -158,6 +211,15 @@ enum CloudCommand {
         account: String,
     },
     StorageAudit,
+    SyncCollections {
+        project: String,
+        #[arg(long, default_value = "personal")]
+        account: String,
+        #[arg(long)]
+        confirm: bool,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
     TransferPlan {
         project: String,
         #[arg(long, default_value = "personal")]
@@ -206,6 +268,63 @@ struct ProetusImportArgs {
 enum MetadataCommand {
     Plan {
         project: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum MasterCommand {
+    Prepare {
+        project: String,
+        #[arg(long)]
+        canary: Option<String>,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Status {
+        project: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Verify {
+        project: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Promote {
+        project: String,
+        #[arg(long)]
+        confirm: bool,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Checkpoint {
+        project: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    MarkReady {
+        project: String,
+        #[arg(long)]
+        confirm: bool,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    PrepareFlattening {
+        project: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    VerifyFlattening {
+        project: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    RegisterFlattening {
+        project: String,
+        #[arg(long)]
+        confirm: bool,
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
@@ -390,6 +509,7 @@ async fn main() -> Result<()> {
         Command::People { command } => people(command)?,
         Command::Locations { command } => locations(command)?,
         Command::Metadata { command } => metadata(command).await?,
+        Command::Masters { command } => masters(command).await?,
         Command::Plugin { command } => plugin(command).await?,
         Command::Scenes { command } => scenes(command)?,
         Command::Project { command } => project(command).await?,
@@ -445,6 +565,15 @@ async fn decisions(command: DecisionCommand) -> Result<()> {
                 arguments.format,
             )?;
         }
+        DecisionCommand::History {
+            project: slug,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(&decision::history(&database, &project).await?, format)?;
+        }
         DecisionCommand::Plan {
             project: slug,
             format,
@@ -455,6 +584,127 @@ async fn decisions(command: DecisionCommand) -> Result<()> {
             print_serialized(&decision::plan(&database, &project).await?, format)?;
         }
     }
+    database.close().await;
+    Ok(())
+}
+
+async fn masters(command: MasterCommand) -> Result<()> {
+    match command {
+        MasterCommand::Prepare {
+            project: slug,
+            canary,
+            format,
+        } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            let database = persistence::connect_development().await?;
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &master::prepare(&database, &config, &project, canary.as_deref()).await?,
+                format,
+            )?;
+            database.close().await;
+        }
+        MasterCommand::Status { project, format } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            print_serialized(&master::status(&config, &project)?, format)?;
+        }
+        MasterCommand::Verify { project, format } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            print_serialized(&master::verify(&config, &project)?, format)?;
+        }
+        MasterCommand::Promote {
+            project: slug,
+            confirm,
+            format,
+        } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            let database = persistence::connect_development().await?;
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &master::promote(&database, &config, &project, confirm).await?,
+                format,
+            )?;
+            database.close().await;
+        }
+        MasterCommand::Checkpoint {
+            project: slug,
+            format,
+        } => {
+            master_checkpoint(&slug, false, true, format).await?;
+        }
+        MasterCommand::MarkReady {
+            project: slug,
+            confirm,
+            format,
+        } => {
+            master_checkpoint(&slug, true, confirm, format).await?;
+        }
+        MasterCommand::PrepareFlattening {
+            project: slug,
+            format,
+        } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            let database = persistence::connect_development().await?;
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &master::prepare_flattening(&database, &config, &project).await?,
+                format,
+            )?;
+            database.close().await;
+        }
+        MasterCommand::VerifyFlattening { project, format } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            print_serialized(&master::verify_flattening(&config, &project)?, format)?;
+        }
+        MasterCommand::RegisterFlattening {
+            project: slug,
+            confirm,
+            format,
+        } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            let database = persistence::connect_development().await?;
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &master::register_flattening(&database, &config, &project, confirm).await?,
+                format,
+            )?;
+            database.close().await;
+        }
+    }
+    Ok(())
+}
+
+async fn master_checkpoint(
+    slug: &str,
+    ready: bool,
+    confirmed: bool,
+    format: SerializationFormat,
+) -> Result<()> {
+    let config = PhotaraConfig::discover()?;
+    config.validate()?;
+    let database = persistence::connect_development().await?;
+    let project = project::find(&database, slug).await?.ok_or_else(|| {
+        photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+    })?;
+    print_serialized(
+        &master::checkpoint(&database, &config, &project, ready, confirmed).await?,
+        format,
+    )?;
     database.close().await;
     Ok(())
 }
@@ -488,6 +738,28 @@ async fn cloud_command(command: CloudCommand) -> Result<()> {
             cloud::register_remote_catalog(&database, &account, &report.catalog_id).await?;
             println!("{}", serde_json::to_string_pretty(&report)?);
         }
+        CloudCommand::BeginWithdrawal {
+            project: slug,
+            original,
+            account,
+            reason,
+            confirm,
+            format,
+        } => {
+            if !confirm {
+                return Err(photara::PhotaraError::Configuration(
+                    "begin-withdrawal records a Cloud deletion intent; inspect withdrawal-plan, then retry with --confirm".into(),
+                ));
+            }
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &withdrawal::begin(&database, &project, &account, &original, reason.as_deref())
+                    .await?,
+                format,
+            )?;
+        }
         CloudCommand::CleanupBatch {
             batch,
             confirm,
@@ -495,6 +767,21 @@ async fn cloud_command(command: CloudCommand) -> Result<()> {
         } => {
             print_serialized(
                 &transfer::cleanup_batch(&database, batch, confirm).await?,
+                format,
+            )?;
+        }
+        CloudCommand::CollectionPlan {
+            project: slug,
+            account,
+            format,
+        } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &cloud_collection::plan(&database, &config, &project, &account).await?,
                 format,
             )?;
         }
@@ -518,6 +805,33 @@ async fn cloud_command(command: CloudCommand) -> Result<()> {
         }
         CloudCommand::PresencePlan { account, format } => {
             print_serialized(&cloud::presence_plan(&database, &account).await?, format)?;
+        }
+        CloudCommand::WithdrawalPlan {
+            project: slug,
+            original,
+            account,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &withdrawal::plan(&database, &project, &account, &original).await?,
+                format,
+            )?;
+        }
+        CloudCommand::WithdrawalKeywords {
+            project: slug,
+            originals,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &withdrawal::keyword_plan(&database, &project, &originals).await?,
+                format,
+            )?;
         }
         CloudCommand::RecordExport {
             batch,
@@ -554,6 +868,43 @@ async fn cloud_command(command: CloudCommand) -> Result<()> {
                 "{}",
                 serde_json::to_string_pretty(&cloud::storage_audit(&database).await?)?
             );
+        }
+        CloudCommand::SyncCollections {
+            project: slug,
+            account,
+            confirm,
+            format,
+        } => {
+            if !confirm {
+                return Err(photara::PhotaraError::Configuration(
+                    "sync-collections creates or updates Lightroom Cloud albums; inspect collection-plan, then retry with --confirm".into(),
+                ));
+            }
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            let inventory = adobe::inventory(&account).await?;
+            cloud::register_remote_catalog(&database, &account, &inventory.catalog_id).await?;
+            cloud::record_adobe_inventory(&database, &account, &inventory).await?;
+            let plan = cloud_collection::plan(&database, &config, &project, &account).await?;
+            let provider = adobe::sync_collections(&account, &plan).await?;
+            if provider.verified_membership_count != plan.album_membership_count {
+                return Err(photara::PhotaraError::Configuration(
+                    "Adobe verified a different number of album memberships than Photara planned"
+                        .into(),
+                ));
+            }
+            let ledger = cloud_collection::record_sync(&database, &plan).await?;
+            print_serialized(
+                &serde_json::json!({
+                    "provider": provider,
+                    "ledger": ledger,
+                    "paths": plan.nodes,
+                }),
+                format,
+            )?;
         }
         CloudCommand::TransferPlan {
             project: slug,
@@ -681,6 +1032,19 @@ async fn cloud_command(command: CloudCommand) -> Result<()> {
                     "verification": verification,
                 }))?
             );
+        }
+        CloudCommand::VerifyWithdrawal {
+            withdrawal: withdrawal_id,
+            account,
+            format,
+        } => {
+            let inventory = adobe::inventory(&account).await?;
+            cloud::register_remote_catalog(&database, &account, &inventory.catalog_id).await?;
+            cloud::record_adobe_inventory(&database, &account, &inventory).await?;
+            print_serialized(
+                &withdrawal::verify(&database, withdrawal_id, &account).await?,
+                format,
+            )?;
         }
     }
     database.close().await;

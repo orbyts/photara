@@ -1,0 +1,209 @@
+const { app, action, constants, core } = require("photoshop");
+const { storage } = require("uxp");
+
+const MANIFEST_NAME = "Photara Flattening Manifest.json";
+const REPORT_NAME = "Photara Flattening Report.json";
+
+async function child(folder, relativePath) {
+  let entry = folder;
+  for (const component of relativePath.split("/").filter(Boolean)) {
+    entry = await entry.getEntry(component);
+  }
+  return entry;
+}
+
+async function parentAndName(folder, relativePath) {
+  const components = relativePath.split("/").filter(Boolean);
+  const name = components.pop();
+  let parent = folder;
+  for (const component of components) {
+    parent = await parent.getEntry(component);
+  }
+  return { parent, name };
+}
+
+function bitDepth(document) {
+  if (document.bitsPerChannel === constants.BitsPerChannelType.THIRTYTWO) return 32;
+  if (document.bitsPerChannel === constants.BitsPerChannelType.SIXTEEN) return 16;
+  if (document.bitsPerChannel === constants.BitsPerChannelType.EIGHT) return 8;
+  return null;
+}
+
+function isDisplayP3Linear(profile) {
+  const value = String(profile || "").toLowerCase();
+  return value.includes("p3") && value.includes("linear");
+}
+
+async function saveTiff(document, file) {
+  const token = storage.localFileSystem.createSessionToken(file);
+  const result = await action.batchPlay(
+    [{
+      _obj: "save",
+      as: {
+        _obj: "TIFF",
+        byteOrder: { _enum: "platform", _value: "MacOS" },
+        LZWCompression: true,
+        layerCompression: { _enum: "encoding", _value: "zip" },
+      },
+      in: { _path: token, _kind: "local" },
+      lowerCase: false,
+      _options: { dialogOptions: "dontDisplay" },
+    }],
+    { synchronousExecution: false }
+  );
+  if (result[0] && result[0]._obj === "error") {
+    throw new Error(result[0].message || `Photoshop could not save ${file.name}`);
+  }
+}
+
+async function inspectFlattenedTiff(file, item) {
+  let document = null;
+  try {
+    await core.executeAsModal(async () => {
+      document = await app.open(file);
+    }, { commandName: `Verify ${item.tiff_filename}` });
+    const evidence = {
+      bits: bitDepth(document),
+      profile: document.colorProfileName,
+      layers: document.layers.length,
+    };
+    if (evidence.bits !== 32) {
+      throw new Error(`Expected a 32-bit TIFF, got ${evidence.bits}`);
+    }
+    if (!isDisplayP3Linear(evidence.profile)) {
+      throw new Error(`Expected a Display P3 Linear profile, got ${evidence.profile}`);
+    }
+    if (evidence.layers !== 1) {
+      throw new Error(`Expected one flattened layer, got ${evidence.layers}`);
+    }
+    await core.executeAsModal(async () => document.closeWithoutSaving(), {
+      commandName: `Close ${item.tiff_filename}`,
+    });
+    document = null;
+    return evidence;
+  } finally {
+    if (document) {
+      try {
+        await core.executeAsModal(async () => document.closeWithoutSaving(), {
+          commandName: "Close unverified Photara TIFF",
+        });
+      } catch (_) {}
+    }
+  }
+}
+
+async function processItem(projectRoot, imagesRoot, item) {
+  let source = null;
+  let duplicate = null;
+  try {
+    const psb = await child(imagesRoot, item.psb_relative_path);
+    const destination = await parentAndName(projectRoot, item.tiff_relative_path);
+    let existing = null;
+    try { existing = await destination.parent.getEntry(destination.name); } catch (_) {}
+    if (existing) {
+      const evidence = await inspectFlattenedTiff(existing, item);
+      return {
+        asset_id: item.asset_id,
+        psb_filename: item.psb_filename,
+        tiff_filename: item.tiff_filename,
+        state: "verified",
+        bits_per_channel: evidence.bits,
+        color_profile: evidence.profile,
+        layer_count: evidence.layers,
+      };
+    }
+
+    await core.executeAsModal(async () => {
+      source = await app.open(psb);
+      const depth = bitDepth(source);
+      const profile = source.colorProfileName;
+      if (depth !== 32) throw new Error(`Expected a 32-bit PSB, got ${depth}`);
+      if (!isDisplayP3Linear(profile)) {
+        throw new Error(`Expected a Display P3 Linear profile, got ${profile}`);
+      }
+      duplicate = await source.duplicate(item.tiff_filename, true);
+      await duplicate.flatten();
+      const tiff = await destination.parent.createFile(destination.name, { overwrite: false });
+      await saveTiff(duplicate, tiff);
+      await duplicate.closeWithoutSaving();
+      duplicate = null;
+      await source.closeWithoutSaving();
+      source = null;
+    }, { commandName: `Flatten ${item.psb_filename}` });
+
+    const tiff = await destination.parent.getEntry(destination.name);
+    const evidence = await inspectFlattenedTiff(tiff, item);
+    return {
+      asset_id: item.asset_id,
+      psb_filename: item.psb_filename,
+      tiff_filename: item.tiff_filename,
+      state: "verified",
+      bits_per_channel: evidence.bits,
+      color_profile: evidence.profile,
+      layer_count: evidence.layers,
+    };
+  } catch (error) {
+    for (const document of [duplicate, source]) {
+      if (document) {
+        try {
+          await core.executeAsModal(async () => document.closeWithoutSaving(), {
+            commandName: "Close failed Photara flattening document",
+          });
+        } catch (_) {}
+      }
+    }
+    return {
+      asset_id: item.asset_id,
+      psb_filename: item.psb_filename,
+      tiff_filename: item.tiff_filename,
+      state: "failed",
+      error: error && error.message ? error.message : String(error),
+    };
+  }
+}
+
+async function main() {
+  await core.showAlert(
+    "Choose the Photara project folder first, then choose the configured Images root. " +
+    "Photara will write only the manifest-listed flattened TIFFs."
+  );
+  const projectRoot = await storage.localFileSystem.getFolder();
+  if (!projectRoot) return;
+  let manifestEntry;
+  try {
+    manifestEntry = await projectRoot.getEntry(MANIFEST_NAME);
+  } catch (_) {
+    throw new Error(
+      `Could not find ${MANIFEST_NAME} in the selected folder “${projectRoot.name}”. ` +
+      "Choose the Red Meridian project folder, not its masters or .photara subfolder."
+    );
+  }
+  const manifest = JSON.parse(await manifestEntry.read());
+  const imagesRoot = await storage.localFileSystem.getFolder();
+  if (!imagesRoot) return;
+
+  const report = {
+    schema_version: 1,
+    batch_id: manifest.batch_id,
+    project: manifest.project,
+    items: [],
+  };
+  for (const item of manifest.items) {
+    report.items.push(await processItem(projectRoot, imagesRoot, item));
+  }
+  const reportEntry = await projectRoot.createFile(REPORT_NAME, { overwrite: true });
+  await reportEntry.write(`${JSON.stringify(report, null, 2)}\n`);
+  const verified = report.items.filter((item) => item.state === "verified").length;
+  const failed = report.items.length - verified;
+  await core.showAlert(
+    `Photara flattening finished.\n\nVerified: ${verified}\nFailed: ${failed}\n\n` +
+    "Photara will independently verify every TIFF before registering it."
+  );
+}
+
+try {
+  await main();
+} catch (error) {
+  const message = error && error.message ? error.message : String(error);
+  await core.showAlert(`Photara flattening could not continue.\n\n${message}`);
+}

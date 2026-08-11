@@ -31,6 +31,10 @@ return {
             file = "RemovePhotographerFinalMain.lua",
         },
         {
+            title = "Apply Verified Cloud Withdrawal",
+            file = "ApplyCloudWithdrawalMain.lua",
+        },
+        {
             title = "Prepare Photographer Final DNGs",
             file = "PlanTransferMain.lua",
         },
@@ -39,7 +43,7 @@ return {
     VERSION = {
         major = 0,
         minor = 0,
-        revision = 7,
-        build = 3,
+        revision = 8,
+        build = 1,
     },
 }
