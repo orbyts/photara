@@ -38,12 +38,16 @@ return {
             title = "Prepare Photographer Final DNGs",
             file = "PlanTransferMain.lua",
         },
+        {
+            title = "Prepare Edit Comparison Sources",
+            file = "PrepareEditComparisonMain.lua",
+        },
     },
 
     VERSION = {
         major = 0,
         minor = 0,
-        revision = 8,
-        build = 1,
+        revision = 9,
+        build = 0,
     },
 }

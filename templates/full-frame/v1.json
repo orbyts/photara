@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "name": "full-frame",
+  "version": 1,
+  "display_name": "Full Frame",
+  "kind": "full-frame",
+  "canvas": {
+    "sizing": "platform-profile"
+  },
+  "slots": [
+    {
+      "id": "image",
+      "kind": "image",
+      "bounds": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 1.0
+      }
+    }
+  ],
+  "decoration": {
+    "background": false,
+    "border": false,
+    "text": false
+  },
+  "wsp": {
+    "mode": "hdr-sdr-pair",
+    "hdr_layer": "HDR",
+    "sdr_layer": "SDR",
+    "hdr_above_sdr": true
+  }
+}

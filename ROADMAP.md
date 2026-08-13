@@ -232,6 +232,57 @@ the authoritative project-membership key.
 
 ### 0.0.9 — layouts, HDR export, and publication
 
+- Finish Red Meridian Instagram Package A as the accepted 18-editorial-item,
+  20-delivered-slot sequence recorded in `LAYOUTS.md`. Preserve intentional
+  repeated placements, count each two-frame continuous panorama as one
+  editorial item and two delivery slots, and reject a final Instagram manifest
+  that is not exactly 20 ordered outputs.
+- Add the missing Red Meridian items without rebuilding verified work: five
+  full-frame placements, one cropped stacked placement, a second panorama, a
+  second Dynamic Range Comparison, and a second Edit Comparison. Reorder the
+  project-owned post specification to the accepted sequence before freezing
+  the publication snapshot.
+- Build a separate Threads post specification after the Instagram package is
+  complete. Reuse stable assets and editorial intent, but author independent
+  4500×8000 templates, crops, ordering, output evidence, and publication state;
+  do not silently derive Threads geometry from Instagram.
+
+- **Paired master slice.** Upgrade each authoritative 32-bit PSB to contain a
+  top-level `HDR` Smart Object or group above a top-level `SDR` Smart Object or
+  group. Extend the master ledger
+  with separate `flattened-hdr-tiff` and `flattened-sdr-tiff` representations,
+  preserving every existing verified flattened TIFF as HDR evidence. Extend
+  the UXP handoff to validate the exact group names and order, isolate and
+  flatten each group, and register both outputs independently. Missing SDR is
+  an explicit incomplete state, never inferred from the HDR file.
+- **First full-frame slice.** Install immutable global `full-frame@1`, create a
+  project-owned Instagram post, bind the Red Meridian hero by stable asset ID,
+  resolve the post only when its verified HDR/SDR master pair is present, and
+  build a deterministic Photoshop document with pixel-aligned `HDR` above
+  `SDR` for visual review and WSP handoff.
+- **Stacked-two slice.** Install immutable `stacked-two@1`, bind ordered top
+  and bottom assets, resolve two exact half-canvas slots, and render matching
+  HDR and SDR composites without borders, gaps, or source stretching.
+- **Continuous-panorama crop slice.** Install immutable
+  `continuous-panorama@1`, bind one stable asset to a two-frame horizontal
+  surface, and author a source-relative 3:2 crop in Photoshop with a center
+  seam guide. Capture it in a second non-modal UXP step, then let Rust verify
+  the source and post fingerprints before storing normalized crop coordinates
+  shared by HDR and SDR. WSP performs the physical split.
+- **Dynamic-range comparison slice.** Install a checksummed Photoshop design
+  reference as immutable `dynamic-range-comparison@1`, bind ordered top and
+  bottom asset pairs, preserve identical annotations across WSP layers, and
+  isolate HDR gain to the right image cells and 1-to-10 headroom ramp.
+- **Edit-comparison slice.** Install immutable `edit-comparison@1`, bind two
+  ordered camera originals, and let the Lightroom Classic plug-in produce
+  honest Before sources from Reset + Adobe Color. Restore and verify the
+  authored develop state after every export, query camera/capture labels from
+  the RAW, then build identical annotated WSP composites where only the final
+  After cells may differ between SDR and HDR.
+- Use `LAYOUTS.md` as the durable design reference for global template
+  versioning, project-owned post composition, platform authoring profiles,
+  comparison templates, continuous compositions, the Photoshop UXP contract,
+  and WSP handoff invariants.
 - Add a versioned project-owned JSON layout specification that references
   stable Photara asset IDs rather than filenames.
 - Support one or more flattened TIFFs in a frame with explicit canvas, aspect
@@ -240,7 +291,26 @@ the authoritative project-membership key.
   multiple edited assets.
 - Validate layouts independently from rendering and support a manual
   JSON-plus-preview authoring loop for the 0.1.0 vertical slice.
-- Model SDR-base and HDR-layer inputs for HDR gain-map output.
+- Model explicit SDR-base and HDR-layer inputs for HDR gain-map output.
+- Build complete pixel-aligned SDR and HDR composites with HDR above SDR;
+  duplicate all invariant annotations and permit differences only inside
+  declared HDR-variable masks. For the Dynamic Range Comparison template, use
+  a flat `1 → 1` SDR headroom ramp and a true `1 → 10` HDR alternate.
+- Model continuous multi-frame compositions as one editorial surface with
+  logical frame boundaries. Let WSP perform the final split and resizing rather
+  than forcing Photara to create an upsampled per-frame raster.
+- Keep reusable layout templates global and explicitly versioned, with exact
+  defaults pinned in the main Photara configuration. Keep slide order and asset
+  choice in project-owned, platform-specific post specifications. Resolve each
+  rendered post to an immutable internal snapshot for provenance without
+  conflating that audit revision with template versioning. Preserve repeated
+  placements without duplicating asset identity.
+- Keep the authoritative immutable template registry in a configurable,
+  device-independent synchronized directory. Suhail's installation uses
+  `$DROPBOX/Pictures/Photara/Templates`; Photara verifies and materializes a
+  disposable device-local cache before Photoshop handoff. Keep large RAW,
+  PSB, and TIFF masters on the NAS and never persist machine-specific template
+  paths in project specifications or the database.
 - Treat Web Sharp Pro as an adapter: support the current Photoshop-assisted
   workflow and add a headless adapter later if a stable CLI becomes available.
   Do not make Photara core depend on Photoshop or WSP internals.

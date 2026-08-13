@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "name": "dynamic-range-comparison",
+  "version": 2,
+  "display_name": "Dynamic Range Comparison",
+  "kind": "dynamic-range-comparison",
+  "canvas": {
+    "sizing": "platform-profile"
+  },
+  "slots": [
+    {
+      "id": "top",
+      "kind": "image-pair",
+      "bounds": { "x": 0.0502222222, "y": 0.2458333333, "width": 0.9000000000, "height": 0.3333333333 }
+    },
+    {
+      "id": "bottom",
+      "kind": "image-pair",
+      "bounds": { "x": 0.0502222222, "y": 0.6176666667, "width": 0.9000000000, "height": 0.3333333333 }
+    }
+  ],
+  "decoration": {
+    "background": true,
+    "border": true,
+    "text": true
+  },
+  "wsp": {
+    "mode": "hdr-sdr-pair",
+    "hdr_layer": "HDR",
+    "sdr_layer": "SDR",
+    "hdr_above_sdr": true
+  },
+  "reference": {
+    "filename": "reference.psd",
+    "sha256": "8dbaa01be13ac3751b8cd7e515cca44df077e69e87dbe00e0489f3c930f5d148",
+    "width": 4500,
+    "height": 6000,
+    "bit_depth": 32,
+    "color_profile": "Display P3 Linear"
+  },
+  "comparison": {
+    "left_role": "SDR",
+    "right_role": "HDR",
+    "cells": {
+      "top_left": { "x": 0.0502222222, "y": 0.2458333333, "width": 0.4444444444, "height": 0.3333333333 },
+      "top_right": { "x": 0.5057777778, "y": 0.2458333333, "width": 0.4444444444, "height": 0.3333333333 },
+      "bottom_left": { "x": 0.0502222222, "y": 0.6176666667, "width": 0.4444444444, "height": 0.3333333333 },
+      "bottom_right": { "x": 0.5057777778, "y": 0.6176666667, "width": 0.4444444444, "height": 0.3333333333 }
+    },
+    "hdr_headroom_ramp": { "x": 0.5057777778, "y": 0.1633333333, "width": 0.4444444444, "height": 0.0315 },
+    "hdr_headroom_sdr_base": "flat-white-1.0",
+    "hdr_headroom_hdr_top": "reference-gradient-1.0-to-10.0"
+  }
+}

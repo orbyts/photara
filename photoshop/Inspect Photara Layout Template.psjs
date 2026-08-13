@@ -1,0 +1,122 @@
+const { app, action, constants, core } = require("photoshop");
+const { storage } = require("uxp");
+
+const REPORT_NAME = "Photara Template Inspection.json";
+
+function scalar(value) {
+  return Number(value && value._value !== undefined ? value._value : value);
+}
+
+function bounds(value) {
+  if (!value) return null;
+  return {
+    left: scalar(value.left),
+    top: scalar(value.top),
+    right: scalar(value.right),
+    bottom: scalar(value.bottom),
+  };
+}
+
+function color(value) {
+  if (!value) return null;
+  const result = {};
+  for (const key of ["red", "green", "blue", "gray", "cyan", "magenta", "yellow", "black"]) {
+    if (value[key] !== undefined) result[key] = scalar(value[key]);
+  }
+  return Object.keys(result).length ? result : null;
+}
+
+function textData(layer) {
+  if (layer.kind !== constants.LayerKind.TEXT) return null;
+  const item = layer.textItem;
+  const character = item.characterStyle;
+  const paragraph = item.paragraphStyle;
+  return {
+    contents: item.contents,
+    point_text: item.isPointText,
+    paragraph_text: item.isParagraphText,
+    click_point: item.textClickPoint,
+    font: character.font,
+    font_size: scalar(character.size),
+    leading: scalar(character.leading),
+    tracking: character.tracking,
+    horizontal_scale: character.horizontalScale,
+    vertical_scale: character.verticalScale,
+    baseline_shift: scalar(character.baselineShift),
+    faux_bold: character.fauxBold,
+    faux_italic: character.fauxItalic,
+    color: color(character.color),
+    justification: paragraph.justification,
+  };
+}
+
+async function inspectLayer(layer, path) {
+  const descriptor = (await action.batchPlay([{
+    _obj: "get",
+    _target: [{ _ref: "layer", _id: layer.id }],
+    _options: { dialogOptions: "dontDisplay" },
+  }], { synchronousExecution: true }))[0];
+  const record = {
+    id: layer.id,
+    name: layer.name,
+    path: [...path, layer.name],
+    kind: layer.kind,
+    visible: layer.visible,
+    opacity: layer.opacity,
+    fill_opacity: layer.fillOpacity,
+    blend_mode: layer.blendMode,
+    bounds: bounds(layer.bounds),
+    bounds_no_effects: bounds(layer.boundsNoEffects),
+    text: textData(layer),
+    descriptor,
+    children: [],
+  };
+  if (layer.kind === constants.LayerKind.GROUP) {
+    for (const child of layer.layers) record.children.push(await inspectLayer(child, record.path));
+  }
+  return record;
+}
+
+async function main() {
+  if (!app.activeDocument) throw new Error("Open the Photara reference PSD first.");
+  const document = app.activeDocument;
+  await core.showAlert(
+    `Photara will inspect “${document.name}” without changing it. Choose a folder for the machine-readable report.`
+  );
+  const outputFolder = await storage.localFileSystem.getFolder();
+  if (!outputFolder) return;
+  const documentDescriptor = (await action.batchPlay([{
+    _obj: "get",
+    _target: [{ _ref: "document", _id: document.id }],
+    _options: { dialogOptions: "dontDisplay" },
+  }], { synchronousExecution: true }))[0];
+  const report = {
+    schema_version: 1,
+    source_document: document.name,
+    document: {
+      id: document.id,
+      width: scalar(document.width),
+      height: scalar(document.height),
+      resolution: document.resolution,
+      bits_per_channel: document.bitsPerChannel === constants.BitsPerChannelType.THIRTYTWO ? 32 :
+        document.bitsPerChannel === constants.BitsPerChannelType.SIXTEEN ? 16 : 8,
+      color_mode: document.mode,
+      color_profile: document.colorProfileName,
+      descriptor: documentDescriptor,
+    },
+    layers: [],
+  };
+  for (const layer of document.layers) report.layers.push(await inspectLayer(layer, []));
+  const output = await outputFolder.createFile(REPORT_NAME, { overwrite: true });
+  await output.write(`${JSON.stringify(report, null, 2)}\n`);
+  await core.showAlert(
+    `Photara template inspection complete.\n\nTop-level layers: ${report.layers.length}\nReport: ${REPORT_NAME}`
+  );
+}
+
+try {
+  await main();
+} catch (error) {
+  await core.showAlert(`Photara could not inspect the template.\n\n${error && error.message ? error.message : String(error)}`);
+  throw error;
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "name": "edit-comparison",
+  "version": 1,
+  "display_name": "Edit Comparison",
+  "kind": "edit-comparison",
+  "canvas": { "sizing": "platform-profile" },
+  "slots": [
+    { "id": "top", "kind": "edit-pair", "bounds": { "x": 0.0502222222, "y": 0.1298333333, "width": 0.9000000000, "height": 0.3333333333 } },
+    { "id": "bottom", "kind": "edit-pair", "bounds": { "x": 0.0502222222, "y": 0.5551666667, "width": 0.9000000000, "height": 0.3333333333 } }
+  ],
+  "decoration": { "background": true, "border": true, "text": true },
+  "wsp": { "mode": "hdr-sdr-pair", "hdr_layer": "HDR", "sdr_layer": "SDR", "hdr_above_sdr": true },
+  "reference": {
+    "filename": "reference.psd",
+    "sha256": "ba1cae70b70fca7b284a686371f1a11168884db71825dd9373323068802ea63e",
+    "width": 4500,
+    "height": 6000,
+    "bit_depth": 32,
+    "color_profile": "Display P3 Linear"
+  },
+  "edit_comparison": {
+    "before_role": "neutral-raw-sdr",
+    "after_role": "authored",
+    "before_rendering": "lightroom-reset-adobe-color",
+    "cells": {
+      "top_left": { "x": 0.0502222222, "y": 0.1298333333, "width": 0.4444444444, "height": 0.3333333333 },
+      "top_right": { "x": 0.5057777778, "y": 0.1298333333, "width": 0.4444444444, "height": 0.3333333333 },
+      "bottom_left": { "x": 0.0502222222, "y": 0.5551666667, "width": 0.4444444444, "height": 0.3333333333 },
+      "bottom_right": { "x": 0.5057777778, "y": 0.5551666667, "width": 0.4444444444, "height": 0.3333333333 }
+    },
+    "text_layers": {
+      "top_camera": ["Camera & Capture", "Info", "Camera bottom row"],
+      "top_capture": ["Camera & Capture", "Info", "Capture top row"],
+      "bottom_camera": ["Camera & Capture", "Info", "Camera bottom row"],
+      "bottom_capture": ["Camera & Capture", "Info", "Capture bottom row"]
+    },
+    "text_style": {
+      "font_postscript_name": "SFCompact-Ultralight",
+      "preferred_size_points": 27,
+      "minimum_size_points": 22,
+      "right_padding_pixels": 24,
+      "color_rgb": [171.00044578313828, 169.65659469366074, 169.65659469366074]
+    }
+  }
+}

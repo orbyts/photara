@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "name": "continuous-panorama",
+  "version": 1,
+  "display_name": "Continuous Two-Frame Panorama",
+  "kind": "continuous-panorama",
+  "canvas": {
+    "sizing": "source-crop"
+  },
+  "slots": [
+    {
+      "id": "image",
+      "kind": "image",
+      "bounds": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 1.0
+      }
+    }
+  ],
+  "decoration": {
+    "background": false,
+    "border": false,
+    "text": false
+  },
+  "wsp": {
+    "mode": "hdr-sdr-pair",
+    "hdr_layer": "HDR",
+    "sdr_layer": "SDR",
+    "hdr_above_sdr": true
+  },
+  "surface": {
+    "frame_aspect": "3:4",
+    "frame_count": 2,
+    "flow": "horizontal",
+    "splitter": "web-sharp-pro",
+    "resolution_policy": "no-upscale"
+  }
+}

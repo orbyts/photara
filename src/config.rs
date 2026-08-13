@@ -20,6 +20,15 @@ default_country = "United States"
 default_iso_country_code = "US"
 proof_provider = "pixieset"
 delivery_provider = "cloudinary"
+templates_root = "$DROPBOX/Pictures/Photara/Templates"
+templates_cache = "~/Library/Caches/photara/templates"
+
+[layouts.defaults]
+full_frame = "full-frame@1"
+stacked_two = "stacked-two@1"
+continuous_panorama = "continuous-panorama@1"
+dynamic_range_comparison = "dynamic-range-comparison@2"
+edit_comparison = "edit-comparison@1"
 "#;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -39,6 +48,52 @@ pub struct Settings {
     pub default_iso_country_code: String,
     pub proof_provider: String,
     pub delivery_provider: String,
+    #[serde(default = "default_templates_root")]
+    pub templates_root: PathBuf,
+    #[serde(default = "default_templates_cache")]
+    pub templates_cache: PathBuf,
+    #[serde(default)]
+    pub layouts: LayoutConfiguration,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct LayoutConfiguration {
+    #[serde(default)]
+    pub defaults: LayoutDefaults,
+}
+
+impl Default for LayoutConfiguration {
+    fn default() -> Self {
+        Self {
+            defaults: LayoutDefaults::default(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct LayoutDefaults {
+    #[serde(default = "default_full_frame_template")]
+    pub full_frame: String,
+    #[serde(default = "default_stacked_two_template")]
+    pub stacked_two: String,
+    #[serde(default = "default_continuous_panorama_template")]
+    pub continuous_panorama: String,
+    #[serde(default = "default_dynamic_range_comparison_template")]
+    pub dynamic_range_comparison: String,
+    #[serde(default = "default_edit_comparison_template")]
+    pub edit_comparison: String,
+}
+
+impl Default for LayoutDefaults {
+    fn default() -> Self {
+        Self {
+            full_frame: default_full_frame_template(),
+            stacked_two: default_stacked_two_template(),
+            continuous_panorama: default_continuous_panorama_template(),
+            dynamic_range_comparison: default_dynamic_range_comparison_template(),
+            edit_comparison: default_edit_comparison_template(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -141,6 +196,16 @@ impl PhotaraConfig {
                 "lightroom_inbox must resolve to an absolute path".into(),
             ));
         }
+        if !self.settings.templates_root.is_absolute() {
+            return Err(PhotaraError::Configuration(
+                "templates_root must resolve to an absolute path".into(),
+            ));
+        }
+        if !self.settings.templates_cache.is_absolute() {
+            return Err(PhotaraError::Configuration(
+                "templates_cache must resolve to an absolute path".into(),
+            ));
+        }
         if self.settings.images_root == self.settings.projects_root {
             return Err(PhotaraError::Configuration(
                 "images_root and projects_root must be different".into(),
@@ -152,6 +217,13 @@ impl PhotaraConfig {
             ));
         }
         validate_author_code(&self.settings.default_author_code)?;
+        crate::layout::TemplateRef::parse(&self.settings.layouts.defaults.full_frame)?;
+        crate::layout::TemplateRef::parse(&self.settings.layouts.defaults.stacked_two)?;
+        crate::layout::TemplateRef::parse(&self.settings.layouts.defaults.continuous_panorama)?;
+        crate::layout::TemplateRef::parse(
+            &self.settings.layouts.defaults.dynamic_range_comparison,
+        )?;
+        crate::layout::TemplateRef::parse(&self.settings.layouts.defaults.edit_comparison)?;
         for (name, value) in [
             ("default_creator", &self.settings.default_creator),
             ("default_copyright", &self.settings.default_copyright),
@@ -203,11 +275,47 @@ fn default_author_code() -> String {
     "SUHAIL".into()
 }
 
+fn default_full_frame_template() -> String {
+    "full-frame@1".into()
+}
+
+fn default_stacked_two_template() -> String {
+    "stacked-two@1".into()
+}
+
+fn default_continuous_panorama_template() -> String {
+    "continuous-panorama@1".into()
+}
+
+fn default_dynamic_range_comparison_template() -> String {
+    "dynamic-range-comparison@2".into()
+}
+
+fn default_edit_comparison_template() -> String {
+    "edit-comparison@1".into()
+}
+
 fn default_lightroom_inbox() -> PathBuf {
     env::var_os("HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("~"))
         .join("Pictures/Photara/Inbox")
+}
+
+fn default_templates_root() -> PathBuf {
+    env::var_os("DROPBOX")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(PathBuf::from))
+        .unwrap_or_else(|| PathBuf::from("~"))
+        .join("Pictures/Photara/Templates")
+}
+
+fn default_templates_cache() -> PathBuf {
+    env::var_os("XDG_CACHE_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join("Library/Caches")))
+        .unwrap_or_else(|| PathBuf::from("~/.cache"))
+        .join("photara/templates")
 }
 
 fn validate_author_code(value: &str) -> Result<()> {
@@ -235,9 +343,35 @@ impl Settings {
         if let Some(value) = env::var_os("PHOTARA_LIGHTROOM_INBOX") {
             self.lightroom_inbox = PathBuf::from(value);
         }
+        if let Some(value) = env::var_os("PHOTARA_TEMPLATES_ROOT") {
+            self.templates_root = PathBuf::from(value);
+        }
+        if let Some(value) = env::var_os("PHOTARA_TEMPLATES_CACHE") {
+            self.templates_cache = PathBuf::from(value);
+        }
         self.lightroom_inbox = expand_home(&self.lightroom_inbox)?;
+        self.templates_root = expand_environment(&expand_home(&self.templates_root)?)?;
+        self.templates_cache = expand_environment(&expand_home(&self.templates_cache)?)?;
         Ok(())
     }
+}
+
+fn expand_environment(path: &Path) -> Result<PathBuf> {
+    let value = path.to_string_lossy();
+    if !value.starts_with('$') {
+        return Ok(path.to_path_buf());
+    }
+    let remainder = &value[1..];
+    let boundary = remainder.find('/').unwrap_or(remainder.len());
+    let name = &remainder[..boundary];
+    let root = env::var_os(name).ok_or_else(|| {
+        PhotaraError::Configuration(format!(
+            "{} uses ${name}, but {name} is not configured",
+            path.display()
+        ))
+    })?;
+    let suffix = remainder[boundary..].trim_start_matches('/');
+    Ok(PathBuf::from(root).join(suffix))
 }
 
 fn expand_home(path: &Path) -> Result<PathBuf> {

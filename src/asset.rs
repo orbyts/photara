@@ -15,7 +15,8 @@ pub enum Representation {
     XmpSidecar,
     WorkingDng,
     LayeredPsb,
-    FlattenedTiff,
+    FlattenedHdrTiff,
+    FlattenedSdrTiff,
     DeliveryRendition,
     PixiesetProof,
 }
@@ -27,7 +28,8 @@ impl Representation {
             Self::XmpSidecar => "xmp-sidecar",
             Self::WorkingDng => "working-dng",
             Self::LayeredPsb => "layered-psb",
-            Self::FlattenedTiff => "flattened-tiff",
+            Self::FlattenedHdrTiff => "flattened-hdr-tiff",
+            Self::FlattenedSdrTiff => "flattened-sdr-tiff",
             Self::DeliveryRendition => "delivery-rendition",
             Self::PixiesetProof => "pixieset-proof",
         }

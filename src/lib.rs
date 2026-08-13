@@ -8,6 +8,7 @@ pub mod config;
 pub mod credentials;
 pub mod decision;
 mod error;
+pub mod layout;
 pub mod master;
 pub mod metadata;
 pub mod persistence;

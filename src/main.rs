@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, path::PathBuf};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use photara::{
@@ -7,6 +7,7 @@ use photara::{
     cloud_collection,
     config::{Location, Person, PhotaraConfig, Scene, config_root},
     decision::{self, DecisionValue},
+    layout::{self, PostPlatform},
     master, persistence,
     project::{self, NewProject, ProjectOrigin},
     selection::{self, SelectionKind, SelectionSource},
@@ -47,6 +48,10 @@ enum Command {
         #[command(subcommand)]
         command: LocationsCommand,
     },
+    Layouts {
+        #[command(subcommand)]
+        command: LayoutCommand,
+    },
     Metadata {
         #[command(subcommand)]
         command: MetadataCommand,
@@ -67,6 +72,10 @@ enum Command {
         #[command(subcommand)]
         command: ProjectCommand,
     },
+    Posts {
+        #[command(subcommand)]
+        command: PostCommand,
+    },
     Selections {
         #[command(subcommand)]
         command: SelectionCommand,
@@ -77,6 +86,184 @@ enum Command {
 enum ConfigCommand {
     Init,
     Validate,
+}
+
+#[derive(Debug, Subcommand)]
+enum LayoutCommand {
+    Install {
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Show {
+        template: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    InstallReference {
+        template: String,
+        source: PathBuf,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum PostCommand {
+    Init {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    AddFullFrame {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long)]
+        item: String,
+        #[arg(long)]
+        asset: String,
+        #[arg(long)]
+        template: Option<String>,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    AddStackedTwo {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long)]
+        item: String,
+        #[arg(long)]
+        top: String,
+        #[arg(long)]
+        bottom: String,
+        #[arg(long)]
+        top_crop_from_item: Option<String>,
+        #[arg(long)]
+        bottom_crop_from_item: Option<String>,
+        #[arg(long)]
+        template: Option<String>,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    AddContinuousPanorama {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long)]
+        item: String,
+        #[arg(long)]
+        asset: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    AddDynamicRangeComparison {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long)]
+        item: String,
+        #[arg(long)]
+        top: String,
+        #[arg(long)]
+        bottom: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    AddEditComparison {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long)]
+        item: String,
+        #[arg(long)]
+        top: String,
+        #[arg(long)]
+        bottom: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    PrepareEditComparisonSources {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    VerifyEditComparisonSources {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    PreparePanoramaCrop {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long)]
+        item: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    ApplyPanoramaCrop {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long)]
+        item: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Show {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Reorder {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long = "item", required = true)]
+        items: Vec<String>,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Resolve {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    PrepareRender {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        /// Resolve and render exactly one editorial item for review/debugging.
+        #[arg(long)]
+        item: Option<String>,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -463,6 +650,21 @@ enum Origin {
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
+enum Platform {
+    Instagram,
+    Threads,
+}
+
+impl From<Platform> for PostPlatform {
+    fn from(value: Platform) -> Self {
+        match value {
+            Platform::Instagram => Self::Instagram,
+            Platform::Threads => Self::Threads,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
 enum SerializationFormat {
     Json,
     Lua,
@@ -508,11 +710,13 @@ async fn main() -> Result<()> {
         Command::Decisions { command } => decisions(command).await?,
         Command::People { command } => people(command)?,
         Command::Locations { command } => locations(command)?,
+        Command::Layouts { command } => layouts(command)?,
         Command::Metadata { command } => metadata(command).await?,
         Command::Masters { command } => masters(command).await?,
         Command::Plugin { command } => plugin(command).await?,
         Command::Scenes { command } => scenes(command)?,
         Command::Project { command } => project(command).await?,
+        Command::Posts { command } => posts(command).await?,
         Command::Selections { command } => selections(command).await?,
     }
     Ok(())
@@ -1182,6 +1386,339 @@ fn config(command: ConfigCommand) -> Result<()> {
             info!(path = %config.root.display(), "Photara configuration is valid");
         }
     }
+    Ok(())
+}
+
+fn layouts(command: LayoutCommand) -> Result<()> {
+    match command {
+        LayoutCommand::Install { format } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            print_serialized(
+                &layout::install_builtin_templates(&config.settings.templates_root)?,
+                format,
+            )?;
+        }
+        LayoutCommand::Show { template, format } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            print_serialized(&layout::load_template(&config, &template)?, format)?;
+        }
+        LayoutCommand::InstallReference {
+            template,
+            source,
+            format,
+        } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            print_serialized(
+                &layout::install_template_reference(&config, &template, &source)?,
+                format,
+            )?;
+        }
+    }
+    Ok(())
+}
+
+async fn posts(command: PostCommand) -> Result<()> {
+    let config = PhotaraConfig::discover()?;
+    config.validate()?;
+    let database = persistence::connect_development().await?;
+    match command {
+        PostCommand::Init {
+            project: slug,
+            post,
+            platform,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::initialize_post(&config, &project, &post, platform.into())?,
+                format,
+            )?;
+        }
+        PostCommand::AddFullFrame {
+            project: slug,
+            post,
+            platform,
+            item,
+            asset,
+            template,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::add_full_frame(
+                    &database,
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                    &item,
+                    &asset,
+                    template,
+                )
+                .await?,
+                format,
+            )?;
+        }
+        PostCommand::AddStackedTwo {
+            project: slug,
+            post,
+            platform,
+            item,
+            top,
+            bottom,
+            top_crop_from_item,
+            bottom_crop_from_item,
+            template,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::add_stacked_two(
+                    &database,
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                    &item,
+                    &top,
+                    &bottom,
+                    top_crop_from_item.as_deref(),
+                    bottom_crop_from_item.as_deref(),
+                    template,
+                )
+                .await?,
+                format,
+            )?;
+        }
+        PostCommand::AddContinuousPanorama {
+            project: slug,
+            post,
+            platform,
+            item,
+            asset,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::add_continuous_panorama(
+                    &database,
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                    &item,
+                    &asset,
+                )
+                .await?,
+                format,
+            )?;
+        }
+        PostCommand::AddDynamicRangeComparison {
+            project: slug,
+            post,
+            platform,
+            item,
+            top,
+            bottom,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::add_dynamic_range_comparison(
+                    &database,
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                    &item,
+                    &top,
+                    &bottom,
+                )
+                .await?,
+                format,
+            )?;
+        }
+        PostCommand::AddEditComparison {
+            project: slug,
+            post,
+            platform,
+            item,
+            top,
+            bottom,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::add_edit_comparison(
+                    &database,
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                    &item,
+                    &top,
+                    &bottom,
+                )
+                .await?,
+                format,
+            )?;
+        }
+        PostCommand::PrepareEditComparisonSources {
+            project: slug,
+            post,
+            platform,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::prepare_edit_comparison_sources(
+                    &database,
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                )
+                .await?,
+                format,
+            )?;
+        }
+        PostCommand::VerifyEditComparisonSources {
+            project: slug,
+            post,
+            platform,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::verify_edit_comparison_sources(&config, &project, &post, platform.into())?,
+                format,
+            )?;
+        }
+        PostCommand::PreparePanoramaCrop {
+            project: slug,
+            post,
+            platform,
+            item,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::prepare_panorama_crop(
+                    &database,
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                    &item,
+                )
+                .await?,
+                format,
+            )?;
+        }
+        PostCommand::ApplyPanoramaCrop {
+            project: slug,
+            post,
+            platform,
+            item,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::apply_panorama_crop(&config, &project, &post, platform.into(), &item)?,
+                format,
+            )?;
+        }
+        PostCommand::Show {
+            project: slug,
+            post,
+            platform,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::show_post(&config, &project, &post, platform.into())?,
+                format,
+            )?;
+        }
+        PostCommand::Reorder {
+            project: slug,
+            post,
+            platform,
+            items,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::reorder_post(&config, &project, &post, platform.into(), &items)?,
+                format,
+            )?;
+        }
+        PostCommand::Resolve {
+            project: slug,
+            post,
+            platform,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::resolve_post(&database, &config, &project, &post, platform.into()).await?,
+                format,
+            )?;
+        }
+        PostCommand::PrepareRender {
+            project: slug,
+            post,
+            platform,
+            item,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::prepare_render_item(
+                    &database,
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                    item.as_deref(),
+                )
+                .await?,
+                format,
+            )?;
+        }
+    }
+    database.close().await;
     Ok(())
 }
 

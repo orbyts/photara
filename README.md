@@ -8,12 +8,14 @@ publication bookkeeping.
 
 ## Status
 
-`v0.0.8` is developing reversible editorial state and the PSB/flattened-master workflow. Photara owns its
+`v0.0.9` is developing layouts, HDR/SDR export pairs, and publication. Photara owns its
 schemas, SQL, repositories, and photography workflow; Storexa owns connection
 and transaction plumbing.
 
 See [ROADMAP.md](ROADMAP.md) for the path to the first supported release and
 [METADATA.md](METADATA.md) for the Lightroom metadata ownership contract.
+[LAYOUTS.md](LAYOUTS.md) records the evolving layout, HDR/SDR, WSP handoff, and
+publication-package design for `0.0.9`.
 
 ## Configuration
 
@@ -28,8 +30,7 @@ photara/
 │   ├── locations.yml
 │   └── scenes.yml
 ├── cache/
-├── schemas/
-└── templates/
+└── schemas/
 ```
 
 Initialize without overwriting any existing files, then validate after adding
@@ -48,7 +49,17 @@ without changing database identities:
 $ export PHOTARA_IMAGES_ROOT=/Volumes/whisk/Pictures/Images
 $ export PHOTARA_PROJECTS_ROOT=/Volumes/whisk/Pictures/Projects
 $ export PHOTARA_LIGHTROOM_INBOX="$HOME/Pictures/Photara/Inbox"
+$ export PHOTARA_TEMPLATES_ROOT="$DROPBOX/Pictures/Photara/Templates"
+$ export PHOTARA_TEMPLATES_CACHE="$HOME/Library/Caches/photara/templates"
 ```
+
+The configured `templates_root` is the authoritative, device-independent
+registry for immutable layout template versions. Suhail's installation uses
+`$DROPBOX/Pictures/Photara/Templates`; other users may choose any absolute
+local or synchronized directory. `templates_cache` is a disposable,
+checksum-verified device-local cache used before Photoshop handoff. Project
+specifications store logical references such as `dynamic-range-comparison@2`
+and checksums, never machine-specific template paths.
 
 `lightroom_inbox` defaults to `~/Pictures/Photara/Inbox` and is stored in
 `$XDG_CONFIG_HOME/photara/config/photara.toml`. Lightroom Desktop exports
@@ -479,6 +490,142 @@ without overwriting an existing file.
 The connection URL must remain outside the repository. Non-secret application
 settings live under `$XDG_CONFIG_HOME/photara/`; environment overrides are
 optional and can be emitted by any environment manager.
+
+## Layout prototype
+
+Install or verify Photara's immutable global templates. New configuration
+files pin the default full-frame template under `[layouts.defaults]`; older
+configuration files receive the same default through backward-compatible
+deserialization and may add the section explicitly.
+
+```console
+$ photara layouts install
+$ photara layouts show full-frame@1
+```
+
+Create an Instagram post inside the Red Meridian project and add the first
+clean full-frame hero. The friendly PSB filename is accepted only at the CLI
+boundary; the project JSON stores the stable Photara asset UUID.
+
+```console
+$ photara posts init red-meridian package-a --platform instagram
+$ photara posts add-full-frame red-meridian package-a \
+    --platform instagram \
+    --item hero \
+    --asset DSC05250_2021_06_11_SUHAIL.PSB
+$ photara posts resolve red-meridian package-a --platform instagram
+$ photara posts prepare-render red-meridian package-a --platform instagram
+```
+
+Append a clean two-image stack. The first asset occupies the top 4500×3000
+slot and the second occupies the bottom slot; each is independently fitted
+without stretching, then identically composed for HDR and SDR:
+
+```console
+$ photara posts add-stacked-two red-meridian package-a \
+    --platform instagram \
+    --item stacked-01 \
+    --top DSC05445_2021_06_11_SUHAIL.PSB \
+    --bottom DSC05442_2021_06_11_SUHAIL.PSB
+$ photara posts prepare-render red-meridian package-a --platform instagram
+```
+
+Either stacked placement may explicitly reuse an authored crop from an
+existing item that places the same asset. Photara verifies the asset identity
+and normalized crop before copying that placement intent:
+
+```console
+$ photara posts add-stacked-two red-meridian package-a \
+    --platform instagram \
+    --item stacked-03 \
+    --top DSC05441_2021_06_11_SUHAIL.PSB \
+    --bottom DSC05382_2021_06_11_SUHAIL.PSB \
+    --bottom-crop-from-item panorama-05382
+```
+
+Reorder a draft only by supplying an exact permutation of every item ID.
+Photara rejects duplicates, omissions, and unknown IDs. A production Instagram
+render manifest is rejected unless the ordered items expand to exactly 20
+delivery frames after continuous panoramas are counted:
+
+```console
+$ photara posts reorder red-meridian package-a --platform instagram \
+    --item hero --item stacked-01 --item full-frame-05217
+```
+
+The project-owned post is written to
+`projects_root/red-meridian/posts/instagram/package-a.json`. Resolution pins
+the exact global template checksum, authoritative PSB, and independently
+verified HDR and SDR flattened TIFFs. The PSB contract is top-level `HDR` above
+top-level `SDR`; both TIFF records retain provenance to that same PSB. Existing
+0.0.8 flattened TIFFs are migrated in place as HDR renditions. Until a verified
+SDR-authored rendition exists, the plan reports `ready: false` with an explicit
+requirement instead of producing an invalid WSP handoff.
+
+`prepare-render` rechecks the registered byte sizes and SHA-256 fingerprints,
+writes `Photara Layout Manifest.json` at the project root, installs **Build
+Photara Layouts.psjs** under `~/Pictures/Photara/Scripts`, and creates the
+project render directory. Run that UXP script in Photoshop and choose the
+project root. For `full-frame@1`, it creates a 4500×6000 Instagram PSB with an
+`HDR` layer above an `SDR` layer, both pixel-aligned from the same crop and
+ready for visual review and WSP.
+`stacked-two@1` uses the same output contract while composing two 2:3
+landscape slots into the upper and lower halves of one 3:4 frame.
+
+Append and author a continuous two-frame panorama:
+
+```console
+$ photara posts add-continuous-panorama red-meridian package-a \
+    --platform instagram --item panorama-05382 \
+    --asset DSC05382_2021_06_11_SUHAIL.PSB
+$ photara posts prepare-panorama-crop red-meridian package-a \
+    --platform instagram --item panorama-05382
+```
+
+Run **Author Photara Panorama Crop.psjs**, choose the Red Meridian project
+folder, and use **Select > Transform Selection** to position the 3:2 marquee.
+Then run **Capture Photara Panorama Crop.psjs** and choose the same folder. It
+places a vertical guide at the seam between the two horizontal 3:4 frames; if
+needed, adjust the selection and capture it again. Apply the approved report:
+
+```console
+$ photara posts apply-panorama-crop red-meridian package-a \
+    --platform instagram --item panorama-05382
+```
+
+Photara stores normalized source coordinates shared by the HDR and SDR
+renditions. It neither crops nor saves the source, and WSP remains responsible
+for splitting and resizing the continuous output.
+
+Install and use a versioned Dynamic Range Comparison design reference:
+
+```console
+$ photara layouts install-reference dynamic-range-comparison@2 \
+    /path/to/3x4_HDR_Compare.psd
+$ photara posts add-dynamic-range-comparison red-meridian package-a \
+    --platform instagram --item dynamic-range-01 \
+    --top DSC05250 --bottom DSC05421
+```
+
+Each row compares one asset. Its left cell remains SDR in both WSP layers; its
+right cell changes from SDR in the base to HDR in the top layer. The headroom
+ramp similarly changes from flat SDR white to the true 1-to-10 HDR gradient.
+Photara pins and verifies the PSD checksum before preparing the render.
+Images are contained inside the square cells without cropping: portrait images
+use side bars, while landscape images use top and bottom bars supplied by the
+template background.
+
+After upgrading each PSB to exactly two top-level Smart Objects or groups named
+`HDR` and `SDR` (in that order), rerun the readiness checkpoint and prepare the
+new handoff. Photoshop renders Smart Filters and writes
+`<CANONICAL_BASE>_HDR.TIF` and `<CANONICAL_BASE>_SDR.TIF` together under
+`masters/flattened/`. Photara requires both files to be flattened 32-bit
+Display P3 Linear TIFFs with identical dimensions before their database records
+are atomically registered or replaced.
+
+Repeating the same commands is idempotent. A future project such as Sylvan uses
+the same commands, template, and Rust code with only its project slug, post
+name, asset choices, and project configuration changed.
 
 ## License
 

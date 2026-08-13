@@ -1,0 +1,84 @@
+const { app, constants, core } = require("photoshop");
+const { storage } = require("uxp");
+
+const MANIFEST_NAME = "Photara Panorama Crop Manifest.json";
+const REPORT_NAME = "Photara Panorama Crop Report.json";
+
+function pixels(value) {
+  return Math.round(Number(value && value._value !== undefined ? value._value : value));
+}
+
+function normalized(value, total) {
+  return Number((value / total).toFixed(12));
+}
+
+async function main() {
+  if (!app.activeDocument) throw new Error("Open the Photara panorama crop document first.");
+  await core.showAlert(
+    "Choose the same Photara project folder. Photara will record the active rectangular selection; it will not crop or save the source image."
+  );
+  const projectRoot = await storage.localFileSystem.getFolder();
+  if (!projectRoot) return;
+  let manifestEntry;
+  try { manifestEntry = await projectRoot.getEntry(MANIFEST_NAME); }
+  catch (_) { throw new Error(`Could not find ${MANIFEST_NAME} in “${projectRoot.name}”.`); }
+  const manifest = JSON.parse(await manifestEntry.read());
+  if (manifest.schema_version !== 1) throw new Error("Unsupported Photara panorama crop manifest");
+  const document = app.activeDocument;
+  if (document.name !== manifest.source_filename) {
+    throw new Error(`Active document is ${document.name}; expected ${manifest.source_filename}`);
+  }
+  const bounds = document.selection.bounds;
+  if (!bounds || !document.selection.solid) {
+    throw new Error("The active selection must be one solid rectangle.");
+  }
+  const documentWidth = pixels(document.width);
+  const documentHeight = pixels(document.height);
+  const left = pixels(bounds.left);
+  const top = pixels(bounds.top);
+  const right = pixels(bounds.right);
+  const bottom = pixels(bounds.bottom);
+  const width = right - left;
+  const height = bottom - top;
+  const ratio = width / height;
+  if (Math.abs(ratio - 1.5) > 0.002) {
+    throw new Error(`Panorama selection must be 3:2; current selection is ${ratio.toFixed(6)}:1.`);
+  }
+  if (left < 0 || top < 0 || right > documentWidth || bottom > documentHeight) {
+    throw new Error("Panorama selection must stay inside the source image.");
+  }
+  await core.executeAsModal(async () => {
+    document.guides.removeAll();
+    document.guides.add(constants.Direction.VERTICAL, left + width / 2);
+  }, { commandName: "Preview Photara panorama seam" });
+  const report = {
+    schema_version: 1,
+    project: manifest.project,
+    post: manifest.post,
+    platform: manifest.platform,
+    item_id: manifest.item_id,
+    source_specification_sha256: manifest.source_specification_sha256,
+    source_sha256: manifest.source_sha256,
+    document_width: documentWidth,
+    document_height: documentHeight,
+    crop_pixels: { x: left, y: top, width, height },
+    crop: {
+      x: normalized(left, documentWidth),
+      y: normalized(top, documentHeight),
+      width: normalized(width, documentWidth),
+      height: normalized(height, documentHeight),
+    },
+  };
+  const reportEntry = await projectRoot.createFile(REPORT_NAME, { overwrite: true });
+  await reportEntry.write(`${JSON.stringify(report, null, 2)}\n`);
+  await core.showAlert(
+    `Panorama crop captured for ${manifest.item_id}.\n\n${width} × ${height} px · ${ratio.toFixed(6)}:1\n\nThe vertical guide now previews the split. If it needs adjustment, transform the selection and run Capture again. Otherwise return to Photara to apply it.`
+  );
+}
+
+try {
+  await main();
+} catch (error) {
+  await core.showAlert(error && error.message ? error.message : String(error));
+  throw error;
+}

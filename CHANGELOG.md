@@ -2,7 +2,91 @@
 
 All notable changes to Photara will be documented in this file.
 
-## 0.0.8 - Unreleased
+## 0.0.9 - Unreleased
+
+- Add immutable, PSD-backed `edit-comparison@1` layouts with two ordered
+  Before/After rows, exact inspected square-cell geometry, and camera/capture
+  labels sourced from each authoritative camera RAW.
+- Add a Lightroom Classic handoff that temporarily establishes the real Reset
+  + Adobe Color state, exports a neutral full-resolution TIFF, restores and
+  verifies the complete authored develop state, and fingerprints the result
+  before Photoshop rendering.
+- Build WSP-ready Edit Comparison pairs with the same neutral Before image and
+  annotations in both composites, authored SDR After imagery in the base, and
+  authored HDR After imagery in the alternate.
+- Add `posts prepare-render --item <item-id>` for fast single-layout review
+  while retaining full-package verification as the production default.
+- Preserve Lightroom's tagged 16-bit ProPhoto neutral TIFF until it is placed
+  into the verified 32-bit Display P3 Linear template. This lets Photoshop
+  color-manage the cross-document transfer and avoids its temporary-document
+  conversion falling back to a generic linear-sRGB working profile.
+- Recreate camera and capture value layers with an explicit 27-point SF
+  Compact Ultralight style and preserved baseline anchors, avoiding inherited
+  mixed text runs from the Photoshop reference placeholders.
+- Measure metadata using Photoshop's rendered glyph bounds, retain 27 pt when
+  it fits, scale proportionally to a 22-point floor when necessary, and reject
+  strings that cannot remain phone-readable within their template column.
+
+- Add immutable, PSD-backed `dynamic-range-comparison@1` layouts with two
+  ordered asset pairs and exact image-cell geometry captured from the design.
+- Keep annotations identical across the Web Sharp Pro pair while allowing HDR
+  gain only in the right image cells and the 1-to-10 headroom ramp. The SDR
+  base uses the same image's SDR rendition on both sides and a flat-white
+  headroom ramp.
+- Add checksum-verified Photoshop reference installation and reject missing or
+  mutated reference documents before rendering.
+- Fit comparison imagery entirely inside each square cell, retaining the
+  template background as pillarbox or letterbox bars without cropping.
+- Isolate each comparison role in its own duplicated Photoshop document and
+  explicitly reactivate it before ramp edits, avoiding stale UXP document IDs.
+
+- Add the first typed layout vertical slice with an immutable global
+  `full-frame@1` template and explicit Instagram and Threads authoring
+  profiles.
+- Add project-owned post initialization and idempotent full-frame item
+  creation using friendly master filenames that resolve to stable Photara
+  asset IDs.
+- Resolve project posts against exact template checksums, authoritative PSBs,
+  paired flattened HDR/SDR TIFFs, normalized placements, and outstanding
+  SDR-authoring requirements without pretending an incomplete WSP pair is
+  render-ready.
+- Split the flattened-master representation into explicit HDR and SDR roles.
+  Existing verified TIFFs migrate in place as HDR evidence; no file is copied,
+  renamed, or falsely registered as an SDR rendition.
+- Define the authoritative PSB contract as top-level `HDR` above top-level
+  `SDR`, allowing one deliberate layered edit to produce both verified TIFF
+  inputs for layout composition and WSP gain-map export.
+- Extend the UXP handoff to accept either Smart Objects or groups for those two
+  containers, render Smart Filters, and produce paired
+  `<CANONICAL_BASE>_HDR.TIF` and `<CANONICAL_BASE>_SDR.TIF` files. Require both
+  outputs to be flattened 32-bit Display P3 Linear documents with matching
+  dimensions before replacing current rendition records atomically.
+- Keep template selection global and versioned while keeping editorial order,
+  asset choice, and repeated placements in platform-specific project files.
+- Add a manifest-driven Photoshop UXP compositor for deterministic
+  `full-frame@1` HDR-over-SDR documents and Web Sharp Pro handoff.
+- Add immutable `stacked-two@1`, ordered top/bottom asset bindings, exact
+  4500×3000 Instagram slot resolution, and matching HDR/SDR composition.
+- Position placed layers from Photoshop-reported pixel bounds and reject any
+  placement that does not exactly occupy its resolved slot.
+- Activate the destination document before translating duplicated layers so
+  Photoshop applies placement to the correct document context.
+- Add immutable `continuous-panorama@1` geometry for two horizontal 3:4
+  frames, with Web Sharp Pro retaining responsibility for the physical split.
+- Add non-destructive panorama crop authoring and capture scripts with a 3:2
+  marquee, seam guide, normalized project coordinates, and Rust-side source
+  and specification fingerprint verification.
+- Allow a stacked placement to reuse an existing authored crop only when the
+  referenced item places the same stable asset, and resolve that crop against
+  the verified paired TIFF dimensions before Photoshop composition.
+- Add guarded, idempotent post reordering by exact item permutation and reject
+  a full Instagram render manifest unless it expands to exactly 20 ordered
+  delivery frames.
+- Verify each immutable source rendition once per render-manifest preparation,
+  even when the same asset has repeated placements, without weakening byte-size
+  or SHA-256 validation.
+
+## 0.0.8 - 2026-08-10
 
 - Promote the final layered-master contract to 32-bit HDR P3 and refresh its
   byte size, SHA-256, and bit-depth evidence after raster editing.

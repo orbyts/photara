@@ -1,6 +1,8 @@
 local LrApplication = import "LrApplication"
+local LrApplicationView = import "LrApplicationView"
 local LrBinding = import "LrBinding"
 local LrDialogs = import "LrDialogs"
+local LrDevelopController = import "LrDevelopController"
 local LrExportSession = import "LrExportSession"
 local LrFileUtils = import "LrFileUtils"
 local LrFunctionContext = import "LrFunctionContext"
@@ -26,6 +28,53 @@ end
 
 local function removeFile(path)
     if path and path ~= "" then pcall(os.remove, path) end
+end
+
+local function jsonEscape(value)
+    return '"' .. tostring(value):gsub('\\', '\\\\'):gsub('"', '\\"')
+        :gsub('\n', '\\n'):gsub('\r', '\\r'):gsub('\t', '\\t') .. '"'
+end
+
+local function jsonEncode(value)
+    local kind = type(value)
+    if kind == "nil" then return "null" end
+    if kind == "boolean" or kind == "number" then return tostring(value) end
+    if kind == "string" then return jsonEscape(value) end
+    if kind ~= "table" then error("Cannot encode " .. kind .. " as JSON") end
+    local count, maximum, array = 0, 0, true
+    for key in pairs(value) do
+        count = count + 1
+        if type(key) ~= "number" or key < 1 or key % 1 ~= 0 then array = false
+        else maximum = math.max(maximum, key) end
+    end
+    if array and maximum == count then
+        local parts = {}
+        for index = 1, maximum do parts[index] = jsonEncode(value[index]) end
+        return "[" .. table.concat(parts, ",") .. "]"
+    end
+    local parts = {}
+    for key, item in pairs(value) do
+        table.insert(parts, jsonEscape(key) .. ":" .. jsonEncode(item))
+    end
+    table.sort(parts)
+    return "{" .. table.concat(parts, ",") .. "}"
+end
+
+local function writeFile(path, contents)
+    local file, message = io.open(path, "wb")
+    if not file then error("Could not write " .. path .. ": " .. tostring(message)) end
+    file:write(contents)
+    file:close()
+end
+
+local function scalarSettingsEqual(left, right)
+    for key, value in pairs(left or {}) do
+        if type(value) ~= "table" and right[key] ~= value then return false end
+    end
+    for key, value in pairs(right or {}) do
+        if type(value) ~= "table" and left[key] ~= value then return false end
+    end
+    return true
 end
 
 local function regularFileExists(path)
@@ -137,6 +186,43 @@ local function chooseProject(context, photoCount)
         })
         if result ~= "ok" then return nil end
         return properties.project
+    end)
+end
+
+local function promptForPost(defaultValue)
+    return LrFunctionContext.callWithContext("Photara choose post", function(functionContext)
+        local properties = LrBinding.makePropertyTable(functionContext)
+        properties.post = defaultValue or "package-a"
+        local factory = LrView.osFactory()
+        local result = LrDialogs.presentModalDialog({
+            title = "Photara — Edit Comparison",
+            actionVerb = "Continue",
+            cancelVerb = "Cancel",
+            contents = factory:column({
+                bind_to_object = properties,
+                spacing = factory:control_spacing(),
+                factory:static_text({
+                    title = "Prepare neutral Lightroom sources",
+                    font = "<system/bold>",
+                }),
+                factory:row({
+                    factory:static_text({ title = "Post:", width = 90 }),
+                    factory:edit_field({
+                        value = bind("post"),
+                        width_in_chars = 32,
+                    }),
+                }),
+                factory:static_text({
+                    title = "Photara will use Lightroom Reset + Adobe Color, export a neutral TIFF, then restore the authored edits.",
+                    width = 460,
+                    height_in_lines = 3,
+                }),
+            }),
+        })
+        if result ~= "ok" then return nil end
+        local post = tostring(properties.post or ""):gsub("^%s+", ""):gsub("%s+$", "")
+        if post == "" then return nil end
+        return post
     end)
 end
 
@@ -960,6 +1046,146 @@ function M.exportTransferBatch(batchId, maximumCount)
         "Already present in Cloud: " .. tostring(completion.skipped_already_present_count) .. "\n" ..
         "Staging: " .. tostring(completion.staging_directory) .. "\n\n" ..
         "No files were uploaded or deleted.",
+        "info"
+    )
+end
+
+function M.prepareEditComparisonSources()
+    local context = runPhotara("plugin context --format lua")
+    local projectSlug = chooseProject(context, nil)
+    if not projectSlug then return end
+    local post = promptForPost("package-a")
+    if not post or post == "" then return end
+    local platform = "instagram"
+    local manifest = runPhotara(
+        "posts prepare-edit-comparison-sources " .. shellQuote(projectSlug) .. " " ..
+        shellQuote(post) .. " --platform " .. platform .. " --format lua"
+    )
+    if LrDialogs.confirm(
+        "Prepare Edit Comparison sources?",
+        "Photara will temporarily reset " .. tostring(#manifest.items) ..
+        " catalog original(s), apply Adobe Color, export neutral TIFFs, then restore and verify every develop setting.\n\n" ..
+        "XMP sidecars will not be written or changed.",
+        "Prepare", "Cancel"
+    ) ~= "ok" then return end
+
+    local catalog = LrApplication.activeCatalog()
+    local progress = LrProgressScope({ title = "Prepare Edit Comparison sources" })
+    local report = {
+        schema_version = 1,
+        project = manifest.project,
+        post = manifest.post,
+        platform = manifest.platform,
+        source_sha256 = manifest.source_sha256,
+        items = {},
+    }
+    LrApplicationView.switchToModule("develop")
+    for index, item in ipairs(manifest.items) do
+        progress:setCaption("Neutral Adobe Color source " .. tostring(index) .. "/" .. tostring(#manifest.items))
+        progress:setPortionComplete(index - 1, #manifest.items)
+        if progress:isCanceled() then error("Edit comparison source preparation was canceled") end
+        local photo = catalog:findPhotoByPath(item.camera_raw_path)
+        if not photo then error("Camera original is not in this Lightroom catalog: " .. item.camera_raw_path) end
+        local saved = photo:getDevelopSettings()
+        local restored = false
+        local renderedPath = nil
+        local ok, message = LrTasks.pcall(function()
+            catalog:setSelectedPhotos(photo, {})
+            LrTasks.sleep(0.2)
+            LrDevelopController.resetAllDevelopAdjustments()
+            LrTasks.sleep(0.5)
+            catalog:withWriteAccessDo("Photara: temporary Adobe Color profile", function()
+                photo:applyDevelopSettings({ CameraProfile = "Adobe Color" }, "Photara temporary Adobe Color", true)
+            end, { timeout = 5, asynchronous = false })
+            LrTasks.sleep(0.5)
+            local reset = photo:getDevelopSettings()
+            local profile = reset.CameraProfile or reset.ProfileName or ""
+            if profile ~= "Adobe Color" then
+                error("Lightroom did not establish Adobe Color; got " .. tostring(profile))
+            end
+            local outputPath = LrPathUtils.child(manifest.project_root, item.output_relative_path)
+            local outputDirectory = LrPathUtils.parent(outputPath)
+            local created, createError = LrFileUtils.createAllDirectories(outputDirectory)
+            if created == false then error("Could not create neutral source directory: " .. tostring(createError)) end
+            local renderDirectory = LrPathUtils.child(outputDirectory, ".render-" .. tostring(item.asset_id))
+            LrFileUtils.createAllDirectories(renderDirectory)
+            local exportSession = LrExportSession({
+                photosToExport = { photo },
+                exportSettings = {
+                    LR_export_destinationType = "specificFolder",
+                    LR_export_destinationPathPrefix = renderDirectory,
+                    LR_export_destinationPathSuffix = "",
+                    LR_export_useSubfolder = false,
+                    LR_collisionHandling = "overwrite",
+                    LR_format = "TIFF",
+                    LR_tiff_bitDepth = 16,
+                    LR_tiff_compressionMethod = "compressionMethod_ZIP",
+                    LR_colorSpace = "ProPhotoRGB",
+                    LR_extensionCase = "uppercase",
+                    LR_includeVideoFiles = false,
+                    LR_minimizeEmbeddedMetadata = false,
+                    LR_outputSharpeningOn = false,
+                    LR_reimportExportedPhoto = false,
+                    LR_renamingTokensOn = false,
+                    LR_size_doConstrain = false,
+                    LR_useWatermark = false,
+                },
+            })
+            for _, rendition in exportSession:renditions({ stopIfCanceled = true }) do
+                local success, pathOrMessage = rendition:waitForRender()
+                if not success then error("Lightroom neutral TIFF export failed: " .. tostring(pathOrMessage)) end
+                renderedPath = pathOrMessage
+            end
+            if not renderedPath or not regularFileExists(renderedPath) then error("Lightroom produced no neutral TIFF") end
+            if regularFileExists(outputPath) then LrFileUtils.delete(outputPath) end
+            local moved, moveError = LrFileUtils.move(renderedPath, outputPath)
+            if moved == false then error("Could not place neutral TIFF: " .. tostring(moveError)) end
+            pcall(LrFileUtils.delete, renderDirectory)
+            item._profile = profile
+            item._metadata = {
+                make = photo:getFormattedMetadata("cameraMake") or "",
+                model = photo:getFormattedMetadata("cameraModel") or "",
+                lens = photo:getFormattedMetadata("lens") or "",
+                iso = photo:getRawMetadata("isoSpeedRating") or 0,
+                focal_length_mm = photo:getRawMetadata("focalLength") or 0,
+                aperture = photo:getRawMetadata("aperture") or 0,
+                exposure_seconds = photo:getRawMetadata("shutterSpeed") or 0,
+            }
+        end)
+        local restoreOk, restoreMessage = LrTasks.pcall(function()
+            catalog:withWriteAccessDo("Photara: restore develop settings", function()
+                photo:applyDevelopSettings(saved, "Photara restored authored settings", true)
+            end, { timeout = 10, asynchronous = false })
+            LrTasks.sleep(0.5)
+            restored = scalarSettingsEqual(saved, photo:getDevelopSettings())
+            if not restored then error("Lightroom develop settings did not restore exactly") end
+        end)
+        if not restoreOk then error("Critical: could not restore " .. item.original_filename .. ": " .. tostring(restoreMessage)) end
+        if not ok then error(tostring(message)) end
+        table.insert(report.items, {
+            item_id = item.item_id,
+            slot = item.slot,
+            asset_id = item.asset_id,
+            state = "rendered",
+            output_relative_path = item.output_relative_path,
+            output_sha256 = "pending-verification",
+            output_byte_size = 0,
+            profile = item._profile,
+            restored = restored,
+            metadata = item._metadata,
+        })
+    end
+    progress:done()
+    local reportPath = LrPathUtils.child(manifest.project_root, "Photara Edit Comparison Source Report.json")
+    writeFile(reportPath, jsonEncode(report) .. "\n")
+    local verified = runPhotara(
+        "posts verify-edit-comparison-sources " .. shellQuote(projectSlug) .. " " ..
+        shellQuote(post) .. " --platform " .. platform .. " --format lua"
+    )
+    LrDialogs.message(
+        "Photara",
+        "Prepared and verified " .. tostring(verified.verified) .. " neutral Adobe Color source(s).\n\n" ..
+        "All catalog develop settings were restored. Photara will independently fingerprint the TIFFs before rendering.",
         "info"
     )
 end

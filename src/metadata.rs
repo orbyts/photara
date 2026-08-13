@@ -263,6 +263,9 @@ mod tests {
                 default_iso_country_code: "US".into(),
                 proof_provider: "pixieset".into(),
                 delivery_provider: "cloudinary".into(),
+                templates_root: PathBuf::from("/tmp/photara-templates"),
+                templates_cache: PathBuf::from("/tmp/photara-template-cache"),
+                layouts: crate::config::LayoutConfiguration::default(),
             },
             people: BTreeMap::from([(
                 "trinity-woodward".into(),

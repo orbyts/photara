@@ -358,6 +358,8 @@ fn materialize_directory(
     }
     let project_root = root.join(&manifest.slug);
     for relative in [
+        "posts/instagram",
+        "posts/threads",
         "layouts/instagram",
         "layouts/website",
         "layouts/shared",

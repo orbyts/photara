@@ -1,0 +1,609 @@
+const { app, constants, core, action } = require("photoshop");
+const { storage } = require("uxp");
+
+const MANIFEST_NAME = "Photara Layout Manifest.json";
+const REPORT_NAME = "Photara Layout Report.json";
+
+async function child(folder, relativePath) {
+  let entry = folder;
+  for (const component of relativePath.split("/").filter(Boolean)) {
+    entry = await entry.getEntry(component);
+  }
+  return entry;
+}
+
+async function parentAndName(folder, relativePath) {
+  const components = relativePath.split("/").filter(Boolean);
+  const name = components.pop();
+  let parent = folder;
+  for (const component of components) {
+    try { parent = await parent.getEntry(component); }
+    catch (_) { parent = await parent.createFolder(component); }
+  }
+  return { parent, name };
+}
+
+function bits(document) {
+  if (document.bitsPerChannel === constants.BitsPerChannelType.THIRTYTWO) return 32;
+  if (document.bitsPerChannel === constants.BitsPerChannelType.SIXTEEN) return 16;
+  if (document.bitsPerChannel === constants.BitsPerChannelType.EIGHT) return 8;
+  return null;
+}
+
+function pixels(value) {
+  return Math.round(Number(value && value._value !== undefined ? value._value : value));
+}
+
+function isDisplayP3Linear(profile) {
+  const value = String(profile || "").toLowerCase();
+  return value.includes("p3") && value.includes("linear");
+}
+
+function layerBounds(layer) {
+  const bounds = layer.boundsNoEffects;
+  return {
+    left: pixels(bounds.left),
+    top: pixels(bounds.top),
+    right: pixels(bounds.right),
+    bottom: pixels(bounds.bottom),
+  };
+}
+
+async function placeLayer(layer, destination) {
+  app.activeDocument = layer.document;
+  layer.document.activeLayers = [layer];
+  const before = layerBounds(layer);
+  await layer.translate(destination.x - before.left, destination.y - before.top);
+  const after = layerBounds(layer);
+  const expectedRight = destination.x + destination.width;
+  const expectedBottom = destination.y + destination.height;
+  if (after.left !== destination.x || after.top !== destination.y ||
+      after.right !== expectedRight || after.bottom !== expectedBottom) {
+    throw new Error(
+      `Layer ${layer.name} resolved to ${after.left},${after.top},${after.right},${after.bottom}; ` +
+      `expected ${destination.x},${destination.y},${expectedRight},${expectedBottom}`
+    );
+  }
+}
+
+function validateSource(document, item, role) {
+  if (bits(document) !== item.bit_depth) {
+    throw new Error(`${role} source must be ${item.bit_depth}-bit`);
+  }
+  if (!isDisplayP3Linear(document.colorProfileName)) {
+    throw new Error(`${role} source must use Display P3 Linear, got ${document.colorProfileName}`);
+  }
+  if (document.layers.length !== 1) {
+    throw new Error(`${role} source must contain exactly one flattened layer`);
+  }
+}
+
+function validateNeutralSource(document, role) {
+  const sourceBits = bits(document);
+  if (sourceBits !== 16 && sourceBits !== 32) {
+    throw new Error(`${role} source must be a 16-bit or 32-bit RGB TIFF`);
+  }
+  if (!document.colorProfileName) {
+    throw new Error(`${role} source has no embedded color profile`);
+  }
+  if (document.layers.length !== 1) {
+    throw new Error(`${role} source must contain exactly one flattened layer`);
+  }
+}
+
+async function fitFill(document, width, height, focalPoint) {
+  const sourceWidth = pixels(document.width);
+  const sourceHeight = pixels(document.height);
+  const scale = Math.max(width / sourceWidth, height / sourceHeight);
+  const resizedWidth = Math.round(sourceWidth * scale);
+  const resizedHeight = Math.round(sourceHeight * scale);
+  await document.resizeImage(resizedWidth, resizedHeight, document.resolution);
+  const overflowX = resizedWidth - width;
+  const overflowY = resizedHeight - height;
+  const left = Math.round(overflowX * focalPoint.x);
+  const top = Math.round(overflowY * focalPoint.y);
+  await document.crop({ left, top, right: left + width, bottom: top + height });
+}
+
+async function fitContain(document, width, height) {
+  const sourceWidth = pixels(document.width);
+  const sourceHeight = pixels(document.height);
+  const scale = Math.min(width / sourceWidth, height / sourceHeight);
+  const resizedWidth = Math.max(1, Math.round(sourceWidth * scale));
+  const resizedHeight = Math.max(1, Math.round(sourceHeight * scale));
+  await document.resizeImage(resizedWidth, resizedHeight, document.resolution);
+  return { width: resizedWidth, height: resizedHeight };
+}
+
+async function applySourceCrop(document, crop) {
+  if (!crop) return;
+  const sourceWidth = pixels(document.width);
+  const sourceHeight = pixels(document.height);
+  if (crop.x < 0 || crop.y < 0 || crop.width < 1 || crop.height < 1 ||
+      crop.x + crop.width > sourceWidth || crop.y + crop.height > sourceHeight) {
+    throw new Error("Resolved source crop is outside the flattened master");
+  }
+  await document.crop({
+    left: crop.x,
+    top: crop.y,
+    right: crop.x + crop.width,
+    bottom: crop.y + crop.height,
+  });
+  if (pixels(document.width) !== crop.width || pixels(document.height) !== crop.height) {
+    throw new Error("Photoshop did not apply the exact resolved source crop");
+  }
+}
+
+async function openSource(projectRoot, relativePath, item, role, normalizeNeutral = false) {
+  const file = await child(projectRoot, relativePath);
+  let document = null;
+  await core.executeAsModal(async () => { document = await app.open(file); }, {
+    commandName: `Open ${role} source`,
+  });
+  if (normalizeNeutral) {
+    // Keep Lightroom's tagged 16-bit ProPhoto rendering intact. Photoshop
+    // performs the color-managed profile and bit-depth conversion when this
+    // layer is duplicated into the verified 32-bit Display P3 Linear template.
+    // Converting the temporary document itself causes Photoshop to choose its
+    // generic linear-sRGB working profile on some installations.
+    validateNeutralSource(document, role);
+    return document;
+  }
+  validateSource(document, item, role);
+  return document;
+}
+
+async function buildRole(projectRoot, item, role) {
+  let composite = null;
+  let source = null;
+  try {
+    for (let index = 0; index < item.placements.length; index += 1) {
+      const placement = item.placements[index];
+      const relativePath = role === "HDR"
+        ? placement.hdr_relative_path
+        : placement.sdr_relative_path;
+      source = await openSource(projectRoot, relativePath, item, role);
+      await core.executeAsModal(async () => {
+        if (placement.source_crop) {
+          await applySourceCrop(source, placement.source_crop);
+        }
+        await fitFill(
+          source,
+          placement.bounds.width,
+          placement.bounds.height,
+          placement.focal_point
+        );
+        let sourceLayer = source.layers[0];
+        if (sourceLayer.isBackgroundLayer) {
+          const normalLayer = await sourceLayer.duplicate();
+          await sourceLayer.delete();
+          sourceLayer = normalLayer;
+        }
+        if (index === 0) {
+          composite = await source.duplicate(`${item.id}-${role}`, false);
+          const firstLayer = composite.layers[0];
+          firstLayer.name = placement.slot;
+          await composite.resizeCanvas(
+            item.canvas_width,
+            item.canvas_height,
+            constants.AnchorPosition.TOPLEFT
+          );
+          await placeLayer(firstLayer, placement.bounds);
+        } else {
+          const placedLayer = await sourceLayer.duplicate(composite);
+          placedLayer.name = placement.slot;
+          await placeLayer(placedLayer, placement.bounds);
+        }
+        await source.closeWithoutSaving();
+        source = null;
+      }, { commandName: `Place ${role} ${placement.slot} for ${item.id}` });
+    }
+    await core.executeAsModal(async () => {
+      await composite.flatten();
+      const background = composite.layers[0];
+      const roleLayer = await background.duplicate();
+      await background.delete();
+      roleLayer.name = role;
+    }, { commandName: `Complete ${role} composite for ${item.id}` });
+    return composite;
+  } catch (error) {
+    for (const document of [source, composite]) {
+      if (document) {
+        try {
+          await core.executeAsModal(async () => document.closeWithoutSaving(), {
+            commandName: `Close failed ${role} composite`,
+          });
+        } catch (_) {}
+      }
+    }
+    throw error;
+  }
+}
+
+function findLayerByName(layers, name) {
+  for (const layer of layers) {
+    if (layer.name === name) return layer;
+    if (layer.layers) {
+      const nested = findLayerByName(layer.layers, name);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+function findLayerByPath(layers, path) {
+  let current = { layers };
+  for (const name of path) {
+    if (!current.layers) return null;
+    current = current.layers.find((layer) => layer.name === name);
+    if (!current) return null;
+  }
+  return current;
+}
+
+function findLayersByName(layers, name, matches = []) {
+  for (const layer of layers) {
+    if (layer.name === name) matches.push(layer);
+    if (layer.layers) findLayersByName(layer.layers, name, matches);
+  }
+  return matches;
+}
+
+async function setRowText(document, path, row, value, styleContract, maximumRight) {
+  const name = path[path.length - 1];
+  const candidates = findLayersByName(document.layers, name)
+    .filter((layer) => layer.kind === constants.LayerKind.TEXT)
+    .sort((left, right) => layerBounds(left).top - layerBounds(right).top);
+  const layer = candidates.length === 1
+    ? candidates[0]
+    : row === "top" ? candidates[0] : candidates[candidates.length - 1];
+  if (!layer || layer.kind !== constants.LayerKind.TEXT) {
+    throw new Error(`Reference template has no ${row} text layer named ${name}`);
+  }
+  app.activeDocument = document;
+  const anchor = layer.textItem.textClickPoint;
+  const parent = layer.parent;
+  const preferredPoints = styleContract.preferred_size_points;
+  const minimumPoints = styleContract.minimum_size_points;
+  const pixelsPerPoint = document.resolution / 72;
+  const textColor = new app.SolidColor();
+  textColor.rgb.red = styleContract.color_rgb[0];
+  textColor.rgb.green = styleContract.color_rgb[1];
+  textColor.rgb.blue = styleContract.color_rgb[2];
+  const replacement = await document.createTextLayer({
+    name,
+    contents: value,
+    // UXP expresses this option in 72-PPI pixels. The reference is 300 PPI,
+    // so 27 pt resolves to 112.5 document pixels.
+    fontSize: preferredPoints * pixelsPerPoint,
+    fontName: styleContract.font_postscript_name,
+    position: { x: pixels(anchor.x), y: pixels(anchor.y) },
+    textColor,
+  });
+  const style = replacement.textItem.characterStyle;
+  style.font = styleContract.font_postscript_name;
+  style.size = preferredPoints * pixelsPerPoint;
+  style.fauxBold = false;
+  style.fauxItalic = false;
+  style.tracking = 0;
+  style.color = textColor;
+  replacement.move(parent, constants.ElementPlacement.PLACEINSIDE);
+  await layer.delete();
+  let bounds = layerBounds(replacement);
+  const allowedRight = maximumRight - styleContract.right_padding_pixels;
+  if (bounds.right > allowedRight) {
+    const availableWidth = allowedRight - bounds.left;
+    const renderedWidth = bounds.right - bounds.left;
+    const fittedPoints = Math.floor((preferredPoints * availableWidth / renderedWidth) * 10) / 10;
+    if (fittedPoints < minimumPoints) {
+      throw new Error(
+        `${row} metadata requires ${fittedPoints.toFixed(1)} pt to fit; ` +
+        `minimum readable size is ${minimumPoints} pt`
+      );
+    }
+    style.size = fittedPoints * pixelsPerPoint;
+    bounds = layerBounds(replacement);
+    if (bounds.right > allowedRight + 1) {
+      throw new Error(`${row} metadata still crosses its column after fitting to ${fittedPoints.toFixed(1)} pt`);
+    }
+  }
+}
+
+async function makeHdrRampFlatWhite(document) {
+  const ramp = findLayerByName(document.layers, "HDR Ramp");
+  if (!ramp) throw new Error("Reference template has no HDR Ramp layer");
+  app.activeDocument = document;
+  document.activeLayers = [ramp];
+  await action.batchPlay([{
+    _obj: "set",
+    _target: [{ _ref: "contentLayer", _id: ramp.id }],
+    to: {
+      _obj: "gradientLayer",
+      type: { _enum: "gradientType", _value: "linear" },
+      dither: true,
+      gradient: {
+        _obj: "gradientClassEvent",
+        name: "Photara SDR white",
+        gradientForm: { _enum: "gradientForm", _value: "customStops" },
+        interfaceIconFrameDimmed: 4096,
+        colors: [0, 4096].map((location) => ({
+          _obj: "colorStop",
+          color: { _obj: "RGBColor", red: 255, grain: 255, blue: 255 },
+          type: { _enum: "colorStopType", _value: "userStop" },
+          location,
+          midpoint: 50,
+        })),
+        transparency: [0, 4096].map((location) => ({
+          _obj: "transferSpec",
+          opacity: { _unit: "percentUnit", _value: 100 },
+          location,
+          midpoint: 50,
+        })),
+      },
+    },
+    _options: { dialogOptions: "dontDisplay" },
+  }], {});
+}
+
+async function addComparisonImage(projectRoot, composite, item, placement, relativePath, bounds, name, normalizeNeutral = false) {
+  let source = null;
+  try {
+    source = await openSource(projectRoot, relativePath, item, name, normalizeNeutral);
+    await core.executeAsModal(async () => {
+      const fitted = await fitContain(source, bounds.width, bounds.height);
+      let sourceLayer = source.layers[0];
+      if (sourceLayer.isBackgroundLayer) {
+        const normalLayer = await sourceLayer.duplicate();
+        await sourceLayer.delete();
+        sourceLayer = normalLayer;
+      }
+      const placedLayer = await sourceLayer.duplicate(composite);
+      placedLayer.name = name;
+      const gridBackground = findLayerByName(composite.layers, "Grid Background");
+      if (!gridBackground) {
+        throw new Error("Comparison reference has no Grid Background layer group");
+      }
+      placedLayer.move(gridBackground, constants.ElementPlacement.PLACEBEFORE);
+      const destination = {
+        x: bounds.x + Math.round((bounds.width - fitted.width) / 2),
+        y: bounds.y + Math.round((bounds.height - fitted.height) / 2),
+        width: fitted.width,
+        height: fitted.height,
+      };
+      await placeLayer(placedLayer, destination);
+      await source.closeWithoutSaving();
+      source = null;
+    }, { commandName: `Place ${name}` });
+  } finally {
+    if (source) {
+      try { await core.executeAsModal(async () => source.closeWithoutSaving(), { commandName: "Close source" }); }
+      catch (_) {}
+    }
+  }
+}
+
+async function buildComparisonRole(projectRoot, item, role) {
+  const reference = await child(projectRoot, item.comparison.reference_relative_path);
+  let referenceDocument = null;
+  let composite = null;
+  await core.executeAsModal(async () => {
+    referenceDocument = await app.open(reference);
+    composite = await referenceDocument.duplicate(`${item.id}-${role}`, false);
+    await referenceDocument.closeWithoutSaving();
+    referenceDocument = null;
+  }, {
+    commandName: `Open comparison reference for ${role}`,
+  });
+  try {
+    validateSource({
+      bitsPerChannel: composite.bitsPerChannel,
+      colorProfileName: composite.colorProfileName,
+      layers: [composite.layers[0]],
+    }, item, "comparison reference");
+    const top = item.placements.find((placement) => placement.slot === "top");
+    const bottom = item.placements.find((placement) => placement.slot === "bottom");
+    if (!top || !bottom) throw new Error("Comparison requires top and bottom asset pairs");
+    for (const [placement, left, right] of [
+      [top, item.comparison.top_left, item.comparison.top_right],
+      [bottom, item.comparison.bottom_left, item.comparison.bottom_right],
+    ]) {
+      await addComparisonImage(
+        projectRoot, composite, item, placement,
+        placement.sdr_relative_path, left, `${placement.slot} SDR`
+      );
+      await addComparisonImage(
+        projectRoot, composite, item, placement,
+        role === item.hdr_layer ? placement.hdr_relative_path : placement.sdr_relative_path,
+        right, `${placement.slot} HDR`
+      );
+    }
+    await core.executeAsModal(async () => {
+      app.activeDocument = composite;
+      if (role === item.sdr_layer) await makeHdrRampFlatWhite(composite);
+      await composite.flatten();
+      const background = composite.layers[0];
+      const roleLayer = await background.duplicate();
+      await background.delete();
+      roleLayer.name = role;
+    }, { commandName: `Complete comparison ${role}` });
+    return composite;
+  } catch (error) {
+    for (const document of [referenceDocument, composite]) {
+      if (!document) continue;
+      try { await core.executeAsModal(async () => document.closeWithoutSaving(), { commandName: "Close comparison" }); }
+      catch (_) {}
+    }
+    throw error;
+  }
+}
+
+async function buildEditComparisonRole(projectRoot, item, role) {
+  const reference = await child(projectRoot, item.edit_comparison.reference_relative_path);
+  let referenceDocument = null;
+  let composite = null;
+  await core.executeAsModal(async () => {
+    referenceDocument = await app.open(reference);
+    composite = await referenceDocument.duplicate(`${item.id}-${role}`, false);
+    await referenceDocument.closeWithoutSaving();
+    referenceDocument = null;
+  }, { commandName: `Open edit comparison reference for ${role}` });
+  try {
+    const top = item.placements.find((placement) => placement.slot === "top");
+    const bottom = item.placements.find((placement) => placement.slot === "bottom");
+    if (!top || !bottom) throw new Error("Edit comparison requires top and bottom asset pairs");
+    for (const [placement, left, right] of [
+      [top, item.edit_comparison.top_left, item.edit_comparison.top_right],
+      [bottom, item.edit_comparison.bottom_left, item.edit_comparison.bottom_right],
+    ]) {
+      if (!placement.before_relative_path || !placement.capture_metadata) {
+        throw new Error(`Edit comparison source for ${placement.slot} was not prepared`);
+      }
+      await addComparisonImage(
+        projectRoot, composite, item, placement,
+        placement.before_relative_path, left, `${placement.slot} Before`, true
+      );
+      await addComparisonImage(
+        projectRoot, composite, item, placement,
+        role === item.hdr_layer ? placement.hdr_relative_path : placement.sdr_relative_path,
+        right, `${placement.slot} After`
+      );
+    }
+    await core.executeAsModal(async () => {
+      await setRowText(
+        composite, item.edit_comparison.text_layers.top_camera, "top", top.capture_metadata.camera_text,
+        item.edit_comparison.text_style, item.edit_comparison.top_left.x + item.edit_comparison.top_left.width
+      );
+      await setRowText(
+        composite, item.edit_comparison.text_layers.top_capture, "top", top.capture_metadata.capture_text,
+        item.edit_comparison.text_style, item.edit_comparison.top_right.x + item.edit_comparison.top_right.width
+      );
+      await setRowText(
+        composite, item.edit_comparison.text_layers.bottom_camera, "bottom", bottom.capture_metadata.camera_text,
+        item.edit_comparison.text_style, item.edit_comparison.bottom_left.x + item.edit_comparison.bottom_left.width
+      );
+      await setRowText(
+        composite, item.edit_comparison.text_layers.bottom_capture, "bottom", bottom.capture_metadata.capture_text,
+        item.edit_comparison.text_style, item.edit_comparison.bottom_right.x + item.edit_comparison.bottom_right.width
+      );
+      await composite.flatten();
+      const background = composite.layers[0];
+      const roleLayer = await background.duplicate();
+      await background.delete();
+      roleLayer.name = role;
+    }, { commandName: `Complete edit comparison ${role}` });
+    return composite;
+  } catch (error) {
+    for (const document of [referenceDocument, composite]) {
+      if (!document) continue;
+      try { await core.executeAsModal(async () => document.closeWithoutSaving(), { commandName: "Close edit comparison" }); }
+      catch (_) {}
+    }
+    throw error;
+  }
+}
+
+async function buildItem(projectRoot, item) {
+  let composition = null;
+  let hdr = null;
+  try {
+    composition = item.edit_comparison
+      ? await buildEditComparisonRole(projectRoot, item, item.sdr_layer)
+      : item.comparison
+        ? await buildComparisonRole(projectRoot, item, item.sdr_layer)
+        : await buildRole(projectRoot, item, item.sdr_layer);
+    hdr = item.edit_comparison
+      ? await buildEditComparisonRole(projectRoot, item, item.hdr_layer)
+      : item.comparison
+        ? await buildComparisonRole(projectRoot, item, item.hdr_layer)
+        : await buildRole(projectRoot, item, item.hdr_layer);
+    await core.executeAsModal(async () => {
+      const hdrLayer = await hdr.layers[0].duplicate(composition);
+      hdrLayer.name = item.hdr_layer;
+      await hdr.closeWithoutSaving();
+      hdr = null;
+      if (composition.layers.length !== 2 ||
+          composition.layers[0].name !== item.hdr_layer ||
+          composition.layers[1].name !== item.sdr_layer) {
+        throw new Error("Could not establish the required HDR-over-SDR layer contract");
+      }
+      if (pixels(composition.width) !== item.canvas_width ||
+          pixels(composition.height) !== item.canvas_height ||
+          bits(composition) !== item.bit_depth ||
+          !isDisplayP3Linear(composition.colorProfileName)) {
+        throw new Error("Composed document does not match the resolved canvas contract");
+      }
+      const destination = await parentAndName(projectRoot, item.output_relative_path);
+      const output = await destination.parent.createFile(destination.name, { overwrite: true });
+      await composition.saveAs.psb(output, {
+        embedColorProfile: true,
+        maximizeCompatibility: true,
+      }, true);
+      await composition.closeWithoutSaving();
+      composition = null;
+    }, { commandName: `Build Photara layout ${item.id}` });
+    return {
+      id: item.id,
+      state: "verified",
+      output_relative_path: item.output_relative_path,
+      output_filename: item.output_filename,
+      canvas_width: item.canvas_width,
+      canvas_height: item.canvas_height,
+      bit_depth: item.bit_depth,
+      color_profile: item.color_profile,
+      layers: [item.hdr_layer, item.sdr_layer],
+    };
+  } catch (error) {
+    for (const document of [hdr, composition]) {
+      if (document) {
+        try {
+          await core.executeAsModal(async () => document.closeWithoutSaving(), {
+            commandName: "Close failed Photara layout",
+          });
+        } catch (_) {}
+      }
+    }
+    return {
+      id: item.id,
+      state: "failed",
+      error: error && error.message ? error.message : String(error),
+    };
+  }
+}
+
+async function main() {
+  await core.showAlert(
+    "Choose the Photara project folder. Photara will build the resolved HDR/SDR layout documents without changing the source masters."
+  );
+  const projectRoot = await storage.localFileSystem.getFolder();
+  if (!projectRoot) return;
+  let manifestEntry;
+  try { manifestEntry = await projectRoot.getEntry(MANIFEST_NAME); }
+  catch (_) { throw new Error(`Could not find ${MANIFEST_NAME} in “${projectRoot.name}”.`); }
+  const manifest = JSON.parse(await manifestEntry.read());
+  if (manifest.schema_version !== 1) throw new Error("Unsupported Photara layout manifest");
+  const report = {
+    schema_version: 1,
+    project: manifest.project,
+    post: manifest.post,
+    platform: manifest.platform,
+    source_sha256: manifest.source_sha256,
+    items: [],
+  };
+  for (const item of manifest.items) report.items.push(await buildItem(projectRoot, item));
+  const reportEntry = await projectRoot.createFile(REPORT_NAME, { overwrite: true });
+  await reportEntry.write(`${JSON.stringify(report, null, 2)}\n`);
+  const verified = report.items.filter((item) => item.state === "verified").length;
+  const failed = report.items.filter((item) => item.state === "failed");
+  const detail = failed.length === 0
+    ? "The document is ready for visual review and Web Sharp Pro."
+    : failed.map((item) => `${item.id}: ${item.error}`).join("\n");
+  await core.showAlert(
+    `Photara layout build finished.\n\nVerified: ${verified}\nFailed: ${failed.length}\n\n${detail}`
+  );
+}
+
+try { await main(); }
+catch (error) {
+  await core.showAlert(`Photara layout build failed.\n\n${error && error.message ? error.message : String(error)}`);
+  throw error;
+}

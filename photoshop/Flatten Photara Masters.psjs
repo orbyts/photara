@@ -16,9 +16,7 @@ async function parentAndName(folder, relativePath) {
   const components = relativePath.split("/").filter(Boolean);
   const name = components.pop();
   let parent = folder;
-  for (const component of components) {
-    parent = await parent.getEntry(component);
-  }
+  for (const component of components) parent = await parent.getEntry(component);
   return { parent, name };
 }
 
@@ -29,55 +27,87 @@ function bitDepth(document) {
   return null;
 }
 
+function pixels(value) {
+  return Math.round(Number(value && value._value !== undefined ? value._value : value));
+}
+
 function isDisplayP3Linear(profile) {
   const value = String(profile || "").toLowerCase();
   return value.includes("p3") && value.includes("linear");
 }
 
+function isSupportedContainer(layer) {
+  return layer.kind === constants.LayerKind.SMARTOBJECT ||
+    layer.kind === constants.LayerKind.GROUP;
+}
+
+function validateSource(document) {
+  if (bitDepth(document) !== 32) throw new Error("Expected a 32-bit PSB");
+  if (!isDisplayP3Linear(document.colorProfileName)) {
+    throw new Error(`Expected a Display P3 Linear profile, got ${document.colorProfileName}`);
+  }
+  if (document.layers.length !== 2) {
+    throw new Error(`Expected exactly two top-level containers, got ${document.layers.length}`);
+  }
+  const hdr = document.layers[0];
+  const sdr = document.layers[1];
+  if (hdr.name !== "HDR" || sdr.name !== "SDR") {
+    throw new Error(`Expected top-level HDR above SDR, got ${hdr.name} above ${sdr.name}`);
+  }
+  if (!isSupportedContainer(hdr) || !isSupportedContainer(sdr)) {
+    throw new Error("HDR and SDR must each be a Smart Object or layer group");
+  }
+}
+
 async function saveTiff(document, file) {
   const token = storage.localFileSystem.createSessionToken(file);
-  const result = await action.batchPlay(
-    [{
-      _obj: "save",
-      as: {
-        _obj: "TIFF",
-        byteOrder: { _enum: "platform", _value: "MacOS" },
-        LZWCompression: true,
-        layerCompression: { _enum: "encoding", _value: "zip" },
-      },
-      in: { _path: token, _kind: "local" },
-      lowerCase: false,
-      _options: { dialogOptions: "dontDisplay" },
-    }],
-    { synchronousExecution: false }
-  );
+  const result = await action.batchPlay([{
+    _obj: "save",
+    as: {
+      _obj: "TIFF",
+      byteOrder: { _enum: "platform", _value: "MacOS" },
+      LZWCompression: true,
+      layerCompression: { _enum: "encoding", _value: "zip" },
+    },
+    in: { _path: token, _kind: "local" },
+    lowerCase: false,
+    _options: { dialogOptions: "dontDisplay" },
+  }], { synchronousExecution: false });
   if (result[0] && result[0]._obj === "error") {
     throw new Error(result[0].message || `Photoshop could not save ${file.name}`);
   }
 }
 
-async function inspectFlattenedTiff(file, item) {
+async function inspectFlattenedTiff(file, role, filename) {
   let document = null;
   try {
-    await core.executeAsModal(async () => {
-      document = await app.open(file);
-    }, { commandName: `Verify ${item.tiff_filename}` });
+    await core.executeAsModal(async () => { document = await app.open(file); }, {
+      commandName: `Verify ${filename}`,
+    });
     const evidence = {
-      bits: bitDepth(document),
-      profile: document.colorProfileName,
-      layers: document.layers.length,
+      role,
+      tiff_filename: filename,
+      state: "verified",
+      bits_per_channel: bitDepth(document),
+      color_profile: document.colorProfileName,
+      layer_count: document.layers.length,
+      pixel_width: pixels(document.width),
+      pixel_height: pixels(document.height),
     };
-    if (evidence.bits !== 32) {
-      throw new Error(`Expected a 32-bit TIFF, got ${evidence.bits}`);
+    if (evidence.bits_per_channel !== 32) {
+      throw new Error(`Expected a 32-bit TIFF, got ${evidence.bits_per_channel}`);
     }
-    if (!isDisplayP3Linear(evidence.profile)) {
-      throw new Error(`Expected a Display P3 Linear profile, got ${evidence.profile}`);
+    if (!isDisplayP3Linear(evidence.color_profile)) {
+      throw new Error(`Expected a Display P3 Linear profile, got ${evidence.color_profile}`);
     }
-    if (evidence.layers !== 1) {
-      throw new Error(`Expected one flattened layer, got ${evidence.layers}`);
+    if (evidence.layer_count !== 1) {
+      throw new Error(`Expected one flattened layer, got ${evidence.layer_count}`);
+    }
+    if (evidence.pixel_width < 1 || evidence.pixel_height < 1) {
+      throw new Error("Flattened TIFF has invalid pixel dimensions");
     }
     await core.executeAsModal(async () => document.closeWithoutSaving(), {
-      commandName: `Close ${item.tiff_filename}`,
+      commandName: `Close ${filename}`,
     });
     document = null;
     return evidence;
@@ -92,71 +122,79 @@ async function inspectFlattenedTiff(file, item) {
   }
 }
 
-async function processItem(projectRoot, imagesRoot, item) {
-  let source = null;
+async function renderRendition(source, projectRoot, role, filename, relativePath) {
   let duplicate = null;
   try {
-    const psb = await child(imagesRoot, item.psb_relative_path);
-    const destination = await parentAndName(projectRoot, item.tiff_relative_path);
-    let existing = null;
-    try { existing = await destination.parent.getEntry(destination.name); } catch (_) {}
-    if (existing) {
-      const evidence = await inspectFlattenedTiff(existing, item);
-      return {
-        asset_id: item.asset_id,
-        psb_filename: item.psb_filename,
-        tiff_filename: item.tiff_filename,
-        state: "verified",
-        bits_per_channel: evidence.bits,
-        color_profile: evidence.profile,
-        layer_count: evidence.layers,
-      };
-    }
-
+    const destination = await parentAndName(projectRoot, relativePath);
     await core.executeAsModal(async () => {
-      source = await app.open(psb);
-      const depth = bitDepth(source);
-      const profile = source.colorProfileName;
-      if (depth !== 32) throw new Error(`Expected a 32-bit PSB, got ${depth}`);
-      if (!isDisplayP3Linear(profile)) {
-        throw new Error(`Expected a Display P3 Linear profile, got ${profile}`);
+      duplicate = await source.duplicate(filename, false);
+      validateSource(duplicate);
+      for (const layer of duplicate.layers) layer.visible = layer.name === role.toUpperCase();
+      const visible = duplicate.layers.filter((layer) => layer.visible);
+      if (visible.length !== 1 || visible[0].name !== role.toUpperCase()) {
+        throw new Error(`Could not isolate the ${role.toUpperCase()} container`);
       }
-      duplicate = await source.duplicate(item.tiff_filename, true);
       await duplicate.flatten();
-      const tiff = await destination.parent.createFile(destination.name, { overwrite: false });
+      const tiff = await destination.parent.createFile(destination.name, { overwrite: true });
       await saveTiff(duplicate, tiff);
       await duplicate.closeWithoutSaving();
       duplicate = null;
-      await source.closeWithoutSaving();
-      source = null;
-    }, { commandName: `Flatten ${item.psb_filename}` });
-
+    }, { commandName: `Render ${role.toUpperCase()} ${filename}` });
     const tiff = await destination.parent.getEntry(destination.name);
-    const evidence = await inspectFlattenedTiff(tiff, item);
+    return await inspectFlattenedTiff(tiff, role, filename);
+  } finally {
+    if (duplicate) {
+      try {
+        await core.executeAsModal(async () => duplicate.closeWithoutSaving(), {
+          commandName: "Close failed Photara rendition",
+        });
+      } catch (_) {}
+    }
+  }
+}
+
+async function processItem(projectRoot, imagesRoot, item) {
+  let source = null;
+  try {
+    const psb = await child(imagesRoot, item.psb_relative_path);
+    await core.executeAsModal(async () => { source = await app.open(psb); }, {
+      commandName: `Open ${item.psb_filename}`,
+    });
+    validateSource(source);
+    const hdr = await renderRendition(
+      source, projectRoot, "hdr", item.hdr_tiff_filename, item.hdr_tiff_relative_path
+    );
+    const sdr = await renderRendition(
+      source, projectRoot, "sdr", item.sdr_tiff_filename, item.sdr_tiff_relative_path
+    );
+    if (hdr.pixel_width !== sdr.pixel_width || hdr.pixel_height !== sdr.pixel_height) {
+      throw new Error("HDR and SDR TIFF dimensions differ");
+    }
+    await core.executeAsModal(async () => source.closeWithoutSaving(), {
+      commandName: `Close ${item.psb_filename}`,
+    });
+    source = null;
     return {
       asset_id: item.asset_id,
       psb_filename: item.psb_filename,
-      tiff_filename: item.tiff_filename,
+      psb_contract_valid: true,
       state: "verified",
-      bits_per_channel: evidence.bits,
-      color_profile: evidence.profile,
-      layer_count: evidence.layers,
+      renditions: [hdr, sdr],
     };
   } catch (error) {
-    for (const document of [duplicate, source]) {
-      if (document) {
-        try {
-          await core.executeAsModal(async () => document.closeWithoutSaving(), {
-            commandName: "Close failed Photara flattening document",
-          });
-        } catch (_) {}
-      }
+    if (source) {
+      try {
+        await core.executeAsModal(async () => source.closeWithoutSaving(), {
+          commandName: "Close failed Photara source",
+        });
+      } catch (_) {}
     }
     return {
       asset_id: item.asset_id,
       psb_filename: item.psb_filename,
-      tiff_filename: item.tiff_filename,
+      psb_contract_valid: false,
       state: "failed",
+      renditions: [],
       error: error && error.message ? error.message : String(error),
     };
   }
@@ -165,25 +203,21 @@ async function processItem(projectRoot, imagesRoot, item) {
 async function main() {
   await core.showAlert(
     "Choose the Photara project folder first, then choose the configured Images root. " +
-    "Photara will write only the manifest-listed flattened TIFFs."
+    "Photara will validate top-level HDR and SDR containers and render both TIFFs."
   );
   const projectRoot = await storage.localFileSystem.getFolder();
   if (!projectRoot) return;
   let manifestEntry;
-  try {
-    manifestEntry = await projectRoot.getEntry(MANIFEST_NAME);
-  } catch (_) {
-    throw new Error(
-      `Could not find ${MANIFEST_NAME} in the selected folder “${projectRoot.name}”. ` +
-      "Choose the Red Meridian project folder, not its masters or .photara subfolder."
-    );
+  try { manifestEntry = await projectRoot.getEntry(MANIFEST_NAME); } catch (_) {
+    throw new Error(`Could not find ${MANIFEST_NAME} in “${projectRoot.name}”.`);
   }
   const manifest = JSON.parse(await manifestEntry.read());
+  if (manifest.schema_version !== 2) throw new Error("Photara requires a schema-2 flattening manifest");
   const imagesRoot = await storage.localFileSystem.getFolder();
   if (!imagesRoot) return;
 
   const report = {
-    schema_version: 1,
+    schema_version: 2,
     batch_id: manifest.batch_id,
     project: manifest.project,
     items: [],
@@ -194,10 +228,10 @@ async function main() {
   const reportEntry = await projectRoot.createFile(REPORT_NAME, { overwrite: true });
   await reportEntry.write(`${JSON.stringify(report, null, 2)}\n`);
   const verified = report.items.filter((item) => item.state === "verified").length;
-  const failed = report.items.length - verified;
   await core.showAlert(
-    `Photara flattening finished.\n\nVerified: ${verified}\nFailed: ${failed}\n\n` +
-    "Photara will independently verify every TIFF before registering it."
+    `Photara paired flattening finished.\n\nVerified pairs: ${verified}\n` +
+    `Failed: ${report.items.length - verified}\n\n` +
+    "Photara will independently verify both TIFFs before registration."
   );
 }
 
@@ -205,5 +239,5 @@ try {
   await main();
 } catch (error) {
   const message = error && error.message ? error.message : String(error);
-  await core.showAlert(`Photara flattening could not continue.\n\n${message}`);
+  await core.showAlert(`Photara paired flattening could not continue.\n\n${message}`);
 }

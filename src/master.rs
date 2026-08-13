@@ -187,8 +187,10 @@ pub struct FlatteningManifestItem {
     pub psb_relative_path: PathBuf,
     pub psb_sha256: String,
     pub psb_byte_size: u64,
-    pub tiff_filename: String,
-    pub tiff_relative_path: PathBuf,
+    pub hdr_tiff_filename: String,
+    pub hdr_tiff_relative_path: PathBuf,
+    pub sdr_tiff_filename: String,
+    pub sdr_tiff_relative_path: PathBuf,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -203,6 +205,17 @@ pub struct FlatteningReport {
 pub struct FlatteningReportItem {
     pub asset_id: Uuid,
     pub psb_filename: String,
+    pub psb_contract_valid: bool,
+    pub state: String,
+    #[serde(default)]
+    pub renditions: Vec<FlatteningRenditionReport>,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct FlatteningRenditionReport {
+    pub role: String,
     pub tiff_filename: String,
     pub state: String,
     #[serde(default)]
@@ -211,6 +224,10 @@ pub struct FlatteningReportItem {
     pub color_profile: Option<String>,
     #[serde(default)]
     pub layer_count: Option<usize>,
+    #[serde(default)]
+    pub pixel_width: Option<u32>,
+    #[serde(default)]
+    pub pixel_height: Option<u32>,
     #[serde(default)]
     pub error: Option<String>,
 }
@@ -229,12 +246,21 @@ pub struct VerifiedFlattenedMaster {
     pub asset_id: Uuid,
     pub layered_file_id: Uuid,
     pub psb_path: PathBuf,
+    pub hdr: VerifiedFlattenedRendition,
+    pub sdr: VerifiedFlattenedRendition,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct VerifiedFlattenedRendition {
+    pub role: String,
     pub tiff_path: PathBuf,
     pub tiff_sha256: String,
     pub tiff_byte_size: u64,
     pub bits_per_channel: u8,
     pub color_profile: String,
     pub layer_count: usize,
+    pub pixel_width: u32,
+    pub pixel_height: u32,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -249,11 +275,18 @@ pub struct FlatteningRegistration {
 #[derive(Clone, Debug, Serialize)]
 pub struct RegisteredFlattenedMaster {
     pub asset_id: Uuid,
+    pub hdr: RegisteredFlattenedRendition,
+    pub sdr: RegisteredFlattenedRendition,
+    pub workflow_state: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct RegisteredFlattenedRendition {
+    pub role: String,
     pub tiff_path: PathBuf,
     pub logical_location: String,
     pub tiff_sha256: String,
     pub tiff_byte_size: u64,
-    pub workflow_state: String,
     pub action: String,
 }
 
@@ -712,9 +745,9 @@ pub async fn prepare_flattening(
                 project.slug
             )));
         }
-        if !is_p3_pq(&profile) {
+        if !is_p3_pq(&profile) && !is_display_p3_linear(&profile) {
             return Err(PhotaraError::Configuration(format!(
-                "{} has unexpected recorded profile {profile:?}; expected P3 PQ",
+                "{} has unexpected recorded profile {profile:?}; expected P3 PQ or Display P3 Linear",
                 psb_path.display()
             )));
         }
@@ -739,7 +772,8 @@ pub async fn prepare_flattening(
         let relative = location.strip_prefix("images:").ok_or_else(|| {
             PhotaraError::Configuration(format!("unsupported layered PSB location {location:?}"))
         })?;
-        let tiff_filename = format!("{stem}.TIF");
+        let hdr_tiff_filename = format!("{stem}_HDR.TIF");
+        let sdr_tiff_filename = format!("{stem}_SDR.TIF");
         items.push(FlatteningManifestItem {
             asset_id,
             layered_file_id,
@@ -747,10 +781,14 @@ pub async fn prepare_flattening(
             psb_relative_path: PathBuf::from(relative),
             psb_sha256,
             psb_byte_size,
-            tiff_relative_path: PathBuf::from("masters")
+            hdr_tiff_relative_path: PathBuf::from("masters")
                 .join("flattened")
-                .join(&tiff_filename),
-            tiff_filename,
+                .join(&hdr_tiff_filename),
+            hdr_tiff_filename,
+            sdr_tiff_relative_path: PathBuf::from("masters")
+                .join("flattened")
+                .join(&sdr_tiff_filename),
+            sdr_tiff_filename,
         });
     }
 
@@ -771,6 +809,7 @@ pub async fn prepare_flattening(
         {
             Uuid::new_v4()
         }
+        Err(PhotaraError::Json(_)) => Uuid::new_v4(),
         Err(error) => return Err(error),
     };
     let scripts_root = config
@@ -786,7 +825,7 @@ pub async fn prepare_flattening(
     create_directory(&scripts_root)?;
     let photoshop_script = scripts_root.join(FLATTENING_SCRIPT_NAME);
     let manifest = FlatteningManifest {
-        schema_version: 1,
+        schema_version: 2,
         batch_id,
         project: project.slug.clone(),
         project_root: project_root.clone(),
@@ -837,15 +876,10 @@ pub fn verify_flattening(config: &PhotaraConfig, project: &str) -> Result<Flatte
                     item.psb_filename
                 ))
             })?;
-        let profile = evidence.color_profile.as_deref().unwrap_or_default();
-        if evidence.state != "verified"
-            || evidence.bits_per_channel != Some(32)
-            || evidence.layer_count != Some(1)
-            || !is_display_p3_linear(profile)
-        {
+        if evidence.state != "verified" || !evidence.psb_contract_valid {
             return Err(PhotaraError::Configuration(format!(
-                "Photoshop did not verify the flattened contract for {}: {:?}",
-                item.tiff_filename, evidence.error
+                "Photoshop did not verify the paired HDR/SDR contract for {}: {:?}",
+                item.psb_filename, evidence.error
             )));
         }
         let psb_path = manifest.images_root.join(&item.psb_relative_path);
@@ -857,32 +891,102 @@ pub fn verify_flattening(config: &PhotaraConfig, project: &str) -> Result<Flatte
                 psb_path.display()
             )));
         }
-        let tiff_path = manifest.project_root.join(&item.tiff_relative_path);
-        let (tiff_byte_size, tiff_bits) = inspect_tiff(&tiff_path)?;
-        if tiff_bits != 32 {
+        let hdr = verify_flattened_rendition(
+            &manifest.project_root,
+            evidence,
+            "hdr",
+            &item.hdr_tiff_filename,
+            &item.hdr_tiff_relative_path,
+        )?;
+        let sdr = verify_flattened_rendition(
+            &manifest.project_root,
+            evidence,
+            "sdr",
+            &item.sdr_tiff_filename,
+            &item.sdr_tiff_relative_path,
+        )?;
+        if hdr.pixel_width != sdr.pixel_width || hdr.pixel_height != sdr.pixel_height {
             return Err(PhotaraError::Configuration(format!(
-                "{} is {tiff_bits} bits per channel; expected a flattened 32-bit TIFF",
-                tiff_path.display()
+                "paired TIFF dimensions differ for {}: HDR={}x{}, SDR={}x{}",
+                item.psb_filename,
+                hdr.pixel_width,
+                hdr.pixel_height,
+                sdr.pixel_width,
+                sdr.pixel_height
+            )));
+        }
+        if hdr.color_profile != sdr.color_profile {
+            return Err(PhotaraError::Configuration(format!(
+                "paired TIFF profiles differ for {}: HDR={:?}, SDR={:?}",
+                item.psb_filename, hdr.color_profile, sdr.color_profile
             )));
         }
         verified.push(VerifiedFlattenedMaster {
             asset_id: item.asset_id,
             layered_file_id: item.layered_file_id,
             psb_path,
-            tiff_sha256: sha256(&tiff_path)?,
-            tiff_byte_size,
-            tiff_path,
-            bits_per_channel: 32,
-            color_profile: profile.into(),
-            layer_count: 1,
+            hdr,
+            sdr,
         });
     }
     Ok(FlatteningVerification {
-        schema_version: 1,
+        schema_version: 2,
         batch_id: manifest.batch_id,
         project: manifest.project,
         verified_count: verified.len(),
         items: verified,
+    })
+}
+
+fn verify_flattened_rendition(
+    project_root: &Path,
+    evidence: &FlatteningReportItem,
+    role: &str,
+    expected_filename: &str,
+    relative_path: &Path,
+) -> Result<VerifiedFlattenedRendition> {
+    let rendition = evidence
+        .renditions
+        .iter()
+        .find(|rendition| rendition.role == role)
+        .ok_or_else(|| {
+            PhotaraError::Configuration(format!(
+                "Photoshop report has no {role} rendition for {}",
+                evidence.psb_filename
+            ))
+        })?;
+    let profile = rendition.color_profile.as_deref().unwrap_or_default();
+    if rendition.tiff_filename != expected_filename
+        || rendition.state != "verified"
+        || rendition.bits_per_channel != Some(32)
+        || rendition.layer_count != Some(1)
+        || rendition.pixel_width.unwrap_or_default() == 0
+        || rendition.pixel_height.unwrap_or_default() == 0
+        || !is_display_p3_linear(profile)
+    {
+        return Err(PhotaraError::Configuration(format!(
+            "Photoshop did not verify the {role} flattened contract for {}: {:?}",
+            expected_filename, rendition.error
+        )));
+    }
+    let tiff_path = project_root.join(relative_path);
+    let (tiff_byte_size, tiff_bits) = inspect_tiff(&tiff_path)?;
+    if tiff_bits != 32 {
+        return Err(PhotaraError::Configuration(format!(
+            "{} is {tiff_bits} bits per channel; expected a flattened 32-bit TIFF",
+            tiff_path.display()
+        )));
+    }
+    Ok(VerifiedFlattenedRendition {
+        role: role.into(),
+        tiff_sha256: sha256(&tiff_path)?,
+        tiff_byte_size,
+        tiff_path,
+        bits_per_channel: 32,
+        color_profile: profile.into(),
+        layer_count: 1,
+        pixel_width: rendition.pixel_width.unwrap_or_default(),
+        pixel_height: rendition.pixel_height.unwrap_or_default(),
     })
 }
 
@@ -895,73 +999,123 @@ pub async fn register_flattening(
     let verification = verify_flattening(config, &project.slug)?;
     let mut items = Vec::with_capacity(verification.items.len());
     for verified in verification.items {
-        let logical_location = format!(
-            "projects:{}/masters/flattened/{}",
-            project.slug,
-            verified
-                .tiff_path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .ok_or_else(|| PhotaraError::Configuration("TIFF has no filename".into()))?
-        );
-        let existing = sqlx::query(
-            "SELECT id, location, sha256, byte_size FROM asset_files \
-             WHERE asset_id = $1 AND representation = 'flattened-tiff' \
-               AND authoritative AND state = 'current'",
+        let hdr_location = flattened_logical_location(project, &verified.hdr.tiff_path)?;
+        let sdr_location = flattened_logical_location(project, &verified.sdr.tiff_path)?;
+        let hdr_action = rendition_action(
+            database,
+            verified.asset_id,
+            "flattened-hdr-tiff",
+            &hdr_location,
+            &verified.hdr,
         )
-        .bind(verified.asset_id)
-        .fetch_optional(database.pool())
         .await?;
-        let already_registered = if let Some(row) = existing {
-            let location: String = row.try_get("location")?;
-            let hash: Option<String> = row.try_get("sha256")?;
-            let bytes: Option<i64> = row.try_get("byte_size")?;
-            if location != logical_location
-                || hash.as_deref() != Some(&verified.tiff_sha256)
-                || bytes != Some(to_i64(verified.tiff_byte_size, "TIFF")?)
-            {
-                return Err(PhotaraError::Configuration(format!(
-                    "asset {} already has a different authoritative flattened TIFF",
-                    verified.asset_id
-                )));
-            }
-            true
-        } else {
-            false
-        };
-        let mut action = if already_registered {
-            "already-registered".to_owned()
-        } else {
-            "register".to_owned()
-        };
-        if confirmed && !already_registered {
+        let sdr_action = rendition_action(
+            database,
+            verified.asset_id,
+            "flattened-sdr-tiff",
+            &sdr_location,
+            &verified.sdr,
+        )
+        .await?;
+        if confirmed && (hdr_action != "already-registered" || sdr_action != "already-registered") {
             register_flattened_master(
                 database,
                 project,
                 &verified,
-                &logical_location,
+                &hdr_location,
+                &sdr_location,
                 verification.batch_id,
             )
             .await?;
-            action = "registered".into();
         }
         items.push(RegisteredFlattenedMaster {
             asset_id: verified.asset_id,
-            tiff_path: verified.tiff_path,
-            logical_location,
-            tiff_sha256: verified.tiff_sha256,
-            tiff_byte_size: verified.tiff_byte_size,
+            hdr: registered_rendition(
+                &verified.hdr,
+                hdr_location,
+                if confirmed && hdr_action != "already-registered" {
+                    "registered"
+                } else {
+                    hdr_action
+                },
+            ),
+            sdr: registered_rendition(
+                &verified.sdr,
+                sdr_location,
+                if confirmed && sdr_action != "already-registered" {
+                    "registered"
+                } else {
+                    sdr_action
+                },
+            ),
             workflow_state: "flattened".into(),
-            action,
         });
     }
     Ok(FlatteningRegistration {
-        schema_version: 1,
+        schema_version: 2,
         batch_id: verification.batch_id,
         project: project.slug.clone(),
         confirmed,
         items,
     })
+}
+
+fn flattened_logical_location(project: &ProjectRecord, path: &Path) -> Result<String> {
+    let filename = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| PhotaraError::Configuration("TIFF has no filename".into()))?;
+    Ok(format!(
+        "projects:{}/masters/flattened/{filename}",
+        project.slug
+    ))
+}
+
+async fn rendition_action(
+    database: &Database,
+    asset_id: Uuid,
+    representation: &str,
+    logical_location: &str,
+    rendition: &VerifiedFlattenedRendition,
+) -> Result<&'static str> {
+    let existing = sqlx::query(
+        "SELECT location, sha256, byte_size FROM asset_files \
+         WHERE asset_id = $1 AND representation = $2 \
+           AND authoritative AND state = 'current'",
+    )
+    .bind(asset_id)
+    .bind(representation)
+    .fetch_optional(database.pool())
+    .await?;
+    let Some(row) = existing else {
+        return Ok("register");
+    };
+    let location: String = row.try_get("location")?;
+    let hash: Option<String> = row.try_get("sha256")?;
+    let bytes: Option<i64> = row.try_get("byte_size")?;
+    if location == logical_location
+        && hash.as_deref() == Some(&rendition.tiff_sha256)
+        && bytes == Some(to_i64(rendition.tiff_byte_size, "TIFF")?)
+    {
+        Ok("already-registered")
+    } else {
+        Ok("replace")
+    }
+}
+
+fn registered_rendition(
+    rendition: &VerifiedFlattenedRendition,
+    logical_location: String,
+    action: impl Into<String>,
+) -> RegisteredFlattenedRendition {
+    RegisteredFlattenedRendition {
+        role: rendition.role.clone(),
+        tiff_path: rendition.tiff_path.clone(),
+        logical_location,
+        tiff_sha256: rendition.tiff_sha256.clone(),
+        tiff_byte_size: rendition.tiff_byte_size,
+        action: action.into(),
+    }
 }
 
 async fn checkpoint_plan(
@@ -1007,11 +1161,6 @@ async fn checkpoint_plan(
         let previous_hash: Option<String> = row.try_get("sha256")?;
         let previous_size: Option<i64> = row.try_get("byte_size")?;
         let previous_state: String = row.try_get("workflow_state")?;
-        if previous_state == "flattened" {
-            return Err(PhotaraError::Configuration(format!(
-                "layered master {location:?} is already flattened"
-            )));
-        }
         let psb_path = resolve_source_key(&config.settings.images_root, &location)?;
         let (psb_byte_size, bits_per_channel) = inspect_psb(&psb_path)?;
         if ready && bits_per_channel != 32 {
@@ -1211,7 +1360,8 @@ async fn register_flattened_master(
     database: &Database,
     project: &ProjectRecord,
     verified: &VerifiedFlattenedMaster,
-    logical_location: &str,
+    hdr_location: &str,
+    sdr_location: &str,
     batch_id: Uuid,
 ) -> Result<()> {
     let mut transaction = database.begin().await?;
@@ -1231,47 +1381,83 @@ async fn register_flattened_master(
             verified.psb_path.display()
         )));
     }
-    let tiff_file_id = Uuid::new_v4();
-    sqlx::query(
-        "INSERT INTO asset_files \
-         (id, asset_id, representation, location, sha256, byte_size, authoritative) \
-         VALUES ($1, $2, 'flattened-tiff', $3, $4, $5, true)",
-    )
-    .bind(tiff_file_id)
-    .bind(verified.asset_id)
-    .bind(logical_location)
-    .bind(&verified.tiff_sha256)
-    .bind(to_i64(verified.tiff_byte_size, "TIFF")?)
-    .execute(&mut *transaction)
-    .await?;
-    sqlx::query(
-        "INSERT INTO asset_file_origins (source_file_id, derived_file_id, operation) \
-         VALUES ($1, $2, 'photoshop-flatten-32-bit-tiff')",
-    )
-    .bind(verified.layered_file_id)
-    .bind(tiff_file_id)
-    .execute(&mut *transaction)
-    .await?;
-    sqlx::query(
-        "INSERT INTO flattened_master_documents \
-         (asset_file_id, project_id, source_file_id, build_batch_id, bits_per_channel, \
-          color_profile, layer_count, verified_at) \
-         VALUES ($1, $2, $3, $4, 32, $5, 1, now())",
-    )
-    .bind(tiff_file_id)
-    .bind(project.id)
-    .bind(verified.layered_file_id)
-    .bind(batch_id)
-    .bind(&verified.color_profile)
-    .execute(&mut *transaction)
-    .await?;
+    for (representation, role, location, rendition) in [
+        ("flattened-hdr-tiff", "hdr", hdr_location, &verified.hdr),
+        ("flattened-sdr-tiff", "sdr", sdr_location, &verified.sdr),
+    ] {
+        let existing = sqlx::query(
+            "SELECT id, location, sha256, byte_size FROM asset_files \
+             WHERE asset_id = $1 AND representation = $2 \
+               AND authoritative AND state = 'current' FOR UPDATE",
+        )
+        .bind(verified.asset_id)
+        .bind(representation)
+        .fetch_optional(&mut *transaction)
+        .await?;
+        if let Some(row) = existing {
+            let id: Uuid = row.try_get("id")?;
+            let old_location: String = row.try_get("location")?;
+            let old_hash: Option<String> = row.try_get("sha256")?;
+            let old_size: Option<i64> = row.try_get("byte_size")?;
+            if old_location == location
+                && old_hash.as_deref() == Some(&rendition.tiff_sha256)
+                && old_size == Some(to_i64(rendition.tiff_byte_size, "TIFF")?)
+            {
+                continue;
+            }
+            sqlx::query(
+                "UPDATE asset_files SET state = 'removed', removed_at = now() WHERE id = $1",
+            )
+            .bind(id)
+            .execute(&mut *transaction)
+            .await?;
+        }
+
+        let tiff_file_id = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO asset_files \
+             (id, asset_id, representation, location, sha256, byte_size, authoritative) \
+             VALUES ($1, $2, $3, $4, $5, $6, true)",
+        )
+        .bind(tiff_file_id)
+        .bind(verified.asset_id)
+        .bind(representation)
+        .bind(location)
+        .bind(&rendition.tiff_sha256)
+        .bind(to_i64(rendition.tiff_byte_size, "TIFF")?)
+        .execute(&mut *transaction)
+        .await?;
+        sqlx::query(
+            "INSERT INTO asset_file_origins (source_file_id, derived_file_id, operation) \
+             VALUES ($1, $2, $3)",
+        )
+        .bind(verified.layered_file_id)
+        .bind(tiff_file_id)
+        .bind(format!("photoshop-flatten-32-bit-{role}-tiff"))
+        .execute(&mut *transaction)
+        .await?;
+        sqlx::query(
+            "INSERT INTO flattened_master_documents \
+             (asset_file_id, project_id, source_file_id, build_batch_id, bits_per_channel, \
+              color_profile, layer_count, rendition_role, verified_at) \
+             VALUES ($1, $2, $3, $4, 32, $5, 1, $6, now())",
+        )
+        .bind(tiff_file_id)
+        .bind(project.id)
+        .bind(verified.layered_file_id)
+        .bind(batch_id)
+        .bind(&rendition.color_profile)
+        .bind(role)
+        .execute(&mut *transaction)
+        .await?;
+    }
     sqlx::query(
         "UPDATE layered_master_documents \
          SET workflow_state = 'flattened', color_profile = $2, updated_at = now() \
          WHERE asset_file_id = $1",
     )
     .bind(verified.layered_file_id)
-    .bind(&verified.color_profile)
+    .bind(&verified.hdr.color_profile)
     .execute(&mut *transaction)
     .await?;
     let (psb_byte_size, _) = inspect_psb(&verified.psb_path)?;
@@ -1279,7 +1465,12 @@ async fn register_flattened_master(
     sqlx::query(
         "INSERT INTO layered_master_events \
          (id, asset_file_id, event_type, sha256, byte_size, note) \
-         VALUES ($1, $2, 'flattened', $3, $4, 'Verified 32-bit flattened TIFF registered')",
+         SELECT $1, $2, 'flattened', $3, $4, 'Verified paired 32-bit HDR and SDR TIFFs registered' \
+         WHERE NOT EXISTS ( \
+           SELECT 1 FROM layered_master_events \
+           WHERE asset_file_id = $2 AND event_type = 'flattened' \
+             AND sha256 = $3 AND byte_size = $4 \
+         )",
     )
     .bind(Uuid::new_v4())
     .bind(verified.layered_file_id)
