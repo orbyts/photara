@@ -56,18 +56,10 @@ pub struct Settings {
     pub layouts: LayoutConfiguration,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct LayoutConfiguration {
     #[serde(default)]
     pub defaults: LayoutDefaults,
-}
-
-impl Default for LayoutConfiguration {
-    fn default() -> Self {
-        Self {
-            defaults: LayoutDefaults::default(),
-        }
-    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

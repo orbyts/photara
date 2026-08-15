@@ -7,9 +7,11 @@ use photara::{
     cloud_collection,
     config::{Location, Person, PhotaraConfig, Scene, config_root},
     decision::{self, DecisionValue},
+    delivery,
     layout::{self, PostPlatform},
     master, persistence,
     project::{self, NewProject, ProjectOrigin},
+    publication,
     selection::{self, SelectionKind, SelectionSource},
     transfer, withdrawal,
 };
@@ -39,6 +41,10 @@ enum Command {
     Decisions {
         #[command(subcommand)]
         command: DecisionCommand,
+    },
+    Delivery {
+        #[command(subcommand)]
+        command: DeliveryCommand,
     },
     People {
         #[command(subcommand)]
@@ -86,6 +92,56 @@ enum Command {
 enum ConfigCommand {
     Init,
     Validate,
+}
+
+#[derive(Debug, Subcommand)]
+enum DeliveryCommand {
+    CloudinaryLogin {
+        #[arg(long, default_value = "personal")]
+        account: String,
+        #[arg(long)]
+        cloud_name: String,
+    },
+    CloudinaryProbe {
+        #[arg(long, default_value = "personal")]
+        account: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Prepare {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long, default_value = "personal")]
+        account: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    UploadCanary {
+        batch: uuid::Uuid,
+        #[arg(long)]
+        confirm: bool,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    UploadRemaining {
+        batch: uuid::Uuid,
+        #[arg(long)]
+        confirm: bool,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    VerifyCanary {
+        batch: uuid::Uuid,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Verify {
+        batch: uuid::Uuid,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -151,6 +207,24 @@ enum PostCommand {
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
+    AddStackedThree {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long)]
+        item: String,
+        #[arg(long)]
+        top: String,
+        #[arg(long)]
+        middle: String,
+        #[arg(long)]
+        bottom: String,
+        #[arg(long)]
+        template: Option<String>,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
     AddContinuousPanorama {
         project: String,
         post: String,
@@ -174,6 +248,8 @@ enum PostCommand {
         top: String,
         #[arg(long)]
         bottom: String,
+        #[arg(long)]
+        template: Option<String>,
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
@@ -188,6 +264,8 @@ enum PostCommand {
         top: String,
         #[arg(long)]
         bottom: String,
+        #[arg(long)]
+        template: Option<String>,
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
@@ -195,7 +273,7 @@ enum PostCommand {
         project: String,
         post: String,
         #[arg(long, value_enum)]
-        platform: Platform,
+        platform: Option<Platform>,
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
@@ -224,6 +302,58 @@ enum PostCommand {
         platform: Platform,
         #[arg(long)]
         item: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    PrepareAuthoring {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long)]
+        item: Option<String>,
+        #[arg(long)]
+        slot: Option<String>,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    ApplyAuthoring {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    SetTransform {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long)]
+        item: String,
+        #[arg(long)]
+        slot: Option<String>,
+        #[arg(long, default_value_t = 0)]
+        rotation_quarter_turns_cw: u8,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    ConfirmManualPublication {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long, default_value = "personal")]
+        account: String,
+        #[arg(long)]
+        url: Option<String>,
+        #[arg(long)]
+        published_at: Option<chrono::DateTime<chrono::Utc>>,
+        #[arg(long, default_value = "Operator confirmed manual publication")]
+        note: String,
+        #[arg(long)]
+        confirm: bool,
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
@@ -515,6 +645,15 @@ enum MasterCommand {
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
+    RefreshFlattened {
+        project: String,
+        #[arg(long)]
+        asset: String,
+        #[arg(long, alias = "confirm")]
+        r#override: bool,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -708,6 +847,7 @@ async fn main() -> Result<()> {
         Command::Cloud { command } => cloud_command(command).await?,
         Command::Config { command } => config(command)?,
         Command::Decisions { command } => decisions(command).await?,
+        Command::Delivery { command } => delivery_command(command).await?,
         Command::People { command } => people(command)?,
         Command::Locations { command } => locations(command)?,
         Command::Layouts { command } => layouts(command)?,
@@ -718,6 +858,96 @@ async fn main() -> Result<()> {
         Command::Project { command } => project(command).await?,
         Command::Posts { command } => posts(command).await?,
         Command::Selections { command } => selections(command).await?,
+    }
+    Ok(())
+}
+
+async fn delivery_command(command: DeliveryCommand) -> Result<()> {
+    match command {
+        DeliveryCommand::CloudinaryLogin {
+            account,
+            cloud_name,
+        } => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&delivery::login(&account, &cloud_name).await?)?
+            );
+        }
+        DeliveryCommand::CloudinaryProbe { account, format } => {
+            print_serialized(&delivery::probe(&account).await?, format)?;
+        }
+        DeliveryCommand::Prepare {
+            project: slug,
+            post,
+            platform,
+            account,
+            format,
+        } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            let database = persistence::connect_development().await?;
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &delivery::prepare(
+                    &database,
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                    &account,
+                )
+                .await?,
+                format,
+            )?;
+            database.close().await;
+        }
+        DeliveryCommand::UploadCanary {
+            batch,
+            confirm,
+            format,
+        } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            let database = persistence::connect_development().await?;
+            print_serialized(
+                &delivery::upload_canary(&database, &config, batch, confirm).await?,
+                format,
+            )?;
+            database.close().await;
+        }
+        DeliveryCommand::UploadRemaining {
+            batch,
+            confirm,
+            format,
+        } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            let database = persistence::connect_development().await?;
+            print_serialized(
+                &delivery::upload_remaining(&database, &config, batch, confirm).await?,
+                format,
+            )?;
+            database.close().await;
+        }
+        DeliveryCommand::VerifyCanary { batch, format } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            let database = persistence::connect_development().await?;
+            print_serialized(
+                &delivery::verify_canary(&database, &config, batch).await?,
+                format,
+            )?;
+            database.close().await;
+        }
+        DeliveryCommand::Verify { batch, format } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            let database = persistence::connect_development().await?;
+            print_serialized(&delivery::verify(&database, &config, batch).await?, format)?;
+            database.close().await;
+        }
     }
     Ok(())
 }
@@ -885,6 +1115,25 @@ async fn masters(command: MasterCommand) -> Result<()> {
             })?;
             print_serialized(
                 &master::register_flattening(&database, &config, &project, confirm).await?,
+                format,
+            )?;
+            database.close().await;
+        }
+        MasterCommand::RefreshFlattened {
+            project: slug,
+            asset,
+            r#override,
+            format,
+        } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            let database = persistence::connect_development().await?;
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &master::refresh_flattened(&database, &config, &project, &asset, r#override)
+                    .await?,
                 format,
             )?;
             database.close().await;
@@ -1499,6 +1748,37 @@ async fn posts(command: PostCommand) -> Result<()> {
                 format,
             )?;
         }
+        PostCommand::AddStackedThree {
+            project: slug,
+            post,
+            platform,
+            item,
+            top,
+            middle,
+            bottom,
+            template,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::add_stacked_three(
+                    &database,
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                    &item,
+                    &top,
+                    &middle,
+                    &bottom,
+                    template,
+                )
+                .await?,
+                format,
+            )?;
+        }
         PostCommand::AddContinuousPanorama {
             project: slug,
             post,
@@ -1531,6 +1811,7 @@ async fn posts(command: PostCommand) -> Result<()> {
             item,
             top,
             bottom,
+            template,
             format,
         } => {
             let project = project::find(&database, &slug).await?.ok_or_else(|| {
@@ -1546,6 +1827,7 @@ async fn posts(command: PostCommand) -> Result<()> {
                     &item,
                     &top,
                     &bottom,
+                    template.as_deref(),
                 )
                 .await?,
                 format,
@@ -1558,6 +1840,7 @@ async fn posts(command: PostCommand) -> Result<()> {
             item,
             top,
             bottom,
+            template,
             format,
         } => {
             let project = project::find(&database, &slug).await?.ok_or_else(|| {
@@ -1573,6 +1856,7 @@ async fn posts(command: PostCommand) -> Result<()> {
                     &item,
                     &top,
                     &bottom,
+                    template.as_deref(),
                 )
                 .await?,
                 format,
@@ -1593,7 +1877,7 @@ async fn posts(command: PostCommand) -> Result<()> {
                     &config,
                     &project,
                     &post,
-                    platform.into(),
+                    platform.map(Into::into),
                 )
                 .await?,
                 format,
@@ -1648,6 +1932,106 @@ async fn posts(command: PostCommand) -> Result<()> {
             })?;
             print_serialized(
                 &layout::apply_panorama_crop(&config, &project, &post, platform.into(), &item)?,
+                format,
+            )?;
+        }
+        PostCommand::PrepareAuthoring {
+            project: slug,
+            post,
+            platform,
+            item,
+            slot,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::prepare_authoring_session(
+                    &database,
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                    item.as_deref(),
+                    slot.as_deref(),
+                )
+                .await?,
+                format,
+            )?;
+        }
+        PostCommand::ApplyAuthoring {
+            project: slug,
+            post,
+            platform,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::apply_placement_authoring(&config, &project, &post, platform.into())?,
+                format,
+            )?;
+        }
+        PostCommand::SetTransform {
+            project: slug,
+            post,
+            platform,
+            item,
+            slot,
+            rotation_quarter_turns_cw,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::set_item_transform(
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                    &item,
+                    slot.as_deref(),
+                    layout::PlacementTransform {
+                        crop: None,
+                        rotation_quarter_turns_cw,
+                    },
+                )?,
+                format,
+            )?;
+        }
+        PostCommand::ConfirmManualPublication {
+            project: slug,
+            post,
+            platform,
+            account,
+            url,
+            published_at,
+            note,
+            confirm,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &publication::confirm_manual(
+                    &database,
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                    publication::ManualPublicationInput {
+                        account_label: &account,
+                        external_url: url.as_deref(),
+                        published_at,
+                        evidence_note: &note,
+                        confirmed: confirm,
+                    },
+                )
+                .await?,
                 format,
             )?;
         }

@@ -290,6 +290,28 @@ pub struct RegisteredFlattenedRendition {
     pub action: String,
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub struct FlattenedRefresh {
+    pub schema_version: u32,
+    pub refresh_id: Uuid,
+    pub project: String,
+    pub asset_id: Uuid,
+    pub original_filename: String,
+    pub confirmed: bool,
+    pub renditions: Vec<RefreshedFlattenedRendition>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct RefreshedFlattenedRendition {
+    pub role: String,
+    pub path: PathBuf,
+    pub previous_sha256: String,
+    pub current_sha256: String,
+    pub previous_byte_size: u64,
+    pub current_byte_size: u64,
+    pub action: String,
+}
+
 pub async fn prepare(
     database: &Database,
     config: &PhotaraConfig,
@@ -1058,6 +1080,255 @@ pub async fn register_flattening(
         confirmed,
         items,
     })
+}
+
+pub async fn refresh_flattened(
+    database: &Database,
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    asset_reference: &str,
+    confirmed: bool,
+) -> Result<FlattenedRefresh> {
+    let reference = asset_reference.trim();
+    if reference.is_empty() {
+        return Err(PhotaraError::Configuration(
+            "flattened master asset reference must not be empty".into(),
+        ));
+    }
+    let rows = sqlx::query(
+        "SELECT asset.id AS asset_id, asset.original_filename, file.id AS file_id, \
+                file.representation, file.location, file.sha256, file.byte_size, \
+                document.source_file_id, document.bits_per_channel, \
+                document.color_profile, document.layer_count, document.rendition_role \
+         FROM project_assets AS membership \
+         JOIN assets AS asset ON asset.id = membership.asset_id \
+         JOIN asset_files AS file ON file.asset_id = asset.id \
+           AND file.representation IN ('flattened-hdr-tiff', 'flattened-sdr-tiff') \
+           AND file.authoritative AND file.state = 'current' \
+         JOIN flattened_master_documents AS document ON document.asset_file_id = file.id \
+           AND document.project_id = membership.project_id \
+         WHERE membership.project_id = $1 \
+           AND (asset.original_filename = $2 OR asset.original_stem = $2) \
+         ORDER BY document.rendition_role",
+    )
+    .bind(project.id)
+    .bind(reference)
+    .fetch_all(database.pool())
+    .await?;
+    if rows.len() != 2 {
+        return Err(PhotaraError::Configuration(format!(
+            "asset reference {reference:?} in project {:?} did not resolve to one current HDR/SDR flattened pair",
+            project.slug
+        )));
+    }
+    let asset_id: Uuid = rows[0].try_get("asset_id")?;
+    let original_filename: String = rows[0].try_get("original_filename")?;
+    if rows
+        .iter()
+        .any(|row| row.try_get::<Uuid, _>("asset_id").ok() != Some(asset_id))
+    {
+        return Err(PhotaraError::Configuration(format!(
+            "asset reference {reference:?} is ambiguous in project {:?}",
+            project.slug
+        )));
+    }
+    let refresh_id = Uuid::new_v4();
+    let mut inspected = Vec::with_capacity(rows.len());
+    for row in &rows {
+        let location: String = row.try_get("location")?;
+        let path = resolve_project_file(config, project, &location)?;
+        let (current_byte_size, bits_per_channel) = inspect_tiff(&path)?;
+        let recorded_bits: i16 = row.try_get("bits_per_channel")?;
+        let layer_count: i32 = row.try_get("layer_count")?;
+        let color_profile: String = row.try_get("color_profile")?;
+        if bits_per_channel != 32
+            || recorded_bits != 32
+            || layer_count != 1
+            || !is_display_p3_linear(&color_profile)
+        {
+            return Err(PhotaraError::Configuration(format!(
+                "{} no longer satisfies its recorded flattened 32-bit Display P3 Linear contract",
+                path.display()
+            )));
+        }
+        let current_sha256 = sha256(&path)?;
+        let previous_sha256: String =
+            row.try_get::<Option<String>, _>("sha256")?.ok_or_else(|| {
+                PhotaraError::Configuration(format!(
+                    "current flattened rendition {} has no registered SHA-256",
+                    path.display()
+                ))
+            })?;
+        let previous_byte_size = row
+            .try_get::<Option<i64>, _>("byte_size")?
+            .and_then(|value| u64::try_from(value).ok())
+            .ok_or_else(|| {
+                PhotaraError::Configuration(format!(
+                    "current flattened rendition {} has no valid registered size",
+                    path.display()
+                ))
+            })?;
+        inspected.push((
+            row.try_get::<Uuid, _>("file_id")?,
+            row.try_get::<String, _>("representation")?,
+            location,
+            row.try_get::<Uuid, _>("source_file_id")?,
+            row.try_get::<String, _>("rendition_role")?,
+            color_profile,
+            path,
+            previous_sha256,
+            previous_byte_size,
+            current_sha256,
+            current_byte_size,
+        ));
+    }
+    if confirmed {
+        let mut transaction = database.begin().await?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
+            .bind(asset_id.to_string())
+            .execute(&mut *transaction)
+            .await?;
+        for (
+            old_file_id,
+            representation,
+            location,
+            source_file_id,
+            role,
+            color_profile,
+            _,
+            previous_sha256,
+            previous_byte_size,
+            current_sha256,
+            current_byte_size,
+        ) in &inspected
+        {
+            if previous_sha256 == current_sha256 && previous_byte_size == current_byte_size {
+                continue;
+            }
+            let updated = sqlx::query(
+                "UPDATE asset_files SET state = 'removed', removed_at = now() \
+                 WHERE id = $1 AND authoritative AND state = 'current'",
+            )
+            .bind(old_file_id)
+            .execute(&mut *transaction)
+            .await?;
+            if updated.rows_affected() != 1 {
+                return Err(PhotaraError::Configuration(format!(
+                    "flattened {role} registration changed concurrently; retry the refresh"
+                )));
+            }
+            let new_file_id = Uuid::new_v4();
+            sqlx::query(
+                "INSERT INTO asset_files \
+                 (id, asset_id, representation, location, sha256, byte_size, authoritative) \
+                 VALUES ($1, $2, $3, $4, $5, $6, true)",
+            )
+            .bind(new_file_id)
+            .bind(asset_id)
+            .bind(representation)
+            .bind(location)
+            .bind(current_sha256)
+            .bind(to_i64(*current_byte_size, "TIFF")?)
+            .execute(&mut *transaction)
+            .await?;
+            sqlx::query(
+                "INSERT INTO asset_file_origins (source_file_id, derived_file_id, operation) \
+                 VALUES ($1, $2, $3)",
+            )
+            .bind(source_file_id)
+            .bind(new_file_id)
+            .bind(format!(
+                "operator-confirmed-external-flattened-{role}-replacement"
+            ))
+            .execute(&mut *transaction)
+            .await?;
+            sqlx::query(
+                "INSERT INTO flattened_master_documents \
+                 (asset_file_id, project_id, source_file_id, build_batch_id, \
+                  bits_per_channel, color_profile, layer_count, rendition_role, verified_at) \
+                 VALUES ($1, $2, $3, $4, 32, $5, 1, $6, now())",
+            )
+            .bind(new_file_id)
+            .bind(project.id)
+            .bind(source_file_id)
+            .bind(refresh_id)
+            .bind(color_profile)
+            .bind(role)
+            .execute(&mut *transaction)
+            .await?;
+        }
+        transaction.commit().await?;
+    }
+    let renditions = inspected
+        .into_iter()
+        .map(
+            |(
+                _,
+                _,
+                _,
+                _,
+                role,
+                _,
+                path,
+                previous_hash,
+                previous_size,
+                current_hash,
+                current_size,
+            )| {
+                let changed = previous_hash != current_hash || previous_size != current_size;
+                RefreshedFlattenedRendition {
+                    role,
+                    path,
+                    previous_sha256: previous_hash,
+                    current_sha256: current_hash,
+                    previous_byte_size: previous_size,
+                    current_byte_size: current_size,
+                    action: if changed {
+                        if confirmed { "replaced" } else { "replace" }
+                    } else {
+                        "already-registered"
+                    }
+                    .into(),
+                }
+            },
+        )
+        .collect();
+    Ok(FlattenedRefresh {
+        schema_version: 1,
+        refresh_id,
+        project: project.slug.clone(),
+        asset_id,
+        original_filename,
+        confirmed,
+        renditions,
+    })
+}
+
+fn resolve_project_file(
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    location: &str,
+) -> Result<PathBuf> {
+    let prefix = format!("projects:{}/", project.slug);
+    let relative = location.strip_prefix(&prefix).ok_or_else(|| {
+        PhotaraError::Configuration(format!("unsupported project file location {location:?}"))
+    })?;
+    let relative = Path::new(relative);
+    if relative.components().any(|component| {
+        matches!(
+            component,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        )
+    }) {
+        return Err(PhotaraError::Configuration(format!(
+            "unsafe project file location {location:?}"
+        )));
+    }
+    Ok(config
+        .settings
+        .projects_root
+        .join(&project.slug)
+        .join(relative))
 }
 
 fn flattened_logical_location(project: &ProjectRecord, path: &Path) -> Result<String> {

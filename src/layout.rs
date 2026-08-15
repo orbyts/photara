@@ -19,24 +19,29 @@ use crate::{
 
 const FULL_FRAME_V1: &str = include_str!("../templates/full-frame/v1.json");
 const STACKED_TWO_V1: &str = include_str!("../templates/stacked-two/v1.json");
+const STACKED_THREE_V1: &str = include_str!("../templates/stacked-three/v1.json");
 const CONTINUOUS_PANORAMA_V1: &str = include_str!("../templates/continuous-panorama/v1.json");
 const DYNAMIC_RANGE_COMPARISON_V1: &str =
     include_str!("../templates/dynamic-range-comparison/v1.json");
 const DYNAMIC_RANGE_COMPARISON_V2: &str =
     include_str!("../templates/dynamic-range-comparison/v2.json");
+const DYNAMIC_RANGE_COMPARISON_V3: &str =
+    include_str!("../templates/dynamic-range-comparison/v3.json");
 const EDIT_COMPARISON_V1: &str = include_str!("../templates/edit-comparison/v1.json");
+const EDIT_COMPARISON_V2: &str = include_str!("../templates/edit-comparison/v2.json");
 const LAYOUT_SCRIPT: &str = include_str!("../photoshop/Build Photara Layouts.psjs");
 const LAYOUT_SCRIPT_NAME: &str = "Build Photara Layouts.psjs";
 const LAYOUT_HANDOFF_NAME: &str = "Photara Layout Manifest.json";
-const PANORAMA_CROP_SCRIPT: &str = include_str!("../photoshop/Author Photara Panorama Crop.psjs");
-const PANORAMA_CAPTURE_SCRIPT: &str =
-    include_str!("../photoshop/Capture Photara Panorama Crop.psjs");
-const PANORAMA_CROP_SCRIPT_NAME: &str = "Author Photara Panorama Crop.psjs";
-const PANORAMA_CAPTURE_SCRIPT_NAME: &str = "Capture Photara Panorama Crop.psjs";
-const PANORAMA_CROP_HANDOFF_NAME: &str = "Photara Panorama Crop Manifest.json";
-const PANORAMA_CROP_REPORT_NAME: &str = "Photara Panorama Crop Report.json";
+const AUTHORING_SCRIPT: &str = include_str!("../photoshop/Author Photara Placement.psjs");
+const AUTHORING_CAPTURE_SCRIPT: &str = include_str!("../photoshop/Capture Photara Placement.psjs");
+const AUTHORING_SCRIPT_NAME: &str = "Author Photara Placement.psjs";
+const AUTHORING_CAPTURE_SCRIPT_NAME: &str = "Capture Photara Placement.psjs";
+const AUTHORING_MANIFEST_NAME: &str = "Photara Authoring Manifest.json";
+const AUTHORING_REPORT_NAME: &str = "Photara Authoring Report.json";
 const EDIT_SOURCE_HANDOFF_NAME: &str = "Photara Edit Comparison Source Manifest.json";
 const EDIT_SOURCE_REPORT_NAME: &str = "Photara Edit Comparison Source Report.json";
+const EDIT_SOURCE_REGISTRY_NAME: &str = "Photara Edit Comparison Source Registry.json";
+const LAYOUT_MANIFEST_NAME: &str = "Photara Layout Manifest.json";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TemplateRef {
@@ -268,8 +273,101 @@ pub struct PostPlacement {
     pub display_filename: String,
     pub fit: String,
     pub focal_point: FocalPoint,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub crop: Option<NormalizedRect>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transform: Option<PlacementTransform>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlacementTransform {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crop: Option<NormalizedRect>,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub rotation_quarter_turns_cw: u8,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AuthoringManifest {
+    pub schema_version: u32,
+    pub session_id: Uuid,
+    pub project: String,
+    pub post: String,
+    pub platform: PostPlatform,
+    pub project_root: PathBuf,
+    pub source_specification: PathBuf,
+    pub source_specification_sha256: String,
+    pub authoring_input_sha256: String,
+    pub author_script: PathBuf,
+    pub capture_script: PathBuf,
+    pub placements: Vec<AuthoringPlacement>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AuthoringPlacement {
+    pub item_id: String,
+    pub slot: String,
+    pub asset_id: Uuid,
+    pub display_filename: String,
+    pub template: String,
+    pub target_bounds: PixelRect,
+    pub source_relative_path: PathBuf,
+    pub source_sha256: String,
+    pub source_width: u32,
+    pub source_height: u32,
+    #[serde(default)]
+    pub transform: PlacementTransform,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AuthoringReport {
+    pub schema_version: u32,
+    pub session_id: Uuid,
+    pub project: String,
+    pub post: String,
+    pub platform: PostPlatform,
+    pub source_specification_sha256: String,
+    pub authoring_input_sha256: String,
+    pub placements: Vec<AuthoringResult>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AuthoringResult {
+    pub item_id: String,
+    pub slot: String,
+    pub asset_id: Uuid,
+    pub source_sha256: String,
+    pub document_width: u32,
+    pub document_height: u32,
+    pub transform: PlacementTransform,
+}
+
+#[derive(Serialize)]
+struct AuthoringInput<'a> {
+    schema_version: u32,
+    project: &'a str,
+    post: &'a str,
+    platform: PostPlatform,
+    placements: &'a [AuthoringPlacement],
+}
+
+fn is_zero(value: &u8) -> bool {
+    *value == 0
+}
+
+fn authoring_input_sha256(
+    project: &str,
+    post: &str,
+    platform: PostPlatform,
+    placements: &[AuthoringPlacement],
+) -> Result<String> {
+    Ok(sha256(&canonical_json(&AuthoringInput {
+        schema_version: 1,
+        project,
+        post,
+        platform,
+        placements,
+    })?))
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
@@ -333,6 +431,7 @@ pub struct ResolvedPlacement {
     pub fit: String,
     pub focal_point: FocalPoint,
     pub crop: Option<NormalizedRect>,
+    pub rotation_quarter_turns_cw: u8,
     pub layered_psb: ResolvedFile,
     pub hdr_tiff: ResolvedFile,
     pub sdr_tiff: Option<ResolvedFile>,
@@ -412,6 +511,7 @@ pub struct LayoutRenderPlacement {
     pub bounds: PixelRect,
     pub fit: String,
     pub focal_point: FocalPoint,
+    pub rotation_quarter_turns_cw: u8,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_crop: Option<PixelRect>,
     pub hdr_relative_path: PathBuf,
@@ -449,6 +549,7 @@ pub struct EditSourceManifest {
     pub source_specification: PathBuf,
     pub source_sha256: String,
     pub rendering: String,
+    pub reused_items: Vec<EditSourceReportItem>,
     pub items: Vec<EditSourceManifestItem>,
 }
 
@@ -474,28 +575,57 @@ struct EditSourceReport {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct EditSourceReportItem {
-    item_id: String,
-    slot: String,
-    asset_id: Uuid,
-    state: String,
-    output_relative_path: PathBuf,
-    output_sha256: String,
-    output_byte_size: u64,
-    profile: String,
-    restored: bool,
-    metadata: CaptureMetadataInput,
+pub struct EditSourceReportItem {
+    pub item_id: String,
+    pub slot: String,
+    pub asset_id: Uuid,
+    pub state: String,
+    pub output_relative_path: PathBuf,
+    pub output_sha256: String,
+    pub output_byte_size: u64,
+    pub profile: String,
+    pub restored: bool,
+    pub metadata: CaptureMetadataInput,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct CaptureMetadataInput {
-    make: String,
-    model: String,
-    lens: String,
-    iso: u32,
-    focal_length_mm: f64,
-    aperture: f64,
-    exposure_seconds: f64,
+pub struct CaptureMetadataInput {
+    pub make: String,
+    pub model: String,
+    pub lens: String,
+    pub iso: u32,
+    pub focal_length_mm: f64,
+    pub aperture: f64,
+    pub exposure_seconds: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct EditSourceRegistry {
+    schema_version: u32,
+    project: String,
+    rendering: String,
+    items: Vec<EditSourceReportItem>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LegacyLayoutManifest {
+    project: String,
+    items: Vec<LegacyLayoutItem>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LegacyLayoutItem {
+    id: String,
+    placements: Vec<LegacyLayoutPlacement>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LegacyLayoutPlacement {
+    slot: String,
+    hdr_sha256: String,
+    before_relative_path: Option<PathBuf>,
+    before_sha256: Option<String>,
+    capture_metadata: Option<CaptureMetadataInput>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -557,10 +687,13 @@ pub fn install_builtin_templates(root: &Path) -> Result<TemplateInstallReport> {
     for (reference, contents) in [
         ("full-frame@1", FULL_FRAME_V1),
         ("stacked-two@1", STACKED_TWO_V1),
+        ("stacked-three@1", STACKED_THREE_V1),
         ("continuous-panorama@1", CONTINUOUS_PANORAMA_V1),
         ("dynamic-range-comparison@1", DYNAMIC_RANGE_COMPARISON_V1),
         ("dynamic-range-comparison@2", DYNAMIC_RANGE_COMPARISON_V2),
+        ("dynamic-range-comparison@3", DYNAMIC_RANGE_COMPARISON_V3),
         ("edit-comparison@1", EDIT_COMPARISON_V1),
+        ("edit-comparison@2", EDIT_COMPARISON_V2),
     ] {
         install_builtin_template(root, reference, contents, &mut installed, &mut verified)?;
     }
@@ -718,6 +851,7 @@ pub fn initialize_post(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn add_full_frame(
     database: &Database,
     config: &PhotaraConfig,
@@ -759,6 +893,7 @@ pub async fn add_full_frame(
             fit: "fill".into(),
             focal_point: FocalPoint { x: 0.5, y: 0.5 },
             crop: None,
+            transform: None,
         }],
     };
     let changed = match post.items.iter().find(|existing| existing.id == item.id) {
@@ -782,6 +917,7 @@ pub async fn add_full_frame(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn add_stacked_two(
     database: &Database,
     config: &PhotaraConfig,
@@ -836,6 +972,7 @@ pub async fn add_stacked_two(
             fit: if crop.is_some() { "crop" } else { "fill" }.into(),
             focal_point: FocalPoint { x: 0.5, y: 0.5 },
             crop,
+            transform: None,
         })
     };
     let item = PostItem {
@@ -861,6 +998,83 @@ pub async fn add_stacked_two(
     };
     Ok(PostWriteReport {
         schema_version: 1,
+        path,
+        post,
+        changed,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn add_stacked_three(
+    database: &Database,
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    post_name: &str,
+    platform: PostPlatform,
+    item_id: &str,
+    top_reference: &str,
+    middle_reference: &str,
+    bottom_reference: &str,
+    template: Option<String>,
+) -> Result<PostWriteReport> {
+    validate_post_identity(project, post_name)?;
+    validate_slug(item_id).map_err(|message| {
+        PhotaraError::Configuration(format!("invalid post item ID {item_id:?}: {message}"))
+    })?;
+    let template_reference = template.unwrap_or_else(|| "stacked-three@1".into());
+    let loaded = load_template(config, &template_reference)?;
+    if loaded.template.kind != "stacked-three" {
+        return Err(PhotaraError::Configuration(format!(
+            "template {template_reference:?} is not a stacked-three template"
+        )));
+    }
+    let bindings = [
+        find_master(database, config, project, top_reference).await?,
+        find_master(database, config, project, middle_reference).await?,
+        find_master(database, config, project, bottom_reference).await?,
+    ];
+    let unique_assets: BTreeSet<_> = bindings.iter().map(|binding| binding.asset_id).collect();
+    if unique_assets.len() != 3 {
+        return Err(PhotaraError::Configuration(
+            "stacked-three requires three different assets".into(),
+        ));
+    }
+    let placement = |slot: &str, binding: &MasterBinding| PostPlacement {
+        slot: slot.into(),
+        asset_id: binding.asset_id,
+        display_filename: binding.original_filename.clone(),
+        fit: "crop".into(),
+        focal_point: FocalPoint { x: 0.5, y: 0.5 },
+        crop: None,
+        transform: None,
+    };
+    let item = PostItem {
+        id: item_id.into(),
+        template: Some(template_reference),
+        placements: vec![
+            placement("top", &bindings[0]),
+            placement("middle", &bindings[1]),
+            placement("bottom", &bindings[2]),
+        ],
+    };
+    let path = post_path(config, &project.slug, post_name, platform)?;
+    let mut post = read_post(&path)?;
+    validate_post(&post, project, post_name, platform)?;
+    let changed = match post.items.iter().find(|existing| existing.id == item.id) {
+        Some(existing) if existing == &item => false,
+        Some(_) => {
+            return Err(PhotaraError::Configuration(format!(
+                "post item {item_id:?} already exists with different contents"
+            )));
+        }
+        None => {
+            post.items.push(item);
+            write_json_atomic(&path, &post)?;
+            true
+        }
+    };
+    Ok(PostWriteReport {
+        schema_version: post.schema_version,
         path,
         post,
         changed,
@@ -896,7 +1110,9 @@ fn reuse_item_crop(
             "cannot reuse crop for {target_slot:?}: source item {source_item_id:?} places the asset more than once"
         )));
     }
-    placement.crop.ok_or_else(|| {
+    placement_transform(post.schema_version, placement)?
+        .crop
+        .ok_or_else(|| {
         PhotaraError::Configuration(format!(
             "cannot reuse crop for {target_slot:?}: source item {source_item_id:?} has no authored crop"
         ))
@@ -937,6 +1153,7 @@ pub async fn add_continuous_panorama(
             fit: "crop".into(),
             focal_point: FocalPoint { x: 0.5, y: 0.5 },
             crop: None,
+            transform: None,
         }],
     };
     let changed = match post.items.iter().find(|existing| existing.id == item.id) {
@@ -960,6 +1177,7 @@ pub async fn add_continuous_panorama(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn add_dynamic_range_comparison(
     database: &Database,
     config: &PhotaraConfig,
@@ -969,17 +1187,15 @@ pub async fn add_dynamic_range_comparison(
     item_id: &str,
     top_reference: &str,
     bottom_reference: &str,
+    template_reference: Option<&str>,
 ) -> Result<PostWriteReport> {
     validate_post_identity(project, post_name)?;
     validate_slug(item_id).map_err(|message| {
         PhotaraError::Configuration(format!("invalid post item ID {item_id:?}: {message}"))
     })?;
-    let template_reference = config
-        .settings
-        .layouts
-        .defaults
-        .dynamic_range_comparison
-        .clone();
+    let template_reference = template_reference
+        .unwrap_or(&config.settings.layouts.defaults.dynamic_range_comparison)
+        .to_string();
     let loaded = load_template(config, &template_reference)?;
     if loaded.template.kind != "dynamic-range-comparison" {
         return Err(PhotaraError::Configuration(format!(
@@ -1000,6 +1216,7 @@ pub async fn add_dynamic_range_comparison(
         fit: "contain".into(),
         focal_point: FocalPoint { x: 0.5, y: 0.5 },
         crop: None,
+        transform: None,
     };
     let item = PostItem {
         id: item_id.into(),
@@ -1059,6 +1276,7 @@ pub async fn add_dynamic_range_comparison(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn add_edit_comparison(
     database: &Database,
     config: &PhotaraConfig,
@@ -1068,12 +1286,15 @@ pub async fn add_edit_comparison(
     item_id: &str,
     top_reference: &str,
     bottom_reference: &str,
+    template_reference: Option<&str>,
 ) -> Result<PostWriteReport> {
     validate_post_identity(project, post_name)?;
     validate_slug(item_id).map_err(|message| {
         PhotaraError::Configuration(format!("invalid post item ID {item_id:?}: {message}"))
     })?;
-    let template_reference = config.settings.layouts.defaults.edit_comparison.clone();
+    let template_reference = template_reference
+        .unwrap_or(&config.settings.layouts.defaults.edit_comparison)
+        .to_string();
     let loaded = load_template(config, &template_reference)?;
     if loaded.template.kind != "edit-comparison" {
         return Err(PhotaraError::Configuration(format!(
@@ -1094,6 +1315,7 @@ pub async fn add_edit_comparison(
         fit: "contain".into(),
         focal_point: FocalPoint { x: 0.5, y: 0.5 },
         crop: None,
+        transform: None,
     };
     let item = PostItem {
         id: item_id.into(),
@@ -1115,14 +1337,31 @@ pub async fn prepare_edit_comparison_sources(
     config: &PhotaraConfig,
     project: &ProjectRecord,
     post_name: &str,
-    platform: PostPlatform,
+    platform: Option<PostPlatform>,
 ) -> Result<EditSourceManifest> {
-    let resolved = resolve_post(database, config, project, post_name, platform).await?;
     let project_root = config.settings.projects_root.join(&project.slug);
-    let output_root = PathBuf::from("posts")
-        .join(platform.as_str())
-        .join("sources")
-        .join(post_name)
+    let platforms = platform.map_or_else(
+        || vec![PostPlatform::Instagram, PostPlatform::Threads],
+        |platform| vec![platform],
+    );
+    let mut resolved_posts = Vec::new();
+    for candidate in platforms {
+        let source = project_root
+            .join("posts")
+            .join(candidate.as_str())
+            .join(format!("{post_name}.json"));
+        if source.is_file() {
+            resolved_posts
+                .push(resolve_post(database, config, project, post_name, candidate).await?);
+        }
+    }
+    let resolved = resolved_posts.first().ok_or_else(|| {
+        PhotaraError::Configuration(format!(
+            "post {post_name:?} has no Instagram or Threads specification"
+        ))
+    })?;
+    let output_root = PathBuf::from("sources")
+        .join("edit-comparison")
         .join("before");
     fs::create_dir_all(project_root.join(&output_root)).map_err(|source| {
         PhotaraError::filesystem(
@@ -1131,31 +1370,55 @@ pub async fn prepare_edit_comparison_sources(
             source,
         )
     })?;
+    let registry = relocate_edit_source_registry(
+        &project_root,
+        load_or_recover_edit_source_registry(&project_root, resolved)?,
+        &output_root,
+    )?;
+    let registry_by_asset = registry
+        .items
+        .into_iter()
+        .map(|item| (item.asset_id, item))
+        .collect::<BTreeMap<_, _>>();
     let mut items = Vec::new();
-    for item in resolved.items {
-        if item.template.template.kind != "edit-comparison" {
-            continue;
-        }
-        for placement in item.placements {
-            verify_file_evidence(&placement.camera_raw)?;
-            let stem = placement
-                .original_filename
-                .rsplit_once('.')
-                .map(|(stem, _)| stem)
-                .unwrap_or(&placement.original_filename);
-            let output_filename = format!("{stem}_RESET_ADOBE_COLOR.TIF");
-            items.push(EditSourceManifestItem {
-                item_id: item.id.clone(),
-                slot: placement.slot,
-                asset_id: placement.asset_id,
-                original_filename: placement.original_filename,
-                camera_raw_path: placement.camera_raw.path,
-                output_relative_path: output_root.join(&output_filename),
-                output_filename,
-            });
+    let mut reused_items = Vec::new();
+    let mut seen_assets = BTreeSet::new();
+    for resolved_post in &resolved_posts {
+        for item in &resolved_post.items {
+            if item.template.template.kind != "edit-comparison" {
+                continue;
+            }
+            for placement in &item.placements {
+                if !seen_assets.insert(placement.asset_id) {
+                    continue;
+                }
+                verify_file_evidence(&placement.camera_raw)?;
+                if let Some(source) = registry_by_asset.get(&placement.asset_id) {
+                    let mut reused = source.clone();
+                    reused.item_id = item.id.clone();
+                    reused.slot = placement.slot.clone();
+                    reused_items.push(reused);
+                    continue;
+                }
+                let stem = placement
+                    .original_filename
+                    .rsplit_once('.')
+                    .map(|(stem, _)| stem)
+                    .unwrap_or(&placement.original_filename);
+                let output_filename = format!("{stem}_RESET_ADOBE_COLOR.TIF");
+                items.push(EditSourceManifestItem {
+                    item_id: item.id.clone(),
+                    slot: placement.slot.clone(),
+                    asset_id: placement.asset_id,
+                    original_filename: placement.original_filename.clone(),
+                    camera_raw_path: placement.camera_raw.path.clone(),
+                    output_relative_path: output_root.join(&output_filename),
+                    output_filename,
+                });
+            }
         }
     }
-    if items.is_empty() {
+    if items.is_empty() && reused_items.is_empty() {
         return Err(PhotaraError::Configuration(format!(
             "post {post_name:?} has no edit-comparison items"
         )));
@@ -1164,11 +1427,12 @@ pub async fn prepare_edit_comparison_sources(
         schema_version: 1,
         project: project.slug.clone(),
         post: post_name.into(),
-        platform,
+        platform: resolved.platform,
         project_root: project_root.clone(),
-        source_specification: resolved.source_path,
-        source_sha256: resolved.source_sha256,
+        source_specification: resolved.source_path.clone(),
+        source_sha256: resolved.source_sha256.clone(),
         rendering: "lightroom-reset-adobe-color".into(),
+        reused_items,
         items,
     };
     write_json_atomic(&project_root.join(EDIT_SOURCE_HANDOFF_NAME), &manifest)?;
@@ -1214,6 +1478,7 @@ pub fn verify_edit_comparison_sources(
         item.state = "verified".into();
     }
     write_json_atomic(&path, &report)?;
+    merge_edit_source_registry(&project_root, &report)?;
     Ok(serde_json::json!({
         "schema_version": 1,
         "project": project.slug,
@@ -1289,10 +1554,35 @@ pub fn set_item_crop(
     item_id: &str,
     crop: NormalizedRect,
 ) -> Result<PostWriteReport> {
-    validate_normalized_rect(crop, "crop")?;
+    set_item_transform(
+        config,
+        project,
+        post_name,
+        platform,
+        item_id,
+        None,
+        PlacementTransform {
+            crop: Some(crop),
+            rotation_quarter_turns_cw: 0,
+        },
+    )
+}
+
+pub fn set_item_transform(
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    post_name: &str,
+    platform: PostPlatform,
+    item_id: &str,
+    slot: Option<&str>,
+    transform: PlacementTransform,
+) -> Result<PostWriteReport> {
+    validate_placement_transform(transform)?;
     let path = post_path(config, &project.slug, post_name, platform)?;
     let mut post = read_post(&path)?;
     validate_post(&post, project, post_name, platform)?;
+    let original_post = post.clone();
+    upgrade_post_to_v2(&mut post)?;
     let item = post
         .items
         .iter_mut()
@@ -1300,22 +1590,47 @@ pub fn set_item_crop(
         .ok_or_else(|| {
             PhotaraError::Configuration(format!("post item {item_id:?} was not found"))
         })?;
-    if item.placements.len() != 1 {
+    let placement = if let Some(slot) = slot {
+        item.placements
+            .iter_mut()
+            .find(|placement| placement.slot == slot)
+            .ok_or_else(|| {
+                PhotaraError::Configuration(format!(
+                    "post item {item_id:?} has no placement in slot {slot:?}"
+                ))
+            })?
+    } else if item.placements.len() == 1 {
+        &mut item.placements[0]
+    } else {
         return Err(PhotaraError::Configuration(format!(
-            "post item {item_id:?} cannot accept a single panorama crop"
+            "post item {item_id:?} has multiple placements; select a slot"
         )));
-    }
-    let changed = item.placements[0].crop != Some(crop);
-    item.placements[0].crop = Some(crop);
+    };
+    placement.crop = None;
+    placement.transform = Some(transform);
+    let changed = post != original_post;
     if changed {
         write_json_atomic(&path, &post)?;
     }
     Ok(PostWriteReport {
-        schema_version: 1,
+        schema_version: post.schema_version,
         path,
         post,
         changed,
     })
+}
+
+fn upgrade_post_to_v2(post: &mut PostSpecification) -> Result<()> {
+    let source_schema_version = post.schema_version;
+    for item in &mut post.items {
+        for placement in &mut item.placements {
+            let transform = placement_transform(source_schema_version, placement)?;
+            placement.crop = None;
+            placement.transform = (transform != PlacementTransform::default()).then_some(transform);
+        }
+    }
+    post.schema_version = 2;
+    Ok(())
 }
 
 pub async fn prepare_panorama_crop(
@@ -1325,71 +1640,12 @@ pub async fn prepare_panorama_crop(
     post_name: &str,
     platform: PostPlatform,
     item_id: &str,
-) -> Result<PanoramaCropHandoff> {
-    let path = post_path(config, &project.slug, post_name, platform)?;
-    let text = fs::read_to_string(&path)
-        .map_err(|source| PhotaraError::filesystem("read project post", &path, source))?;
-    let post: PostSpecification = parse_json(&path, &text)?;
-    validate_post(&post, project, post_name, platform)?;
-    let item = post
-        .items
-        .iter()
-        .find(|item| item.id == item_id)
-        .ok_or_else(|| {
-            PhotaraError::Configuration(format!("post item {item_id:?} was not found"))
-        })?;
-    let template_reference = item.template.as_deref().ok_or_else(|| {
-        PhotaraError::Configuration(format!(
-            "post item {item_id:?} does not explicitly select a panorama template"
-        ))
-    })?;
-    let template = load_template(config, template_reference)?;
-    if template.template.kind != "continuous-panorama" || item.placements.len() != 1 {
-        return Err(PhotaraError::Configuration(format!(
-            "post item {item_id:?} is not a single-source continuous panorama"
-        )));
-    }
-    let placement = &item.placements[0];
-    let binding = find_master_by_id(database, config, project, placement.asset_id).await?;
-    verify_file_evidence(&binding.hdr_tiff)?;
-    let project_root = config.settings.projects_root.join(&project.slug);
-    let source_relative_path = project_relative_path(&project_root, &binding.hdr_tiff.path)?;
-    let scripts_root = scripts_root(config)?;
-    fs::create_dir_all(&scripts_root).map_err(|source| {
-        PhotaraError::filesystem("create Photoshop scripts directory", &scripts_root, source)
-    })?;
-    let author_script = scripts_root.join(PANORAMA_CROP_SCRIPT_NAME);
-    let capture_script = scripts_root.join(PANORAMA_CAPTURE_SCRIPT_NAME);
-    write_atomic(&author_script, PANORAMA_CROP_SCRIPT.as_bytes())?;
-    write_atomic(&capture_script, PANORAMA_CAPTURE_SCRIPT.as_bytes())?;
-    let handoff = PanoramaCropHandoff {
-        schema_version: 1,
-        project: project.slug.clone(),
-        post: post_name.into(),
-        platform,
-        item_id: item_id.into(),
-        project_root: project_root.clone(),
-        source_specification: path,
-        source_specification_sha256: sha256(text.as_bytes()),
-        source_relative_path,
-        source_filename: binding
-            .hdr_tiff
-            .path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .ok_or_else(|| {
-                PhotaraError::Configuration("panorama source filename is not UTF-8".into())
-            })?
-            .into(),
-        source_sha256: binding.hdr_tiff.sha256,
-        author_script,
-        capture_script,
-        frame_aspect: "3:4".into(),
-        frame_count: 2,
-        crop_aspect_ratio: "3:2".into(),
-    };
-    write_json_atomic(&project_root.join(PANORAMA_CROP_HANDOFF_NAME), &handoff)?;
-    Ok(handoff)
+) -> Result<AuthoringManifest> {
+    validate_panorama_item(config, project, post_name, platform, item_id)?;
+    prepare_placement_authoring(
+        database, config, project, post_name, platform, item_id, None,
+    )
+    .await
 }
 
 pub fn apply_panorama_crop(
@@ -1399,79 +1655,469 @@ pub fn apply_panorama_crop(
     platform: PostPlatform,
     item_id: &str,
 ) -> Result<PostWriteReport> {
+    validate_panorama_item(config, project, post_name, platform, item_id)?;
+    let manifest: AuthoringManifest = read_json(
+        &config
+            .settings
+            .projects_root
+            .join(&project.slug)
+            .join(AUTHORING_MANIFEST_NAME),
+    )?;
+    if manifest.placements.len() != 1 || manifest.placements[0].item_id != item_id {
+        return Err(PhotaraError::Configuration(format!(
+            "prepared authoring session is not for panorama item {item_id:?}"
+        )));
+    }
+    apply_placement_authoring(config, project, post_name, platform)
+}
+
+fn validate_panorama_item(
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    post_name: &str,
+    platform: PostPlatform,
+    item_id: &str,
+) -> Result<()> {
+    let path = post_path(config, &project.slug, post_name, platform)?;
+    let post = read_post(&path)?;
+    validate_post(&post, project, post_name, platform)?;
+    let item = post
+        .items
+        .iter()
+        .find(|item| item.id == item_id)
+        .ok_or_else(|| {
+            PhotaraError::Configuration(format!("post item {item_id:?} was not found"))
+        })?;
+    let reference = item.template.as_deref().ok_or_else(|| {
+        PhotaraError::Configuration(format!(
+            "post item {item_id:?} does not explicitly select a panorama template"
+        ))
+    })?;
+    if item.placements.len() != 1
+        || load_template(config, reference)?.template.kind != "continuous-panorama"
+    {
+        return Err(PhotaraError::Configuration(format!(
+            "post item {item_id:?} is not a single-source continuous panorama"
+        )));
+    }
+    Ok(())
+}
+
+pub async fn prepare_placement_authoring(
+    database: &Database,
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    post_name: &str,
+    platform: PostPlatform,
+    item_id: &str,
+    slot: Option<&str>,
+) -> Result<AuthoringManifest> {
+    prepare_authoring_session(
+        database,
+        config,
+        project,
+        post_name,
+        platform,
+        Some(item_id),
+        slot,
+    )
+    .await
+}
+
+pub async fn prepare_authoring_session(
+    database: &Database,
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    post_name: &str,
+    platform: PostPlatform,
+    item_filter: Option<&str>,
+    slot_filter: Option<&str>,
+) -> Result<AuthoringManifest> {
+    if slot_filter.is_some() && item_filter.is_none() {
+        return Err(PhotaraError::Configuration(
+            "an authoring slot filter requires an item filter".into(),
+        ));
+    }
+    let source_specification = post_path(config, &project.slug, post_name, platform)?;
+    let specification_text = fs::read_to_string(&source_specification).map_err(|source| {
+        PhotaraError::filesystem("read project post", &source_specification, source)
+    })?;
+    let post: PostSpecification = parse_json(&source_specification, &specification_text)?;
+    validate_post(&post, project, post_name, platform)?;
     let project_root = config.settings.projects_root.join(&project.slug);
-    let handoff_path = project_root.join(PANORAMA_CROP_HANDOFF_NAME);
-    let handoff_text = fs::read_to_string(&handoff_path).map_err(|source| {
-        PhotaraError::filesystem("read panorama crop manifest", &handoff_path, source)
+    let mut placements = Vec::new();
+    for item in post
+        .items
+        .iter()
+        .filter(|item| item_filter.is_none_or(|filter| item.id == filter))
+    {
+        let template_reference = item
+            .template
+            .clone()
+            .unwrap_or_else(|| config.settings.layouts.defaults.full_frame.clone());
+        let template = load_template(config, &template_reference)?;
+        if let Some(reference) = template.template.reference.as_ref() {
+            let profile = platform.profile();
+            if reference.width != profile.width || reference.height != profile.height {
+                return Err(PhotaraError::Configuration(format!(
+                    "template {} reference is {}x{}, but {} posts require {}x{}",
+                    template.reference,
+                    reference.width,
+                    reference.height,
+                    platform.as_str(),
+                    profile.width,
+                    profile.height
+                )));
+            }
+        }
+        for placement in item
+            .placements
+            .iter()
+            .filter(|placement| slot_filter.is_none_or(|filter| placement.slot == filter))
+        {
+            let transform = placement_transform(post.schema_version, placement)?;
+            if item_filter.is_none()
+                && !placement_requires_authoring(platform, &placement.fit, transform)
+            {
+                continue;
+            }
+            let binding = find_master_by_id(database, config, project, placement.asset_id).await?;
+            verify_file_evidence(&binding.hdr_tiff)?;
+            let (source_width, source_height) = inspect_tiff_dimensions(&binding.hdr_tiff.path)?;
+            placements.push(AuthoringPlacement {
+                item_id: item.id.clone(),
+                slot: placement.slot.clone(),
+                asset_id: placement.asset_id,
+                display_filename: binding.original_filename,
+                template: template_reference.clone(),
+                target_bounds: authoring_target_bounds(&template.template, placement, platform)?,
+                source_relative_path: project_relative_path(&project_root, &binding.hdr_tiff.path)?,
+                source_sha256: binding.hdr_tiff.sha256,
+                source_width,
+                source_height,
+                transform,
+            });
+        }
+    }
+    if placements.is_empty() {
+        return Err(PhotaraError::Configuration(match item_filter {
+            Some(item_id) => {
+                format!("post item {item_id:?} has no placement matching the authoring request")
+            }
+            None => "post has no unresolved crop placements".into(),
+        }));
+    }
+    let authoring_input_sha256 =
+        authoring_input_sha256(&project.slug, post_name, platform, &placements)?;
+    let scripts_root = scripts_root(config)?;
+    fs::create_dir_all(&scripts_root).map_err(|source| {
+        PhotaraError::filesystem("create Photoshop scripts directory", &scripts_root, source)
     })?;
-    let handoff: PanoramaCropHandoff = parse_json(&handoff_path, &handoff_text)?;
-    let report_path = project_root.join(PANORAMA_CROP_REPORT_NAME);
-    let report_text = fs::read_to_string(&report_path).map_err(|source| {
-        PhotaraError::filesystem("read panorama crop report", &report_path, source)
-    })?;
-    let report: PanoramaCropReport = parse_json(&report_path, &report_text)?;
-    if report.schema_version != 1
-        || report.project != project.slug
-        || report.post != post_name
-        || report.platform != platform
-        || report.item_id != item_id
-        || handoff.project != report.project
-        || handoff.post != report.post
-        || handoff.platform != report.platform
-        || handoff.item_id != report.item_id
-        || handoff.source_specification_sha256 != report.source_specification_sha256
-        || handoff.source_sha256 != report.source_sha256
+    let author_script = scripts_root.join(AUTHORING_SCRIPT_NAME);
+    let capture_script = scripts_root.join(AUTHORING_CAPTURE_SCRIPT_NAME);
+    write_atomic(&author_script, AUTHORING_SCRIPT.as_bytes())?;
+    write_atomic(&capture_script, AUTHORING_CAPTURE_SCRIPT.as_bytes())?;
+    let manifest = AuthoringManifest {
+        schema_version: 1,
+        session_id: Uuid::new_v4(),
+        project: project.slug.clone(),
+        post: post_name.into(),
+        platform,
+        project_root: project_root.clone(),
+        source_specification,
+        source_specification_sha256: sha256(specification_text.as_bytes()),
+        authoring_input_sha256,
+        author_script,
+        capture_script,
+        placements,
+    };
+    write_json_atomic(&project_root.join(AUTHORING_MANIFEST_NAME), &manifest)?;
+    Ok(manifest)
+}
+
+pub fn apply_placement_authoring(
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    post_name: &str,
+    platform: PostPlatform,
+) -> Result<PostWriteReport> {
+    let project_root = config.settings.projects_root.join(&project.slug);
+    let manifest: AuthoringManifest = read_json(&project_root.join(AUTHORING_MANIFEST_NAME))?;
+    let report: AuthoringReport = read_json(&project_root.join(AUTHORING_REPORT_NAME))?;
+    if manifest.schema_version != 1
+        || report.schema_version != 1
+        || manifest.session_id != report.session_id
+        || manifest.project != project.slug
+        || manifest.post != post_name
+        || manifest.platform != platform
+        || report.project != manifest.project
+        || report.post != manifest.post
+        || report.platform != manifest.platform
+        || report.source_specification_sha256 != manifest.source_specification_sha256
+        || report.authoring_input_sha256 != manifest.authoring_input_sha256
+        || manifest.placements.is_empty()
+        || report.placements.len() != manifest.placements.len()
     {
         return Err(PhotaraError::Configuration(
-            "panorama crop report does not match the requested project post item".into(),
+            "authoring report does not match the prepared session".into(),
         ));
+    }
+    let expected_input = authoring_input_sha256(
+        &manifest.project,
+        &manifest.post,
+        manifest.platform,
+        &manifest.placements,
+    )?;
+    if expected_input != manifest.authoring_input_sha256 {
+        return Err(PhotaraError::Configuration(
+            "authoring manifest input fingerprint is invalid".into(),
+        ));
+    }
+    for (expected, actual) in manifest.placements.iter().zip(&report.placements) {
+        if actual.item_id != expected.item_id
+            || actual.slot != expected.slot
+            || actual.asset_id != expected.asset_id
+            || actual.source_sha256 != expected.source_sha256
+        {
+            return Err(PhotaraError::Configuration(format!(
+                "authoring report placement identity does not match {}/{}",
+                expected.item_id, expected.slot
+            )));
+        }
+        validate_placement_transform(actual.transform)?;
+        let source_path = project_root.join(&expected.source_relative_path);
+        if sha256_file(&source_path)? != expected.source_sha256 {
+            return Err(PhotaraError::Configuration(format!(
+                "authoring source changed for {}/{}",
+                expected.item_id, expected.slot
+            )));
+        }
+        let current_dimensions = inspect_tiff_dimensions(&source_path)?;
+        if current_dimensions != (expected.source_width, expected.source_height) {
+            return Err(PhotaraError::Configuration(format!(
+                "authoring source dimensions changed for {}/{}",
+                expected.item_id, expected.slot
+            )));
+        }
+        let (rotated_dimensions, crop) = resolve_placement_transform(
+            actual.transform,
+            expected.source_width,
+            expected.source_height,
+        )?;
+        if (actual.document_width, actual.document_height) != rotated_dimensions {
+            return Err(PhotaraError::Configuration(format!(
+                "authoring report dimensions do not match rotation for {}/{}",
+                expected.item_id, expected.slot
+            )));
+        }
+        let crop = crop.ok_or_else(|| {
+            PhotaraError::Configuration(format!(
+                "authoring report has no crop for {}/{}",
+                expected.item_id, expected.slot
+            ))
+        })?;
+        let actual_ratio = f64::from(crop.width) / f64::from(crop.height);
+        let target_ratio =
+            f64::from(expected.target_bounds.width) / f64::from(expected.target_bounds.height);
+        if (actual_ratio - target_ratio).abs() > 0.002 {
+            return Err(PhotaraError::Configuration(format!(
+                "authored crop ratio {actual_ratio:.6}:1 does not match target {target_ratio:.6}:1 for {}/{}",
+                expected.item_id, expected.slot
+            )));
+        }
     }
     let specification_path = post_path(config, &project.slug, post_name, platform)?;
     let specification = fs::read(&specification_path).map_err(|source| {
         PhotaraError::filesystem("read project post", &specification_path, source)
     })?;
-    if sha256(&specification) != report.source_specification_sha256 {
+    let mut current_post: PostSpecification = parse_json(
+        &specification_path,
+        std::str::from_utf8(&specification)
+            .map_err(|_| PhotaraError::Configuration("project post is not valid UTF-8".into()))?,
+    )?;
+    validate_post(&current_post, project, post_name, platform)?;
+    let already_applied = report.placements.iter().all(|actual| {
+        current_placement_transform(&current_post, &actual.item_id, &actual.slot)
+            .is_ok_and(|transform| transform == actual.transform)
+    });
+    if already_applied {
+        return Ok(PostWriteReport {
+            schema_version: current_post.schema_version,
+            path: specification_path,
+            post: current_post,
+            changed: false,
+        });
+    }
+    if sha256(&specification) != manifest.source_specification_sha256 {
         return Err(PhotaraError::Configuration(
-            "project post changed after panorama crop authoring began; prepare the crop again"
-                .into(),
+            "project post changed after authoring began; prepare a new session".into(),
         ));
     }
-    let source_path = project_root.join(&handoff.source_relative_path);
-    if sha256_file(&source_path)? != report.source_sha256 {
-        return Err(PhotaraError::Configuration(
-            "panorama source changed after crop authoring began; prepare the crop again".into(),
-        ));
+    let original_post = current_post.clone();
+    upgrade_post_to_v2(&mut current_post)?;
+    for actual in &report.placements {
+        set_post_placement_transform(
+            &mut current_post,
+            &actual.item_id,
+            &actual.slot,
+            actual.transform,
+        )?;
     }
-    if report.document_width == 0 || report.document_height == 0 {
-        return Err(PhotaraError::Configuration(
-            "panorama crop report has invalid document dimensions".into(),
-        ));
+    let changed = current_post != original_post;
+    if changed {
+        write_json_atomic(&specification_path, &current_post)?;
     }
-    let pixel_ratio = f64::from(report.crop_pixels.width) / f64::from(report.crop_pixels.height);
-    if (pixel_ratio - 1.5).abs() > 0.002 {
-        return Err(PhotaraError::Configuration(format!(
-            "two-frame panorama crop must be 3:2; received {pixel_ratio:.6}:1"
-        )));
+    Ok(PostWriteReport {
+        schema_version: current_post.schema_version,
+        path: specification_path,
+        post: current_post,
+        changed,
+    })
+}
+
+fn set_post_placement_transform(
+    post: &mut PostSpecification,
+    item_id: &str,
+    slot: &str,
+    transform: PlacementTransform,
+) -> Result<()> {
+    let item = post
+        .items
+        .iter_mut()
+        .find(|item| item.id == item_id)
+        .ok_or_else(|| {
+            PhotaraError::Configuration(format!("post item {item_id:?} was not found"))
+        })?;
+    let placement = item
+        .placements
+        .iter_mut()
+        .find(|placement| placement.slot == slot)
+        .ok_or_else(|| {
+            PhotaraError::Configuration(format!(
+                "post item {item_id:?} has no placement in slot {slot:?}"
+            ))
+        })?;
+    placement.crop = None;
+    placement.transform = Some(transform);
+    Ok(())
+}
+
+fn select_placement<'a>(item: &'a PostItem, slot: Option<&str>) -> Result<&'a PostPlacement> {
+    if let Some(slot) = slot {
+        return item
+            .placements
+            .iter()
+            .find(|placement| placement.slot == slot)
+            .ok_or_else(|| {
+                PhotaraError::Configuration(format!(
+                    "post item {:?} has no placement in slot {slot:?}",
+                    item.id
+                ))
+            });
     }
-    let expected = NormalizedRect {
-        x: f64::from(report.crop_pixels.x) / f64::from(report.document_width),
-        y: f64::from(report.crop_pixels.y) / f64::from(report.document_height),
-        width: f64::from(report.crop_pixels.width) / f64::from(report.document_width),
-        height: f64::from(report.crop_pixels.height) / f64::from(report.document_height),
-    };
-    for (actual, expected) in [
-        (report.crop.x, expected.x),
-        (report.crop.y, expected.y),
-        (report.crop.width, expected.width),
-        (report.crop.height, expected.height),
-    ] {
-        if (actual - expected).abs() > 1e-9 {
-            return Err(PhotaraError::Configuration(
-                "panorama crop report pixel and normalized coordinates disagree".into(),
-            ));
-        }
+    match item.placements.as_slice() {
+        [placement] => Ok(placement),
+        _ => Err(PhotaraError::Configuration(format!(
+            "post item {:?} has multiple placements; select a slot",
+            item.id
+        ))),
     }
-    set_item_crop(config, project, post_name, platform, item_id, report.crop)
+}
+
+fn current_placement_transform(
+    post: &PostSpecification,
+    item_id: &str,
+    slot: &str,
+) -> Result<PlacementTransform> {
+    let item = post
+        .items
+        .iter()
+        .find(|item| item.id == item_id)
+        .ok_or_else(|| {
+            PhotaraError::Configuration(format!("post item {item_id:?} was not found"))
+        })?;
+    let placement = select_placement(item, Some(slot))?;
+    placement_transform(post.schema_version, placement)
+}
+
+fn authoring_target_bounds(
+    template: &LayoutTemplate,
+    placement: &PostPlacement,
+    platform: PostPlatform,
+) -> Result<PixelRect> {
+    if template.kind == "continuous-panorama" {
+        let surface = template.surface.as_ref().ok_or_else(|| {
+            PhotaraError::Configuration("continuous panorama has no surface contract".into())
+        })?;
+        let (width, height) = surface
+            .frame_aspect
+            .split_once(':')
+            .ok_or_else(|| PhotaraError::Configuration("invalid frame aspect".into()))?;
+        let width = width
+            .parse::<u32>()
+            .map_err(|_| PhotaraError::Configuration("invalid frame aspect width".into()))?;
+        let height = height
+            .parse::<u32>()
+            .map_err(|_| PhotaraError::Configuration("invalid frame aspect height".into()))?;
+        return Ok(PixelRect {
+            x: 0,
+            y: 0,
+            width: width.checked_mul(surface.frame_count).ok_or_else(|| {
+                PhotaraError::Configuration("continuous surface aspect overflowed".into())
+            })?,
+            height,
+        });
+    }
+    let profile = platform.profile();
+    if template.kind == "dynamic-range-comparison" {
+        let cells = &template
+            .comparison
+            .as_ref()
+            .ok_or_else(|| {
+                PhotaraError::Configuration("comparison template has no cell contract".into())
+            })?
+            .cells;
+        let bounds = match placement.slot.as_str() {
+            "top" => cells.top_left,
+            "bottom" => cells.bottom_left,
+            _ => {
+                return Err(PhotaraError::Configuration(
+                    "comparison placement has an unsupported slot".into(),
+                ));
+            }
+        };
+        return resolve_bounds(bounds, profile.width, profile.height);
+    }
+    if template.kind == "edit-comparison" {
+        let cells = &template
+            .edit_comparison
+            .as_ref()
+            .ok_or_else(|| {
+                PhotaraError::Configuration("edit comparison template has no cell contract".into())
+            })?
+            .cells;
+        let bounds = match placement.slot.as_str() {
+            "top" => cells.top_left,
+            "bottom" => cells.bottom_left,
+            _ => {
+                return Err(PhotaraError::Configuration(
+                    "edit comparison placement has an unsupported slot".into(),
+                ));
+            }
+        };
+        return resolve_bounds(bounds, profile.width, profile.height);
+    }
+    let slot = template
+        .slots
+        .iter()
+        .find(|slot| slot.id == placement.slot)
+        .ok_or_else(|| {
+            PhotaraError::Configuration(format!(
+                "template {} does not define slot {:?}",
+                template.name, placement.slot
+            ))
+        })?;
+    resolve_bounds(slot.bounds, profile.width, profile.height)
 }
 
 pub fn show_post(
@@ -1589,13 +2235,14 @@ async fn resolve_post_item(
         .into_iter()
         .filter(|item| item_filter.is_none_or(|filter| item.id == filter))
         .collect();
-    if let Some(filter) = item_filter {
-        if selected_items.is_empty() {
-            return Err(PhotaraError::Configuration(format!(
-                "post {post_name:?} has no item {filter:?}"
-            )));
-        }
+    if let Some(filter) = item_filter
+        && selected_items.is_empty()
+    {
+        return Err(PhotaraError::Configuration(format!(
+            "post {post_name:?} has no item {filter:?}"
+        )));
     }
+    let post_schema_version = post.schema_version;
     for item in selected_items {
         let template_reference = item
             .template
@@ -1610,6 +2257,7 @@ async fn resolve_post_item(
             .collect();
         let mut placements = Vec::with_capacity(item.placements.len());
         for placement in item.placements {
+            let transform = placement_transform(post_schema_version, &placement)?;
             if !slot_ids.contains(placement.slot.as_str()) {
                 return Err(PhotaraError::Configuration(format!(
                     "post item {:?} uses slot {:?}, which template {} does not define",
@@ -1617,14 +2265,17 @@ async fn resolve_post_item(
                 )));
             }
             validate_focal_point(placement.focal_point)?;
-            if let Some(crop) = placement.crop {
-                validate_normalized_rect(crop, "crop")?;
-            }
             let binding = find_master_by_id(database, config, project, placement.asset_id).await?;
-            if template.template.kind == "continuous-panorama" && placement.crop.is_none() {
+            if template.template.kind == "continuous-panorama" && transform.crop.is_none() {
                 requirements.insert(format!(
                     "author a 3:2 crop for panorama item {} ({})",
                     item.id, binding.original_filename
+                ));
+            }
+            if placement_requires_authoring(platform, &placement.fit, transform) {
+                requirements.insert(format!(
+                    "author the Threads placement for item {} slot {} ({})",
+                    item.id, placement.slot, binding.original_filename
                 ));
             }
             if binding.original_filename != placement.display_filename {
@@ -1650,7 +2301,8 @@ async fn resolve_post_item(
                 original_filename: binding.original_filename,
                 fit: placement.fit,
                 focal_point: placement.focal_point,
-                crop: placement.crop,
+                crop: transform.crop,
+                rotation_quarter_turns_cw: transform.rotation_quarter_turns_cw,
                 layered_psb: binding.layered_psb,
                 hdr_tiff: binding.hdr_tiff,
                 sdr_tiff: binding.sdr_tiff,
@@ -1735,6 +2387,7 @@ pub async fn prepare_render_item(
             item.template.template.kind.as_str(),
             "full-frame"
                 | "stacked-two"
+                | "stacked-three"
                 | "continuous-panorama"
                 | "dynamic-range-comparison"
                 | "edit-comparison"
@@ -1765,16 +2418,18 @@ pub async fn prepare_render_item(
                     placement.original_filename
                 )));
             }
-            let crop = resolve_bounds(
-                placement.crop.ok_or_else(|| {
-                    PhotaraError::Configuration(format!(
-                        "continuous panorama item {:?} has no authored crop",
-                        item.id
-                    ))
-                })?,
-                hdr_dimensions.0,
-                hdr_dimensions.1,
-            )?;
+            let transform = PlacementTransform {
+                crop: placement.crop,
+                rotation_quarter_turns_cw: placement.rotation_quarter_turns_cw,
+            };
+            let (_, crop) =
+                resolve_placement_transform(transform, hdr_dimensions.0, hdr_dimensions.1)?;
+            let crop = crop.ok_or_else(|| {
+                PhotaraError::Configuration(format!(
+                    "continuous panorama item {:?} has no authored crop",
+                    item.id
+                ))
+            })?;
             let ratio = f64::from(crop.width) / f64::from(crop.height);
             if (ratio - 1.5).abs() > 0.002 {
                 return Err(PhotaraError::Configuration(format!(
@@ -1960,7 +2615,7 @@ pub async fn prepare_render_item(
             let edit_source = if item.template.template.kind == "edit-comparison" {
                 Some(
                     edit_sources
-                        .get(&(item.id.clone(), placement.slot.clone()))
+                        .get(&placement.asset_id)
                         .ok_or_else(|| {
                             PhotaraError::Configuration(format!(
                                 "prepare neutral Adobe Color source for edit comparison item {:?} slot {:?}",
@@ -1971,24 +2626,28 @@ pub async fn prepare_render_item(
             } else {
                 None
             };
-            let source_crop = if let Some(crop) = placement.crop {
-                let hdr_dimensions = inspect_tiff_dimensions(&placement.hdr_tiff.path)?;
-                let sdr_dimensions = inspect_tiff_dimensions(&sdr.path)?;
-                if hdr_dimensions != sdr_dimensions {
-                    return Err(PhotaraError::Configuration(format!(
-                        "paired TIFF dimensions differ for cropped placement {} in item {:?}",
-                        placement.original_filename, item.id
-                    )));
-                }
-                Some(resolve_bounds(crop, hdr_dimensions.0, hdr_dimensions.1)?)
-            } else {
-                None
-            };
+            let hdr_dimensions = inspect_tiff_dimensions(&placement.hdr_tiff.path)?;
+            let sdr_dimensions = inspect_tiff_dimensions(&sdr.path)?;
+            if hdr_dimensions != sdr_dimensions {
+                return Err(PhotaraError::Configuration(format!(
+                    "paired TIFF dimensions differ for transformed placement {} in item {:?}",
+                    placement.original_filename, item.id
+                )));
+            }
+            let (_, source_crop) = resolve_placement_transform(
+                PlacementTransform {
+                    crop: placement.crop,
+                    rotation_quarter_turns_cw: placement.rotation_quarter_turns_cw,
+                },
+                hdr_dimensions.0,
+                hdr_dimensions.1,
+            )?;
             render_placements.push(LayoutRenderPlacement {
                 slot: placement.slot.clone(),
                 bounds: resolve_bounds(slot.bounds, canvas_width, canvas_height)?,
                 fit: placement.fit.clone(),
                 focal_point: placement.focal_point,
+                rotation_quarter_turns_cw: placement.rotation_quarter_turns_cw,
                 source_crop,
                 hdr_relative_path: project_relative_path(&project_root, &placement.hdr_tiff.path)?,
                 hdr_sha256: placement.hdr_tiff.sha256.clone(),
@@ -2080,10 +2739,33 @@ fn resolve_bounds(
     })
 }
 
+fn resolve_placement_transform(
+    transform: PlacementTransform,
+    source_width: u32,
+    source_height: u32,
+) -> Result<((u32, u32), Option<PixelRect>)> {
+    validate_placement_transform(transform)?;
+    if source_width == 0 || source_height == 0 {
+        return Err(PhotaraError::Configuration(
+            "placement transform source dimensions must be greater than zero".into(),
+        ));
+    }
+    let rotated_dimensions = if transform.rotation_quarter_turns_cw.is_multiple_of(2) {
+        (source_width, source_height)
+    } else {
+        (source_height, source_width)
+    };
+    let crop = transform
+        .crop
+        .map(|crop| resolve_bounds(crop, rotated_dimensions.0, rotated_dimensions.1))
+        .transpose()?;
+    Ok((rotated_dimensions, crop))
+}
+
 fn load_edit_sources(
     project_root: &Path,
     resolved: &ResolvedPost,
-) -> Result<BTreeMap<(String, String), EditSourceReportItem>> {
+) -> Result<BTreeMap<Uuid, EditSourceReportItem>> {
     if !resolved
         .items
         .iter()
@@ -2091,53 +2773,242 @@ fn load_edit_sources(
     {
         return Ok(BTreeMap::new());
     }
-    let path = project_root.join(EDIT_SOURCE_REPORT_NAME);
-    let report: EditSourceReport = read_json(&path)?;
-    if report.schema_version != 1
-        || report.project != resolved.project
-        || report.post != resolved.name
-        || report.platform != resolved.platform
-        || report.source_sha256 != resolved.source_sha256
-    {
-        return Err(PhotaraError::Configuration(format!(
-            "edit comparison source report {} is stale or belongs to another post",
-            path.display()
-        )));
-    }
+    let registry = load_or_recover_edit_source_registry(project_root, resolved)?;
     let mut sources = BTreeMap::new();
-    for item in report.items {
-        if item.state != "verified" || !item.restored {
-            return Err(PhotaraError::Configuration(format!(
-                "neutral source for item {:?} slot {:?} was not verified and safely restored",
-                item.item_id, item.slot
-            )));
-        }
-        if !item.profile.eq_ignore_ascii_case("Adobe Color") {
-            return Err(PhotaraError::Configuration(format!(
-                "neutral source for item {:?} slot {:?} used profile {:?}, not Adobe Color",
-                item.item_id, item.slot, item.profile
-            )));
-        }
-        let output = project_root.join(&item.output_relative_path);
-        let metadata = fs::metadata(&output).map_err(|source| {
-            PhotaraError::filesystem("inspect neutral source", &output, source)
-        })?;
-        if metadata.len() != item.output_byte_size || sha256_file(&output)? != item.output_sha256 {
-            return Err(PhotaraError::Configuration(format!(
-                "neutral source {} changed after Lightroom verification",
-                output.display()
-            )));
-        }
-        if sources
-            .insert((item.item_id.clone(), item.slot.clone()), item)
-            .is_some()
-        {
+    for item in registry.items {
+        if sources.insert(item.asset_id, item).is_some() {
             return Err(PhotaraError::Configuration(
-                "edit comparison source report contains duplicate slots".into(),
+                "edit comparison source registry contains duplicate assets".into(),
             ));
         }
     }
     Ok(sources)
+}
+
+fn validate_edit_source_registry_item(
+    project_root: &Path,
+    item: &EditSourceReportItem,
+) -> Result<()> {
+    if item.state != "verified" || !item.restored {
+        return Err(PhotaraError::Configuration(format!(
+            "neutral source for asset {} was not verified and safely restored",
+            item.asset_id
+        )));
+    }
+    if !item.profile.eq_ignore_ascii_case("Adobe Color") {
+        return Err(PhotaraError::Configuration(format!(
+            "neutral source for asset {} used profile {:?}, not Adobe Color",
+            item.asset_id, item.profile
+        )));
+    }
+    let output = project_root.join(&item.output_relative_path);
+    let metadata = fs::metadata(&output)
+        .map_err(|source| PhotaraError::filesystem("inspect neutral source", &output, source))?;
+    if !metadata.is_file()
+        || metadata.len() != item.output_byte_size
+        || sha256_file(&output)? != item.output_sha256
+    {
+        return Err(PhotaraError::Configuration(format!(
+            "neutral source {} changed after Lightroom verification",
+            output.display()
+        )));
+    }
+    Ok(())
+}
+
+fn load_or_recover_edit_source_registry(
+    project_root: &Path,
+    resolved: &ResolvedPost,
+) -> Result<EditSourceRegistry> {
+    let registry_path = project_root.join(EDIT_SOURCE_REGISTRY_NAME);
+    if registry_path.is_file() {
+        let registry: EditSourceRegistry = read_json(&registry_path)?;
+        if registry.schema_version != 1
+            || registry.project != resolved.project
+            || registry.rendering != "lightroom-reset-adobe-color"
+        {
+            return Err(PhotaraError::Configuration(format!(
+                "edit comparison source registry {} has an unsupported identity or rendering contract",
+                registry_path.display()
+            )));
+        }
+        for item in &registry.items {
+            validate_edit_source_registry_item(project_root, item)?;
+        }
+        return Ok(registry);
+    }
+
+    let mut recovered = BTreeMap::<Uuid, EditSourceReportItem>::new();
+    let legacy_manifest_path = project_root.join(LAYOUT_MANIFEST_NAME);
+    if legacy_manifest_path.is_file() {
+        let legacy: LegacyLayoutManifest = read_json(&legacy_manifest_path)?;
+        if legacy.project == resolved.project {
+            for legacy_item in legacy.items {
+                for placement in legacy_item.placements {
+                    let (Some(output_relative_path), Some(output_sha256), Some(metadata)) = (
+                        placement.before_relative_path,
+                        placement.before_sha256,
+                        placement.capture_metadata,
+                    ) else {
+                        continue;
+                    };
+                    let mut matches = resolved
+                        .items
+                        .iter()
+                        .flat_map(|item| &item.placements)
+                        .filter(|candidate| candidate.hdr_tiff.sha256 == placement.hdr_sha256);
+                    let Some(candidate) = matches.next() else {
+                        continue;
+                    };
+                    if matches.any(|other| other.asset_id != candidate.asset_id) {
+                        continue;
+                    }
+                    let output = project_root.join(&output_relative_path);
+                    let Ok(file_metadata) = fs::metadata(&output) else {
+                        continue;
+                    };
+                    if !file_metadata.is_file()
+                        || file_metadata.len() == 0
+                        || sha256_file(&output)? != output_sha256
+                    {
+                        continue;
+                    }
+                    recovered.insert(
+                        candidate.asset_id,
+                        EditSourceReportItem {
+                            item_id: legacy_item.id.clone(),
+                            slot: placement.slot,
+                            asset_id: candidate.asset_id,
+                            state: "verified".into(),
+                            output_relative_path,
+                            output_sha256,
+                            output_byte_size: file_metadata.len(),
+                            profile: "Adobe Color".into(),
+                            restored: true,
+                            metadata,
+                        },
+                    );
+                }
+            }
+        }
+    }
+
+    if recovered.is_empty() {
+        let report_path = project_root.join(EDIT_SOURCE_REPORT_NAME);
+        if report_path.is_file() {
+            let report: EditSourceReport = read_json(&report_path)?;
+            if report.schema_version == 1 && report.project == resolved.project {
+                for item in report.items {
+                    if validate_edit_source_registry_item(project_root, &item).is_ok() {
+                        recovered.insert(item.asset_id, item);
+                    }
+                }
+            }
+        }
+    }
+
+    let registry = EditSourceRegistry {
+        schema_version: 1,
+        project: resolved.project.clone(),
+        rendering: "lightroom-reset-adobe-color".into(),
+        items: recovered.into_values().collect(),
+    };
+    if !registry.items.is_empty() {
+        write_json_atomic(&registry_path, &registry)?;
+    }
+    Ok(registry)
+}
+
+fn relocate_edit_source_registry(
+    project_root: &Path,
+    mut registry: EditSourceRegistry,
+    output_root: &Path,
+) -> Result<EditSourceRegistry> {
+    let mut changed = false;
+    for item in &mut registry.items {
+        if item.output_relative_path.starts_with(output_root) {
+            continue;
+        }
+        let filename = item.output_relative_path.file_name().ok_or_else(|| {
+            PhotaraError::Configuration(format!(
+                "neutral source path {} has no filename",
+                item.output_relative_path.display()
+            ))
+        })?;
+        let new_relative_path = output_root.join(filename);
+        let old_path = project_root.join(&item.output_relative_path);
+        let new_path = project_root.join(&new_relative_path);
+        if new_path.is_file() {
+            let metadata = fs::metadata(&new_path).map_err(|source| {
+                PhotaraError::filesystem("inspect shared neutral source", &new_path, source)
+            })?;
+            if metadata.len() != item.output_byte_size
+                || sha256_file(&new_path)? != item.output_sha256
+            {
+                return Err(PhotaraError::Configuration(format!(
+                    "shared neutral source destination {} contains different content",
+                    new_path.display()
+                )));
+            }
+            fs::remove_file(&old_path).map_err(|source| {
+                PhotaraError::filesystem(
+                    "remove duplicate legacy neutral source",
+                    &old_path,
+                    source,
+                )
+            })?;
+        } else {
+            fs::rename(&old_path, &new_path).map_err(|source| {
+                PhotaraError::filesystem(
+                    "move neutral source into shared directory",
+                    &old_path,
+                    source,
+                )
+            })?;
+        }
+        item.output_relative_path = new_relative_path;
+        changed = true;
+    }
+    if changed {
+        write_json_atomic(&project_root.join(EDIT_SOURCE_REGISTRY_NAME), &registry)?;
+    }
+    Ok(registry)
+}
+
+fn merge_edit_source_registry(project_root: &Path, report: &EditSourceReport) -> Result<()> {
+    let path = project_root.join(EDIT_SOURCE_REGISTRY_NAME);
+    let mut items = if path.is_file() {
+        let existing: EditSourceRegistry = read_json(&path)?;
+        if existing.schema_version != 1
+            || existing.project != report.project
+            || existing.rendering != "lightroom-reset-adobe-color"
+        {
+            return Err(PhotaraError::Configuration(format!(
+                "edit comparison source registry {} has an unsupported identity or rendering contract",
+                path.display()
+            )));
+        }
+        existing
+            .items
+            .into_iter()
+            .map(|item| (item.asset_id, item))
+            .collect::<BTreeMap<_, _>>()
+    } else {
+        BTreeMap::new()
+    };
+    for item in &report.items {
+        validate_edit_source_registry_item(project_root, item)?;
+        items.insert(item.asset_id, item.clone());
+    }
+    write_json_atomic(
+        &path,
+        &EditSourceRegistry {
+            schema_version: 1,
+            project: report.project.clone(),
+            rendering: "lightroom-reset-adobe-color".into(),
+            items: items.into_values().collect(),
+        },
+    )
 }
 
 fn capture_metadata(input: &CaptureMetadataInput) -> CaptureMetadata {
@@ -2468,6 +3339,36 @@ fn validate_template(template: &LayoutTemplate, reference: &TemplateRef) -> Resu
                     },
                 )
         }
+        "stacked-three" => {
+            template.slots.len() == 3
+                && slot_matches(
+                    "top",
+                    NormalizedRect {
+                        x: 0.0,
+                        y: 0.0,
+                        width: 1.0,
+                        height: 0.333375,
+                    },
+                )
+                && slot_matches(
+                    "middle",
+                    NormalizedRect {
+                        x: 0.0,
+                        y: 0.333375,
+                        width: 1.0,
+                        height: 0.33325,
+                    },
+                )
+                && slot_matches(
+                    "bottom",
+                    NormalizedRect {
+                        x: 0.0,
+                        y: 0.666625,
+                        width: 1.0,
+                        height: 0.333375,
+                    },
+                )
+        }
         "continuous-panorama" => {
             template.slots.len() == 1
                 && slot_matches(
@@ -2496,7 +3397,7 @@ fn validate_template(template: &LayoutTemplate, reference: &TemplateRef) -> Resu
                     if reference.filename == "reference.psd"
                         && reference.sha256.len() == 64
                         && reference.width == 4500
-                        && reference.height == 6000
+                        && matches!(reference.height, 6000 | 8000)
                         && reference.bit_depth == 32
                         && reference.color_profile == "Display P3 Linear"
             );
@@ -2530,7 +3431,7 @@ fn validate_template(template: &LayoutTemplate, reference: &TemplateRef) -> Resu
                     if reference.filename == "reference.psd"
                         && reference.sha256.len() == 64
                         && reference.width == 4500
-                        && reference.height == 6000
+                        && matches!(reference.height, 6000 | 8000)
                         && reference.bit_depth == 32
                         && reference.color_profile == "Display P3 Linear"
             );
@@ -2594,7 +3495,7 @@ fn validate_post(
     platform: PostPlatform,
 ) -> Result<()> {
     validate_post_identity(project, name)?;
-    if post.schema_version != 1
+    if !matches!(post.schema_version, 1 | 2)
         || post.project != project.slug
         || post.name != name
         || post.platform != platform
@@ -2615,9 +3516,9 @@ fn validate_post(
                 item.id
             )));
         }
-        if item.placements.is_empty() || item.placements.len() > 2 {
+        if item.placements.is_empty() || item.placements.len() > 3 {
             return Err(PhotaraError::Configuration(format!(
-                "post item {:?} must have one or two placements",
+                "post item {:?} must have one, two, or three placements",
                 item.id
             )));
         }
@@ -2640,20 +3541,78 @@ fn validate_post(
             validate_focal_point(placement.focal_point)?;
             let supports_contain = (is_dynamic_range_comparison || is_edit_comparison)
                 && matches!(placement.slot.as_str(), "top" | "bottom");
-            if !matches!(placement.fit.as_str(), "fill" | "crop")
-                && !(placement.fit == "contain" && supports_contain)
+            if !(matches!(placement.fit.as_str(), "fill" | "crop")
+                || placement.fit == "contain" && supports_contain)
             {
                 return Err(PhotaraError::Configuration(format!(
                     "post item {:?} uses unsupported fit {:?}",
                     item.id, placement.fit
                 )));
             }
-            if let Some(crop) = placement.crop {
-                validate_normalized_rect(crop, "crop")?;
-            }
+            placement_transform(post.schema_version, placement)?;
         }
     }
     Ok(())
+}
+
+fn placement_transform(
+    post_schema_version: u32,
+    placement: &PostPlacement,
+) -> Result<PlacementTransform> {
+    let transform = match post_schema_version {
+        1 => {
+            if placement.transform.is_some() {
+                return Err(PhotaraError::Configuration(
+                    "post schema v1 placements cannot contain a structured transform".into(),
+                ));
+            }
+            PlacementTransform {
+                crop: placement.crop,
+                rotation_quarter_turns_cw: 0,
+            }
+        }
+        2 => {
+            if placement.crop.is_some() && placement.transform.is_some() {
+                return Err(PhotaraError::Configuration(
+                    "post placement cannot contain both legacy crop and structured transform"
+                        .into(),
+                ));
+            }
+            placement.transform.unwrap_or(PlacementTransform {
+                crop: placement.crop,
+                rotation_quarter_turns_cw: 0,
+            })
+        }
+        version => {
+            return Err(PhotaraError::Configuration(format!(
+                "unsupported post schema version {version}"
+            )));
+        }
+    };
+    validate_placement_transform(transform)?;
+    Ok(transform)
+}
+
+fn validate_placement_transform(transform: PlacementTransform) -> Result<()> {
+    if transform.rotation_quarter_turns_cw > 3 {
+        return Err(PhotaraError::Configuration(format!(
+            "placement rotation must be 0, 1, 2, or 3 clockwise quarter turns; received {}",
+            transform.rotation_quarter_turns_cw
+        )));
+    }
+    if let Some(crop) = transform.crop {
+        validate_normalized_rect(crop, "placement transform crop")?;
+    }
+    Ok(())
+}
+
+fn placement_requires_authoring(
+    platform: PostPlatform,
+    fit: &str,
+    transform: PlacementTransform,
+) -> bool {
+    transform.crop.is_none()
+        && (fit == "crop" || (platform == PostPlatform::Threads && fit == "fill"))
 }
 
 fn validate_focal_point(point: FocalPoint) -> Result<()> {
@@ -2800,6 +3759,10 @@ const MASTER_SELECT_BY_REFERENCE: &str = concat!(
     "AND hdr_tiff.representation = 'flattened-hdr-tiff' AND hdr_tiff.authoritative AND hdr_tiff.state = 'current' ",
     "LEFT JOIN flattened_master_documents AS sdr ON sdr.project_id = membership.project_id ",
     "AND sdr.source_file_id = psb.id AND sdr.rendition_role = 'sdr' ",
+    "AND EXISTS (SELECT 1 FROM asset_files AS current_sdr ",
+    "WHERE current_sdr.id = sdr.asset_file_id AND current_sdr.asset_id = asset.id ",
+    "AND current_sdr.representation = 'flattened-sdr-tiff' ",
+    "AND current_sdr.authoritative AND current_sdr.state = 'current') ",
     "LEFT JOIN asset_files AS sdr_tiff ON sdr_tiff.id = sdr.asset_file_id AND sdr_tiff.asset_id = asset.id ",
     "AND sdr_tiff.representation = 'flattened-sdr-tiff' AND sdr_tiff.authoritative AND sdr_tiff.state = 'current' ",
     "WHERE membership.project_id = $1 AND (lower(asset.id::text) = lower($2) ",
@@ -2831,6 +3794,10 @@ const MASTER_SELECT_BY_ID: &str = concat!(
     "AND hdr_tiff.representation = 'flattened-hdr-tiff' AND hdr_tiff.authoritative AND hdr_tiff.state = 'current' ",
     "LEFT JOIN flattened_master_documents AS sdr ON sdr.project_id = membership.project_id ",
     "AND sdr.source_file_id = psb.id AND sdr.rendition_role = 'sdr' ",
+    "AND EXISTS (SELECT 1 FROM asset_files AS current_sdr ",
+    "WHERE current_sdr.id = sdr.asset_file_id AND current_sdr.asset_id = asset.id ",
+    "AND current_sdr.representation = 'flattened-sdr-tiff' ",
+    "AND current_sdr.authoritative AND current_sdr.state = 'current') ",
     "LEFT JOIN asset_files AS sdr_tiff ON sdr_tiff.id = sdr.asset_file_id AND sdr_tiff.asset_id = asset.id ",
     "AND sdr_tiff.representation = 'flattened-sdr-tiff' AND sdr_tiff.authoritative AND sdr_tiff.state = 'current' ",
     "WHERE membership.project_id = $1 AND asset.id = $2"
@@ -2999,6 +3966,7 @@ fn write_atomic(path: &Path, contents: &[u8]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
 
     #[test]
     fn parses_template_references() {
@@ -3018,9 +3986,9 @@ mod tests {
     fn installs_and_refuses_mutated_immutable_template() {
         let temporary = tempfile::tempdir().unwrap();
         let first = install_builtin_templates(temporary.path()).unwrap();
-        assert_eq!(first.installed.len(), 6);
+        assert_eq!(first.installed.len(), 9);
         let second = install_builtin_templates(temporary.path()).unwrap();
-        assert_eq!(second.verified.len(), 6);
+        assert_eq!(second.verified.len(), 9);
         fs::write(temporary.path().join("full-frame/v1.json"), "{}\n").unwrap();
         assert!(install_builtin_templates(temporary.path()).is_err());
     }
@@ -3053,6 +4021,47 @@ mod tests {
         assert_eq!(
             (bottom.x, bottom.y, bottom.width, bottom.height),
             (0, 3000, 4500, 3000)
+        );
+    }
+
+    #[test]
+    fn stacked_three_resolves_to_exact_threads_rows() {
+        let template: LayoutTemplate = serde_json::from_str(STACKED_THREE_V1).unwrap();
+        validate_template(
+            &template,
+            &TemplateRef {
+                name: "stacked-three".into(),
+                version: 1,
+            },
+        )
+        .unwrap();
+        let rows: Vec<_> = template
+            .slots
+            .iter()
+            .map(|slot| resolve_bounds(slot.bounds, 4500, 8000).unwrap())
+            .collect();
+        assert_eq!(
+            rows,
+            [
+                PixelRect {
+                    x: 0,
+                    y: 0,
+                    width: 4500,
+                    height: 2667,
+                },
+                PixelRect {
+                    x: 0,
+                    y: 2667,
+                    width: 4500,
+                    height: 2666,
+                },
+                PixelRect {
+                    x: 0,
+                    y: 5333,
+                    width: 4500,
+                    height: 2667,
+                },
+            ]
         );
     }
 
@@ -3158,11 +4167,258 @@ mod tests {
     }
 
     #[test]
+    fn threads_dynamic_range_comparison_resolves_to_inspected_geometry() {
+        let template: LayoutTemplate = serde_json::from_str(DYNAMIC_RANGE_COMPARISON_V3).unwrap();
+        validate_template(
+            &template,
+            &TemplateRef::parse("dynamic-range-comparison@3").unwrap(),
+        )
+        .unwrap();
+        let comparison = template.comparison.unwrap();
+        assert_eq!(
+            resolve_bounds(comparison.cells.top_left, 4500, 8000).unwrap(),
+            PixelRect {
+                x: 226,
+                y: 1903,
+                width: 2000,
+                height: 2000
+            }
+        );
+        assert_eq!(
+            resolve_bounds(comparison.cells.bottom_right, 4500, 8000).unwrap(),
+            PixelRect {
+                x: 2276,
+                y: 4134,
+                width: 2000,
+                height: 2000
+            }
+        );
+        assert_eq!(
+            resolve_bounds(comparison.hdr_headroom_ramp, 4500, 8000).unwrap(),
+            PixelRect {
+                x: 2276,
+                y: 1337,
+                width: 2000,
+                height: 189
+            }
+        );
+    }
+
+    #[test]
+    fn threads_edit_comparison_resolves_to_inspected_geometry() {
+        let template: LayoutTemplate = serde_json::from_str(EDIT_COMPARISON_V2).unwrap();
+        validate_template(&template, &TemplateRef::parse("edit-comparison@2").unwrap()).unwrap();
+        let comparison = template.edit_comparison.unwrap();
+        assert_eq!(
+            resolve_bounds(comparison.cells.top_left, 4500, 8000).unwrap(),
+            PixelRect {
+                x: 226,
+                y: 1125,
+                width: 2000,
+                height: 2000
+            }
+        );
+        assert_eq!(
+            resolve_bounds(comparison.cells.bottom_right, 4500, 8000).unwrap(),
+            PixelRect {
+                x: 2276,
+                y: 3677,
+                width: 2000,
+                height: 2000
+            }
+        );
+    }
+
+    #[test]
     fn platform_profiles_are_explicit() {
         let instagram = PostPlatform::Instagram.profile();
         let threads = PostPlatform::Threads.profile();
         assert_eq!((instagram.width, instagram.height), (4500, 6000));
         assert_eq!((threads.width, threads.height), (4500, 8000));
+    }
+
+    fn test_placement(crop: Option<NormalizedRect>) -> PostPlacement {
+        PostPlacement {
+            slot: "image".into(),
+            asset_id: Uuid::nil(),
+            display_filename: "source.ARW".into(),
+            fit: "crop".into(),
+            focal_point: FocalPoint { x: 0.5, y: 0.5 },
+            crop,
+            transform: None,
+        }
+    }
+
+    #[test]
+    fn placement_transform_identity_is_the_stable_default() {
+        let transform: PlacementTransform = serde_json::from_str("{}").unwrap();
+        assert_eq!(transform, PlacementTransform::default());
+        assert_eq!(serde_json::to_string(&transform).unwrap(), "{}");
+    }
+
+    #[test]
+    fn contain_fit_never_requires_crop_authoring() {
+        let identity = PlacementTransform::default();
+        assert!(!placement_requires_authoring(
+            PostPlatform::Instagram,
+            "contain",
+            identity
+        ));
+        assert!(!placement_requires_authoring(
+            PostPlatform::Threads,
+            "contain",
+            identity
+        ));
+        assert!(placement_requires_authoring(
+            PostPlatform::Threads,
+            "fill",
+            identity
+        ));
+        assert!(!placement_requires_authoring(
+            PostPlatform::Instagram,
+            "fill",
+            identity
+        ));
+        assert!(placement_requires_authoring(
+            PostPlatform::Instagram,
+            "crop",
+            identity
+        ));
+    }
+
+    #[test]
+    fn placement_transform_resolves_crop_after_rotation() {
+        let transform = PlacementTransform {
+            crop: Some(NormalizedRect {
+                x: 0.25,
+                y: 0.1,
+                width: 0.5,
+                height: 0.75,
+            }),
+            rotation_quarter_turns_cw: 1,
+        };
+        let (rotated_dimensions, crop) =
+            resolve_placement_transform(transform, 6000, 4000).unwrap();
+        assert_eq!(rotated_dimensions, (4000, 6000));
+        assert_eq!(
+            crop,
+            Some(PixelRect {
+                x: 1000,
+                y: 600,
+                width: 2000,
+                height: 4500,
+            })
+        );
+    }
+
+    #[test]
+    fn placement_transform_rejects_non_quarter_turn_values() {
+        assert!(
+            validate_placement_transform(PlacementTransform {
+                crop: None,
+                rotation_quarter_turns_cw: 4,
+            })
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn post_schema_v1_translates_legacy_crop_without_mutation() {
+        let crop = NormalizedRect {
+            x: 0.1,
+            y: 0.2,
+            width: 0.75,
+            height: 0.5,
+        };
+        let placement = test_placement(Some(crop));
+        assert_eq!(
+            placement_transform(1, &placement).unwrap(),
+            PlacementTransform {
+                crop: Some(crop),
+                rotation_quarter_turns_cw: 0,
+            }
+        );
+        assert_eq!(placement.crop, Some(crop));
+        assert!(placement.transform.is_none());
+    }
+
+    #[test]
+    fn post_schema_rejects_conflicting_or_misversioned_transforms() {
+        let crop = NormalizedRect {
+            x: 0.1,
+            y: 0.2,
+            width: 0.75,
+            height: 0.5,
+        };
+        let mut placement = test_placement(Some(crop));
+        placement.transform = Some(PlacementTransform::default());
+        assert!(placement_transform(1, &placement).is_err());
+        assert!(placement_transform(2, &placement).is_err());
+        assert!(placement_transform(3, &test_placement(None)).is_err());
+    }
+
+    #[test]
+    fn post_upgrade_moves_legacy_crop_into_structured_transform() {
+        let crop = NormalizedRect {
+            x: 0.1,
+            y: 0.2,
+            width: 0.75,
+            height: 0.5,
+        };
+        let mut post = PostSpecification {
+            schema_version: 1,
+            project: "project".into(),
+            name: "post".into(),
+            platform: PostPlatform::Instagram,
+            items: vec![PostItem {
+                id: "item".into(),
+                template: Some("full-frame@1".into()),
+                placements: vec![test_placement(Some(crop))],
+            }],
+        };
+        upgrade_post_to_v2(&mut post).unwrap();
+        assert_eq!(post.schema_version, 2);
+        assert!(post.items[0].placements[0].crop.is_none());
+        assert_eq!(
+            post.items[0].placements[0].transform,
+            Some(PlacementTransform {
+                crop: Some(crop),
+                rotation_quarter_turns_cw: 0,
+            })
+        );
+    }
+
+    #[test]
+    fn authoring_input_fingerprint_is_deterministic_and_order_sensitive() {
+        let placement = |item_id: &str| AuthoringPlacement {
+            item_id: item_id.into(),
+            slot: "image".into(),
+            asset_id: Uuid::nil(),
+            display_filename: "source.ARW".into(),
+            template: "full-frame@1".into(),
+            target_bounds: PixelRect {
+                x: 0,
+                y: 0,
+                width: 4500,
+                height: 6000,
+            },
+            source_relative_path: "masters/source_HDR.TIF".into(),
+            source_sha256: "a".repeat(64),
+            source_width: 6000,
+            source_height: 4000,
+            transform: PlacementTransform::default(),
+        };
+        let ordered = vec![placement("first"), placement("second")];
+        let reversed = vec![placement("second"), placement("first")];
+        let first =
+            authoring_input_sha256("project", "post", PostPlatform::Instagram, &ordered).unwrap();
+        let second =
+            authoring_input_sha256("project", "post", PostPlatform::Instagram, &ordered).unwrap();
+        assert_eq!(first, second);
+        assert_ne!(
+            first,
+            authoring_input_sha256("project", "post", PostPlatform::Instagram, &reversed,).unwrap()
+        );
     }
 
     #[test]
@@ -3189,6 +4445,75 @@ mod tests {
     }
 
     #[test]
+    fn accepted_dsc05417_panorama_crop_keeps_exact_instagram_pixels() {
+        let transform = PlacementTransform {
+            crop: Some(NormalizedRect {
+                x: 0.050686987646,
+                y: 0.114132317284,
+                width: 0.88592541277,
+                height: 0.885867682716,
+            }),
+            rotation_quarter_turns_cw: 0,
+        };
+        let (_, crop) = resolve_placement_transform(transform, 8661, 5774).unwrap();
+        assert_eq!(
+            crop,
+            Some(PixelRect {
+                x: 439,
+                y: 659,
+                width: 7673,
+                height: 5115,
+            })
+        );
+    }
+
+    #[test]
+    fn instagram_regression_fixture_freezes_accepted_package() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../tests/fixtures/red-meridian-instagram-package-a.json"
+        ))
+        .unwrap();
+        assert_eq!(fixture["editorial_item_count"], 18);
+        assert_eq!(fixture["delivery_frame_count"], 20);
+        let items = fixture["items"].as_array().unwrap();
+        let ids: Vec<_> = items
+            .iter()
+            .map(|item| item["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            ids,
+            [
+                "hero",
+                "stacked-01",
+                "full-frame-05217",
+                "full-frame-05406",
+                "panorama-05382",
+                "full-frame-05409",
+                "stacked-02",
+                "full-frame-05421-a",
+                "stacked-03",
+                "full-frame-05382",
+                "full-frame-05372",
+                "full-frame-05421-b",
+                "dynamic-range-01",
+                "edit-comparison-01",
+                "panorama-05417",
+                "dynamic-range-02",
+                "edit-comparison-02",
+                "full-frame-05250-repeat",
+            ]
+        );
+        let panorama = items
+            .iter()
+            .find(|item| item["id"] == "panorama-05417")
+            .unwrap();
+        assert_eq!(panorama["canvas_width"], 7673);
+        assert_eq!(panorama["canvas_height"], 5115);
+        assert_eq!(panorama["placements"][0]["source_crop"]["x"], 439);
+        assert_eq!(panorama["placements"][0]["source_crop"]["y"], 659);
+    }
+
+    #[test]
     fn stacked_crop_reuse_requires_the_same_asset() {
         let asset_id = Uuid::nil();
         let crop = NormalizedRect {
@@ -3212,6 +4537,7 @@ mod tests {
                     fit: "crop".into(),
                     focal_point: FocalPoint { x: 0.5, y: 0.5 },
                     crop: Some(crop),
+                    transform: None,
                 }],
             }],
         };
@@ -3235,6 +4561,7 @@ mod tests {
                 fit: "fill".into(),
                 focal_point: FocalPoint { x: 0.5, y: 0.5 },
                 crop: None,
+                transform: None,
             }],
         };
         let mut post = PostSpecification {

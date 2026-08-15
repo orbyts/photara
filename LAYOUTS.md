@@ -497,22 +497,66 @@ slots.
 | 5–6 | `panorama-05382` | `DSC05382_2021_06_11_SUHAIL` | Continuous two-slot panorama | Complete |
 | 7 | `full-frame-05409` | `DSC05409_2021_06_11_SUHAIL` | Full frame | Complete |
 | 8 | `stacked-02` | `DSC05417_2021_06_11_SUHAIL` + `DSC05419_2021_06_11_SUHAIL` | Stacked two | Complete |
-| 9 | `full-frame-05421-a` | `DSC05421_2021_06_11_SUHAIL` | Full frame | Pending |
-| 10 | `stacked-03` | `DSC05441_2021_06_11_SUHAIL` + `DSC05382_2021_06_11_SUHAIL` | Stacked two, reusing the previously authored 05382 crop intent | Pending |
-| 11 | `full-frame-05382` | `DSC05382_2021_06_11_SUHAIL` | Full frame | Pending |
-| 12 | `full-frame-05372` | `DSC05372_2021_06_11_SUHAIL` | Full frame | Pending |
-| 13 | `full-frame-05421-b` | `DSC05421_2021_06_11_SUHAIL` | Repeated full frame | Pending |
+| 9 | `full-frame-05421-a` | `DSC05421_2021_06_11_SUHAIL` | Full frame | Complete |
+| 10 | `stacked-03` | `DSC05441_2021_06_11_SUHAIL` + `DSC05382_2021_06_11_SUHAIL` | Stacked two, reusing the previously authored 05382 crop intent | Complete |
+| 11 | `full-frame-05382` | `DSC05382_2021_06_11_SUHAIL` | Full frame | Complete |
+| 12 | `full-frame-05372` | `DSC05372_2021_06_11_SUHAIL` | Full frame | Complete |
+| 13 | `full-frame-05421-b` | `DSC05421_2021_06_11_SUHAIL` | Repeated full frame | Complete |
 | 14 | `dynamic-range-01` | `DSC05250_2021_06_11_SUHAIL` + `DSC05421_2021_06_11_SUHAIL` | Dynamic Range Comparison | Complete |
 | 15 | `edit-comparison-01` | `DSC05250_2021_06_11_SUHAIL` + `DSC05421_2021_06_11_SUHAIL` | Edit Comparison | Complete |
-| 16–17 | `panorama-05417` | `DSC05417_2021_06_11_SUHAIL` | Continuous two-slot panorama | Pending |
-| 18 | `dynamic-range-02` | `DSC05445_2021_06_11_SUHAIL` + `DSC05417_2021_06_11_SUHAIL` | Dynamic Range Comparison | Pending |
-| 19 | `edit-comparison-02` | `DSC05445_2021_06_11_SUHAIL` + `DSC05417_2021_06_11_SUHAIL` | Edit Comparison | Pending |
+| 16–17 | `panorama-05417` | `DSC05417_2021_06_11_SUHAIL` | Continuous two-slot panorama | Complete |
+| 18 | `dynamic-range-02` | `DSC05445_2021_06_11_SUHAIL` + `DSC05417_2021_06_11_SUHAIL` | Dynamic Range Comparison | Complete |
+| 19 | `edit-comparison-02` | `DSC05445_2021_06_11_SUHAIL` + `DSC05417_2021_06_11_SUHAIL` | Edit Comparison | Complete |
 | 20 | `full-frame-05250-repeat` | `DSC05250_2021_06_11_SUHAIL` | Repeated full frame | Complete via the existing hero render intent |
 
 The plan has 18 editorial items and exactly 20 delivered slots. The
 project-owned JSON now contains this accepted order and resolves to exactly 20
-delivery frames. WSP must still split both continuous surfaces and Photara must
-verify the ordered 20-file delivery manifest before publication.
+delivery frames. WSP split both continuous surfaces, the operator reviewed the
+20 final HDR JPEGs, and manual Instagram publication is recorded against the
+accepted post checksum.
+
+## Red Meridian example: Threads Package A
+
+Threads is an independent 17-item, 17-frame 4500 × 8000 (9:16) package. It
+shares stable source assets and editorial intent with Instagram but owns its
+templates, placement transforms, frame topology, and publication evidence.
+Three-image stacks use exact no-gutter parent rows of 2667, 2666, and 2667
+pixels. Comparison imagery uses contain fit in the inspected taller templates;
+landscape sources letterbox and portrait sources pillarbox unless an explicit
+placement transform says otherwise.
+
+| # | Photara item | Source(s) | Layout | Status |
+| ---: | --- | --- | --- | --- |
+| 1 | `hero` | DSC05250 | Full frame, authored 9:16 | Complete |
+| 2 | `stacked-01` | DSC05445 + DSC05442 + DSC05441 | Stacked three | Complete |
+| 3 | `full-frame-05217` | DSC05217 | Full frame, authored 9:16 | Complete |
+| 4 | `full-frame-05406` | DSC05406 | Full frame, authored 9:16 | Complete |
+| 5 | `full-frame-05382-a` | DSC05382 | Full frame, authored 9:16 | Complete |
+| 6 | `full-frame-05409` | DSC05409 | Full frame, authored 9:16 | Complete |
+| 7 | `stacked-02` | DSC05417 + DSC05419 + DSC05382 | Stacked three | Complete |
+| 8 | `full-frame-05421-a` | DSC05421 | Full frame, authored 9:16 | Complete |
+| 9 | `stacked-03` | DSC05382 + DSC05372 + DSC05441 | Stacked three | Complete |
+| 10 | `full-frame-05372` | DSC05372 | Full frame, authored 9:16 | Complete |
+| 11 | `full-frame-05421-b` | DSC05421 | Repeated full frame, independently authored | Complete |
+| 12 | `dynamic-range-01` | DSC05250 + DSC05421 | 9:16 Dynamic Range Comparison | Complete |
+| 13 | `edit-comparison-01` | DSC05250 + DSC05421 | 9:16 Edit Comparison | Complete |
+| 14 | `full-frame-05417-rotated` | DSC05417 | Rotate 90° clockwise, then crop 9:16 | Complete |
+| 15 | `full-frame-05445-rotated` | DSC05445 | Rotate 90° clockwise, then crop 9:16 | Complete |
+| 16 | `dynamic-range-02` | DSC05445 + DSC05417 | 9:16 Dynamic Range Comparison | Complete |
+| 17 | `edit-comparison-02` | DSC05445 + DSC05417 | 9:16 Edit Comparison | Complete |
+
+All 17 PSBs were reviewed and exported through WSP. Manual Threads publication
+is recorded against the exact Threads post checksum.
+
+## Cloudinary exact-original backup boundary
+
+For `0.0.9`, Cloudinary stores verified backup copies of the exact WSP HDR JPEG
+originals: 20 Instagram files and 17 Threads files. It does not define social
+or website order and is not yet a website asset schema. Photara records local
+SHA-256 and byte evidence, provider identity and URL evidence, and optional
+project/post/platform/item provenance. Website derivatives, thumbnails,
+presentation order, Cloudinary-specific layouts, and Loomara integration remain
+deferred until the website contract exists.
 
 The project post carries platform, caption draft, accessibility text, teaching
 notes, and publication intent. Photara's social purpose is both to showcase the

@@ -134,6 +134,22 @@ async function applySourceCrop(document, crop) {
   }
 }
 
+async function applySourceRotation(document, quarterTurnsClockwise) {
+  const quarterTurns = Number(quarterTurnsClockwise || 0);
+  if (!Number.isInteger(quarterTurns) || quarterTurns < 0 || quarterTurns > 3) {
+    throw new Error(`Unsupported source rotation ${quarterTurnsClockwise}`);
+  }
+  if (quarterTurns === 0) return;
+  const beforeWidth = pixels(document.width);
+  const beforeHeight = pixels(document.height);
+  await document.rotate(quarterTurns * 90);
+  const expectedWidth = quarterTurns % 2 === 0 ? beforeWidth : beforeHeight;
+  const expectedHeight = quarterTurns % 2 === 0 ? beforeHeight : beforeWidth;
+  if (pixels(document.width) !== expectedWidth || pixels(document.height) !== expectedHeight) {
+    throw new Error("Photoshop did not apply the exact quarter-turn source rotation");
+  }
+}
+
 async function openSource(projectRoot, relativePath, item, role, normalizeNeutral = false) {
   const file = await child(projectRoot, relativePath);
   let document = null;
@@ -164,6 +180,7 @@ async function buildRole(projectRoot, item, role) {
         : placement.sdr_relative_path;
       source = await openSource(projectRoot, relativePath, item, role);
       await core.executeAsModal(async () => {
+        await applySourceRotation(source, placement.rotation_quarter_turns_cw);
         if (placement.source_crop) {
           await applySourceCrop(source, placement.source_crop);
         }
@@ -350,6 +367,10 @@ async function addComparisonImage(projectRoot, composite, item, placement, relat
   try {
     source = await openSource(projectRoot, relativePath, item, name, normalizeNeutral);
     await core.executeAsModal(async () => {
+      await applySourceRotation(source, placement.rotation_quarter_turns_cw);
+      if (placement.source_crop) {
+        await applySourceCrop(source, placement.source_crop);
+      }
       const fitted = await fitContain(source, bounds.width, bounds.height);
       let sourceLayer = source.layers[0];
       if (sourceLayer.isBackgroundLayer) {

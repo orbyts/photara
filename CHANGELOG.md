@@ -2,7 +2,32 @@
 
 All notable changes to Photara will be documented in this file.
 
-## 0.0.9 - Unreleased
+## 0.0.9 - 2026-08-14
+
+- Generalize placement authoring around post schema v2 transforms with
+  normalized crops and clockwise quarter-turn rotation, while preserving
+  schema-v1 compatibility and exact legacy panorama geometry.
+- Add fingerprinted, atomic multi-placement Photoshop authoring and capture
+  sessions with stale-source/post rejection and idempotent report replay.
+- Complete the independent 17-frame Red Meridian Threads package with
+  `stacked-three@1`, inspected 9:16 Dynamic Range and Edit Comparison
+  templates, independently authored crops, and rotated full-frame placements.
+- Preserve the accepted 18-item/20-frame Instagram package as a regression
+  fixture while allowing full-package and single-item render preparation.
+- Reuse verified Reset + Adobe Color Edit Comparison TIFFs by project asset
+  and rendering contract across platforms instead of regenerating identical
+  sources for every post.
+- Add guarded flattened-rendition refresh for deliberate external HDR/SDR TIFF
+  replacement while retaining superseded provenance.
+- Add durable manual-publication evidence tied to the exact post-specification
+  checksum without inventing provider URLs or timestamps.
+- Add signed, non-overwriting Cloudinary backup of exact WSP HDR JPEGs with one
+  bundled keychain credential, immutable manifests, canary verification,
+  per-asset provider evidence, full original-download SHA-256 verification,
+  bounded network waits, and duplicate-free retry behavior.
+- Complete Red Meridian Package A on Instagram and Threads, record both manual
+  publications, and verify all 20 Instagram plus 17 Threads WSP originals in
+  Cloudinary. Cloudinary remains backup storage, not the website media model.
 
 - Add immutable, PSD-backed `edit-comparison@1` layouts with two ordered
   Before/After rows, exact inspected square-cell geometry, and camera/capture

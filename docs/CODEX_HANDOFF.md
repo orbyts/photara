@@ -2,15 +2,17 @@
 
 > Temporary working document. Keep it updated while the 0.1.0 vertical slice
 > is in progress, then remove it when the project no longer needs a cross-task
-> handoff. Last updated: 2026-08-12.
+> handoff. Last updated: 2026-08-14.
 
 ## Resume objective
 
-Continue Photara `0.0.9` from the current Red Meridian layout checkpoint. The
-immediate goal is to finish the accepted 20-slot Instagram carousel, then build
-the independent Threads package, publish both with durable evidence, and
-complete the end-to-end `0.1.0` release. Do not redesign Storexa or restart the
-workflow from ingest.
+Continue Photara from the pushed, untagged `0.0.9` Red Meridian layout
+checkpoint. The generalized authoring layer, both social packages, manual
+publication evidence, and verified Cloudinary backup are complete in the dirty
+worktree. Preserve the accepted Instagram and Threads packages as regression
+fixtures. Finish release documentation and remaining recovery checks, then
+prove the reusable end-to-end workflow on Sylvan without project-specific code.
+Do not redesign Storexa or restart the workflow from ingest.
 
 Read these files before changing code:
 
@@ -26,23 +28,18 @@ Read these files before changing code:
 
 - Repository: `/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara`
 - Branch: `main`
-- Clean rollback point: commit `c9ec2db`, tag `v0.0.8`, also on `origin/main`.
+- Current stable checkpoint: tag `v0.0.9` on `main`.
+- Earlier stable rollback point: commit `c9ec2db`, tag `v0.0.8`.
 - `Cargo.toml` is already `0.0.9`.
-- The complete 0.0.9 implementation is intentionally uncommitted and the
-  worktree is broadly dirty. Several files are staged while later refinements
-  are unstaged. Preserve all of it. Do not reset, restore, clean, or replace the
-  worktree wholesale.
+- The `0.0.9` layout/publication/backup checkpoint is committed and pushed.
+  Preserve later implementation changes; do not reset, restore, clean, or
+  replace the worktree wholesale.
 - Dropbox has previously produced conflict copies. It is currently safe to
   leave Dropbox running, but inspect any new conflict copy before choosing a
   canonical file.
-- Do not commit or tag 0.0.9 until the user explicitly asks.
-
-At handoff time `git status --short` includes the 0.0.9 Rust layout engine,
-Lightroom Edit Comparison bridge, Photoshop scripts, migrations 0016/0017,
-template contracts, and documentation. New untracked files include
-`lightroom/photara.lrplugin/PrepareEditComparisonMain.lua`,
-`templates/dynamic-range-comparison/v2.json`, and
-`templates/edit-comparison/v1.json`.
+The Rust layout engine, Lightroom Edit Comparison bridge, generalized
+Photoshop scripts, publication and Cloudinary migrations, and template
+contracts are all included in `v0.0.9`.
 
 ## Live installation and data paths
 
@@ -55,9 +52,10 @@ template contracts, and documentation. New untracked files include
 - Installed Lightroom plug-in: `~/Library/Application Support/Adobe/Lightroom/Modules/photara.lrplugin`
   (linked to the repository)
 - Installed Photoshop scripts: `/Users/suhail/Pictures/Photara/Scripts`
-- Preferred host terminal: Ghostty. It loads the user's full environment; use
-  it rather than Terminal.app when a host-side Photara command cannot run
-  directly through Codex.
+- Ghostty loads the user's full environment, but do not open it merely to run a
+  command. Run background commands directly through Codex. If an operator-side
+  command truly cannot run there, give the user the exact Ghostty command and
+  let the user run it.
 - Images root: `/Volumes/whisk/Pictures/Images`
 - Projects root: `/Volumes/whisk/Pictures/Projects`
 - Red Meridian project: `/Volumes/whisk/Pictures/Projects/red-meridian`
@@ -86,6 +84,8 @@ Authoritative representation homes are deliberate:
 - Flattened HDR and SDR TIFF pair: project directory on the NAS.
 - Publication working artifacts: project directory and removable only after
   verified delivery evidence.
+- Exact WSP HDR JPEG backups: project `workspace/exports/<platform>/<package>`
+  plus verified Cloudinary originals. Cloudinary does not own website order.
 - Immutable reusable templates: Dropbox template registry, not the project,
   Lightroom Cloud, or NAS.
 
@@ -121,17 +121,29 @@ relationships/placements, not duplicate asset identity.
 ## 0.0.9 layout architecture already implemented
 
 - Global templates are immutable and versioned. The project post owns platform,
-  sequence, assets, crops, and repeated placements.
+  sequence, assets, per-placement transforms, and repeated placements. Post
+  schema v1 remains readable; generalized authoring writes schema v2 with
+  normalized crop plus clockwise quarter-turn rotation.
 - Instagram authoring canvas is 4500×6000 (3:4).
-- The planned Threads authoring canvas is 4500×8000 (9:16), but no Threads
-  package has been authored yet.
+- Threads is implemented as an independent 17-item 4500×8000 (9:16) post
+  specification. Its placements were authored and its 17 WSP outputs verified.
 - Every Photoshop handoff document has `HDR` above `SDR` for Web Sharp Pro.
   Annotations are identical between them; only declared HDR-variable image/ramp
   regions may differ.
 - WSP performs final resizing and splits continuous panoramas. Photara owns the
   continuous editorial surface, crop, seam intent, output order, and evidence.
-- `full-frame@1`, `stacked-two@1`, `continuous-panorama@1`,
-  `dynamic-range-comparison@2`, and `edit-comparison@1` are implemented.
+- `full-frame@1`, `stacked-two@1`, `stacked-three@1`,
+  `continuous-panorama@1`, `dynamic-range-comparison@2` (Instagram),
+  `dynamic-range-comparison@3` (Threads), `edit-comparison@1` (Instagram), and
+  `edit-comparison@2` (Threads) are implemented.
+- Generalized placement authoring now prepares ordered source/target contexts,
+  fingerprints the complete input, captures one report, validates every source
+  and target aspect, and applies all transforms in one atomic post update.
+  Legacy panorama commands route through this contract. Identical report replay
+  is idempotent.
+- `stacked-three@1` uses exact 2667/2666/2667 Threads rows. The two inspected
+  4500×8000 PSDs are installed as immutable comparison references with their
+  measured geometry and verified SHA-256 values.
 - Photoshop rendering supports a single-item debug manifest:
 
   ```bash
@@ -139,9 +151,9 @@ relationships/placements, not duplicate asset identity.
     --platform instagram --item edit-comparison-01
   ```
 
-  Omit `--item` for a production full-package manifest. The live manifest was
-  last prepared in single-item debug mode; regenerate it without `--item`
-  before production rendering.
+  Omit `--item` for a production full-package manifest. A complete 18-item
+  production manifest has been prepared successfully; regenerate it if the
+  source specification or implementation changes before production rendering.
 - Full manifest preparation can take several minutes because it re-hashes large
   masters. Incremental fingerprint caching is a known performance follow-up;
   do not weaken verification to make it faster.
@@ -172,6 +184,12 @@ relationships/placements, not duplicate asset identity.
 - Before is Lightroom Reset + Adobe Color with no user adjustments, exported
   by the Lightroom plug-in as a 16-bit tagged ProPhoto TIFF. Photara restores
   and verifies the exact authored develop state afterward.
+- Neutral Before evidence is registered by project asset and rendering
+  contract, not by post or platform. Instagram and Threads therefore reuse the
+  same verified TIFF for the same asset; a platform-specific export is neither
+  required nor desirable. Shared TIFFs live under
+  `sources/edit-comparison/before/`; the Lightroom menu asks for the package,
+  unions its platform specifications, and does not ask for a platform.
 - After is the verified SDR TIFF in the SDR base and HDR TIFF in the HDR top.
 - Camera and capture labels come from the RAW, never hard-coded text.
 - Canvas: 4500×6000, 32-bit Display P3 Linear.
@@ -214,7 +232,7 @@ intentional placements, not duplicates.
 | 15 | `edit-comparison-01` | DSC05250 + DSC05421 | Edit Comparison | Complete |
 | 16–17 | `panorama-05417` | DSC05417 | Two-slot panorama | Crop captured and applied; render pending |
 | 18 | `dynamic-range-02` | DSC05445 + DSC05417 | Dynamic Range Comparison | Added; render pending |
-| 19 | `edit-comparison-02` | DSC05445 + DSC05417 | Edit Comparison | Added; Lightroom neutral sources pending |
+| 19 | `edit-comparison-02` | DSC05445 + DSC05417 | Edit Comparison | Added; neutral sources verified; render pending |
 | 20 | `full-frame-05250-repeat` | DSC05250 | Repeated full frame | Added; existing hero render intent is reusable |
 
 The live file is:
@@ -240,9 +258,10 @@ It now contains the accepted final 18-item order:
 17. `edit-comparison-02`
 18. `full-frame-05250-repeat`
 
-Do not call that order final. Add the missing items and reorder it to the table
-above before freezing or publishing. The existing 05382 normalized panorama
-crop is:
+This is the accepted regression fixture. Future implementation must preserve
+its order, 18 editorial items, and exact 20-frame expansion unless an actual
+validation failure is discovered. The existing 05382 normalized panorama crop
+is:
 
 ```text
 x=0.080871670702
@@ -266,58 +285,78 @@ width=0.88592541277
 height=0.885867682716
 ```
 
-After adding `edit-comparison-02` and reordering, `posts resolve` reports
-`ready: true`, no requirements, 18 items, and exactly 20 delivery frames. The
-Edit Comparison source manifest has been refreshed but Lightroom Classic has
-not yet generated and restored the neutral sources for the new specification.
+`posts resolve` reports `ready: true`, no requirements, 18 items, and exactly
+20 delivery frames. All four Edit Comparison neutral sources have been
+generated, restored, and verified for the accepted specification.
+
+The user manually published Instagram Package A. Migration 0018 and
+`posts confirm-manual-publication` now store evidence without inventing a
+provider receipt. Live evidence ID `3da127dd-178c-4781-9fc7-fecc3f4a95da` is
+tied to source-specification SHA-256
+`82c0282fbe1123c322e3de8499a19c573cbfd2bda087d2f152860cb1b036d943`.
+The provider URL and original publication timestamp were not supplied and are
+intentionally null.
+
+The 20 exact Instagram WSP HDR JPEGs are staged under
+`workspace/exports/instagram/package-a` and byte-verified in Cloudinary batch
+`f450b548-c1e7-4f0c-9962-2b7e8e5571bf`.
+
+Both flattened DSC05382 TIFFs were deliberately changed externally on
+2026-08-14. `masters refresh-flattened --asset DSC05382 --override` registered
+the new HDR and SDR hashes as authoritative while retaining the old rows as
+removed provenance. Use that confirmed refresh command for deliberate in-place
+flattened replacements; never overwrite registered checksums directly.
 
 Codex may receive `Operation not permitted` for NAS file contents when its app
 process lacks macOS Network Volumes access, even though metadata reads work.
 First confirm that `/Volumes/whisk` is mounted. If direct access remains
-blocked, run the same Photara command through Ghostty; do not bypass Photara's
-fingerprint gates or hand-edit the project JSON.
+blocked, provide the same Photara command for the user to run in Ghostty; do not
+open a terminal UI, bypass Photara's fingerprint gates, or hand-edit the
+project JSON.
 
-Existing render directory:
-`/Volumes/whisk/Pictures/Projects/red-meridian/posts/instagram/renders/package-a`.
-It contains verified working PSBs for the nine current item ids, including the
-successful 479 MB `edit-comparison-01.psb`. Preserve these files; adding or
-reordering placements should not unnecessarily rebuild unchanged verified
-outputs.
+Existing render directories live under
+`/Volumes/whisk/Pictures/Projects/red-meridian/posts/<platform>/renders/package-a`.
+Both packages were completed and reviewed. Preserve these PSBs; later backup
+or website work must not unnecessarily rebuild unchanged verified outputs.
 
 ## Threads state
 
-Threads remains part of the 0.1.0 vertical slice but has not been authored.
-Create it as a separate project-owned post specification after Instagram is
-complete. It may reuse the same stable assets and narrative, but it needs an
-explicit 4500×8000 template/profile, independent crops and layout choices,
-ordered delivery manifest, WSP exports, and publication evidence. Do not assume
-the Instagram 20-slot sequence is automatically the desired Threads sequence;
-confirm its editorial order with the user when implementation reaches it.
+Threads remains part of `0.1.0`. Its separate project-owned post specification
+and 4500×8000 templates resolve to 17 editorial frames, 27 placements, and 12
+stable source assets. Every placement is authored and applied. The eight
+Dynamic Range/Edit Comparison placements use the complete TIFF with `contain`
+fit, so landscape images letterbox and portrait images pillarbox in their
+square cells unless a crop is explicitly requested. All 17 PSBs were reviewed,
+exported through WSP, manually published, and recorded. Never derive its
+geometry from Instagram.
 
-The current design direction is explicitly 9:16 for every Threads slide. Do
-not stretch the existing Instagram templates vertically. The taller comparison
-surface may support three Before/After or SDR/HDR image rows instead of two,
-which requires a new versioned Threads-specific Dynamic Range Comparison and
-Edit Comparison geometry rather than silently changing the accepted Instagram
-versions. The ordinary stacked layout also has an open editorial decision:
-retain two taller placements or introduce a three-image stack. Resolve these
-choices visually with the user before authoring the Threads post or freezing
-template contracts.
+Threads manual publication evidence ID is
+`257d0fa1-212a-4302-a6b0-a30a9794e496`. Its 17 exact WSP HDR JPEGs are staged
+under `workspace/exports/threads/package-a` and byte-verified in Cloudinary
+batch `800e8484-3090-4d78-b1a4-57c66d6f801c`.
+
+`ROADMAP.md` is authoritative for the fixed 17-item Threads order. Every slide
+uses the 9:16 direction; three ordinary editorial items are three-image stacks
+whose placements are authored independently in exact parent row geometry; two
+full-frame placements rotate 90° clockwise before their 9:16 crops; and the
+Dynamic Range and Edit Comparison items use new taller template geometry. Do
+not ask the user to reconfirm the order, the 9:16 direction, or two- versus
+three-image stacks. Those editorial decisions are closed unless implementation
+finds an actual validation failure.
 
 ## Recommended next actions
 
-1. In Lightroom Classic, use **Prepare Edit Comparison Sources** for the
-   refreshed manifest. It includes DSC05445 and DSC05417 and also re-verifies
-   the first pair against the final post specification.
-2. Optionally rerender only `edit-comparison-01` to visually confirm responsive
-   metadata text still looks correct.
-3. Prepare the full render manifest without `--item`, build or reuse all PSBs,
-   run WSP, and verify exactly 20 ordered final Instagram files.
-4. Design and build the separate Threads package.
-5. Publish with provider receipt evidence or explicit manual confirmation,
-    then test guarded cleanup of ephemeral artifacts.
-6. Finish the photographer CLI guide, operator guide, recovery/idempotency
-    tests, license decision, and 0.1.0 release preparation.
+Follow the gated implementation order in `ROADMAP.md` one step at a time:
+
+1. Preserve `v0.0.9` as the completed Red Meridian layout/publication/backup
+   regression checkpoint.
+2. Exercise stale-manifest, interrupted-upload, and NAS-remount recovery as
+   `0.1.0` hardening. Repeat preparation/upload already proved stable batch
+   reuse and zero duplicate Cloudinary objects.
+3. Run Sylvan through the same workflow without source changes or
+   project-specific branches as the `0.1.0` generalization proof.
+4. Keep website order, derivatives, Cloudinary-specific website layouts, and
+   Loomara integration deferred until that website contract is designed.
 
 ## Validation commands
 
@@ -353,13 +392,15 @@ Photoshop afterward. Use `--item ITEM_ID` only for debugging.
   current source of truth.
 - WSP has no integrated stable CLI yet. Keep it behind an adapter and preserve
   the manual Photoshop path.
-- Cloudinary, Codexa, Loomara, website layouts, and website publication are
-  post-0.1.0 work.
+- Cloudinary exact-original backup and durable evidence are implemented.
+  Cloudinary-specific website layouts, derivatives, thumbnails, presentation
+  order, Codexa, Loomara, and website publication remain later work.
 - Publication API HDR behavior must be verified; keep manual Instagram/Threads
   posting as a valid evidence-backed fallback.
-- Photara is currently MIT licensed, but the user is considering selling it.
-  Resolve the licensing/distribution strategy before the supported 0.1.0
-  release rather than casually changing it mid-prototype.
+- Photara's existing releases remain MIT. Keep future licensing and commercial
+  distribution as an explicit productization decision; it does not block the
+  reusable personal/operator `0.1.0` workflow and this handoff does not choose
+  a future license.
 
 ## Definition of the next stable checkpoint
 

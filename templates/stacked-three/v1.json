@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "name": "stacked-three",
+  "version": 1,
+  "display_name": "Stacked Three",
+  "kind": "stacked-three",
+  "canvas": { "sizing": "platform-profile" },
+  "slots": [
+    { "id": "top", "kind": "image", "bounds": { "x": 0.0, "y": 0.0, "width": 1.0, "height": 0.333375 } },
+    { "id": "middle", "kind": "image", "bounds": { "x": 0.0, "y": 0.333375, "width": 1.0, "height": 0.33325 } },
+    { "id": "bottom", "kind": "image", "bounds": { "x": 0.0, "y": 0.666625, "width": 1.0, "height": 0.333375 } }
+  ],
+  "decoration": { "background": false, "border": false, "text": false },
+  "wsp": { "mode": "hdr-sdr-pair", "hdr_layer": "HDR", "sdr_layer": "SDR", "hdr_above_sdr": true }
+}

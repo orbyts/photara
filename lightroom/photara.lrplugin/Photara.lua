@@ -1056,15 +1056,17 @@ function M.prepareEditComparisonSources()
     if not projectSlug then return end
     local post = promptForPost("package-a")
     if not post or post == "" then return end
-    local platform = "instagram"
     local manifest = runPhotara(
         "posts prepare-edit-comparison-sources " .. shellQuote(projectSlug) .. " " ..
-        shellQuote(post) .. " --platform " .. platform .. " --format lua"
+        shellQuote(post) .. " --format lua"
     )
+    local reusedCount = #(manifest.reused_items or {})
+    local prepareCount = #manifest.items
     if LrDialogs.confirm(
         "Prepare Edit Comparison sources?",
-        "Photara will temporarily reset " .. tostring(#manifest.items) ..
-        " catalog original(s), apply Adobe Color, export neutral TIFFs, then restore and verify every develop setting.\n\n" ..
+        "Photara will reuse " .. tostring(reusedCount) .. " verified neutral source(s) and prepare " ..
+        tostring(prepareCount) .. " new source(s).\n\n" ..
+        (prepareCount > 0 and ("For new sources, Photara will temporarily reset the catalog original(s), apply Adobe Color, export neutral TIFFs, then restore and verify every develop setting.\n\n") or "") ..
         "XMP sidecars will not be written or changed.",
         "Prepare", "Cancel"
     ) ~= "ok" then return end
@@ -1077,9 +1079,9 @@ function M.prepareEditComparisonSources()
         post = manifest.post,
         platform = manifest.platform,
         source_sha256 = manifest.source_sha256,
-        items = {},
+        items = manifest.reused_items or {},
     }
-    LrApplicationView.switchToModule("develop")
+    if prepareCount > 0 then LrApplicationView.switchToModule("develop") end
     for index, item in ipairs(manifest.items) do
         progress:setCaption("Neutral Adobe Color source " .. tostring(index) .. "/" .. tostring(#manifest.items))
         progress:setPortionComplete(index - 1, #manifest.items)
@@ -1180,11 +1182,12 @@ function M.prepareEditComparisonSources()
     writeFile(reportPath, jsonEncode(report) .. "\n")
     local verified = runPhotara(
         "posts verify-edit-comparison-sources " .. shellQuote(projectSlug) .. " " ..
-        shellQuote(post) .. " --platform " .. platform .. " --format lua"
+        shellQuote(post) .. " --platform " .. manifest.platform .. " --format lua"
     )
     LrDialogs.message(
         "Photara",
-        "Prepared and verified " .. tostring(verified.verified) .. " neutral Adobe Color source(s).\n\n" ..
+        "Ready: " .. tostring(verified.verified) .. " neutral Adobe Color source(s) (" ..
+        tostring(reusedCount) .. " reused, " .. tostring(prepareCount) .. " newly prepared).\n\n" ..
         "All catalog develop settings were restored. Photara will independently fingerprint the TIFFs before rendering.",
         "info"
     )

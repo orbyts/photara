@@ -230,205 +230,304 @@ the authoritative project-membership key.
    chains, the two withdrawals, repeat-run idempotency, guarded cleanup, tests,
    documentation, migrations, and the final 0.0.8 commit and tag.
 
-### 0.0.9 — layouts, HDR export, and publication
+### 0.0.9 — layouts and HDR export checkpoint (complete)
 
-- Finish Red Meridian Instagram Package A as the accepted 18-editorial-item,
-  20-delivered-slot sequence recorded in `LAYOUTS.md`. Preserve intentional
-  repeated placements, count each two-frame continuous panorama as one
-  editorial item and two delivery slots, and reject a final Instagram manifest
-  that is not exactly 20 ordered outputs.
-- Add the missing Red Meridian items without rebuilding verified work: five
-  full-frame placements, one cropped stacked placement, a second panorama, a
-  second Dynamic Range Comparison, and a second Edit Comparison. Reorder the
-  project-owned post specification to the accepted sequence before freezing
-  the publication snapshot.
-- Build a separate Threads post specification after the Instagram package is
-  complete. Reuse stable assets and editorial intent, but author independent
-  4500×8000 templates, crops, ordering, output evidence, and publication state;
-  do not silently derive Threads geometry from Instagram.
+The Red Meridian Instagram Package A project specification resolves to the
+accepted 18-editorial-item, 20-frame sequence in `LAYOUTS.md`. The independent
+Threads package resolves to 17 9:16 editorial frames. Both packages have been
+authored, rendered, reviewed, exported through WSP, manually published, and
+recorded with publication evidence. The exact WSP HDR JPEGs are staged under
+the project and verified in Cloudinary: 20 Instagram originals and 17 Threads
+originals.
 
-- **Paired master slice.** Upgrade each authoritative 32-bit PSB to contain a
-  top-level `HDR` Smart Object or group above a top-level `SDR` Smart Object or
-  group. Extend the master ledger
-  with separate `flattened-hdr-tiff` and `flattened-sdr-tiff` representations,
-  preserving every existing verified flattened TIFF as HDR evidence. Extend
-  the UXP handoff to validate the exact group names and order, isolate and
-  flatten each group, and register both outputs independently. Missing SDR is
-  an explicit incomplete state, never inferred from the HDR file.
-- **First full-frame slice.** Install immutable global `full-frame@1`, create a
-  project-owned Instagram post, bind the Red Meridian hero by stable asset ID,
-  resolve the post only when its verified HDR/SDR master pair is present, and
-  build a deterministic Photoshop document with pixel-aligned `HDR` above
-  `SDR` for visual review and WSP handoff.
-- **Stacked-two slice.** Install immutable `stacked-two@1`, bind ordered top
-  and bottom assets, resolve two exact half-canvas slots, and render matching
-  HDR and SDR composites without borders, gaps, or source stretching.
-- **Continuous-panorama crop slice.** Install immutable
-  `continuous-panorama@1`, bind one stable asset to a two-frame horizontal
-  surface, and author a source-relative 3:2 crop in Photoshop with a center
-  seam guide. Capture it in a second non-modal UXP step, then let Rust verify
-  the source and post fingerprints before storing normalized crop coordinates
-  shared by HDR and SDR. WSP performs the physical split.
-- **Dynamic-range comparison slice.** Install a checksummed Photoshop design
-  reference as immutable `dynamic-range-comparison@1`, bind ordered top and
-  bottom asset pairs, preserve identical annotations across WSP layers, and
-  isolate HDR gain to the right image cells and 1-to-10 headroom ramp.
-- **Edit-comparison slice.** Install immutable `edit-comparison@1`, bind two
-  ordered camera originals, and let the Lightroom Classic plug-in produce
-  honest Before sources from Reset + Adobe Color. Restore and verify the
-  authored develop state after every export, query camera/capture labels from
-  the RAW, then build identical annotated WSP composites where only the final
-  After cells may differ between SDR and HDR.
-- Use `LAYOUTS.md` as the durable design reference for global template
-  versioning, project-owned post composition, platform authoring profiles,
-  comparison templates, continuous compositions, the Photoshop UXP contract,
-  and WSP handoff invariants.
-- Add a versioned project-owned JSON layout specification that references
-  stable Photara asset IDs rather than filenames.
-- Support one or more flattened TIFFs in a frame with explicit canvas, aspect
-  ratio, crop, scale, translation, rotation, stacking order, and output intent.
-- Model many-to-one provenance so a single published frame can derive from
-  multiple edited assets.
-- Validate layouts independently from rendering and support a manual
-  JSON-plus-preview authoring loop for the 0.1.0 vertical slice.
-- Model explicit SDR-base and HDR-layer inputs for HDR gain-map output.
-- Build complete pixel-aligned SDR and HDR composites with HDR above SDR;
-  duplicate all invariant annotations and permit differences only inside
-  declared HDR-variable masks. For the Dynamic Range Comparison template, use
-  a flat `1 → 1` SDR headroom ramp and a true `1 → 10` HDR alternate.
-- Model continuous multi-frame compositions as one editorial surface with
-  logical frame boundaries. Let WSP perform the final split and resizing rather
-  than forcing Photara to create an upsampled per-frame raster.
-- Keep reusable layout templates global and explicitly versioned, with exact
-  defaults pinned in the main Photara configuration. Keep slide order and asset
-  choice in project-owned, platform-specific post specifications. Resolve each
-  rendered post to an immutable internal snapshot for provenance without
-  conflating that audit revision with template versioning. Preserve repeated
-  placements without duplicating asset identity.
-- Keep the authoritative immutable template registry in a configurable,
-  device-independent synchronized directory. Suhail's installation uses
-  `$DROPBOX/Pictures/Photara/Templates`; Photara verifies and materializes a
-  disposable device-local cache before Photoshop handoff. Keep large RAW,
-  PSB, and TIFF masters on the NAS and never persist machine-specific template
-  paths in project specifications or the database.
-- Treat Web Sharp Pro as an adapter: support the current Photoshop-assisted
-  workflow and add a headless adapter later if a stable CLI becomes available.
-  Do not make Photara core depend on Photoshop or WSP internals.
-- Keep libvips or Sharp available as alternative rendering adapters where they
-  can satisfy the output contract.
-- Add Cloudinary archival/delivery and Instagram and Threads publication
-  adapters, with a manual-posting fallback when an API cannot preserve required
-  media capabilities.
-- Add retryable publication operations and an evidence-backed photography
-  ledger. Mark media published only after a provider receipt is stored or the
-  user explicitly confirms a manual publication.
-- Clean temporary publication outputs only after delivery evidence is durable.
-- Keep website generation, Codexa, Loomara, and a polished visual layout editor
-  outside the 0.1.0 scope.
+Edit Comparison neutral sources are now project-asset evidence rather than
+platform/post artifacts. The Lightroom bridge reuses an already verified
+Reset + Adobe Color TIFF across Instagram, Threads, and future targets, and
+only resets/exports assets missing from that registry. Red Meridian's four
+Instagram sources are the accepted shared evidence for its Threads package.
 
-### 0.1.0 — first supported release
+Completed technical slices include paired HDR/SDR flattened masters,
+`full-frame@1`, `stacked-two@1`, `continuous-panorama@1`,
+`stacked-three@1`, platform-specific Dynamic Range and Edit Comparison
+templates, project-owned post JSON, generalized placement authoring,
+deterministic render manifests, Photoshop UXP rendering, guarded manual
+publication evidence, and Cloudinary backup delivery. Photoshop remains an
+operator-controlled UI: Codex may prepare and verify background artifacts, but
+must not open Ghostty or drive Photoshop on the operator's behalf.
 
-- Complete the Red Meridian vertical slice from RAW ingest, metadata, Pixieset
-  selections, Photographer Final, Lightroom Cloud DNG, Lightroom Desktop edit,
-  layered PSB, flattened TIFF, layout, and HDR gain-map output through verified
-  Instagram and Threads publication.
-- Prove repeated reconciliation creates no duplicate records, collections, or
-  Lightroom Cloud assets, authoritative masters, layouts, or publications.
-- Require verifiable provenance for every representation and evidence-backed
-  publication state.
-- Keep temporary-file cleanup guarded, restart-safe, and independently
-  repeatable.
-- Stabilize migrations, configuration, recovery, CI, and operator docs.
-- Ship a concise photographer-facing CLI guide that follows the real workflow:
-  Lightroom Classic import, recent-import selection, people/location/scene
-  creation, project initialization, whole-shoot metadata and XMP, proofing and
-  selections, Photographer Final, Cloud editing, masters, layouts,
-  publication, reversals, and recovery. Commands should be copyable and each
-  step should say what success looks like.
-- Keep a separate operator reference for configuration, credentials,
-  migrations, provider limitations, evidence, retries, audits, and disaster
-  recovery; do not burden the photographer guide with infrastructure details.
-- Decide Photara's commercial product boundary and future license before
-  publishing 0.1.0. Existing MIT releases remain MIT; do not automatically
-  publish Photara 0.1.0 to crates.io until this decision is complete.
+For this checkpoint, Cloudinary is strictly an off-site backup of the exact WSP
+HDR JPEG originals. It is not the website media model and does not define
+editorial or website order. Photara records stable asset identity, local and
+remote byte counts, SHA-256 evidence, provider IDs/URLs, and optional
+project/post/platform/item provenance. Website derivatives, thumbnails,
+presentation order, and the Loomara contract remain deferred until the website
+is designed.
 
-## 0.2.0 — product experience, website artifacts, and performance
+### 0.1.0 — first complete reusable workflow
 
-- Ship Photara as a fully realized desktop product rather than asking users to
-  assemble a CLI, Lightroom plug-in, configuration files, and credentials.
-- Add the standalone Photara desktop experience with an installer-managed
-  Lightroom plug-in, background jobs, progress and notifications, account
-  management, recovery, updates, and guided onboarding for nontechnical
-  photographers. Keep the CLI as a supported automation and diagnostic
-  surface backed by the same application services.
-- Bundle one persistent Photoshop UXP panel that presents the applicable next
-  action for the selected Photara project, including master creation,
-  readiness checkpoints, flattening, verification, retries, and status. Users
-  must not need to locate or remember individual `.psjs` files.
-- Replace the Lightroom Classic plug-in's command-oriented menus with a guided
-  project UI for metadata, selections, Cloud presence, withdrawals, master
-  handoffs, progress, and recovery. Keep Lua as a thin host adapter; workflow
-  policy and persistence remain in shared Photara application services.
-- Make ordinary user-owned Lightroom Albums and provider-owned Connections an
-  explicit product boundary. Photara must never imply that Adobe partner
-  `project`/`project_set` records are the user's normal Albums hierarchy.
-- Prepare and submit Photara as an Adobe production integration only when the
-  desktop application and its Adobe workflow are reviewer-ready. Approval and
-  recognition as a Lightroom Connection are release goals, not assumptions.
-- Establish the Orbyts public product identity: stable Photara name and icon,
-  organization profile, marketing website, support contact, privacy policy,
-  terms of use, and clear data export/deletion documentation. Keep Adobe marks
-  out of Photara branding except where their published guidelines permit them.
-- Package a reproducible Adobe review candidate with signed/notarized macOS
-  artifacts where applicable, a bundled Lightroom plug-in, clean install and
-  uninstall paths, supported-version declarations, a tagged source revision,
-  and CI evidence from a clean build.
-- Produce an Adobe reviewer packet containing a concise walkthrough video,
-  exact installation and test steps, a small non-sensitive sample project,
-  expected results, requested-scope justifications, known provider
-  limitations, disconnect/deletion behavior, and reviewer support contact.
-- Complete the Adobe account lifecycle in-product: PKCE authorization,
-  encrypted operating-system credential storage, refresh-token rotation,
-  provider-side token revocation on disconnect, local credential removal,
-  reconnection, and an understandable retained-evidence policy.
-- Add a bounded Adobe HTTP reliability layer with short-lived disposable
-  inventory caching, request de-duplication, rate-limit handling, exponential
-  backoff, at most three eligible retries, cancellation, progress reporting,
-  and actionable errors. PostgreSQL and Adobe remain authoritative.
-- Exercise the complete Adobe workflow with multiple beta users and clean
-  accounts before review. Test consent, refresh, revocation, relogin,
-  entitlement and storage failures, empty catalogs, pagination, duplicate
-  filenames, interrupted synchronization, and idempotent recovery.
-- Track Adobe review state and reviewer feedback as release evidence. Do not
-  claim that OAuth production approval automatically makes Photara visible in
-  Lightroom Connections; verify Connection recognition separately with Adobe.
-- Publish parallel GUI and CLI photographer guides generated from the same
-  versioned workflow documentation so their terminology and outcomes cannot
-  drift.
-- Add visual layout authoring and website-specific photography layouts without
-  coupling social layouts to website presentation.
-- Define a versioned, target-neutral Photara artifact contract for media,
-  layouts, attribution, accessibility, visibility, and provenance.
-- Allow Photara artifacts to flow directly to Loomara or through a Codexa
-  content projection. Photara remains the photography source of truth; Codexa
-  compiles Git-native structured content; Loomara owns website assembly,
-  rendering, application integration, and deployment.
-- Keep Photara independent of Loomara's website framework and keep Codexa free
-  of media processing or website rendering responsibilities.
-- Profile desktop and CLI startup, database round trips, serialization,
-  provider calls, and Lightroom catalog matching; publish latency budgets for
-  interactive actions.
-- Reuse immutable verification checkpoints across dry runs and confirmed
-  writes so large PSBs and TIFFs are hashed once per file revision rather than
-  once per command or database row.
-- Extend the Adobe review cache into an optional provider-neutral read-through
-  cache for inventory snapshots and computed reconciliation plans, invalidated
-  by account, catalog, provider cursor, and snapshot hash. Cached state must
-  always be disposable and must never become a second operational ledger.
+`0.1.0` is the first supported technical and operator workflow, not merely a
+Red Meridian demo. Red Meridian is the regression fixture. A second project,
+Sylvan, must run through the same workflow without source changes, project-name
+branches, or hard-coded asset IDs.
 
-## Later
+The release covers RAW ingest, metadata, Pixieset selections, Photographer
+Final, Lightroom Cloud DNG, Lightroom Desktop editing, paired layered and
+flattened masters, platform-specific layout authoring, HDR gain-map output,
+verified Cloudinary backup delivery, and evidence-backed Instagram and Threads publication.
+Neon remains the authoritative operational database. Project-owned JSON remains
+the editable layout source; immutable resolved snapshots and provider receipts
+become database evidence. No alternate persistence store, standalone desktop
+application, website pipeline, Codexa integration, Loomara integration, or
+polished visual editor belongs in this release.
 
-- Granular Lightroom named-version and Photoshop revision lineage.
-- Historical Proetus adoption at scale.
-- Additional publication, delivery, content, and website targets after their
-  artifact contracts are proven independently.
+#### Placement-authoring architecture decision
+
+The pre-generalization panorama implementation was the compatibility baseline:
+
+- `PostPlacement` stored focal point plus an optional normalized `crop`; it had
+  no rotation.
+- `prepare_panorama_crop` accepted only one placement using
+  `continuous-panorama@1`, wrote one special-case manifest, and installed two
+  special-case Photoshop scripts.
+- Photoshop opened one flattened HDR source, created a 3:2 rectangular
+  selection, and wrote one report containing source pixels and normalized
+  coordinates.
+- `apply_panorama_crop` verified project/post/item identity, the complete post
+  file SHA-256, the source TIFF SHA-256, source dimensions, aspect ratio, and
+  agreement between pixel and normalized coordinates before updating the post.
+- Render preparation resolved the same normalized crop against equal-sized HDR
+  and SDR TIFFs. `Build Photara Layouts.psjs` crops each source before fit/fill,
+  so HDR and SDR geometry was identical. It could not rotate a source.
+- Post specifications are durable project-owned JSON on the configured project
+  root. At the start of this slice, the database contained asset/master
+  evidence but no publication or Cloudinary-delivery tables.
+
+The generalized contract introduced these platform-neutral
+concepts:
+
+```text
+PlacementTransform
+  crop: optional normalized source rectangle
+  rotation_quarter_turns_cw: 0, 1, 2, or 3
+
+AuthoringManifest
+  project/post/platform identity
+  source-specification and canonical authoring-input fingerprints
+  ordered unresolved placements with template slot bounds and source evidence
+
+AuthoringReport
+  matching session identity and fingerprints
+  one result per ordered placement, including source dimensions and transform
+```
+
+The transform belongs to `PostPlacement`, because the same asset can require a
+different crop or rotation in each post, platform, item, and slot. One transform
+is applied identically to HDR and SDR renditions. Rotation occurs before crop;
+normalized crop coordinates are interpreted in the rotated source coordinate
+space. For `0.1.0`, rotation is restricted to exact clockwise quarter turns so
+pixel geometry stays deterministic.
+
+Post JSON schema v2 stores an optional structured `transform`. The reader
+continues to accept schema-v1 placements and translates legacy `crop` to a
+zero-rotation transform in memory. A v1 file is never rewritten merely because
+it was read. A successful authoring apply may upgrade the touched post to v2;
+the old panorama crop must resolve to exactly the same pixel rectangle. Unknown
+schema versions or conflicting legacy and v2 transform fields fail closed.
+
+The authoring manifest records both the exact source-specification SHA-256 and a
+canonical authoring-input fingerprint over placement identity, template/slot,
+asset identity, and source evidence. Apply rejects a changed post or source.
+After a successful apply, an identical report is an idempotent success even
+though the post file hash changed; a different report requires a newly prepared
+session. The project-owned post retains the durable transform, while immutable
+render/publication snapshots later preserve the exact resolved geometry and
+checksums in Neon.
+
+The general Photoshop session authors in the real target composition whenever
+practical. One manifest represents every unresolved placement in a post or
+package; Photoshop steps through placements in deterministic item/slot order
+and writes one report; one Rust apply operation validates and persists all
+results atomically. A failure leaves the post unchanged and reports the exact
+placement that needs attention.
+
+#### Ordered implementation plan
+
+Each step begins only after the prior gate passes. Patches remain small enough
+to test and review independently.
+
+1. **Audit and document the panorama contract — complete.** Record current
+   model, scripts, fingerprints, persistence, HDR/SDR geometry, render behavior,
+   affected files, and regression fixture in this roadmap.
+   **Gate:** the architecture decision above agrees with `src/layout.rs`, the
+   panorama scripts, `Build Photara Layouts.psjs`, templates, and migrations.
+2. **Add the smallest generalized model — complete.** Add `PlacementTransform` and
+   platform-neutral authoring manifest/report types without yet replacing the
+   panorama commands.
+   **Gate:** unit tests cover identity transform, normalized crop validation,
+   quarter-turn validation, rotation-before-crop semantics, and deterministic
+   serialization.
+3. **Prove schema and persistence compatibility — complete.** Add schema-v1 reading and
+   schema-v2 writing rules, canonical authoring-input fingerprints, atomic
+   project JSON updates, and explicit conflict handling. Add a migration only
+   if immutable snapshot/evidence tables are needed; do not move editable
+   placement state into Neon.
+   **Gate:** existing v1 Instagram JSON resolves without being rewritten, and
+   invalid/conflicting versions fail closed.
+4. **Render persisted rotation — complete.** Carry the transform through resolution and
+   render manifests, apply the same quarter-turn before crop to HDR and SDR in
+   Photoshop, and verify final pixel bounds.
+   **Gate:** fixture tests cover 0°, 90°, 180°, and 270° with matching HDR/SDR
+   geometry and no implicit stretch.
+5. **Migrate `continuous-panorama@1` — complete.** Route panorama prepare/capture/apply
+   through the generalized contract while retaining compatible operator entry
+   points until the replacement is proven.
+   **Gate:** the DSC05417 authored crop resolves to its existing exact pixel
+   rectangle and two-frame seam; no re-authoring is required.
+6. **Freeze the Instagram regression — complete.** Capture the accepted Package A
+   resolved/render manifest as a fixture and compare item order, 18 editorial
+   outputs, 20 delivery frames, template versions, canvas/slot/crop pixel
+   geometry, rotation, and source checksums.
+   **Gate:** pre- and post-generalization geometry is identical, apart from
+   explicitly versioned metadata fields.
+7. **Add one multi-placement authoring session — complete.** Prepare all unresolved
+   placements, author them in deterministic target contexts, emit one report,
+   and validate/apply atomically with clear resume behavior.
+   **Gate:** a synthetic multi-item post proves ordered traversal, partial-report
+   rejection, stale-source rejection, stale-post rejection, and idempotent
+   replay.
+8. **Define the Red Meridian Threads package — complete.** Add independent 4500×8000
+   templates and a project-owned 17-item Threads post. Reuse asset identity and
+   editorial intent, never Instagram crop geometry. A no-gutter three-stack
+   uses exact parent rows 4500×2667, 4500×2666, and 4500×2667; any future
+   gutters or margins must be subtracted from the parent before row allocation.
+   **Gate:** validation resolves all 17 items, all 12 source assets, intentional
+   repeats, exact slot bounds, and the order below.
+9. **Author unresolved Threads transforms — complete.** Use the multi-placement session
+   for every 9:16 full frame, every independent stack slot, and the two rotated
+   full frames. Resolve comparison TIFFs with contain fit against their actual
+   taller templates; author a comparison crop only when explicitly requested.
+   **Gate:** no Threads placement remains unresolved and every transform has
+   current source/post fingerprint evidence.
+10. **Render and validate Threads — complete.** Build all HDR-over-SDR PSBs, review them,
+    run WSP manually, and verify ordered delivery outputs and checksums.
+    **Gate:** every item has valid source, template, PSB, WSP, and output
+    evidence, with identical non-HDR-variable geometry.
+11. **Complete backup delivery and publication — complete for Red Meridian.**
+    Both packages were manually published and recorded through guarded manual
+    confirmation. Their 37 exact WSP JPEGs were uploaded through signed,
+    non-overwriting Cloudinary requests and then downloaded and SHA-256
+    verified. Immutable per-batch manifests and database evidence connect each
+    backup object to its source file without assigning website order.
+    **Gate:** both platform packages have durable Cloudinary and publication
+    evidence connected to immutable snapshots. **Passed.**
+12. **Prove recovery and idempotency — repeat-run proof complete; broader
+    recovery remains.** Exercise interruption, retry, stale
+    manifests, repeated reconciliation, cleanup guards, and second-machine/NAS
+    remount recovery. Temporary outputs are removed only after durable evidence.
+    Repeated Red Meridian preparation reused both batch IDs; repeated upload
+    created zero objects and reused all 20 Instagram plus 17 Threads assets.
+    **Gate:** repeats create no duplicate assets, masters, snapshots, provider
+    objects, or publications, and operator recovery steps are documented.
+13. **Close the release documentation.** Update `LAYOUTS.md`, `METADATA.md`,
+    photographer CLI guidance, operator reference, `CHANGELOG.md`, and the
+    handoff from the proven workflow.
+    **Gate:** Red Meridian completes end to end, Sylvan completes without code
+    changes, CI is green, the license review is recorded, and only then may
+    `0.1.0` be tagged or published.
+
+#### Red Meridian Threads package order
+
+All canvases are 4500×8000 (9:16). “Stack” means three independently authored
+source placements in one parent canvas. Repeated assets are intentional.
+
+| # | Editorial item |
+| ---: | --- |
+| 1 | DSC05250 hero, authored 9:16 |
+| 2 | Stack: DSC05445, DSC05442, DSC05441 |
+| 3 | DSC05217, authored 9:16 |
+| 4 | DSC05406, authored 9:16 |
+| 5 | DSC05382, authored 9:16 |
+| 6 | DSC05409, authored 9:16 |
+| 7 | Stack: DSC05417, DSC05419, DSC05382 |
+| 8 | DSC05421, authored 9:16 |
+| 9 | Stack: DSC05382, DSC05372, DSC05441 |
+| 10 | DSC05372, authored 9:16 |
+| 11 | DSC05421 repeated, independently authored 9:16 |
+| 12 | DSC05250 + DSC05421 Dynamic Range Comparison, 9:16 design |
+| 13 | DSC05250 + DSC05421 Edit Comparison, 9:16 design |
+| 14 | DSC05417, rotate 90° clockwise, then author 9:16 crop |
+| 15 | DSC05445, rotate 90° clockwise, then author 9:16 crop |
+| 16 | DSC05445 + DSC05417 Dynamic Range Comparison, 9:16 design |
+| 17 | DSC05445 + DSC05417 Edit Comparison, 9:16 design |
+
+#### Release-wide acceptance criteria
+
+- Every representation and output has verifiable provenance and checksums.
+- Reconciliation is restart-safe and creates no duplicate database records,
+  Adobe collections/assets, authoritative masters, layouts, Cloudinary objects,
+  or publication evidence.
+- WSP remains an adapter. Photoshop-assisted operation is supported; Photara
+  core does not depend on undocumented WSP internals. A headless adapter may be
+  added later if a stable supported interface exists.
+- The photographer guide follows the real workflow with copyable commands and
+  observable success states. A separate operator reference covers credentials,
+  migrations, provider limitations, evidence, retries, audits, and recovery.
+- Existing MIT releases remain MIT. Before productization or external
+  distribution, deliberately review Photara's commercial boundary and future
+  license. This roadmap does not select that license.
+
+### 0.2.0 — operator experience and visual authoring
+
+- Improve the existing CLI, Lightroom Classic adapter, Photoshop workflow, and
+  progress/recovery experience based on the completed `0.1.0` workflow.
+- Add richer visual placement authoring and, if it proves useful, a persistent
+  Photoshop UXP surface that presents project context and the next applicable
+  action.
+- Reduce command and script ceremony without moving workflow policy out of
+  Photara's shared application services.
+- Improve Adobe authorization, reliability, cancellation, retry reporting, and
+  account lifecycle using real operator evidence.
+- Do not prematurely commit to a standalone desktop architecture. Choose the
+  eventual product surface only after the reusable workflow and visual
+  authoring needs are proven.
+
+### 0.3.0 — personal production maturity
+
+- Generalize from Red Meridian, Sylvan, and additional real shoots.
+- Harden reliability, layout/template evolution, project/post/publication
+  lifecycle, delivery adapters, diagnostics, and operator experience.
+- Measure repeated hashing, database, provider, and rendering costs; reuse
+  immutable verification checkpoints where safe.
+- Add granular Lightroom named-version and Photoshop revision lineage when real
+  recovery needs justify it.
+- Do not add speculative AI or agent features before the production workflow
+  identifies a concrete need.
+
+### 0.4.0–0.9.0 — productization and external readiness
+
+- Define packaging, installation, updates, background jobs, notifications,
+  onboarding, support, privacy, terms, data export/deletion, and clean
+  uninstall behavior.
+- Decide the long-term desktop, Lightroom, and Photoshop surfaces from tested
+  operator workflows; keep the CLI as a supported automation and diagnostic
+  interface.
+- Prepare Adobe production review only when the complete application is
+  reviewer-ready. Treat OAuth approval and Lightroom Connection recognition as
+  separate verified outcomes.
+- Test clean accounts, consent, refresh, revocation, relogin, pagination,
+  entitlement/storage failures, interrupted synchronization, duplicate names,
+  and idempotent recovery with multiple beta users.
+- Define a target-neutral artifact contract before adding website, Codexa,
+  Loomara, or additional publication integrations. Photara remains the
+  photography source of truth.
+- Establish public identity, documentation, release engineering, signed and
+  notarized artifacts where applicable, CI evidence, and a deliberate license
+  decision before external distribution.
+
+### 1.0.0 — public or commercial release target
+
+The exact `1.0.0` contract will be set from evidence gathered through
+`0.1.0`–`0.9.0`. It requires a stable supported workflow, migration and recovery
+policy, provider boundaries, installation/update story, documentation, support
+expectations, privacy terms, and an explicit license/product decision. Do not
+speculate beyond those gates now.

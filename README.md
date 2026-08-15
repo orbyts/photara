@@ -8,9 +8,12 @@ publication bookkeeping.
 
 ## Status
 
-`v0.0.9` is developing layouts, HDR/SDR export pairs, and publication. Photara owns its
-schemas, SQL, repositories, and photography workflow; Storexa owns connection
-and transaction plumbing.
+`v0.0.9` completes the Red Meridian layout, paired HDR/SDR export, generalized
+placement-authoring, manual-publication evidence, and exact-original
+Cloudinary backup checkpoint for Instagram and Threads. Work toward `v0.1.0`
+now focuses on proving the same reusable workflow with Sylvan plus broader
+recovery testing. Photara owns its schemas, SQL, repositories, and photography
+workflow; Storexa owns connection and transaction plumbing.
 
 See [ROADMAP.md](ROADMAP.md) for the path to the first supported release and
 [METADATA.md](METADATA.md) for the Lightroom metadata ownership contract.
@@ -481,6 +484,18 @@ $ photara masters register-flattening red-meridian
 $ photara masters register-flattening red-meridian --confirm
 ```
 
+If the photographer deliberately replaces an already registered flattened
+HDR/SDR TIFF in place, plan and then confirm a targeted provenance-preserving
+refresh instead of editing its checksum row:
+
+```console
+$ photara masters refresh-flattened red-meridian --asset DSC05382
+$ photara masters refresh-flattened red-meridian --asset DSC05382 --override
+```
+
+The confirmed refresh retires each changed current rendition and registers a
+new authoritative row. Unchanged paired renditions remain current.
+
 An asset is identified by the SHA-256 fingerprint of its original RAW. The
 camera filename remains unchanged in the archive. Only downstream
 representations use the expanded `<ORIGINAL_STEM>_<YYYY_MM_DD>_<AUTHOR>`
@@ -626,6 +641,69 @@ are atomically registered or replaced.
 Repeating the same commands is idempotent. A future project such as Sylvan uses
 the same commands, template, and Rust code with only its project slug, post
 name, asset choices, and project configuration changed.
+
+Edit Comparison Before TIFFs are also idempotent across targets. Photara
+registers each verified Lightroom Reset + Adobe Color export by project asset
+and rendering contract, so preparing another platform reuses the same TIFF and
+only asks Lightroom to export assets that do not yet have valid evidence.
+Shared TIFFs live at `sources/edit-comparison/before/` inside the project. The
+Lightroom action asks for the package once and resolves all of that package's
+platform specifications automatically.
+
+When publication is performed manually, record the operator confirmation
+against the exact current post-specification checksum. Omit unknown provider
+URLs or timestamps rather than inventing them:
+
+```console
+$ photara posts confirm-manual-publication red-meridian package-a \
+    --platform instagram \
+    --note "Operator confirmed manual Instagram publication"
+$ photara posts confirm-manual-publication red-meridian package-a \
+    --platform instagram \
+    --note "Operator confirmed manual Instagram publication" \
+    --confirm
+```
+
+### Cloudinary exact-original backup
+
+Cloudinary currently backs up the exact HDR JPEGs exported by Web Sharp Pro.
+It is not the website media model: filename order, social post order, website
+order, derivatives, and thumbnails are deliberately outside this contract.
+Stage only the final JPEG originals under
+`workspace/exports/<platform>/<package>/` in the project. Photara rejects a
+missing, extra, duplicate, renamed-to-an-unknown-item, or changed source.
+
+Authenticate once by supplying the Cloudinary API key and secret through the
+environment. Photara verifies the account, then stores the cloud name, key, and
+secret in the system keychain under the account label; it never writes them to
+the project or delivery manifest:
+
+```console
+$ CLOUDINARY_API_KEY="$(secret-manager-read-api-key)" \
+  CLOUDINARY_API_SECRET="$(secret-manager-read-api-secret)" \
+  photara delivery cloudinary-login --cloud-name CLOUD_NAME
+$ photara delivery cloudinary-probe
+```
+
+Prepare an immutable manifest, inspect its reported path, upload one canary,
+and byte-verify the downloaded Cloudinary original before the remainder:
+
+```console
+$ photara delivery prepare red-meridian package-a --platform instagram
+$ photara delivery upload-canary BATCH_UUID --confirm
+$ photara delivery verify-canary BATCH_UUID
+$ photara delivery upload-remaining BATCH_UUID --confirm
+$ photara delivery verify BATCH_UUID
+```
+
+Uploads are signed and non-overwriting. The Cloudinary public ID is namespaced
+as `photara/<project>/<platform>/<package>/<wsp-file-stem>`, while the original
+WSP filename remains the leaf. A retry reuses a ledger-recorded asset and a
+matching manifest reuses its batch UUID. If an unrecorded public ID already
+exists, Photara requires matching byte count and Photara SHA-256 context; it
+never replaces a conflicting remote object. Full verification downloads every
+original and compares its SHA-256 with the staged WSP file before marking the
+batch verified.
 
 ## License
 
