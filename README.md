@@ -11,12 +11,14 @@ publication bookkeeping.
 `v0.1.0` proves the reusable Red Meridian and Sylvan workflows across paired
 HDR/SDR masters, generalized placement authoring, Instagram and Threads
 packages, manual-publication evidence, and exact-original Cloudinary backup.
-Further work begins with the `0.2.0` operator-experience and visual-authoring
-discovery described in the roadmap. Photara owns its schemas, SQL,
-repositories, and photography workflow; Storexa owns connection and
+Further work begins with the `0.2.0` behavior-characterization and
+application-seam refactor described in the roadmap. Photara owns its schemas,
+SQL, repositories, and photography workflow; Storexa owns connection and
 transaction plumbing.
 
 See [ROADMAP.md](ROADMAP.md) for the path to the first supported release and
+[the architecture index](docs/architecture/README.md) for the accepted
+node-based direction and detailed implementation sequence. See
 [METADATA.md](METADATA.md) for the Lightroom metadata ownership contract.
 [LAYOUTS.md](LAYOUTS.md) records the evolving layout, HDR/SDR, WSP handoff, and
 publication-package design for `0.0.9`. Photographers should start with the

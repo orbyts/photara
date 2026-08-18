@@ -8,19 +8,23 @@
 Continue Photara from the completed `v0.1.0` reusable workflow. Red Meridian
 remains the accepted regression fixture. Sylvan independently completed the
 photographer guide with 10 Instagram and 14 Threads frames, manual publication
-evidence, and byte-verified Cloudinary originals. Do not begin the `0.2.0`
-architectural refactor without a separate discovery and dependency-mapping
-pass.
+evidence, and byte-verified Cloudinary originals. The post-0.1 architecture
+study and implementation roadmap are complete. Begin with the scoped `0.2.0`
+characterization/application-seam milestone; do not reopen the broad
+architecture discussion or skip ahead to graph/UI work.
 
 Read these files before changing code:
 
 1. `ROADMAP.md` — release scope and remaining work.
-2. `LAYOUTS.md` — authoritative layout, HDR/SDR, Photoshop, WSP, and Red
+2. `docs/architecture/README.md` — accepted node architecture and reading order.
+3. `docs/architecture/MIGRATION_ROADMAP.md` — authoritative implementation
+   sequence, milestone gates, and deferred decisions.
+4. `LAYOUTS.md` — authoritative layout, HDR/SDR, Photoshop, WSP, and Red
    Meridian 20-slot rules.
-3. `docs/PHOTOGRAPHER_GUIDE.md` — current Sylvan end-to-end operator runbook.
-4. `README.md` — current CLI and lower-level operator workflow.
-5. `CHANGELOG.md` — released checkpoints and current documentation work.
-6. This handoff — live state and sharp edges which are intentionally too
+5. `docs/PHOTOGRAPHER_GUIDE.md` — current Sylvan end-to-end operator runbook.
+6. `README.md` — current CLI and lower-level operator workflow.
+7. `CHANGELOG.md` — released checkpoints and current documentation work.
+8. This handoff — live state and sharp edges which are intentionally too
    temporary for durable product documentation.
 
 ## Repository and Git state
@@ -364,14 +368,14 @@ finds an actual validation failure.
 ## Recommended next actions
 
 `v0.1.0` is complete. Preserve Red Meridian and Sylvan as the accepted
-regression projects and follow `ROADMAP.md` for `0.2.0` discovery and work:
+regression projects and follow the architecture implementation roadmap:
 
-1. Improve the operator experience around the proved CLI, Lightroom Classic,
-   Photoshop, and recovery workflows without changing their contracts.
-2. Consolidate Lightroom commands into one project-aware plug-in UI and move
-   the proved Photoshop scripts behind a persistent UXP panel.
-3. Prototype installation, connection checks, database onboarding, and
-   color-managed project thumbnails with an HDR-capable preview contract.
+1. Start `0.2.0` by freezing canonical CLI, serialization, layout-resolution,
+   render-manifest, failure, Red Meridian, and Sylvan characterization fixtures.
+2. Extract command and layout orchestration behind shared application,
+   repository, resolver, and host/report boundaries without changing behavior.
+3. Do not add graph persistence, native UI, schema changes, cloud providers, or
+   a UXP rewrite during `0.2.0`.
 4. Keep Pixieset behind its supported Lightroom/CSV boundary and retain manual
    Instagram and Threads publication as a valid evidence-backed path.
 5. Reconcile Red Meridian only through non-destructive catalog or
@@ -404,11 +408,12 @@ Photoshop afterward. Use `--item ITEM_ID` only for debugging.
 ## Known limitations and deferred work
 
 - Current menus/scripts prove the workflow but are not an acceptable final UX
-  for nontechnical photographers. Guided Lightroom UI and a unified Photoshop
-  UXP panel are planned after the 0.1.0 CLI vertical slice, primarily for 0.2.0.
+  for nontechnical photographers. The native Layout editor begins only after
+  the Core/application and graph/Layout foundations; UXP becomes a second
+  Photoshop backend after the PSJS-backed vertical slice is proven.
 - Adobe Lightroom Services production approval and Cloud album creation are
-  deferred to 0.2.0. The present native OAuth development connection is enough
-  for the personal prototype.
+  deferred until after the first usable Layout vertical slice. The present
+  native OAuth development connection is enough for the personal prototype.
 - Lightroom Desktop does not provide the desired direct automation for every
   edit/handoff action, so provider inventory plus durable local evidence is the
   current source of truth.

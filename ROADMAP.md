@@ -5,8 +5,11 @@ database infrastructure; Photara owns schemas, repositories, reconciliation,
 and every photography-specific decision.
 
 `0.1.0` is the first released reusable operator workflow. Versions `0.0.1`
-through `0.0.9` remain Git checkpoints. Architectural work begins only with a
-separate `0.2.0` discovery and dependency-mapping pass.
+through `0.0.9` remain Git checkpoints. The post-0.1 architecture study is
+complete; `0.2.0` is the next planned feature milestone and begins the
+compatibility-first application-seam refactor. Versions `0.1.1` through
+`0.1.9` remain available for smaller independently verified stabilization or
+refactoring slices if implementation benefits from them.
 
 ## Representation ownership invariants
 
@@ -198,7 +201,7 @@ the authoritative project-membership key.
 2. **Provider-owned Cloud collection projection — complete at the backend.**
    Persist deterministic Adobe collection IDs and verified memberships while
    documenting that Connection visibility is deferred until Adobe recognizes
-   the fully realized Photara application targeted for 0.2.0.
+   a fully realized Photara application.
 3. **Lightroom progress lifecycle hardening.** Introduce one shared,
    context-bound progress helper and migrate every plug-in action so completed
    work cannot leave a stale Lightroom or macOS Dock progress indicator.
@@ -530,73 +533,58 @@ source placements in one parent canvas. Repeated assets are intentional.
   distribution, deliberately review Photara's commercial boundary and future
   license. This roadmap does not select that license.
 
-### 0.2.0 — operator experience and visual authoring
+### 0.2.0 — application seams and behavior characterization
 
-- Improve the existing CLI, Lightroom Classic adapter, Photoshop workflow, and
-  progress/recovery experience based on the completed `0.1.0` workflow.
-- Replace scattered Lightroom Classic menu commands with one Photara plug-in
-  UI that presents project context, progress, recovery, and the next applicable
-  action.
-- Add richer visual placement authoring and a persistent Photara Photoshop UXP
-  panel. First generalize the proved scripts—including the shared 16-bit source
-  to HDR/SDR master-preparation action—behind that panel without changing their
-  validated workflow contracts.
-- Prototype a guided installer/onboarding experience that installs and verifies
-  both Adobe plug-ins, connects Lightroom Desktop/Cloud, locates or creates the
-  Lightroom archive, establishes Photara account/database access, and reports
-  every required permission and connection as an observable status. Decide
-  whether production data is Photara-managed or bring-your-own Neon before
-  exposing database setup to photographers.
-- Generate color-managed project thumbnails for the Photara UI and establish
-  an HDR-capable preview contract with a tested SDR fallback.
-- Keep Pixieset behind a provider adapter. Its currently documented supported
-  photographer workflows are the Lightroom Classic publish plug-in and
-  Favorites/CSV handoffs; do not depend on an undocumented private web API.
-- Reduce command and script ceremony without moving workflow policy out of
-  Photara's shared application services.
-- Improve Adobe authorization, reliability, cancellation, retry reporting, and
-  account lifecycle using real operator evidence.
-- Do not prematurely commit to a standalone desktop architecture. Choose the
-  eventual product surface only after the reusable workflow and visual
-  authoring needs are proven.
+- Extract the current layout and command orchestration behind shared
+  application, repository, resolver, and host/report boundaries.
+- Preserve every released CLI, JSON, database, Lightroom, Photoshop, delivery,
+  and publication contract.
+- Freeze canonical Red Meridian and Sylvan characterization fixtures before
+  moving behavior.
+- Do not begin graph persistence, native UI, UXP migration, or schema changes in
+  this milestone.
 
-### 0.3.0 — personal production maturity
+### 0.3.0–0.4.0 — graph foundation and platform-neutral Layout engine
 
-- Generalize from Red Meridian, Sylvan, and additional real shoots.
-- Harden reliability, layout/template evolution, project/post/publication
-  lifecycle, delivery adapters, diagnostics, and operator experience.
-- Measure repeated hashing, database, provider, and rendering costs; reuse
-  immutable verification checkpoints where safe.
-- Add granular Lightroom named-version and Photoshop revision lineage when real
-  recovery needs justify it.
-- Do not add speculative AI or agent features before the production workflow
-  identifies a concrete need.
+- Add a backend-neutral graph/revision repository, minimal typed node values,
+  and an existing-project compatibility adapter that emits provider-neutral
+  asset capabilities rather than paths.
+- Extract `CanvasProfile`, `LayoutPreset`, authored Layout state, deterministic
+  resolution, proxy contracts, and v0.1 import/projection adapters.
+- Keep graph state additive and published v0.1 specifications immutable.
 
-### 0.4.0–0.9.0 — productization and external readiness
+### 0.5.0–0.6.0 — first usable native Layout vertical slice
 
-- Define packaging, installation, updates, background jobs, notifications,
-  onboarding, support, privacy, terms, data export/deletion, and clean
-  uninstall behavior.
-- Decide the long-term desktop, Lightroom, and Photoshop surfaces from tested
-  operator workflows; keep the CLI as a supported automation and diagnostic
-  interface.
-- Prepare Adobe production review only when the complete application is
-  reviewer-ready. Treat OAuth approval and Lightroom Connection recognition as
-  separate verified outcomes.
-- Test clean accounts, consent, refresh, revocation, relogin, pagination,
-  entitlement/storage failures, interrupted synchronization, duplicate names,
-  and idempotent recovery with multiple beta users.
-- Define a target-neutral artifact contract before adding website, Codexa,
-  Loomara, or additional publication integrations. Photara remains the
-  photography source of truth.
-- Establish public identity, documentation, release engineering, signed and
-  notarized artifacts where applicable, CI evidence, and a deliberate license
-  decision before external distribution.
+- Build the native graph shell and rich Layout inspector only after Core owns
+  commands, validation, revisions, resolution, and proxy semantics.
+- Author independent 3:4 and 9:16 Layout instances from existing project
+  assets, then materialize and verify PSBs through the current Photoshop PSJS
+  backend.
+- `0.6.0` is the first production-usable node workflow and the first expected
+  end-to-end workflow-time savings release.
 
-### 1.0.0 — public or commercial release target
+### 0.7.0–0.9.0 — hardening, staged UXP, internal SDK, and product readiness
 
-The exact `1.0.0` contract will be set from evidence gathered through
-`0.1.0`–`0.9.0`. It requires a stable supported workflow, migration and recovery
-policy, provider boundaries, installation/update story, documentation, support
-expectations, privacy terms, and an explicit license/product decision. Do not
-speculate beyond those gates now.
+- Add advanced Layout capabilities and introduce UXP as a second host backend
+  behind the same execution request/receipt contract; retain PSJS until UXP
+  passes conformance and production evidence.
+- Exercise SDK-shaped internal contracts with built-in nodes before deciding a
+  public SDK promise.
+- Harden installation, updates, graph migration/recovery, cache behavior,
+  diagnostics, packaging, and only those additional workflow/provider nodes
+  justified by production use.
+- Generalized cloud providers, multi-machine graph sync, and marketplace work
+  do not block the first usable Layout workflow.
+
+### 1.0.0 — stable node foundation
+
+The exact external product and SDK promises remain evidence-driven. The minimum
+`1.0.0` foundation is a supported Core-owned graph workflow from existing
+project state through platform-neutral Layout authoring to verified Photoshop
+PSBs, with v0.1 compatibility, migration, installation, update, backup, and
+recovery policies. Licensing and distribution must be decided before external
+productization, not before continuing the reusable personal/operator workflow.
+
+The detailed implementation order, contracts, release gates, blocking
+decisions, and non-goals are authoritative in
+[`docs/architecture/MIGRATION_ROADMAP.md`](docs/architecture/MIGRATION_ROADMAP.md).
