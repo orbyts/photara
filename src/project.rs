@@ -391,17 +391,61 @@ fn materialize_directory(
         }
     }
 
-    let temporary = project_root.join(".project.json.tmp");
+    // Older builds used this fixed temporary name and could leave a complete
+    // manifest behind when a network filesystem rejected `sync_all` with
+    // ENOTSUP. Recover only an exact byte-for-byte match; unrelated or stale
+    // contents are never promoted.
+    let legacy_temporary = project_root.join(".project.json.tmp");
+    match fs::read_to_string(&legacy_temporary) {
+        Ok(existing) if existing == contents => {
+            fs::rename(&legacy_temporary, &manifest_path).map_err(|source| {
+                PhotaraError::filesystem("recover project manifest", &manifest_path, source)
+            })?;
+            return Ok(project_root);
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(source) => {
+            return Err(PhotaraError::filesystem(
+                "read temporary project manifest",
+                legacy_temporary,
+                source,
+            ));
+        }
+    }
+
+    let temporary = project_root.join(format!(".project.json.{}.tmp", std::process::id()));
     let mut file = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(&temporary)
         .map_err(|source| PhotaraError::filesystem("create file", &temporary, source))?;
-    file.write_all(contents.as_bytes())
-        .and_then(|()| file.sync_all())
-        .map_err(|source| PhotaraError::filesystem("write file", &temporary, source))?;
-    fs::rename(&temporary, &manifest_path)
-        .map_err(|source| PhotaraError::filesystem("rename file", manifest_path, source))?;
+    if let Err(source) = file.write_all(contents.as_bytes()) {
+        drop(file);
+        let _ = fs::remove_file(&temporary);
+        return Err(PhotaraError::filesystem("write file", &temporary, source));
+    }
+    if let Err(source) = file.sync_all()
+        && source.kind() != std::io::ErrorKind::Unsupported
+        && source.raw_os_error() != Some(45)
+    {
+        drop(file);
+        let _ = fs::remove_file(&temporary);
+        return Err(PhotaraError::filesystem(
+            "sync project manifest",
+            &temporary,
+            source,
+        ));
+    }
+    drop(file);
+    if let Err(source) = fs::rename(&temporary, &manifest_path) {
+        let _ = fs::remove_file(&temporary);
+        return Err(PhotaraError::filesystem(
+            "rename file",
+            manifest_path,
+            source,
+        ));
+    }
     Ok(project_root)
 }
 
@@ -423,4 +467,59 @@ async fn record_event(
     .execute(&mut *connection)
     .await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn manifest() -> ProjectManifest {
+        ProjectManifest {
+            schema_version: 1,
+            slug: "sylvan".into(),
+            display_name: "Sylvan".into(),
+            scene: "park-portrait".into(),
+            location: "strawberry-hill".into(),
+            people: vec!["valentina-reneff-olson".into()],
+            origin: "native".into(),
+            status: "active".into(),
+        }
+    }
+
+    #[test]
+    fn recovers_exact_legacy_network_temporary_manifest() {
+        let root = tempfile::tempdir().unwrap();
+        let project_root = root.path().join("sylvan");
+        fs::create_dir_all(&project_root).unwrap();
+        let expected = format!("{}\n", serde_json::to_string_pretty(&manifest()).unwrap());
+        let legacy = project_root.join(".project.json.tmp");
+        fs::write(&legacy, &expected).unwrap();
+
+        let materialized = materialize_directory(root.path(), &manifest(), false).unwrap();
+
+        assert_eq!(materialized, project_root);
+        assert_eq!(
+            fs::read_to_string(project_root.join("project.json")).unwrap(),
+            expected
+        );
+        assert!(!legacy.exists());
+    }
+
+    #[test]
+    fn never_promotes_mismatched_legacy_network_temporary_manifest() {
+        let root = tempfile::tempdir().unwrap();
+        let project_root = root.path().join("sylvan");
+        fs::create_dir_all(&project_root).unwrap();
+        let legacy = project_root.join(".project.json.tmp");
+        fs::write(&legacy, "unrelated contents\n").unwrap();
+
+        materialize_directory(root.path(), &manifest(), false).unwrap();
+
+        let expected = format!("{}\n", serde_json::to_string_pretty(&manifest()).unwrap());
+        assert_eq!(
+            fs::read_to_string(project_root.join("project.json")).unwrap(),
+            expected
+        );
+        assert_eq!(fs::read_to_string(legacy).unwrap(), "unrelated contents\n");
+    }
 }

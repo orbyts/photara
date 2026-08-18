@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{collections::BTreeMap, io::IsTerminal, path::PathBuf};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use photara::{
@@ -24,6 +24,35 @@ use tracing_subscriber::EnvFilter;
 struct Cli {
     #[command(subcommand)]
     command: Command,
+}
+
+struct TerminalMasterProgress {
+    enabled: bool,
+}
+
+impl TerminalMasterProgress {
+    fn new() -> Self {
+        Self {
+            enabled: std::io::stderr().is_terminal(),
+        }
+    }
+
+    fn report(&self, event: master::MasterProgress) {
+        if self.enabled {
+            eprintln!("{}", format_master_progress(&event));
+        }
+    }
+}
+
+fn format_master_progress(event: &master::MasterProgress) -> String {
+    if event.asset.is_empty() {
+        format!("{}  {}/{}", event.stage, event.current, event.total)
+    } else {
+        format!(
+            "{}  {}/{}  {}",
+            event.stage, event.current, event.total, event.asset
+        )
+    }
 }
 
 #[derive(Debug, Subcommand)]
@@ -184,6 +213,8 @@ enum PostCommand {
         asset: String,
         #[arg(long)]
         template: Option<String>,
+        #[arg(long, value_enum, default_value = "crop")]
+        fit: PlacementFit,
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
@@ -222,6 +253,42 @@ enum PostCommand {
         bottom: String,
         #[arg(long)]
         template: Option<String>,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    AddGridFour {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long)]
+        item: String,
+        #[arg(long)]
+        top_left: String,
+        #[arg(long)]
+        top_right: String,
+        #[arg(long)]
+        bottom_left: String,
+        #[arg(long)]
+        bottom_right: String,
+        #[arg(long)]
+        template: Option<String>,
+        #[arg(long, value_enum, default_value = "crop")]
+        fit: PlacementFit,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    SetFit {
+        project: String,
+        post: String,
+        #[arg(long, value_enum)]
+        platform: Platform,
+        #[arg(long)]
+        item: String,
+        #[arg(long)]
+        slot: Option<String>,
+        #[arg(long, value_enum)]
+        fit: PlacementFit,
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
@@ -310,10 +377,14 @@ enum PostCommand {
         post: String,
         #[arg(long, value_enum)]
         platform: Platform,
+        #[arg(long, value_enum)]
+        also_platform: Option<Platform>,
         #[arg(long)]
         item: Option<String>,
         #[arg(long)]
         slot: Option<String>,
+        #[arg(long)]
+        reauthor: bool,
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
@@ -592,6 +663,10 @@ enum MetadataCommand {
 
 #[derive(Debug, Subcommand)]
 enum MasterCommand {
+    InstallScripts {
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
     Prepare {
         project: String,
         #[arg(long)]
@@ -616,8 +691,15 @@ enum MasterCommand {
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
+    CatalogPlan {
+        project: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
     Checkpoint {
         project: String,
+        #[arg(long)]
+        asset: Option<String>,
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
@@ -792,6 +874,23 @@ enum Origin {
 enum Platform {
     Instagram,
     Threads,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum PlacementFit {
+    Fill,
+    Contain,
+    Crop,
+}
+
+impl PlacementFit {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Fill => "fill",
+            Self::Contain => "contain",
+            Self::Crop => "crop",
+        }
+    }
 }
 
 impl From<Platform> for PostPlatform {
@@ -1024,6 +1123,11 @@ async fn decisions(command: DecisionCommand) -> Result<()> {
 
 async fn masters(command: MasterCommand) -> Result<()> {
     match command {
+        MasterCommand::InstallScripts { format } => {
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            print_serialized(&master::install_photoshop_scripts(&config)?, format)?;
+        }
         MasterCommand::Prepare {
             project: slug,
             canary,
@@ -1068,18 +1172,35 @@ async fn masters(command: MasterCommand) -> Result<()> {
             )?;
             database.close().await;
         }
-        MasterCommand::Checkpoint {
+        MasterCommand::CatalogPlan {
             project: slug,
             format,
         } => {
-            master_checkpoint(&slug, false, true, format).await?;
+            let config = PhotaraConfig::discover()?;
+            config.validate()?;
+            let database = persistence::connect_development().await?;
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &master::catalog_plan(&database, &config, &project).await?,
+                format,
+            )?;
+            database.close().await;
+        }
+        MasterCommand::Checkpoint {
+            project: slug,
+            asset,
+            format,
+        } => {
+            master_checkpoint(&slug, false, true, asset.as_deref(), format).await?;
         }
         MasterCommand::MarkReady {
             project: slug,
             confirm,
             format,
         } => {
-            master_checkpoint(&slug, true, confirm, format).await?;
+            master_checkpoint(&slug, true, confirm, None, format).await?;
         }
         MasterCommand::PrepareFlattening {
             project: slug,
@@ -1091,8 +1212,10 @@ async fn masters(command: MasterCommand) -> Result<()> {
             let project = project::find(&database, &slug).await?.ok_or_else(|| {
                 photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
             })?;
+            let progress = TerminalMasterProgress::new();
+            let reporter = |event| progress.report(event);
             print_serialized(
-                &master::prepare_flattening(&database, &config, &project).await?,
+                &master::prepare_flattening(&database, &config, &project, Some(&reporter)).await?,
                 format,
             )?;
             database.close().await;
@@ -1100,7 +1223,12 @@ async fn masters(command: MasterCommand) -> Result<()> {
         MasterCommand::VerifyFlattening { project, format } => {
             let config = PhotaraConfig::discover()?;
             config.validate()?;
-            print_serialized(&master::verify_flattening(&config, &project)?, format)?;
+            let progress = TerminalMasterProgress::new();
+            let reporter = |event| progress.report(event);
+            print_serialized(
+                &master::verify_flattening(&config, &project, Some(&reporter))?,
+                format,
+            )?;
         }
         MasterCommand::RegisterFlattening {
             project: slug,
@@ -1113,8 +1241,17 @@ async fn masters(command: MasterCommand) -> Result<()> {
             let project = project::find(&database, &slug).await?.ok_or_else(|| {
                 photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
             })?;
+            let progress = TerminalMasterProgress::new();
+            let reporter = |event| progress.report(event);
             print_serialized(
-                &master::register_flattening(&database, &config, &project, confirm).await?,
+                &master::register_flattening(
+                    &database,
+                    &config,
+                    &project,
+                    confirm,
+                    Some(&reporter),
+                )
+                .await?,
                 format,
             )?;
             database.close().await;
@@ -1146,6 +1283,7 @@ async fn master_checkpoint(
     slug: &str,
     ready: bool,
     confirmed: bool,
+    asset: Option<&str>,
     format: SerializationFormat,
 ) -> Result<()> {
     let config = PhotaraConfig::discover()?;
@@ -1154,8 +1292,19 @@ async fn master_checkpoint(
     let project = project::find(&database, slug).await?.ok_or_else(|| {
         photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
     })?;
+    let progress = TerminalMasterProgress::new();
+    let reporter = |event| progress.report(event);
     print_serialized(
-        &master::checkpoint(&database, &config, &project, ready, confirmed).await?,
+        &master::checkpoint(
+            &database,
+            &config,
+            &project,
+            ready,
+            confirmed,
+            asset,
+            Some(&reporter),
+        )
+        .await?,
         format,
     )?;
     database.close().await;
@@ -1695,6 +1844,7 @@ async fn posts(command: PostCommand) -> Result<()> {
             item,
             asset,
             template,
+            fit,
             format,
         } => {
             let project = project::find(&database, &slug).await?.ok_or_else(|| {
@@ -1709,6 +1859,7 @@ async fn posts(command: PostCommand) -> Result<()> {
                     platform.into(),
                     &item,
                     &asset,
+                    fit.as_str(),
                     template,
                 )
                 .await?,
@@ -1776,6 +1927,66 @@ async fn posts(command: PostCommand) -> Result<()> {
                     template,
                 )
                 .await?,
+                format,
+            )?;
+        }
+        PostCommand::AddGridFour {
+            project: slug,
+            post,
+            platform,
+            item,
+            top_left,
+            top_right,
+            bottom_left,
+            bottom_right,
+            template,
+            fit,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::add_grid_four(
+                    &database,
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                    &item,
+                    &top_left,
+                    &top_right,
+                    &bottom_left,
+                    &bottom_right,
+                    fit.as_str(),
+                    template,
+                )
+                .await?,
+                format,
+            )?;
+        }
+        PostCommand::SetFit {
+            project: slug,
+            post,
+            platform,
+            item,
+            slot,
+            fit,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &layout::set_item_fit(
+                    &config,
+                    &project,
+                    &post,
+                    platform.into(),
+                    &item,
+                    slot.as_deref(),
+                    fit.as_str(),
+                )?,
                 format,
             )?;
         }
@@ -1939,22 +2150,26 @@ async fn posts(command: PostCommand) -> Result<()> {
             project: slug,
             post,
             platform,
+            also_platform,
             item,
             slot,
+            reauthor,
             format,
         } => {
             let project = project::find(&database, &slug).await?.ok_or_else(|| {
                 photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
             })?;
             print_serialized(
-                &layout::prepare_authoring_session(
+                &layout::prepare_dual_platform_authoring_session(
                     &database,
                     &config,
                     &project,
                     &post,
                     platform.into(),
+                    also_platform.map(Into::into),
                     item.as_deref(),
                     slot.as_deref(),
+                    reauthor,
                 )
                 .await?,
                 format,
@@ -1970,7 +2185,7 @@ async fn posts(command: PostCommand) -> Result<()> {
                 photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
             })?;
             print_serialized(
-                &layout::apply_placement_authoring(&config, &project, &post, platform.into())?,
+                &layout::apply_dual_platform_authoring(&config, &project, &post, platform.into())?,
                 format,
             )?;
         }
@@ -2234,4 +2449,24 @@ fn parse_pair(value: &str) -> std::result::Result<(String, String), String> {
         return Err("platform and handle must not be empty".into());
     }
     Ok((key.to_owned(), value.to_owned()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn master_progress_is_a_separate_human_readable_line() {
+        let event = master::MasterProgress {
+            stage: "Hashing layered masters",
+            current: 14,
+            total: 20,
+            asset: "_SUH5235.PSB".into(),
+        };
+        assert_eq!(
+            format_master_progress(&event),
+            "Hashing layered masters  14/20  _SUH5235.PSB"
+        );
+        assert!(serde_json::to_string(&serde_json::json!({"ok": true})).is_ok());
+    }
 }

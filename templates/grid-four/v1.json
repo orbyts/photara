@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "name": "grid-four",
+  "version": 1,
+  "display_name": "Four Image Grid (Instagram 3:4)",
+  "kind": "grid-four",
+  "canvas": {
+    "sizing": "platform-profile"
+  },
+  "slots": [
+    {
+      "id": "top-left",
+      "kind": "image",
+      "bounds": { "x": 0.0, "y": 0.0, "width": 0.5, "height": 0.5 }
+    },
+    {
+      "id": "top-right",
+      "kind": "image",
+      "bounds": { "x": 0.5, "y": 0.0, "width": 0.5, "height": 0.5 }
+    },
+    {
+      "id": "bottom-left",
+      "kind": "image",
+      "bounds": { "x": 0.0, "y": 0.5, "width": 0.5, "height": 0.5 }
+    },
+    {
+      "id": "bottom-right",
+      "kind": "image",
+      "bounds": { "x": 0.5, "y": 0.5, "width": 0.5, "height": 0.5 }
+    }
+  ],
+  "decoration": { "background": false, "border": false, "text": false },
+  "wsp": { "mode": "hdr-sdr-pair", "hdr_layer": "HDR", "sdr_layer": "SDR", "hdr_above_sdr": true }
+}

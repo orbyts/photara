@@ -1,37 +1,36 @@
 # Codex handoff: Photara
 
-> Temporary working document. Keep it updated while the 0.1.0 vertical slice
-> is in progress, then remove it when the project no longer needs a cross-task
-> handoff. Last updated: 2026-08-14.
+> Historical working document retained as release evidence. The `0.1.0`
+> vertical slice is complete. Last updated: 2026-08-17.
 
 ## Resume objective
 
-Continue Photara from the pushed, untagged `0.0.9` Red Meridian layout
-checkpoint. The generalized authoring layer, both social packages, manual
-publication evidence, and verified Cloudinary backup are complete in the dirty
-worktree. Preserve the accepted Instagram and Threads packages as regression
-fixtures. Finish release documentation and remaining recovery checks, then
-prove the reusable end-to-end workflow on Sylvan without project-specific code.
-Do not redesign Storexa or restart the workflow from ingest.
+Continue Photara from the completed `v0.1.0` reusable workflow. Red Meridian
+remains the accepted regression fixture. Sylvan independently completed the
+photographer guide with 10 Instagram and 14 Threads frames, manual publication
+evidence, and byte-verified Cloudinary originals. Do not begin the `0.2.0`
+architectural refactor without a separate discovery and dependency-mapping
+pass.
 
 Read these files before changing code:
 
 1. `ROADMAP.md` — release scope and remaining work.
 2. `LAYOUTS.md` — authoritative layout, HDR/SDR, Photoshop, WSP, and Red
    Meridian 20-slot rules.
-3. `README.md` — current CLI and operator workflow.
-4. `CHANGELOG.md` — changes accumulated for 0.0.9.
-5. This handoff — live state and sharp edges which are intentionally too
+3. `docs/PHOTOGRAPHER_GUIDE.md` — current Sylvan end-to-end operator runbook.
+4. `README.md` — current CLI and lower-level operator workflow.
+5. `CHANGELOG.md` — released checkpoints and current documentation work.
+6. This handoff — live state and sharp edges which are intentionally too
    temporary for durable product documentation.
 
 ## Repository and Git state
 
 - Repository: `/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara`
 - Branch: `main`
-- Current stable checkpoint: tag `v0.0.9` on `main`.
+- Current stable release: tag `v0.1.0` on `main`.
 - Earlier stable rollback point: commit `c9ec2db`, tag `v0.0.8`.
-- `Cargo.toml` is already `0.0.9`.
-- The `0.0.9` layout/publication/backup checkpoint is committed and pushed.
+- `Cargo.toml` is `0.1.0`.
+- The `0.1.0` release includes the complete Sylvan generalization proof.
   Preserve later implementation changes; do not reset, restore, clean, or
   replace the worktree wholesale.
 - Dropbox has previously produced conflict copies. It is currently safe to
@@ -39,7 +38,7 @@ Read these files before changing code:
   canonical file.
 The Rust layout engine, Lightroom Edit Comparison bridge, generalized
 Photoshop scripts, publication and Cloudinary migrations, and template
-contracts are all included in `v0.0.9`.
+contracts are all included in `v0.1.0`.
 
 ## Live installation and data paths
 
@@ -52,6 +51,23 @@ contracts are all included in `v0.0.9`.
 - Installed Lightroom plug-in: `~/Library/Application Support/Adobe/Lightroom/Modules/photara.lrplugin`
   (linked to the repository)
 - Installed Photoshop scripts: `/Users/suhail/Pictures/Photara/Scripts`
+  - `Prepare Photara HDR-SDR Master.psjs` is the ad-hoc prototype for the future
+    UXP panel action after manual 16-bit cleanup. It must preserve an ordinary
+    duplicated/shared embedded `16-bit` Smart Object as `HDR` above `SDR`, open
+    Camera Raw Filter for manual SDR authoring, and convert the parent to
+    unmerged/unrasterized 32-bit Display P3 Linear before that optional
+    authoring checkpoint. Every operation must be rebound to the starting
+    document ID so tab changes cannot retarget the script. It does not save.
+- Lightroom may catalog authoritative PSBs but must not write catalog metadata
+  back into those layered files. Exact PSB membership belongs in Photara's
+  read-only custom metadata field, which Lightroom stores only in its catalog;
+  visible Masters smart collections intersect that marker with native PSB file
+  type. Keep Photoshop as the sole PSB writer, especially over SMB, and use
+  Lightroom's Edit Original handoff. The one-time **Reconcile Layered Master
+  Collections** action migrates old keyword-driven membership before **Read
+  Metadata From File** clears legacy catalog/disk conflicts. `photara masters
+  checkpoint PROJECT --asset ASSET` provides targeted recovery/re-registration
+  without accepting unrelated PSB drift.
 - Ghostty loads the user's full environment, but do not open it merely to run a
   command. Run background commands directly through Codex. If an operator-side
   command truly cannot run there, give the user the exact Ghostty command and
@@ -165,8 +181,9 @@ relationships/placements, not duplicate asset identity.
   `--bottom-crop-from-item`. It verifies that the referenced item places the
   same stable asset before reusing its normalized crop.
 - `posts reorder` accepts repeated `--item` values and requires an exact
-  permutation. Full Instagram render preparation now rejects any package that
-  does not expand to exactly 20 delivery frames.
+  permutation. Full Instagram render preparation accepts 1 through 20 delivery
+  frames. Twenty remains the platform maximum and the exact Red Meridian
+  regression-fixture count, not a generic package-size requirement.
 
 ### Dynamic Range Comparison contract
 
@@ -346,16 +363,21 @@ finds an actual validation failure.
 
 ## Recommended next actions
 
-Follow the gated implementation order in `ROADMAP.md` one step at a time:
+`v0.1.0` is complete. Preserve Red Meridian and Sylvan as the accepted
+regression projects and follow `ROADMAP.md` for `0.2.0` discovery and work:
 
-1. Preserve `v0.0.9` as the completed Red Meridian layout/publication/backup
-   regression checkpoint.
-2. Exercise stale-manifest, interrupted-upload, and NAS-remount recovery as
-   `0.1.0` hardening. Repeat preparation/upload already proved stable batch
-   reuse and zero duplicate Cloudinary objects.
-3. Run Sylvan through the same workflow without source changes or
-   project-specific branches as the `0.1.0` generalization proof.
-4. Keep website order, derivatives, Cloudinary-specific website layouts, and
+1. Improve the operator experience around the proved CLI, Lightroom Classic,
+   Photoshop, and recovery workflows without changing their contracts.
+2. Consolidate Lightroom commands into one project-aware plug-in UI and move
+   the proved Photoshop scripts behind a persistent UXP panel.
+3. Prototype installation, connection checks, database onboarding, and
+   color-managed project thumbnails with an HDR-capable preview contract.
+4. Keep Pixieset behind its supported Lightroom/CSV boundary and retain manual
+   Instagram and Threads publication as a valid evidence-backed path.
+5. Reconcile Red Meridian only through non-destructive catalog or
+   infrastructure actions. Do not add the grid to, reorder, rerender, or
+   republish either accepted package.
+6. Keep website order, derivatives, Cloudinary-specific website layouts, and
    Loomara integration deferred until that website contract is designed.
 
 ## Validation commands
@@ -402,16 +424,15 @@ Photoshop afterward. Use `--item ITEM_ID` only for debugging.
   reusable personal/operator `0.1.0` workflow and this handoff does not choose
   a future license.
 
-## Definition of the next stable checkpoint
+## Definition of the stable `v0.1.0` checkpoint
 
-The next checkpoint is not merely “all Photoshop documents opened.” It is:
+The checkpoint is complete:
 
-- the accepted Instagram project JSON has 18 ordered editorial items;
-- the delivery manifest expands those into exactly 20 ordered slots;
-- every source, crop, template version, PSB, WSP output, and checksum has
-  connected provenance;
-- the independent Threads package is also rendered and verified;
-- publication is confirmed with durable evidence;
-- repeat runs create no duplicate assets, placements, outputs, or receipts;
-- cleanup is restart-safe and only removes ephemeral files after evidence is
-  durable.
+- Red Meridian retains its accepted 18-item/20-frame Instagram fixture and
+  separately specified 17-frame Threads package;
+- Sylvan proves reusable 10-frame Instagram and 14-frame Threads packages in
+  the authoritative numbered publication order;
+- sources, transforms, immutable templates, WSP JPEGs, Cloudinary objects, and
+  publication records have connected provenance and checksum evidence; and
+- repeat preparation, upload, reconciliation, and cleanup paths are guarded
+  against duplicate or premature mutation.

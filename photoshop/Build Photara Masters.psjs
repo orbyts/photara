@@ -177,15 +177,22 @@ async function main() {
     project: manifest.project,
     items: [],
   };
-  for (const item of manifest.items) {
+  const canaryItems = manifest.items.filter((item) => item.canary === true);
+  const itemsToProcess = canaryItems.length > 0 ? canaryItems : manifest.items;
+  const mode = canaryItems.length > 0 ? "Canary" : "Full batch";
+  for (const item of itemsToProcess) {
     report.items.push(await processItem(root, item));
   }
   const reportEntry = await workspace.createFile(REPORT_NAME, { overwrite: true });
   await reportEntry.write(`${JSON.stringify(report, null, 2)}\n`);
   const verified = report.items.filter((item) => item.state === "verified").length;
   const failed = report.items.length - verified;
+  const firstFailure = report.items.find((item) => item.state !== "verified");
+  const failureDetail = firstFailure
+    ? `\n\nFirst failure: ${firstFailure.dng_filename}\n${firstFailure.error}`
+    : "";
   await core.showAlert(
-    `Photara master build finished.\n\nVerified: ${verified}\nFailed: ${failed}\n\nPhotara will verify the report before registering anything.`
+    `Photara master build finished.\n\nProject: ${manifest.project}\nMode: ${mode}\nVerified: ${verified}\nFailed: ${failed}${failureDetail}\n\nPhotara will verify the report before registering anything.`
   );
 }
 

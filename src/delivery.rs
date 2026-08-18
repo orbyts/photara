@@ -881,21 +881,8 @@ fn resolve_delivery_assets(
             .file_stem()
             .and_then(|value| value.to_str())
             .ok_or_else(|| PhotaraError::Configuration("WSP filename is not UTF-8".into()))?;
-        let logical_stem = if resolved.platform == PostPlatform::Instagram {
-            let (prefix, remainder) = stem.split_once('_').ok_or_else(|| {
-                PhotaraError::Configuration(format!(
-                    "Instagram WSP export {stem:?} has no ordinal prefix"
-                ))
-            })?;
-            prefix.parse::<u32>().map_err(|_| {
-                PhotaraError::Configuration(format!(
-                    "Instagram WSP export {stem:?} has an invalid ordinal prefix"
-                ))
-            })?;
-            remainder
-        } else {
-            stem
-        };
+        let (logical_stem, _) =
+            delivery_logical_stem(stem, resolved.platform == PostPlatform::Instagram)?;
         let (item_id, frame_index) = parse_delivery_stem(logical_stem);
         if !expected_set.contains(&(item_id.clone(), frame_index)) {
             return Err(PhotaraError::Configuration(format!(
@@ -938,6 +925,30 @@ fn resolve_delivery_assets(
         ));
     }
     Ok(mapped)
+}
+
+fn delivery_logical_stem(stem: &str, require_ordinal: bool) -> Result<(&str, Option<u32>)> {
+    if let Some((prefix, remainder)) = stem.split_once('_')
+        && prefix.chars().all(|value| value.is_ascii_digit())
+    {
+        let ordinal = prefix.parse::<u32>().map_err(|_| {
+            PhotaraError::Configuration(format!(
+                "WSP export {stem:?} has an invalid ordinal prefix"
+            ))
+        })?;
+        if ordinal == 0 || remainder.is_empty() {
+            return Err(PhotaraError::Configuration(format!(
+                "WSP export {stem:?} has an invalid ordinal prefix"
+            )));
+        }
+        return Ok((remainder, Some(ordinal)));
+    }
+    if require_ordinal {
+        return Err(PhotaraError::Configuration(format!(
+            "Instagram WSP export {stem:?} has no ordinal prefix"
+        )));
+    }
+    Ok((stem, None))
 }
 
 fn canonical_backup_frames(resolved: &ResolvedPost) -> Vec<(String, u32)> {
@@ -1095,6 +1106,24 @@ mod tests {
             parse_delivery_stem("subject_colophon"),
             ("subject_colophon".into(), 1)
         );
+    }
+
+    #[test]
+    fn preserves_optional_publication_ordinals_for_delivery_names() {
+        assert_eq!(
+            delivery_logical_stem("01_hero", true).unwrap(),
+            ("hero", Some(1))
+        );
+        assert_eq!(
+            delivery_logical_stem("14_grid-03", false).unwrap(),
+            ("grid-03", Some(14))
+        );
+        assert_eq!(
+            delivery_logical_stem("hero", false).unwrap(),
+            ("hero", None)
+        );
+        assert!(delivery_logical_stem("hero", true).is_err());
+        assert!(delivery_logical_stem("00_hero", false).is_err());
     }
 
     #[test]

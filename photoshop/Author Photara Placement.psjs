@@ -21,7 +21,22 @@ async function rotateSource(document, quarterTurnsClockwise) {
 }
 
 function contextName(index, placement) {
-  return `Photara ${String(index + 1).padStart(3, "0")} ${placement.item_id} ${placement.slot}`;
+  const platform = placement.authoring_platform ? ` ${placement.authoring_platform}` : "";
+  return `Photara ${String(index + 1).padStart(3, "0")} ${placement.item_id} ${placement.slot}${platform}`;
+}
+
+function orderedPlacements(manifest) {
+  const primary = manifest.placements.map(placement => ({
+    ...placement,
+    authoring_platform: manifest.schema_version === 2 ? manifest.platform : null,
+  }));
+  const secondary = manifest.secondary && Array.isArray(manifest.secondary.placements)
+    ? manifest.secondary.placements.map(placement => ({
+        ...placement,
+        authoring_platform: manifest.secondary.platform,
+      }))
+    : [];
+  return primary.concat(secondary);
 }
 
 async function main() {
@@ -32,11 +47,12 @@ async function main() {
   if (!projectRoot) return;
   const manifestEntry = await projectRoot.getEntry(MANIFEST_NAME);
   const manifest = JSON.parse(await manifestEntry.read());
-  if (manifest.schema_version !== 1 || manifest.placements.length < 1) {
+  const placements = orderedPlacements(manifest);
+  if (![1, 2].includes(manifest.schema_version) || placements.length < 1) {
     throw new Error("Photara authoring manifest has no placements");
   }
-  for (let index = 0; index < manifest.placements.length; index += 1) {
-    const placement = manifest.placements[index];
+  for (let index = 0; index < placements.length; index += 1) {
+    const placement = placements[index];
     const source = await child(projectRoot, placement.source_relative_path);
     await core.executeAsModal(async () => {
       const opened = await app.open(source);
@@ -74,7 +90,7 @@ async function main() {
     }, { commandName: `Author ${placement.item_id} ${placement.slot}` });
   }
   await core.showAlert(
-    `Photara opened ${manifest.placements.length} ordered placement contexts. Transform each ` +
+    `Photara opened ${placements.length} ordered placement contexts. Transform each ` +
     `selection while preserving its aspect ratio. Do not crop or save these contexts. When all ` +
     `are ready, run Capture Photara Placement once.`
   );

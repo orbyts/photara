@@ -4,6 +4,7 @@ return {
 
     LrToolkitIdentifier = "com.orbyts.photara",
     LrPluginName = "Photara",
+    LrMetadataProvider = "MetadataProvider.lua",
 
     LrLibraryMenuItems = {
         {
@@ -39,6 +40,14 @@ return {
             file = "PlanTransferMain.lua",
         },
         {
+            title = "Import Verified Layered Masters",
+            file = "ImportMastersMain.lua",
+        },
+        {
+            title = "Reconcile Layered Master Collections",
+            file = "ReconcileMastersMain.lua",
+        },
+        {
             title = "Prepare Edit Comparison Sources",
             file = "PrepareEditComparisonMain.lua",
         },
@@ -46,8 +55,8 @@ return {
 
     VERSION = {
         major = 0,
-        minor = 0,
-        revision = 9,
-        build = 0,
+        minor = 1,
+        revision = 0,
+        build = 1,
     },
 }

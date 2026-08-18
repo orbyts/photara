@@ -25,6 +25,35 @@ const FLATTENING_HANDOFF_MANIFEST_NAME: &str = "Photara Flattening Manifest.json
 const FLATTENING_HANDOFF_REPORT_NAME: &str = "Photara Flattening Report.json";
 const FLATTENING_SCRIPT_NAME: &str = "Flatten Photara Masters.psjs";
 const FLATTENING_SCRIPT: &str = include_str!("../photoshop/Flatten Photara Masters.psjs");
+const HDR_SDR_SCRIPT_NAME: &str = "Prepare Photara HDR-SDR Master.psjs";
+const HDR_SDR_SCRIPT: &str = include_str!("../photoshop/Prepare Photara HDR-SDR Master.psjs");
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MasterProgress {
+    pub stage: &'static str,
+    pub current: usize,
+    pub total: usize,
+    pub asset: String,
+}
+
+pub type MasterProgressReporter<'a> = Option<&'a dyn Fn(MasterProgress)>;
+
+fn report_progress(
+    reporter: MasterProgressReporter<'_>,
+    stage: &'static str,
+    current: usize,
+    total: usize,
+    asset: impl Into<String>,
+) {
+    if let Some(reporter) = reporter {
+        reporter(MasterProgress {
+            stage,
+            current,
+            total,
+            asset: asset.into(),
+        });
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct MasterManifest {
@@ -147,6 +176,31 @@ pub struct PromotedMaster {
 }
 
 #[derive(Clone, Debug, Serialize)]
+pub struct MasterCatalogPlan {
+    pub schema_version: u32,
+    pub project: String,
+    pub display_name: String,
+    pub item_count: usize,
+    pub master_keyword_path: Vec<String>,
+    pub items: Vec<MasterCatalogItem>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct MasterCatalogItem {
+    pub asset_id: Uuid,
+    pub original_filename: String,
+    pub camera_raw_path: PathBuf,
+    pub camera_raw_relative_path: String,
+    pub psb_filename: String,
+    pub psb_path: PathBuf,
+    pub psb_relative_path: String,
+    pub psb_sha256: String,
+    pub psb_byte_size: u64,
+    pub bits_per_channel: u8,
+    pub workflow_state: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub struct MasterCheckpoint {
     pub schema_version: u32,
     pub project: String,
@@ -165,6 +219,13 @@ pub struct CheckpointedMaster {
     pub previous_state: String,
     pub target_state: String,
     pub changed: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct PhotoshopScriptInstallReport {
+    pub schema_version: u32,
+    pub scripts_directory: PathBuf,
+    pub scripts: Vec<PathBuf>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -430,11 +491,11 @@ pub async fn prepare(
         staging_root: root.clone(),
         incoming_directory: incoming,
         output_directory: output,
-        photoshop_script: root.join(SCRIPT_NAME),
+        photoshop_script: master_scripts_root(&root)?.join(SCRIPT_NAME),
         items,
     };
     write_json_atomic(workspace.join(MANIFEST_NAME), &manifest)?;
-    write_atomic(root.join(SCRIPT_NAME), PHOTOSHOP_SCRIPT.as_bytes())?;
+    install_photoshop_scripts(config)?;
     Ok(manifest)
 }
 
@@ -492,6 +553,30 @@ pub fn status(config: &PhotaraConfig, project: &str) -> Result<MasterStagingStat
         ready,
         missing_dngs,
         unexpected_dngs,
+    })
+}
+
+pub fn install_photoshop_scripts(config: &PhotaraConfig) -> Result<PhotoshopScriptInstallReport> {
+    let scripts_directory = master_scripts_root(&config.settings.lightroom_inbox)?;
+    let scripts = [
+        (SCRIPT_NAME, PHOTOSHOP_SCRIPT.as_bytes()),
+        (HDR_SDR_SCRIPT_NAME, HDR_SDR_SCRIPT.as_bytes()),
+        (FLATTENING_SCRIPT_NAME, FLATTENING_SCRIPT.as_bytes()),
+    ];
+    let mut installed = Vec::with_capacity(scripts.len());
+    for (name, contents) in scripts {
+        let path = scripts_directory.join(name);
+        write_atomic(path.clone(), contents)?;
+        installed.push(path);
+    }
+    remove_matching_legacy_script(
+        &config.settings.lightroom_inbox.join(SCRIPT_NAME),
+        PHOTOSHOP_SCRIPT.as_bytes(),
+    )?;
+    Ok(PhotoshopScriptInstallReport {
+        schema_version: 1,
+        scripts_directory,
+        scripts: installed,
     })
 }
 
@@ -709,17 +794,119 @@ pub async fn checkpoint(
     project: &ProjectRecord,
     ready: bool,
     confirmed: bool,
+    asset_reference: Option<&str>,
+    reporter: MasterProgressReporter<'_>,
 ) -> Result<MasterCheckpoint> {
     if ready && !confirmed {
-        return checkpoint_plan(database, config, project, ready, false).await;
+        return checkpoint_plan(
+            database,
+            config,
+            project,
+            ready,
+            false,
+            asset_reference,
+            reporter,
+        )
+        .await;
     }
-    checkpoint_plan(database, config, project, ready, true).await
+    checkpoint_plan(
+        database,
+        config,
+        project,
+        ready,
+        true,
+        asset_reference,
+        reporter,
+    )
+    .await
+}
+
+pub async fn catalog_plan(
+    database: &Database,
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+) -> Result<MasterCatalogPlan> {
+    let rows = sqlx::query(
+        "SELECT asset.id AS asset_id, asset.original_filename, \
+                raw.location AS raw_location, psb.location AS psb_location, \
+                psb.sha256 AS psb_sha256, psb.byte_size AS psb_byte_size, \
+                document.workflow_state \
+         FROM project_assets AS membership \
+         JOIN assets AS asset ON asset.id = membership.asset_id \
+         JOIN asset_files AS raw ON raw.asset_id = asset.id \
+           AND raw.representation = 'camera-raw' AND raw.state = 'current' \
+         JOIN asset_files AS psb ON psb.asset_id = asset.id \
+           AND psb.representation = 'layered-psb' AND psb.authoritative \
+           AND psb.state = 'current' \
+         JOIN layered_master_documents AS document ON document.asset_file_id = psb.id \
+           AND document.project_id = membership.project_id \
+         WHERE membership.project_id = $1 \
+         ORDER BY raw.location",
+    )
+    .bind(project.id)
+    .fetch_all(database.pool())
+    .await?;
+    if rows.is_empty() {
+        return Err(PhotaraError::Configuration(format!(
+            "project {:?} has no promoted layered masters to import",
+            project.slug
+        )));
+    }
+
+    let mut items = Vec::with_capacity(rows.len());
+    for row in rows {
+        let raw_location: String = row.try_get("raw_location")?;
+        let psb_location: String = row.try_get("psb_location")?;
+        let recorded_sha256: Option<String> = row.try_get("psb_sha256")?;
+        let recorded_byte_size: Option<i64> = row.try_get("psb_byte_size")?;
+        let camera_raw_path = resolve_source_key(&config.settings.images_root, &raw_location)?;
+        inspect_regular_file(&camera_raw_path, "camera RAW")?;
+        let psb_path = resolve_source_key(&config.settings.images_root, &psb_location)?;
+        let (psb_byte_size, bits_per_channel) = inspect_psb(&psb_path)?;
+        let psb_sha256 = sha256(&psb_path)?;
+        if recorded_sha256.as_deref() != Some(&psb_sha256)
+            || recorded_byte_size != Some(to_i64(psb_byte_size, "PSB")?)
+        {
+            return Err(PhotaraError::Configuration(format!(
+                "layered master {} changed after its last Photara checkpoint",
+                psb_path.display()
+            )));
+        }
+        let psb_filename = psb_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| PhotaraError::Configuration("layered PSB has no filename".into()))?
+            .to_owned();
+        items.push(MasterCatalogItem {
+            asset_id: row.try_get("asset_id")?,
+            original_filename: row.try_get("original_filename")?,
+            camera_raw_relative_path: source_key_relative_path(&raw_location)?,
+            camera_raw_path,
+            psb_relative_path: source_key_relative_path(&psb_location)?,
+            psb_path,
+            psb_filename,
+            psb_sha256,
+            psb_byte_size,
+            bits_per_channel,
+            workflow_state: row.try_get("workflow_state")?,
+        });
+    }
+
+    Ok(MasterCatalogPlan {
+        schema_version: 1,
+        project: project.slug.clone(),
+        display_name: project.display_name.clone(),
+        item_count: items.len(),
+        master_keyword_path: vec!["asset_type".into(), "master".into(), "psb".into()],
+        items,
+    })
 }
 
 pub async fn prepare_flattening(
     database: &Database,
     config: &PhotaraConfig,
     project: &ProjectRecord,
+    reporter: MasterProgressReporter<'_>,
 ) -> Result<FlatteningManifest> {
     validate_project_slug(&project.slug)?;
     let project_root = config.settings.projects_root.join(&project.slug);
@@ -749,7 +936,8 @@ pub async fn prepare_flattening(
     }
 
     let mut items = Vec::with_capacity(rows.len());
-    for row in rows {
+    let total = rows.len();
+    for (index, row) in rows.into_iter().enumerate() {
         let layered_file_id: Uuid = row.try_get("id")?;
         let asset_id: Uuid = row.try_get("asset_id")?;
         let location: String = row.try_get("location")?;
@@ -758,6 +946,13 @@ pub async fn prepare_flattening(
         let recorded_bits: i16 = row.try_get("bits_per_channel")?;
         let profile: String = row.try_get("color_profile")?;
         let psb_path = resolve_source_key(&config.settings.images_root, &location)?;
+        report_progress(
+            reporter,
+            "Hashing layered masters",
+            index + 1,
+            total,
+            psb_path.file_name().unwrap_or_default().to_string_lossy(),
+        );
         let (psb_byte_size, bits_per_channel) = inspect_psb(&psb_path)?;
         let psb_sha256 = sha256(&psb_path)?;
         if bits_per_channel != 32 || recorded_bits != 32 {
@@ -844,7 +1039,7 @@ pub async fn prepare_flattening(
             )
         })?
         .join("Scripts");
-    create_directory(&scripts_root)?;
+    install_photoshop_scripts(config)?;
     let photoshop_script = scripts_root.join(FLATTENING_SCRIPT_NAME);
     let manifest = FlatteningManifest {
         schema_version: 2,
@@ -861,11 +1056,21 @@ pub async fn prepare_flattening(
         project_root.join(FLATTENING_HANDOFF_MANIFEST_NAME),
         &manifest,
     )?;
-    write_atomic(photoshop_script, FLATTENING_SCRIPT.as_bytes())?;
+    report_progress(
+        reporter,
+        "Prepared flattening manifest",
+        total,
+        total,
+        &project.slug,
+    );
     Ok(manifest)
 }
 
-pub fn verify_flattening(config: &PhotaraConfig, project: &str) -> Result<FlatteningVerification> {
+pub fn verify_flattening(
+    config: &PhotaraConfig,
+    project: &str,
+    reporter: MasterProgressReporter<'_>,
+) -> Result<FlatteningVerification> {
     let manifest = load_flattening_manifest(config, project)?;
     let handoff_report = manifest.project_root.join(FLATTENING_HANDOFF_REPORT_NAME);
     let internal_report = manifest
@@ -887,7 +1092,15 @@ pub fn verify_flattening(config: &PhotaraConfig, project: &str) -> Result<Flatte
         ));
     }
     let mut verified = Vec::with_capacity(manifest.items.len());
-    for item in &manifest.items {
+    let total = manifest.items.len();
+    for (index, item) in manifest.items.iter().enumerate() {
+        report_progress(
+            reporter,
+            "Verifying flattened masters",
+            index + 1,
+            total,
+            &item.psb_filename,
+        );
         let evidence = report
             .items
             .iter()
@@ -1017,10 +1230,23 @@ pub async fn register_flattening(
     config: &PhotaraConfig,
     project: &ProjectRecord,
     confirmed: bool,
+    reporter: MasterProgressReporter<'_>,
 ) -> Result<FlatteningRegistration> {
-    let verification = verify_flattening(config, &project.slug)?;
+    let verification = verify_flattening(config, &project.slug, reporter)?;
+    let total = verification.items.len();
     let mut items = Vec::with_capacity(verification.items.len());
-    for verified in verification.items {
+    for (index, verified) in verification.items.into_iter().enumerate() {
+        report_progress(
+            reporter,
+            "Registering flattened masters",
+            index + 1,
+            total,
+            verified
+                .psb_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy(),
+        );
         let hdr_location = flattened_logical_location(project, &verified.hdr.tiff_path)?;
         let sdr_location = flattened_logical_location(project, &verified.sdr.tiff_path)?;
         let hdr_action = rendition_action(
@@ -1395,12 +1621,15 @@ async fn checkpoint_plan(
     project: &ProjectRecord,
     ready: bool,
     record: bool,
+    asset_reference: Option<&str>,
+    reporter: MasterProgressReporter<'_>,
 ) -> Result<MasterCheckpoint> {
     let rows = sqlx::query(
         "SELECT file.id, file.asset_id, file.location, file.sha256, file.byte_size, \
-                document.workflow_state \
+                document.workflow_state, asset.original_filename, asset.original_stem \
          FROM layered_master_documents AS document \
          JOIN asset_files AS file ON file.id = document.asset_file_id \
+         JOIN assets AS asset ON asset.id = file.asset_id \
          WHERE document.project_id = $1 AND file.representation = 'layered-psb' \
            AND file.authoritative AND file.state = 'current' \
          ORDER BY file.location",
@@ -1425,9 +1654,33 @@ async fn checkpoint_plan(
         "checkpointed"
     };
     let mut items = Vec::with_capacity(rows.len());
+    let requested = asset_reference.map(|value| value.to_ascii_lowercase());
+    let total = if requested.is_some() { 1 } else { rows.len() };
+    let mut current = 0;
     for row in rows {
         let file_id: Uuid = row.try_get("id")?;
         let asset_id: Uuid = row.try_get("asset_id")?;
+        let original_filename: String = row.try_get("original_filename")?;
+        let original_stem: String = row.try_get("original_stem")?;
+        if let Some(requested) = requested.as_deref()
+            && requested != asset_id.to_string().to_ascii_lowercase()
+            && requested != original_filename.to_ascii_lowercase()
+            && requested != original_stem.to_ascii_lowercase()
+        {
+            continue;
+        }
+        current += 1;
+        report_progress(
+            reporter,
+            if ready {
+                "Checking masters for flattening"
+            } else {
+                "Checkpointing layered masters"
+            },
+            current,
+            total,
+            &original_filename,
+        );
         let location: String = row.try_get("location")?;
         let previous_hash: Option<String> = row.try_get("sha256")?;
         let previous_size: Option<i64> = row.try_get("byte_size")?;
@@ -1505,6 +1758,20 @@ async fn checkpoint_plan(
             changed,
         });
     }
+    if items.is_empty() {
+        return Err(PhotaraError::Configuration(format!(
+            "project {:?} has no promoted layered master matching {:?}",
+            project.slug,
+            asset_reference.unwrap_or_default()
+        )));
+    }
+    report_progress(
+        reporter,
+        "Master checkpoint complete",
+        items.len(),
+        items.len(),
+        &project.slug,
+    );
     Ok(MasterCheckpoint {
         schema_version: 1,
         project: project.slug.clone(),
@@ -1887,9 +2154,52 @@ fn resolve_source_key(images_root: &Path, source_key: &str) -> Result<PathBuf> {
     Ok(images_root.join(relative))
 }
 
+fn source_key_relative_path(source_key: &str) -> Result<String> {
+    let relative = source_key.strip_prefix("images:").ok_or_else(|| {
+        PhotaraError::Configuration(format!("unsupported source key {source_key:?}"))
+    })?;
+    if relative.is_empty()
+        || Path::new(relative).is_absolute()
+        || Path::new(relative)
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_)))
+    {
+        return Err(PhotaraError::Configuration(format!(
+            "unsafe source key {source_key:?}"
+        )));
+    }
+    Ok(relative.replace('\\', "/"))
+}
+
 fn create_directory(path: &Path) -> Result<()> {
     fs::create_dir_all(path)
         .map_err(|source| PhotaraError::filesystem("create master staging directory", path, source))
+}
+
+fn master_scripts_root(lightroom_inbox: &Path) -> Result<PathBuf> {
+    let parent = lightroom_inbox.parent().ok_or_else(|| {
+        PhotaraError::Configuration(
+            "lightroom_inbox must have a parent directory for Photoshop scripts".into(),
+        )
+    })?;
+    let scripts = parent.join("Scripts");
+    create_directory(&scripts)?;
+    Ok(scripts)
+}
+
+fn remove_matching_legacy_script(path: &Path, expected: &[u8]) -> Result<()> {
+    match fs::read(path) {
+        Ok(existing) if existing == expected => fs::remove_file(path).map_err(|source| {
+            PhotaraError::filesystem("remove legacy master script", path, source)
+        }),
+        Ok(_) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(source) => Err(PhotaraError::filesystem(
+            "read legacy master script",
+            path,
+            source,
+        )),
+    }
 }
 
 fn write_json_atomic(path: PathBuf, value: &impl Serialize) -> Result<()> {
@@ -2117,6 +2427,43 @@ mod tests {
             PathBuf::from("/Pictures/Images/2021/06/a.ARW")
         );
         assert!(resolve_source_key(Path::new("/Pictures/Images"), "images:../a.ARW").is_err());
+    }
+
+    #[test]
+    fn source_keys_expose_portable_catalog_paths() {
+        assert_eq!(
+            source_key_relative_path("images:2026/2026-07/2026-07-23/_SUH5024.ARW").unwrap(),
+            "2026/2026-07/2026-07-23/_SUH5024.ARW"
+        );
+        assert!(source_key_relative_path("images:../_SUH5024.ARW").is_err());
+        assert!(source_key_relative_path("absolute:/tmp/_SUH5024.ARW").is_err());
+    }
+
+    #[test]
+    fn master_script_lives_beside_the_inbox() {
+        let directory = tempdir().unwrap();
+        let inbox = directory.path().join("Inbox");
+        fs::create_dir(&inbox).unwrap();
+
+        assert_eq!(
+            master_scripts_root(&inbox).unwrap(),
+            directory.path().join("Scripts")
+        );
+    }
+
+    #[test]
+    fn removes_only_a_matching_legacy_inbox_script() {
+        let directory = tempdir().unwrap();
+        let matching = directory.path().join("matching.psjs");
+        let different = directory.path().join("different.psjs");
+        fs::write(&matching, b"current script").unwrap();
+        fs::write(&different, b"operator changed script").unwrap();
+
+        remove_matching_legacy_script(&matching, b"current script").unwrap();
+        remove_matching_legacy_script(&different, b"current script").unwrap();
+
+        assert!(!matching.exists());
+        assert_eq!(fs::read(different).unwrap(), b"operator changed script");
     }
 
     #[test]

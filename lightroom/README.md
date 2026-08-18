@@ -85,6 +85,33 @@ Choose **Test One** for the first run. Photara records one canary DNG and leaves
 the batch resumable. Inspect that file, then run the same action again and
 choose **Prepare All** for the remaining items.
 
+## Layered master catalog import
+
+After `photara masters promote PROJECT --confirm` installs and registers the
+authoritative PSBs beside their camera RAWs, choose **Library > Plug-in Extras
+> Import Verified Layered Masters**. The action obtains a read-only plan from
+Photara, rechecks each current PSB against its registered size and SHA-256, and
+requires every exact camera original to exist in the open catalog.
+
+On confirmation, Lightroom imports each missing PSB in place through
+`LrCatalog:addPhoto`. Photara records membership in a read-only custom plug-in
+field that lives only in the Lightroom catalog, then creates Masters smart
+collections requiring both that project marker and native PSB file type. It
+does not add IPTC fields or keywords to layered files. Repeating the action
+reuses PSBs that are already imported.
+Stacking with the source RAW is optional photographer-controlled catalog
+organization and is not required or verified by Photara.
+
+For catalogs created by the earlier keyword-driven master import, select the
+project's imported PSBs and choose **Reconcile Layered Master Collections**.
+Photara moves their membership to its catalog-only field and rebuilds the
+corresponding `Masters > PSB` smart collections with both membership and PSB
+file-type guards; it does not change standard photo metadata or write files.
+Select the PSBs in the resulting smart collection and use **Metadata > Read
+Metadata From File** once to discard stale standard catalog metadata and clear
+Lightroom's up-arrow/conflict badges. Use **Edit Original** when opening an
+authoritative PSB in Photoshop.
+
 The committed `Config.lua` contains paths, not credentials. Other users can
 replace those paths with their own executable and environment loader.
 
@@ -97,9 +124,13 @@ It does not modify user titles, captions, ratings, flags, labels, unrelated
 keywords, or unrelated collections.
 
 Repeated runs update the same smart collections and converge on the same
-managed metadata. A regular collection occupying a required smart-collection
-name is treated as a conflict rather than replaced.
+managed RAW metadata. Layered-master `PSB` smart collections are the exception
+to keyword-based membership: they use Photara's searchable, read-only custom
+metadata field, which Lightroom stores only in its catalog and cannot write to
+XMP or the PSB.
 
-Lightroom's supported plug-in API does not expose Save Metadata to File. Use
-Lightroom's automatic XMP preference or invoke that command after the plugin
-finishes.
+Lightroom's supported plug-in API does not expose Save Metadata to File. For
+camera originals, use Lightroom's automatic XMP preference or invoke that
+command after the plugin finishes. Do not invoke it for imported layered PSBs:
+keep their Photara metadata catalog-only and let Photoshop be the sole writer
+to the master file, especially on SMB storage.

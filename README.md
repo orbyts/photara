@@ -8,17 +8,20 @@ publication bookkeeping.
 
 ## Status
 
-`v0.0.9` completes the Red Meridian layout, paired HDR/SDR export, generalized
-placement-authoring, manual-publication evidence, and exact-original
-Cloudinary backup checkpoint for Instagram and Threads. Work toward `v0.1.0`
-now focuses on proving the same reusable workflow with Sylvan plus broader
-recovery testing. Photara owns its schemas, SQL, repositories, and photography
-workflow; Storexa owns connection and transaction plumbing.
+`v0.1.0` proves the reusable Red Meridian and Sylvan workflows across paired
+HDR/SDR masters, generalized placement authoring, Instagram and Threads
+packages, manual-publication evidence, and exact-original Cloudinary backup.
+Further work begins with the `0.2.0` operator-experience and visual-authoring
+discovery described in the roadmap. Photara owns its schemas, SQL,
+repositories, and photography workflow; Storexa owns connection and
+transaction plumbing.
 
 See [ROADMAP.md](ROADMAP.md) for the path to the first supported release and
 [METADATA.md](METADATA.md) for the Lightroom metadata ownership contract.
 [LAYOUTS.md](LAYOUTS.md) records the evolving layout, HDR/SDR, WSP handoff, and
-publication-package design for `0.0.9`.
+publication-package design for `0.0.9`. Photographers should start with the
+[Sylvan end-to-end photographer guide](docs/PHOTOGRAPHER_GUIDE.md); this README
+is the lower-level technical reference.
 
 ## Configuration
 
@@ -445,9 +448,35 @@ DNG and layered PSB provenance in PostgreSQL, begins the PSB in `editing`
 state, and only then removes the redundant inbox PSB. DNG cleanup is a later,
 separately guarded operation.
 
+Use the Lightroom Classic **Import Verified Layered Masters** action to import
+those exact PSBs in place. Photara marks them through read-only plug-in metadata
+stored only in Lightroom's catalog and exposes them through smart collections
+that also require native PSB file type. It does not add IPTC or keywords to the
+layered files; Photoshop is the sole PSB writer. Existing catalogs made with
+the earlier keyword-driven master collections can run **Reconcile Layered
+Master Collections**, then **Metadata > Read Metadata From File** once, to
+clear catalog-versus-disk badges without losing membership. Open masters with
+**Edit Original**.
+
 During Photoshop raster work, checkpoint the authoritative layered documents
 whenever useful. When dodging, burning, Generative Fill, canvas extension, and
-other raster edits are complete, preview and confirm the transition to
+other 16-bit raster edits are complete, run the installed **Prepare Photara
+HDR-SDR Master.psjs** against the active PSB. It wraps the complete layer stack
+in one embedded `16-bit` Smart Object, makes an ordinary shared-source
+duplicate named `HDR` above `SDR`, converts the parent to 32-bit Display P3
+Linear without merging or rasterizing, and only then opens Camera Raw Filter on
+SDR for the operator to disable HDR and author the SDR appearance. SDR
+authoring therefore cannot gate the document contract. The script binds every
+operation to the starting document ID, validates the paired Smart Object
+structure, and does not save.
+
+Install or refresh all master-workflow scripts independently at any time:
+
+```console
+$ photara masters install-scripts
+```
+
+After inspecting and saving the result, preview and confirm the transition to
 flattening readiness:
 
 ```console
@@ -527,7 +556,8 @@ $ photara posts init red-meridian package-a --platform instagram
 $ photara posts add-full-frame red-meridian package-a \
     --platform instagram \
     --item hero \
-    --asset DSC05250_2021_06_11_SUHAIL.PSB
+    --asset DSC05250_2021_06_11_SUHAIL.PSB \
+    --fit crop
 $ photara posts resolve red-meridian package-a --platform instagram
 $ photara posts prepare-render red-meridian package-a --platform instagram
 ```
@@ -558,10 +588,50 @@ $ photara posts add-stacked-two red-meridian package-a \
     --bottom-crop-from-item panorama-05382
 ```
 
+Every ordinary placement has an explicit policy: `fill` covers its target with
+an automatic focal-point crop, `contain` fits the complete source inside it,
+and `crop` requests manual platform-specific authoring. Aspect mismatch does
+not choose the policy. New full-frame and four-grid items default to `crop`;
+pass `--fit` while adding them or use `posts set-fit` later for any item/slot.
+
+Add the four-image grid to both platform specifications. Instagram uses
+`grid-four@1` with 3:4 cells; Threads automatically uses
+`grid-four-threads@1` with 9:16 cells:
+
+```console
+$ photara posts add-grid-four sylvan package-a --platform instagram \
+    --item grid-01 \
+    --top-left DSC01234.ARW --top-right DSC01235.ARW \
+    --bottom-left DSC01236.ARW --bottom-right DSC01237.ARW \
+    --fit crop
+$ photara posts add-grid-four sylvan package-a --platform threads \
+    --item grid-01 \
+    --top-left DSC01234.ARW --top-right DSC01235.ARW \
+    --bottom-left DSC01236.ARW --bottom-right DSC01237.ARW
+$ photara posts prepare-authoring sylvan package-a \
+    --platform instagram --also-platform threads
+```
+
+Policies may differ within one layout:
+
+```console
+$ photara posts set-fit sylvan package-a --platform threads \
+    --item grid-01 --slot top-left --fit contain
+```
+
+Run **Author Photara Placement** and **Capture Photara Placement** once. The
+ordered contexts identify their platform. Applying through the primary command
+validates both pinned specifications and stores independent 3:4 Instagram and
+9:16 Threads transforms:
+
+```console
+$ photara posts apply-authoring sylvan package-a --platform instagram
+```
+
 Reorder a draft only by supplying an exact permutation of every item ID.
-Photara rejects duplicates, omissions, and unknown IDs. A production Instagram
-render manifest is rejected unless the ordered items expand to exactly 20
-delivery frames after continuous panoramas are counted:
+Photara rejects duplicates, omissions, and unknown IDs. An Instagram render
+manifest may expand to any positive number of delivery frames up to the
+platform maximum of 20 after continuous panoramas are counted:
 
 ```console
 $ photara posts reorder red-meridian package-a --platform instagram \
@@ -672,6 +742,9 @@ order, derivatives, and thumbnails are deliberately outside this contract.
 Stage only the final JPEG originals under
 `workspace/exports/<platform>/<package>/` in the project. Photara rejects a
 missing, extra, duplicate, renamed-to-an-unknown-item, or changed source.
+Publication-order prefixes such as `01_hero.jpg` are retained in backup
+evidence on both platforms; Instagram requires them and Threads accepts them
+while remaining compatible with legacy unnumbered exports.
 
 Authenticate once by supplying the Cloudinary API key and secret through the
 environment. Photara verifies the account, then stores the cloud name, key, and

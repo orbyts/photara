@@ -13,6 +13,13 @@ local LrView = import "LrView"
 
 local bind = LrView.bind
 local M = {}
+local PLUGIN_ID = "com.orbyts.photara"
+local MASTER_PROJECT_FIELD = "masterProjectSlug"
+local MASTER_PROJECT_CRITERION = "sdktext:" .. PLUGIN_ID .. "." .. MASTER_PROJECT_FIELD
+
+local function masterProjectMarker(projectSlug)
+    return "photara-project:" .. tostring(projectSlug) .. ":"
+end
 
 local function shellQuote(value)
     return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
@@ -348,8 +355,8 @@ local function searchDescription(collection)
     return description
 end
 
-local function ensureSmartCollection(catalog, parent, collection)
-    local description = searchDescription(collection)
+local function ensureSmartCollection(catalog, parent, collection, description)
+    description = description or searchDescription(collection)
     local existing = childCollectionByName(parent, collection.name)
     if existing then
         if not existing:isSmartCollection() then
@@ -368,19 +375,135 @@ local function ensureSmartCollection(catalog, parent, collection)
     return created or childCollectionByName(parent, collection.name)
 end
 
-local function reconcileCollections(catalog, plan, progress)
+local function isPsbCollectionDefinition(collection)
+    if collection.name ~= "PSB" then return false end
+    for _, rule in ipairs(collection.rules or {}) do
+        if rule.field == "file-type" and string.lower(tostring(rule.value)) == "psb" then
+            return true
+        end
+    end
+    return false
+end
+
+local function reconcileCollections(catalog, plan, progress, options)
+    options = options or {}
     for index, tree in ipairs(plan.collection_trees or {}) do
         local parent = ensureSetPath(catalog, nil, tree.path)
         for _, collection in ipairs(tree.smart_collections or {}) do
-            local collectionParent = ensureSetPath(
-                catalog,
-                parent,
-                collection.collection_set_path or {}
-            )
-            ensureSmartCollection(catalog, collectionParent, collection)
+            if not (options.skipPsb and isPsbCollectionDefinition(collection)) then
+                local collectionParent = ensureSetPath(
+                    catalog,
+                    parent,
+                    collection.collection_set_path or {}
+                )
+                ensureSmartCollection(catalog, collectionParent, collection)
+            end
         end
         progress:setCaption("Collection tree " .. tostring(index) .. "/" .. tostring(#plan.collection_trees))
         progress:setPortionComplete(index, #plan.collection_trees)
+        LrTasks.yield()
+    end
+end
+
+local function masterSearchDescription(projectSlug)
+    return {
+        combine = "intersect",
+        {
+            criteria = MASTER_PROJECT_CRITERION,
+            operation = "any",
+            value = masterProjectMarker(projectSlug),
+        },
+        {
+            criteria = "fileFormat",
+            operation = "==",
+            value = "PSB",
+        },
+    }
+end
+
+local function reconcileMasterMembership(catalog, projectSlug, photos, progress)
+    local desired = {}
+    for _, photo in ipairs(photos) do desired[photo.localIdentifier] = true end
+
+    progress:setIndeterminate(true)
+    progress:setCaption("Loading existing Photara master membership")
+    LrTasks.yield()
+    local currentlyMarked = catalog:findPhotosWithProperty(
+        PLUGIN_ID,
+        MASTER_PROJECT_FIELD
+    ) or {}
+
+    progress:setCaption("Recording catalog-only master membership")
+    LrTasks.yield()
+    local marker = masterProjectMarker(projectSlug)
+    local result = catalog:withPrivateWriteAccessDo(function()
+        for _, photo in ipairs(currentlyMarked) do
+            local current = photo:getPropertyForPlugin(PLUGIN_ID, MASTER_PROJECT_FIELD)
+            if (current == marker or current == projectSlug) and
+                not desired[photo.localIdentifier] then
+                photo:setPropertyForPlugin(_PLUGIN, MASTER_PROJECT_FIELD, nil)
+            end
+        end
+        for _, photo in ipairs(photos) do
+            photo:setPropertyForPlugin(_PLUGIN, MASTER_PROJECT_FIELD, marker)
+        end
+    end, { timeout = 10 })
+    if result ~= "executed" then
+        error(
+            "Lightroom could not obtain catalog access within 10 seconds. " ..
+            "Wait for other Lightroom tasks to finish, then try again."
+        )
+    end
+    LrTasks.yield()
+end
+
+local function ensureMasterSmartCollection(catalog, parent, collection, projectSlug)
+    local existing = childCollectionByName(parent, collection.name)
+    if existing and not existing:isSmartCollection() then
+        catalog:withWriteAccessDo(
+            "Photara: replace legacy regular " .. collection.name .. " collection",
+            function() existing:delete() end
+        )
+        LrTasks.yield()
+    end
+    return ensureSmartCollection(
+        catalog,
+        parent,
+        collection,
+        masterSearchDescription(projectSlug)
+    )
+end
+
+local function reconcileMasterCollections(catalog, plan, projectSlug, progress)
+    local definitions = {}
+    for _, tree in ipairs(plan.collection_trees or {}) do
+        for _, collection in ipairs(tree.smart_collections or {}) do
+            if isPsbCollectionDefinition(collection) then
+                table.insert(definitions, { tree = tree, collection = collection })
+            end
+        end
+    end
+    if #definitions == 0 then
+        error("Photara's metadata plan does not define a Masters > PSB collection")
+    end
+
+    for index, definition in ipairs(definitions) do
+        local parent = ensureSetPath(catalog, nil, definition.tree.path)
+        local collectionParent = ensureSetPath(
+            catalog,
+            parent,
+            definition.collection.collection_set_path or {}
+        )
+        ensureMasterSmartCollection(
+            catalog,
+            collectionParent,
+            definition.collection,
+            projectSlug
+        )
+        progress:setCaption(
+            "Master collection " .. tostring(index) .. "/" .. tostring(#definitions)
+        )
+        progress:setPortionComplete(index, #definitions)
         LrTasks.yield()
     end
 end
@@ -452,6 +575,187 @@ function M.applyProjectToSelection()
         "Photara",
         "Applied " .. plan.project.display_name .. " to " .. tostring(#photos) .. " photo(s).\n\n" ..
         "To persist metadata beside proprietary RAW files, enable Automatically Write Changes Into XMP or use Metadata > Save Metadata to File.",
+        "info"
+    )
+end
+
+local function normalizedArchiveKey(path)
+    local relative = archiveRelativePath(path)
+    return relative and string.lower(relative) or nil
+end
+
+function M.importVerifiedLayeredMasters()
+    local catalog = LrApplication.activeCatalog()
+    local context = runPhotara("plugin context --format lua")
+    local projectSlug = chooseProject(context, nil)
+    if not projectSlug then return end
+
+    local progress = LrProgressScope({ title = "Plan Photara master import" })
+    progress:setIndeterminate(true)
+    local plan = runPhotara(
+        "masters catalog-plan " .. shellQuote(projectSlug) .. " --format lua"
+    )
+    local metadataPlan = runPhotara(
+        "metadata plan " .. shellQuote(projectSlug) .. " --format lua"
+    )
+    progress:done()
+
+    local catalogByRelativePath = {}
+    for _, photo in ipairs(catalog:getAllPhotos() or {}) do
+        if not photo:getRawMetadata("isVirtualCopy") then
+            local key = normalizedArchiveKey(photo:getRawMetadata("path"))
+            if key then
+                if catalogByRelativePath[key] then
+                    error("The Lightroom catalog contains duplicate files at archive path " .. key)
+                end
+                catalogByRelativePath[key] = photo
+            end
+        end
+    end
+
+    local bindings = {}
+    local pendingCount = 0
+    local existingCount = 0
+    for _, item in ipairs(plan.items or {}) do
+        local rawKey = string.lower(tostring(item.camera_raw_relative_path))
+        local psbKey = string.lower(tostring(item.psb_relative_path))
+        local original = catalogByRelativePath[rawKey]
+        if not original then
+            error(
+                "The verified master import is missing its camera original in this catalog: " ..
+                tostring(item.original_filename)
+            )
+        end
+        local existing = catalogByRelativePath[psbKey]
+        if existing then existingCount = existingCount + 1
+        else pendingCount = pendingCount + 1 end
+        table.insert(bindings, { item = item, original = original, photo = existing })
+    end
+
+    local message = table.concat({
+        "Project: " .. tostring(plan.display_name),
+        "Verified layered PSBs: " .. tostring(plan.item_count),
+        "New catalog imports: " .. tostring(pendingCount),
+        "Already imported: " .. tostring(existingCount),
+        "",
+        "Photara will add each new authoritative PSB without moving it and place the exact verified set in read-only Masters > PSB smart collections. Membership uses Photara's catalog-only plug-in field plus native PSB file type; it will not write keywords or IPTC metadata into the layered files. Stacking is optional and remains photographer-controlled.",
+    }, "\n")
+    if LrDialogs.confirm("Import verified layered masters?", message, "Import", "Cancel") ~= "ok" then
+        return
+    end
+
+    progress = LrProgressScope({ title = "Import verified layered masters" })
+    if pendingCount > 0 then
+        catalog:withWriteAccessDo("Photara: import layered masters", function()
+            local imported = 0
+            for _, binding in ipairs(bindings) do
+                if not binding.photo then
+                    local photo = catalog:addPhoto(binding.item.psb_path)
+                    if not photo then
+                        error("Lightroom did not import " .. tostring(binding.item.psb_filename))
+                    end
+                    binding.photo = photo
+                    imported = imported + 1
+                    progress:setCaption(
+                        "Importing master " .. tostring(imported) .. "/" .. tostring(pendingCount)
+                    )
+                    progress:setPortionComplete(imported, pendingCount)
+                end
+            end
+        end)
+        LrTasks.yield()
+    end
+
+    local photos = {}
+    for _, binding in ipairs(bindings) do
+        if not binding.photo then
+            progress:done()
+            error("A layered master import did not return a Lightroom photo")
+        end
+        local format = string.upper(tostring(binding.photo:getRawMetadata("fileFormat") or ""))
+        if format ~= "PSB" then
+            progress:done()
+            error(
+                "Lightroom imported " .. tostring(binding.item.psb_filename) ..
+                " with unexpected native file type " .. tostring(format)
+            )
+        end
+        table.insert(photos, binding.photo)
+    end
+
+    reconcileMasterMembership(catalog, projectSlug, photos, progress)
+    reconcileCollections(catalog, metadataPlan, progress, { skipPsb = true })
+    reconcileMasterCollections(catalog, metadataPlan, projectSlug, progress)
+    progress:done()
+
+    LrDialogs.message(
+        "Photara",
+        "Imported " .. tostring(pendingCount) .. " new layered master(s); " ..
+        tostring(existingCount) .. " were already imported.\n\n" ..
+        "Each PSB remains beside its camera RAW and now appears in the " ..
+        tostring(plan.display_name) .. " read-only Masters > PSB smart collections.\n\n" ..
+        "Photara did not modify PSB metadata. Do not use Save Metadata to File " ..
+        "for layered masters; open them in Photoshop with Edit Original.",
+        "info"
+    )
+end
+
+function M.reconcileSelectedLayeredMasterCollections()
+    local catalog = LrApplication.activeCatalog()
+    local photos = catalog:getTargetPhotos() or {}
+    if #photos == 0 then
+        LrDialogs.message("Photara", "Select the project's imported PSBs first.", "warning")
+        return
+    end
+    for _, photo in ipairs(photos) do
+        if photo:getRawMetadata("isVirtualCopy") or
+            string.upper(tostring(photo:getRawMetadata("fileFormat") or "")) ~= "PSB" then
+            LrDialogs.message(
+                "Photara",
+                "The selection must contain only non-virtual PSB files.",
+                "warning"
+            )
+            return
+        end
+    end
+
+    local context = runPhotara("plugin context --format lua")
+    local projectSlug = chooseProject(context, #photos)
+    if not projectSlug then return end
+    local metadataPlan = runPhotara(
+        "metadata plan " .. shellQuote(projectSlug) .. " --format lua"
+    )
+    local message = table.concat({
+        "Project: " .. tostring(metadataPlan.project.display_name),
+        "Selected layered PSBs: " .. tostring(#photos),
+        "",
+        "Photara will record this exact selection in its read-only, catalog-only master field and rebuild the project's Masters > PSB smart collections with both project membership and native PSB file-type guards. It will not change standard photo metadata or write any files.",
+    }, "\n")
+    if LrDialogs.confirm(
+        "Reconcile layered master collections?",
+        message,
+        "Reconcile",
+        "Cancel"
+    ) ~= "ok" then
+        return
+    end
+
+    local progress = LrProgressScope({ title = "Reconcile layered master collections" })
+    local ok, errorMessage = LrTasks.pcall(function()
+        reconcileMasterMembership(catalog, projectSlug, photos, progress)
+        if progress:isCanceled() then error("Canceled by operator") end
+        reconcileCollections(catalog, metadataPlan, progress, { skipPsb = true })
+        if progress:isCanceled() then error("Canceled by operator") end
+        reconcileMasterCollections(catalog, metadataPlan, projectSlug, progress)
+    end)
+    progress:done()
+    if not ok then error(errorMessage, 0) end
+    LrDialogs.message(
+        "Photara",
+        "The exact selected PSBs are now held by read-only Masters > PSB smart collections " ..
+        "using catalog-only Photara membership. You may select them there and use " ..
+        "Metadata > Read Metadata From File once " ..
+        "to clear old catalog-versus-disk metadata conflicts.",
         "info"
     )
 end

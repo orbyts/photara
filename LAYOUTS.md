@@ -41,7 +41,8 @@ does not depend on WSP internals.
 ## Layout vocabulary
 
 - **Template**: reusable, versioned geometry and styling such as `full-frame`,
-  `stacked-two`, `dynamic-range-comparison`, or `edit-comparison`.
+  `stacked-two`, `grid-four`, `dynamic-range-comparison`, or
+  `edit-comparison`.
 - **Placement**: one use of an asset rendition inside a template. One asset may
   have any number of placements, including repeated placements in one post.
 - **Editorial item**: one authored composition. It may produce one delivery
@@ -78,6 +79,10 @@ $DROPBOX/Pictures/Photara/Templates/
     │   └── v1.json
     ├── stacked-two/
     │   └── v1.json
+    ├── grid-four/
+    │   └── v1.json
+    ├── grid-four-threads/
+    │   └── v1.json
     └── dynamic-range-comparison/
         ├── v1.json
         ├── v1/
@@ -113,6 +118,26 @@ or cache path.
 Updating the default affects future draft resolution only. It must never alter
 an existing rendered or published post. A post item may explicitly override a
 global default when a particular design version is desired.
+
+## Four-image 3:4 grid family
+
+`grid-four@1` is the Instagram 2×2 grid. Its 4500×6000 canvas divides into four
+exact, gapless 2250×3000 cells named `top-left`, `top-right`, `bottom-left`, and
+`bottom-right`.
+
+`grid-four-threads@1` divides the complete 4500×8000 Threads canvas into four
+exact, gapless 2250×4000 cells. Each cell is 9:16. The two immutable templates
+are separate because the target crop belongs to the platform composition.
+
+The layered PSB and flattened TIFF pair may use any final authored aspect. Each
+cell has the same explicit `fill`, `contain`, or `crop` policy as every other
+ordinary placement. A dual-platform authoring session opens only unresolved
+`crop` contexts from both ordered platform sets and pins both post files, but
+never copies one platform's transform into the other.
+
+Platform-specific posts always own their own transforms. Full-frame, grid,
+stacked, comparison, panorama, and rotated placements remain independently
+authored even when one Photoshop session prepares both platforms.
 
 Project-owned post specifications live beneath the configured project root,
 for example:
@@ -195,11 +220,19 @@ Photara prefers but does not require:
 - 2:3 for landscape compositions, because two stacked 2:3 images occupy a 3:4
   frame.
 
-Every placement supports an explicit fit policy, focal point or normalized
-crop rectangle, scale, translation, optional rotation, and optional
-platform-specific override. Sources are never blindly stretched. A source may
-retain its natural aspect ratio when cropping or generative expansion would
-harm the image.
+Every ordinary placement—including full-frame, stacked, grid, comparison, and
+future platform placements—supports one explicit fit policy:
+
+- `fill`: preserve source aspect, scale to cover the target, and crop
+  automatically around the focal point;
+- `contain`: preserve source aspect and fit the complete image inside the
+  target, leaving letterbox or pillarbox area; or
+- `crop`: require an operator-authored crop in that platform's target aspect.
+
+Aspect mismatch never implies authoring by itself. Only unresolved `crop`
+placements enter generalized authoring. A captured transform is independent
+per platform. Sources are never stretched. Continuous panoramas retain their
+specialized crop and seam contract.
 
 ### Continuous multi-frame compositions
 
@@ -599,6 +632,16 @@ and source assets, but each resolves its own template versions, crops,
 transforms, frame topology, immutable snapshots, and delivery evidence.
 Platform differences should be explicit rather than conditional surprises
 hidden inside one post.
+
+### Sylvan `0.1.0` proof
+
+Sylvan proved the generalized contract with 10 Instagram frames and 14 Threads
+frames, including three four-image grids on each platform. Its flattened
+masters, authored crops, and automatic fits remained platform-independent
+inputs while Instagram and Threads retained separate post-owned transforms.
+The final project specifications were reordered to match the photographer's
+numbered publication files before Cloudinary and publication evidence were
+recorded. Those numbered filenames are the authoritative live sequence.
 
 ## Implementation invariants
 

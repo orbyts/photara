@@ -184,12 +184,27 @@ async function buildRole(projectRoot, item, role) {
         if (placement.source_crop) {
           await applySourceCrop(source, placement.source_crop);
         }
-        await fitFill(
-          source,
-          placement.bounds.width,
-          placement.bounds.height,
-          placement.focal_point
-        );
+        let destination = placement.bounds;
+        if (placement.fit === "contain") {
+          const fitted = await fitContain(
+            source,
+            placement.bounds.width,
+            placement.bounds.height
+          );
+          destination = {
+            x: placement.bounds.x + Math.round((placement.bounds.width - fitted.width) / 2),
+            y: placement.bounds.y + Math.round((placement.bounds.height - fitted.height) / 2),
+            width: fitted.width,
+            height: fitted.height,
+          };
+        } else {
+          await fitFill(
+            source,
+            placement.bounds.width,
+            placement.bounds.height,
+            placement.focal_point
+          );
+        }
         let sourceLayer = source.layers[0];
         if (sourceLayer.isBackgroundLayer) {
           const normalLayer = await sourceLayer.duplicate();
@@ -205,11 +220,11 @@ async function buildRole(projectRoot, item, role) {
             item.canvas_height,
             constants.AnchorPosition.TOPLEFT
           );
-          await placeLayer(firstLayer, placement.bounds);
+          await placeLayer(firstLayer, destination);
         } else {
           const placedLayer = await sourceLayer.duplicate(composite);
           placedLayer.name = placement.slot;
-          await placeLayer(placedLayer, placement.bounds);
+          await placeLayer(placedLayer, destination);
         }
         await source.closeWithoutSaving();
         source = null;

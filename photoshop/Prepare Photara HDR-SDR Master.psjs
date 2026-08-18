@@ -1,0 +1,196 @@
+const { app, action, constants, core } = require("photoshop");
+
+function bitDepth(document) {
+  if (document.bitsPerChannel === constants.BitsPerChannelType.THIRTYTWO) return 32;
+  if (document.bitsPerChannel === constants.BitsPerChannelType.SIXTEEN) return 16;
+  if (document.bitsPerChannel === constants.BitsPerChannelType.EIGHT) return 8;
+  return null;
+}
+
+function isP3Pq(profile) {
+  const value = String(profile || "").toLowerCase();
+  return value.includes("p3") && value.includes("pq");
+}
+
+function isDisplayP3Linear(profile) {
+  const value = String(profile || "").toLowerCase();
+  return value.includes("p3") && value.includes("linear");
+}
+
+function isPsb(document) {
+  return String(document.path || "").toLowerCase().endsWith(".psb");
+}
+
+function activateSessionDocument(session) {
+  const document = Array.from(app.documents).find((candidate) => candidate.id === session.id);
+  if (!document || document.path !== session.path) {
+    throw new Error(`The starting Photoshop document “${session.name}” is no longer open`);
+  }
+  app.activeDocument = document;
+  if (!app.activeDocument || app.activeDocument.id !== session.id) {
+    throw new Error(`Photoshop could not reactivate the starting document “${session.name}”`);
+  }
+  return document;
+}
+
+function validateStartingDocument(document) {
+  if (!isPsb(document)) throw new Error("Save the active document as a PSB before preparing it");
+  if (bitDepth(document) !== 16) {
+    throw new Error(`Expected the promoted 16-bit PSB, got ${bitDepth(document)} bits/channel`);
+  }
+  if (!isP3Pq(document.colorProfileName)) {
+    throw new Error(`Expected a P3 PQ profile, got ${document.colorProfileName}`);
+  }
+  if (document.layers.length < 1) throw new Error("The active PSB has no layers to preserve");
+  if (document.layers.length === 2 &&
+      document.layers[0].name === "HDR" && document.layers[1].name === "SDR") {
+    throw new Error("This PSB already has the final HDR-above-SDR structure");
+  }
+}
+
+function validateFinishedDocument(document) {
+  if (bitDepth(document) !== 32) throw new Error("The parent PSB did not become 32-bit");
+  if (!isDisplayP3Linear(document.colorProfileName)) {
+    throw new Error(`Expected Display P3 Linear, got ${document.colorProfileName}`);
+  }
+  if (document.layers.length !== 2) {
+    throw new Error(`Expected exactly two top-level layers, got ${document.layers.length}`);
+  }
+  const hdr = document.layers[0];
+  const sdr = document.layers[1];
+  if (hdr.name !== "HDR" || sdr.name !== "SDR") {
+    throw new Error(`Expected HDR above SDR, got ${hdr.name} above ${sdr.name}`);
+  }
+  if (hdr.kind !== constants.LayerKind.SMARTOBJECT ||
+      sdr.kind !== constants.LayerKind.SMARTOBJECT) {
+    throw new Error("HDR and SDR must both remain Smart Objects; undo and choose Do Not Rasterize");
+  }
+}
+
+function selectAllTopLevelLayers(document) {
+  const layers = Array.from(document.layers);
+  document.activeLayers = layers;
+  if (document.activeLayers.length !== layers.length) {
+    throw new Error(
+      `Photoshop selected ${document.activeLayers.length} of ${layers.length} top-level layers`
+    );
+  }
+}
+
+async function convertSelectionToSmartObject() {
+  const result = await action.batchPlay([{
+    _obj: "newPlacedLayer",
+    _options: { dialogOptions: "dontDisplay" },
+  }], {});
+  if (result[0] && result[0]._obj === "error") {
+    throw new Error(result[0].message || "Photoshop could not create the 16-bit Smart Object");
+  }
+}
+
+async function openCameraRawFilter() {
+  const result = await action.batchPlay([{
+    _obj: "Adobe Camera Raw Filter",
+    _options: { dialogOptions: "display" },
+  }], {});
+  if (result[0] && result[0]._obj === "error") {
+    throw new Error(result[0].message || "Camera Raw Filter did not complete");
+  }
+}
+
+async function convertParentTo32Bit(document) {
+  const result = await action.batchPlay([{
+    _obj: "convertMode",
+    depth: 32,
+    merge: false,
+    rasterize: false,
+    _options: { dialogOptions: "dontDisplay" },
+  }], {});
+  if (result[0] && result[0]._obj === "error") {
+    throw new Error(result[0].message || "Photoshop could not convert the parent PSB to 32-bit");
+  }
+  if (bitDepth(document) !== 32) throw new Error("Photoshop did not convert the parent PSB to 32-bit");
+}
+
+async function main() {
+  if (app.documents.length < 1) throw new Error("Open the promoted PSB you want to prepare");
+  const startingDocument = app.activeDocument;
+  validateStartingDocument(startingDocument);
+  const session = {
+    id: startingDocument.id,
+    path: startingDocument.path,
+    name: startingDocument.name,
+  };
+
+  await core.showAlert(
+    "Photara will wrap the complete 16-bit layer stack in one shared Smart Object, create HDR and SDR instances, then convert the parent PSB to 32-bit Display P3 Linear without merging or rasterizing.\n\n" +
+    "After that conversion is complete, Camera Raw Filter will open on SDR. " +
+    "In Camera Raw, turn HDR off, author the SDR rendition, and click OK. Saving remains under your control."
+  );
+
+  await core.executeAsModal(async () => {
+    const document = activateSessionDocument(session);
+    const marker = await document.createPixelLayer({ name: "16-bit" });
+    marker.name = "16-bit";
+    selectAllTopLevelLayers(document);
+    await convertSelectionToSmartObject();
+
+    const source = document.activeLayers[0];
+    if (!source || source.kind !== constants.LayerKind.SMARTOBJECT) {
+      throw new Error("Photoshop did not create the shared 16-bit Smart Object");
+    }
+    source.name = "16-bit";
+
+    // Layer.duplicate() is the ordinary Cmd+J operation. Both layers therefore
+    // continue to reference the same embedded 16-bit source document.
+    const hdr = await source.duplicate();
+    hdr.name = "HDR";
+    source.name = "SDR";
+    source.visible = true;
+    hdr.visible = true;
+    document.activeLayers = [source];
+  }, { commandName: "Create shared Photara HDR and SDR Smart Objects" });
+
+  await core.executeAsModal(async () => {
+    const document = activateSessionDocument(session);
+    await convertParentTo32Bit(document);
+    await document.convertProfile(
+      "Display P3",
+      constants.Intent.RELATIVECOLORIMETRIC,
+      true,
+      false
+    );
+    validateFinishedDocument(document);
+    document.activeLayers = [document.layers[1]];
+  }, { commandName: "Convert Photara master to 32-bit Display P3 Linear" });
+
+  await core.showAlert(
+    `“${session.name}” is now 32-bit Display P3 Linear.\n\n` +
+    "Camera Raw Filter will open on its SDR layer. Turn HDR off, author the SDR appearance, and click OK."
+  );
+  await core.executeAsModal(async () => {
+    const document = activateSessionDocument(session);
+    document.activeLayers = [document.layers[1]];
+    await openCameraRawFilter();
+  }, { commandName: "Author Photara SDR in Camera Raw" });
+
+  await core.executeAsModal(async () => {
+    const document = activateSessionDocument(session);
+    validateFinishedDocument(document);
+    document.activeLayers = [document.layers[0]];
+  }, { commandName: "Verify prepared Photara master" });
+
+  await core.showAlert(
+    "Photara master preparation is complete.\n\n" +
+    "Verified: HDR above SDR, two Smart Objects, 32-bit, Display P3 Linear.\n\n" +
+    "Inspect the SDR Smart Filter and both renditions, then save the PSB."
+  );
+}
+
+try {
+  await main();
+} catch (error) {
+  await core.showAlert(
+    `Photara master preparation stopped.\n\n${error && error.message ? error.message : String(error)}\n\n` +
+    "The PSB was not saved automatically. Inspect the starting PSB; save any completed conversion you want to keep, or use Undo to discard partial changes."
+  );
+}

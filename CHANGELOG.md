@@ -2,6 +2,70 @@
 
 All notable changes to Photara will be documented in this file.
 
+## 0.1.0 - 2026-08-17
+
+- Treat Instagram's current 20-frame delivery capability as a maximum rather
+  than a required package length. Accept positive packages from 1 through 20,
+  reject empty or oversized packages, and preserve Red Meridian's exact
+  20-frame expansion as a fixture-specific regression.
+- Preserve publication-order filename prefixes for both Instagram and Threads
+  Cloudinary backups while retaining compatibility with existing unnumbered
+  Threads exports.
+- Restrict placement authoring manifests to unresolved `crop` placements.
+  Automatic `fill` and `contain` slots are never presented or assigned an
+  authored crop; explicit `--reauthor` is scoped to a selected crop item.
+- Add interactive stderr progress for layered-master checkpointing,
+  flattening preparation/verification, and registration while preserving pure
+  structured stdout and remaining quiet in non-interactive execution.
+
+- Add immutable Instagram and Threads four-image grid templates. Instagram
+  resolves four exact 2250×3000 cells; Threads resolves four exact 2250×4000
+  cells. Generalize every ordinary placement to explicit `fill`, `contain`, or
+  operator-authored `crop`; aspect mismatch alone never requires authoring.
+  One dual-platform Photoshop session preserves independent 3:4 and 9:16
+  transforms under separate post fingerprints.
+
+- Add an installable **Prepare Photara HDR-SDR Master** Photoshop action. It
+  wraps the finished 16-bit stack in one embedded source, creates ordinary
+  shared Smart Object instances named HDR and SDR, opens Camera Raw Filter for
+  operator-authored SDR, and validates the final paired structure without
+  saving. Convert the parent to unmerged/unrasterized 32-bit Display P3 Linear
+  before SDR authoring, and bind every action to the starting document ID so a
+  tab change cannot redirect Camera Raw or later operations.
+- Add `photara masters install-scripts` so the master-build, HDR/SDR-preparation,
+  and paired-flattening scripts can be installed or refreshed without creating
+  a new master batch.
+- Add targeted `photara masters checkpoint --asset` recovery so one rebuilt or
+  deliberately revised layered PSB can refresh its database fingerprint
+  without accepting unrelated master changes.
+- Add a guarded Lightroom Classic **Import Verified Layered Masters** action
+  backed by a fingerprint-verifying Rust plan. It imports authoritative PSBs
+  in place, records exact membership in read-only Photara plug-in metadata that
+  exists only in the Lightroom catalog, and exposes it through smart
+  collections guarded by native PSB file type. It writes no IPTC or keywords
+  into layered files and reuses already imported files. Add a one-time
+  reconciliation action for catalogs that used the prior keyword-driven PSB
+  smart collections so Lightroom metadata conflicts can be cleared safely.
+  Use Lightroom's direct plug-in-property lookup, visible stage captions, and
+  a bounded catalog-write wait so reconciliation cannot remain as an opaque,
+  indefinitely queued task. RAW/PSB stacking remains optional
+  photographer-controlled catalog organization.
+- Install `Build Photara Masters.psjs` in the shared Photara Scripts folder,
+  remove only a byte-identical legacy Inbox copy, and make Photoshop master
+  reports name the active project plus the first failure so stale manifests
+  cannot masquerade as source-file errors.
+- Make a prepared master canary session process only the marked canary, even
+  when the Inbox already contains the complete DNG batch; an explicit prepare
+  without `--canary` advances Photoshop to the full batch.
+- Make project initialization tolerate network filesystems that reject file
+  synchronization with `ENOTSUP`, recover an exact legacy temporary project
+  manifest after interruption, and never promote mismatched temporary data.
+- Add a photographer-facing Sylvan runbook covering the complete current
+  workflow from an untagged Lightroom Classic import through registries,
+  managed collections, Pixieset selections, Photographer Final, Lightroom
+  Cloud, paired masters, Instagram and Threads layouts, WSP, Cloudinary exact-
+  original backup, publication evidence, checkpoints, and recovery.
+
 ## 0.0.9 - 2026-08-14
 
 - Generalize placement authoring around post schema v2 transforms with

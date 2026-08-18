@@ -4,9 +4,9 @@ Photara is the operational brain of a photography workflow. Storexa provides
 database infrastructure; Photara owns schemas, repositories, reconciliation,
 and every photography-specific decision.
 
-Only `0.1.0` is intended for the next crates.io publication. Versions `0.0.1`
-through `0.0.9` are Git checkpoints and may be combined when work lands
-together naturally.
+`0.1.0` is the first released reusable operator workflow. Versions `0.0.1`
+through `0.0.9` remain Git checkpoints. Architectural work begins only with a
+separate `0.2.0` discovery and dependency-mapping pass.
 
 ## Representation ownership invariants
 
@@ -177,9 +177,14 @@ the authoritative project-membership key.
 - Project verified master readiness into Lightroom/XMP while keeping the
   database and filesystem as the authoritative state.
 - Import only the exact authoritative PSBs through the Lightroom Classic SDK,
-  stack them with their camera originals, apply additive project membership,
-  and use Lightroom's native file type for master smart collections; do not
-  require a user to synchronize an entire filesystem folder.
+  mark them with read-only Photara plug-in metadata stored only in the catalog,
+  and expose the database-verified set through smart collections requiring both
+  exact project membership and native PSB file type. Do not require a user to
+  synchronize an entire filesystem folder or write Lightroom catalog metadata
+  into layered PSBs. Photoshop remains the sole PSB writer, and Lightroom opens
+  them with Edit Original. Stacking with camera originals is optional
+  photographer-controlled catalog organization and must not gate import or
+  master readiness.
 - Complete and verify all 12 current Red Meridian master chains with no
   permanent local DNGs; retain auditable evidence for the two withdrawn chains
   without incorrectly treating them as current masters.
@@ -263,7 +268,7 @@ project/post/platform/item provenance. Website derivatives, thumbnails,
 presentation order, and the Loomara contract remain deferred until the website
 is designed.
 
-### 0.1.0 — first complete reusable workflow
+### 0.1.0 — first complete reusable workflow (complete)
 
 `0.1.0` is the first supported technical and operator workflow, not merely a
 Red Meridian demo. Red Meridian is the regression fixture. A second project,
@@ -350,6 +355,15 @@ and writes one report; one Rust apply operation validates and persists all
 results atomically. A failure leaves the post unchanged and reports the exact
 placement that needs attention.
 
+A dual-platform authoring manifest may pin one secondary platform
+specification and carry a separate ordered placement set for it. Photoshop
+opens both platform context sets in one session. Apply validates both
+specification fingerprints and every source/aspect result, then writes each
+platform's independently authored transforms to its own project post. An
+interrupted second write is recoverable by replaying the same report;
+already-applied transforms are idempotent. No Instagram crop is copied into a
+Threads placement.
+
 #### Ordered implementation plan
 
 Each step begins only after the prior gate passes. Patches remain small enough
@@ -420,20 +434,60 @@ to test and review independently.
     backup object to its source file without assigning website order.
     **Gate:** both platform packages have durable Cloudinary and publication
     evidence connected to immutable snapshots. **Passed.**
-12. **Prove recovery and idempotency — repeat-run proof complete; broader
-    recovery remains.** Exercise interruption, retry, stale
+12. **Prove release-scope recovery and idempotency — complete.** Exercise
+    interruption, retry, stale
     manifests, repeated reconciliation, cleanup guards, and second-machine/NAS
     remount recovery. Temporary outputs are removed only after durable evidence.
     Repeated Red Meridian preparation reused both batch IDs; repeated upload
     created zero objects and reused all 20 Instagram plus 17 Threads assets.
     **Gate:** repeats create no duplicate assets, masters, snapshots, provider
     objects, or publications, and operator recovery steps are documented.
-13. **Close the release documentation.** Update `LAYOUTS.md`, `METADATA.md`,
-    photographer CLI guidance, operator reference, `CHANGELOG.md`, and the
-    handoff from the proven workflow.
-    **Gate:** Red Meridian completes end to end, Sylvan completes without code
-    changes, CI is green, the license review is recorded, and only then may
-    `0.1.0` be tagged or published.
+13. **Close the release documentation — complete.** The
+    photographer-facing Sylvan runbook now follows the complete current
+    workflow from an untagged Lightroom import through Pixieset, Photographer
+    Final, Cloud DNGs, paired masters, both social packages, WSP, Cloudinary,
+    and publication evidence. Reconcile `LAYOUTS.md`, `METADATA.md`, the
+    operator reference, `CHANGELOG.md`, and the handoff as Sylvan proves or
+    corrects each step.
+    **Gate:** Red Meridian completes end to end, Sylvan completes after the
+    discovered generic defects are fixed and the stabilized workflow is rerun,
+    and release checks are green. **Passed.**
+    Future licensing/productization review is explicit but does not block this
+    reusable personal/operator release.
+14. **Prove reusable four-image grids with Sylvan — complete.** Add immutable
+    `grid-four@1` Instagram geometry
+    with four exact 2250×3000 cells and `grid-four-threads@1` with four exact
+    2250×4000 cells. A flattened TIFF may have any authored aspect. Generalize
+    every ordinary placement—not only grid cells—to an explicit `fill`,
+    `contain`, or operator-authored `crop` policy. Aspect mismatch alone never
+    requires authoring; only unresolved `crop` placements do. Instagram and
+    Threads always retain independent transforms.
+    **Gate:** Sylvan prepares, captures, applies, renders, and reviews both
+    packages from one dual-platform crop session without altering either accepted Red
+    Meridian package. **Passed.** Additional real projects are optional
+    hardening unless they reveal an actual validation or recovery failure.
+15. **Generalize Instagram package length — complete.** Treat the platform's
+    current 20-frame carousel capability as a maximum, accept every positive
+    package length through that maximum, and keep Red Meridian's exact
+    20-frame expansion as fixture-specific regression evidence.
+16. **Stabilize the release candidate — complete.** Restrict placement
+    authoring to unresolved `crop` slots, add explicit item-scoped
+    `--reauthor`, expose interactive master-command progress on stderr without
+    contaminating structured stdout, and preserve publication-order prefixes
+    in delivery evidence.
+
+Sylvan completed the operator proof with 10 Instagram and 14 Threads frames.
+Both packages were rendered, reviewed, manually published, reordered in their
+project specifications to match the authoritative numbered publication files,
+backed up to Cloudinary, and downloaded for exact SHA-256 verification. Both
+manual publications have durable evidence tied to the final specification
+hashes. This closes the `0.1.0` release gate.
+
+Red Meridian remains a valid completed project and the authoritative regression
+fixture. After Sylvan proves the current catalog and layout behavior, run only
+non-destructive reconciliation and regression checks against Red Meridian.
+Do not add the new grid to, reorder, rerender, or republish either accepted
+package merely to adopt newer machinery.
 
 #### Red Meridian Threads package order
 
@@ -480,9 +534,24 @@ source placements in one parent canvas. Repeated assets are intentional.
 
 - Improve the existing CLI, Lightroom Classic adapter, Photoshop workflow, and
   progress/recovery experience based on the completed `0.1.0` workflow.
-- Add richer visual placement authoring and, if it proves useful, a persistent
-  Photoshop UXP surface that presents project context and the next applicable
+- Replace scattered Lightroom Classic menu commands with one Photara plug-in
+  UI that presents project context, progress, recovery, and the next applicable
   action.
+- Add richer visual placement authoring and a persistent Photara Photoshop UXP
+  panel. First generalize the proved scripts—including the shared 16-bit source
+  to HDR/SDR master-preparation action—behind that panel without changing their
+  validated workflow contracts.
+- Prototype a guided installer/onboarding experience that installs and verifies
+  both Adobe plug-ins, connects Lightroom Desktop/Cloud, locates or creates the
+  Lightroom archive, establishes Photara account/database access, and reports
+  every required permission and connection as an observable status. Decide
+  whether production data is Photara-managed or bring-your-own Neon before
+  exposing database setup to photographers.
+- Generate color-managed project thumbnails for the Photara UI and establish
+  an HDR-capable preview contract with a tested SDR fallback.
+- Keep Pixieset behind a provider adapter. Its currently documented supported
+  photographer workflows are the Lightroom Classic publish plug-in and
+  Favorites/CSV handoffs; do not depend on an undocumented private web API.
 - Reduce command and script ceremony without moving workflow policy out of
   Photara's shared application services.
 - Improve Adobe authorization, reliability, cancellation, retry reporting, and

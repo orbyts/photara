@@ -20,6 +20,8 @@ use crate::{
 const FULL_FRAME_V1: &str = include_str!("../templates/full-frame/v1.json");
 const STACKED_TWO_V1: &str = include_str!("../templates/stacked-two/v1.json");
 const STACKED_THREE_V1: &str = include_str!("../templates/stacked-three/v1.json");
+const GRID_FOUR_V1: &str = include_str!("../templates/grid-four/v1.json");
+const GRID_FOUR_THREADS_V1: &str = include_str!("../templates/grid-four-threads/v1.json");
 const CONTINUOUS_PANORAMA_V1: &str = include_str!("../templates/continuous-panorama/v1.json");
 const DYNAMIC_RANGE_COMPARISON_V1: &str =
     include_str!("../templates/dynamic-range-comparison/v1.json");
@@ -240,11 +242,15 @@ impl PostPlatform {
                 name: "instagram-portrait".into(),
                 width: 4500,
                 height: 6000,
+                minimum_delivery_frames: 1,
+                maximum_delivery_frames: Some(20),
             },
             Self::Threads => PlatformProfile {
                 name: "threads-portrait".into(),
                 width: 4500,
                 height: 8000,
+                minimum_delivery_frames: 1,
+                maximum_delivery_frames: None,
             },
         }
     }
@@ -300,6 +306,17 @@ pub struct AuthoringManifest {
     pub authoring_input_sha256: String,
     pub author_script: PathBuf,
     pub capture_script: PathBuf,
+    pub placements: Vec<AuthoringPlacement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secondary: Option<SecondaryAuthoring>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SecondaryAuthoring {
+    pub platform: PostPlatform,
+    pub source_specification: PathBuf,
+    pub source_specification_sha256: String,
+    pub authoring_input_sha256: String,
     pub placements: Vec<AuthoringPlacement>,
 }
 
@@ -406,6 +423,9 @@ pub struct PlatformProfile {
     pub name: String,
     pub width: u32,
     pub height: u32,
+    pub minimum_delivery_frames: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub maximum_delivery_frames: Option<u32>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -688,6 +708,8 @@ pub fn install_builtin_templates(root: &Path) -> Result<TemplateInstallReport> {
         ("full-frame@1", FULL_FRAME_V1),
         ("stacked-two@1", STACKED_TWO_V1),
         ("stacked-three@1", STACKED_THREE_V1),
+        ("grid-four@1", GRID_FOUR_V1),
+        ("grid-four-threads@1", GRID_FOUR_THREADS_V1),
         ("continuous-panorama@1", CONTINUOUS_PANORAMA_V1),
         ("dynamic-range-comparison@1", DYNAMIC_RANGE_COMPARISON_V1),
         ("dynamic-range-comparison@2", DYNAMIC_RANGE_COMPARISON_V2),
@@ -860,6 +882,7 @@ pub async fn add_full_frame(
     platform: PostPlatform,
     item_id: &str,
     asset_reference: &str,
+    fit: &str,
     template: Option<String>,
 ) -> Result<PostWriteReport> {
     validate_post_identity(project, post_name)?;
@@ -871,6 +894,7 @@ pub async fn add_full_frame(
             "asset reference must not be empty".into(),
         ));
     }
+    validate_requested_fit(fit)?;
     if let Some(value) = &template {
         let loaded = load_template(config, value)?;
         if loaded.template.kind != "full-frame" {
@@ -890,7 +914,7 @@ pub async fn add_full_frame(
             slot: "image".into(),
             asset_id: binding.asset_id,
             display_filename: binding.original_filename,
-            fit: "fill".into(),
+            fit: fit.into(),
             focal_point: FocalPoint { x: 0.5, y: 0.5 },
             crop: None,
             transform: None,
@@ -1079,6 +1103,100 @@ pub async fn add_stacked_three(
         post,
         changed,
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn add_grid_four(
+    database: &Database,
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    post_name: &str,
+    platform: PostPlatform,
+    item_id: &str,
+    top_left_reference: &str,
+    top_right_reference: &str,
+    bottom_left_reference: &str,
+    bottom_right_reference: &str,
+    fit: &str,
+    template: Option<String>,
+) -> Result<PostWriteReport> {
+    validate_post_identity(project, post_name)?;
+    validate_slug(item_id).map_err(|message| {
+        PhotaraError::Configuration(format!("invalid post item ID {item_id:?}: {message}"))
+    })?;
+    let template_reference = template.unwrap_or_else(|| match platform {
+        PostPlatform::Instagram => "grid-four@1".into(),
+        PostPlatform::Threads => "grid-four-threads@1".into(),
+    });
+    let loaded = load_template(config, &template_reference)?;
+    if loaded.template.kind != "grid-four" {
+        return Err(PhotaraError::Configuration(format!(
+            "template {template_reference:?} is not a four-image grid template"
+        )));
+    }
+    validate_requested_fit(fit)?;
+    let bindings = [
+        find_master(database, config, project, top_left_reference).await?,
+        find_master(database, config, project, top_right_reference).await?,
+        find_master(database, config, project, bottom_left_reference).await?,
+        find_master(database, config, project, bottom_right_reference).await?,
+    ];
+    let unique_assets: BTreeSet<_> = bindings.iter().map(|binding| binding.asset_id).collect();
+    if unique_assets.len() != 4 {
+        return Err(PhotaraError::Configuration(
+            "grid-four requires four different assets".into(),
+        ));
+    }
+    let slots = ["top-left", "top-right", "bottom-left", "bottom-right"];
+    let mut placements = Vec::with_capacity(4);
+    for (slot, binding) in slots.into_iter().zip(&bindings) {
+        placements.push(PostPlacement {
+            slot: slot.into(),
+            asset_id: binding.asset_id,
+            display_filename: binding.original_filename.clone(),
+            fit: fit.into(),
+            focal_point: FocalPoint { x: 0.5, y: 0.5 },
+            crop: None,
+            transform: None,
+        });
+    }
+    let item = PostItem {
+        id: item_id.into(),
+        template: Some(template_reference),
+        placements,
+    };
+    let path = post_path(config, &project.slug, post_name, platform)?;
+    let mut post = read_post(&path)?;
+    validate_post(&post, project, post_name, platform)?;
+    let changed = match post.items.iter().find(|existing| existing.id == item.id) {
+        Some(existing) if existing == &item => false,
+        Some(_) => {
+            return Err(PhotaraError::Configuration(format!(
+                "post item {item_id:?} already exists with different contents"
+            )));
+        }
+        None => {
+            post.items.push(item);
+            write_json_atomic(&path, &post)?;
+            true
+        }
+    };
+    Ok(PostWriteReport {
+        schema_version: post.schema_version,
+        path,
+        post,
+        changed,
+    })
+}
+
+fn validate_requested_fit(fit: &str) -> Result<()> {
+    if matches!(fit, "fill" | "contain" | "crop") {
+        Ok(())
+    } else {
+        Err(PhotaraError::Configuration(format!(
+            "unsupported placement fit {fit:?}; use fill, contain, or crop"
+        )))
+    }
 }
 
 fn reuse_item_crop(
@@ -1620,6 +1738,69 @@ pub fn set_item_transform(
     })
 }
 
+pub fn set_item_fit(
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    post_name: &str,
+    platform: PostPlatform,
+    item_id: &str,
+    slot: Option<&str>,
+    fit: &str,
+) -> Result<PostWriteReport> {
+    validate_requested_fit(fit)?;
+    let path = post_path(config, &project.slug, post_name, platform)?;
+    let mut post = read_post(&path)?;
+    validate_post(&post, project, post_name, platform)?;
+    let original_post = post.clone();
+    upgrade_post_to_v2(&mut post)?;
+    let item = post
+        .items
+        .iter_mut()
+        .find(|item| item.id == item_id)
+        .ok_or_else(|| {
+            PhotaraError::Configuration(format!("post item {item_id:?} was not found"))
+        })?;
+    let placement = if let Some(slot) = slot {
+        item.placements
+            .iter_mut()
+            .find(|placement| placement.slot == slot)
+            .ok_or_else(|| {
+                PhotaraError::Configuration(format!(
+                    "post item {item_id:?} has no placement in slot {slot:?}"
+                ))
+            })?
+    } else if item.placements.len() == 1 {
+        &mut item.placements[0]
+    } else {
+        return Err(PhotaraError::Configuration(format!(
+            "post item {item_id:?} has multiple placements; select a slot"
+        )));
+    };
+    if placement.fit != fit {
+        let rotation_quarter_turns_cw = placement
+            .transform
+            .unwrap_or_default()
+            .rotation_quarter_turns_cw;
+        placement.fit = fit.into();
+        placement.crop = None;
+        placement.transform = (rotation_quarter_turns_cw != 0).then_some(PlacementTransform {
+            crop: None,
+            rotation_quarter_turns_cw,
+        });
+    }
+    validate_post(&post, project, post_name, platform)?;
+    let changed = post != original_post;
+    if changed {
+        write_json_atomic(&path, &post)?;
+    }
+    Ok(PostWriteReport {
+        schema_version: post.schema_version,
+        path,
+        post,
+        changed,
+    })
+}
+
 fn upgrade_post_to_v2(post: &mut PostSpecification) -> Result<()> {
     let source_schema_version = post.schema_version;
     for item in &mut post.items {
@@ -1720,10 +1901,12 @@ pub async fn prepare_placement_authoring(
         platform,
         Some(item_id),
         slot,
+        false,
     )
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn prepare_authoring_session(
     database: &Database,
     config: &PhotaraConfig,
@@ -1732,17 +1915,91 @@ pub async fn prepare_authoring_session(
     platform: PostPlatform,
     item_filter: Option<&str>,
     slot_filter: Option<&str>,
+    reauthor: bool,
 ) -> Result<AuthoringManifest> {
     if slot_filter.is_some() && item_filter.is_none() {
         return Err(PhotaraError::Configuration(
             "an authoring slot filter requires an item filter".into(),
         ));
     }
-    let source_specification = post_path(config, &project.slug, post_name, platform)?;
-    let specification_text = fs::read_to_string(&source_specification).map_err(|source| {
-        PhotaraError::filesystem("read project post", &source_specification, source)
+    if reauthor && item_filter.is_none() {
+        return Err(PhotaraError::Configuration(
+            "reauthoring requires an explicit item filter".into(),
+        ));
+    }
+    let source = collect_authoring_source(
+        database,
+        config,
+        project,
+        post_name,
+        platform,
+        item_filter,
+        slot_filter,
+        reauthor,
+    )
+    .await?;
+    let source_specification = source.path;
+    let specification_text = source.text;
+    let placements = source.placements;
+    if placements.is_empty() {
+        return Err(PhotaraError::Configuration(match item_filter {
+            Some(item_id) => {
+                format!("post item {item_id:?} has no placement matching the authoring request")
+            }
+            None => "post has no unresolved crop placements".into(),
+        }));
+    }
+    let authoring_input_sha256 =
+        authoring_input_sha256(&project.slug, post_name, platform, &placements)?;
+    let scripts_root = scripts_root(config)?;
+    fs::create_dir_all(&scripts_root).map_err(|source| {
+        PhotaraError::filesystem("create Photoshop scripts directory", &scripts_root, source)
     })?;
-    let post: PostSpecification = parse_json(&source_specification, &specification_text)?;
+    let author_script = scripts_root.join(AUTHORING_SCRIPT_NAME);
+    let capture_script = scripts_root.join(AUTHORING_CAPTURE_SCRIPT_NAME);
+    write_atomic(&author_script, AUTHORING_SCRIPT.as_bytes())?;
+    write_atomic(&capture_script, AUTHORING_CAPTURE_SCRIPT.as_bytes())?;
+    let project_root = config.settings.projects_root.join(&project.slug);
+    let manifest = AuthoringManifest {
+        schema_version: 1,
+        session_id: Uuid::new_v4(),
+        project: project.slug.clone(),
+        post: post_name.into(),
+        platform,
+        project_root: project_root.clone(),
+        source_specification,
+        source_specification_sha256: sha256(specification_text.as_bytes()),
+        authoring_input_sha256,
+        author_script,
+        capture_script,
+        placements,
+        secondary: None,
+    };
+    write_json_atomic(&project_root.join(AUTHORING_MANIFEST_NAME), &manifest)?;
+    Ok(manifest)
+}
+
+struct CollectedAuthoringSource {
+    path: PathBuf,
+    text: String,
+    placements: Vec<AuthoringPlacement>,
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn collect_authoring_source(
+    database: &Database,
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    post_name: &str,
+    platform: PostPlatform,
+    item_filter: Option<&str>,
+    slot_filter: Option<&str>,
+    reauthor: bool,
+) -> Result<CollectedAuthoringSource> {
+    let path = post_path(config, &project.slug, post_name, platform)?;
+    let text = fs::read_to_string(&path)
+        .map_err(|source| PhotaraError::filesystem("read project post", &path, source))?;
+    let post: PostSpecification = parse_json(&path, &text)?;
     validate_post(&post, project, post_name, platform)?;
     let project_root = config.settings.projects_root.join(&project.slug);
     let mut placements = Vec::new();
@@ -1776,9 +2033,7 @@ pub async fn prepare_authoring_session(
             .filter(|placement| slot_filter.is_none_or(|filter| placement.slot == filter))
         {
             let transform = placement_transform(post.schema_version, placement)?;
-            if item_filter.is_none()
-                && !placement_requires_authoring(platform, &placement.fit, transform)
-            {
+            if !placement_enters_authoring(&placement.fit, transform, reauthor) {
                 continue;
             }
             let binding = find_master_by_id(database, config, project, placement.asset_id).await?;
@@ -1799,16 +2054,91 @@ pub async fn prepare_authoring_session(
             });
         }
     }
-    if placements.is_empty() {
+    Ok(CollectedAuthoringSource {
+        path,
+        text,
+        placements,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn prepare_dual_platform_authoring_session(
+    database: &Database,
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    post_name: &str,
+    platform: PostPlatform,
+    secondary_platform: Option<PostPlatform>,
+    item_filter: Option<&str>,
+    slot_filter: Option<&str>,
+    reauthor: bool,
+) -> Result<AuthoringManifest> {
+    let Some(secondary_platform) = secondary_platform else {
+        return prepare_authoring_session(
+            database,
+            config,
+            project,
+            post_name,
+            platform,
+            item_filter,
+            slot_filter,
+            reauthor,
+        )
+        .await;
+    };
+    if secondary_platform == platform {
+        return Err(PhotaraError::Configuration(
+            "secondary authoring platform must differ from the primary platform".into(),
+        ));
+    }
+    if slot_filter.is_some() && item_filter.is_none() {
+        return Err(PhotaraError::Configuration(
+            "an authoring slot filter requires an item filter".into(),
+        ));
+    }
+    if reauthor && item_filter.is_none() {
+        return Err(PhotaraError::Configuration(
+            "reauthoring requires an explicit item filter".into(),
+        ));
+    }
+    let primary = collect_authoring_source(
+        database,
+        config,
+        project,
+        post_name,
+        platform,
+        item_filter,
+        slot_filter,
+        reauthor,
+    )
+    .await?;
+    let secondary = collect_authoring_source(
+        database,
+        config,
+        project,
+        post_name,
+        secondary_platform,
+        item_filter,
+        slot_filter,
+        reauthor,
+    )
+    .await?;
+    if primary.placements.is_empty() && secondary.placements.is_empty() {
         return Err(PhotaraError::Configuration(match item_filter {
             Some(item_id) => {
-                format!("post item {item_id:?} has no placement matching the authoring request")
+                format!("post item {item_id:?} has no unresolved placement on either platform")
             }
-            None => "post has no unresolved crop placements".into(),
+            None => "neither platform has unresolved crop placements".into(),
         }));
     }
-    let authoring_input_sha256 =
-        authoring_input_sha256(&project.slug, post_name, platform, &placements)?;
+    let primary_input_sha256 =
+        authoring_input_sha256(&project.slug, post_name, platform, &primary.placements)?;
+    let secondary_input_sha256 = authoring_input_sha256(
+        &project.slug,
+        post_name,
+        secondary_platform,
+        &secondary.placements,
+    )?;
     let scripts_root = scripts_root(config)?;
     fs::create_dir_all(&scripts_root).map_err(|source| {
         PhotaraError::filesystem("create Photoshop scripts directory", &scripts_root, source)
@@ -1817,19 +2147,27 @@ pub async fn prepare_authoring_session(
     let capture_script = scripts_root.join(AUTHORING_CAPTURE_SCRIPT_NAME);
     write_atomic(&author_script, AUTHORING_SCRIPT.as_bytes())?;
     write_atomic(&capture_script, AUTHORING_CAPTURE_SCRIPT.as_bytes())?;
+    let project_root = config.settings.projects_root.join(&project.slug);
     let manifest = AuthoringManifest {
-        schema_version: 1,
+        schema_version: 2,
         session_id: Uuid::new_v4(),
         project: project.slug.clone(),
         post: post_name.into(),
         platform,
         project_root: project_root.clone(),
-        source_specification,
-        source_specification_sha256: sha256(specification_text.as_bytes()),
-        authoring_input_sha256,
+        source_specification: primary.path,
+        source_specification_sha256: sha256(primary.text.as_bytes()),
+        authoring_input_sha256: primary_input_sha256,
         author_script,
         capture_script,
-        placements,
+        placements: primary.placements,
+        secondary: Some(SecondaryAuthoring {
+            platform: secondary_platform,
+            source_specification: secondary.path,
+            source_specification_sha256: sha256(secondary.text.as_bytes()),
+            authoring_input_sha256: secondary_input_sha256,
+            placements: secondary.placements,
+        }),
     };
     write_json_atomic(&project_root.join(AUTHORING_MANIFEST_NAME), &manifest)?;
     Ok(manifest)
@@ -1973,6 +2311,238 @@ pub fn apply_placement_authoring(
         post: current_post,
         changed,
     })
+}
+
+pub fn apply_dual_platform_authoring(
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    post_name: &str,
+    platform: PostPlatform,
+) -> Result<PostWriteReport> {
+    let project_root = config.settings.projects_root.join(&project.slug);
+    let manifest: AuthoringManifest = read_json(&project_root.join(AUTHORING_MANIFEST_NAME))?;
+    let Some(secondary) = manifest.secondary.clone() else {
+        return apply_placement_authoring(config, project, post_name, platform);
+    };
+    let report: AuthoringReport = read_json(&project_root.join(AUTHORING_REPORT_NAME))?;
+    if manifest.schema_version != 2
+        || report.schema_version != 1
+        || manifest.session_id != report.session_id
+        || manifest.project != project.slug
+        || manifest.post != post_name
+        || manifest.platform != platform
+        || secondary.platform == platform
+        || report.project != manifest.project
+        || report.post != manifest.post
+        || report.platform != manifest.platform
+        || report.source_specification_sha256 != manifest.source_specification_sha256
+        || report.authoring_input_sha256 != manifest.authoring_input_sha256
+        || report.placements.len() != manifest.placements.len() + secondary.placements.len()
+    {
+        return Err(PhotaraError::Configuration(
+            "dual-platform authoring report does not match the prepared session".into(),
+        ));
+    }
+    if authoring_input_sha256(
+        &manifest.project,
+        &manifest.post,
+        manifest.platform,
+        &manifest.placements,
+    )? != manifest.authoring_input_sha256
+        || authoring_input_sha256(
+            &manifest.project,
+            &manifest.post,
+            secondary.platform,
+            &secondary.placements,
+        )? != secondary.authoring_input_sha256
+    {
+        return Err(PhotaraError::Configuration(
+            "dual-platform authoring manifest fingerprint is invalid".into(),
+        ));
+    }
+    let expected_secondary_path = post_path(config, &project.slug, post_name, secondary.platform)?;
+    if secondary.source_specification != expected_secondary_path {
+        return Err(PhotaraError::Configuration(
+            "secondary authoring specification path is invalid".into(),
+        ));
+    }
+    let (primary_results, secondary_results) =
+        report.placements.split_at(manifest.placements.len());
+    validate_authoring_result_group(&project_root, &manifest.placements, primary_results)?;
+    validate_authoring_result_group(&project_root, &secondary.placements, secondary_results)?;
+    validate_authoring_post_state(
+        config,
+        project,
+        post_name,
+        platform,
+        &manifest.source_specification_sha256,
+        primary_results,
+    )?;
+    validate_authoring_post_state(
+        config,
+        project,
+        post_name,
+        secondary.platform,
+        &secondary.source_specification_sha256,
+        secondary_results,
+    )?;
+
+    let (primary_path, primary_post, primary_changed) = apply_authoring_result_group(
+        config,
+        project,
+        post_name,
+        platform,
+        &manifest.source_specification_sha256,
+        primary_results,
+    )?;
+    let (_, _, secondary_changed) = apply_authoring_result_group(
+        config,
+        project,
+        post_name,
+        secondary.platform,
+        &secondary.source_specification_sha256,
+        secondary_results,
+    )?;
+    Ok(PostWriteReport {
+        schema_version: primary_post.schema_version,
+        path: primary_path,
+        post: primary_post,
+        changed: primary_changed || secondary_changed,
+    })
+}
+
+fn validate_authoring_post_state(
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    post_name: &str,
+    platform: PostPlatform,
+    expected_sha256: &str,
+    results: &[AuthoringResult],
+) -> Result<()> {
+    let path = post_path(config, &project.slug, post_name, platform)?;
+    let bytes = fs::read(&path)
+        .map_err(|source| PhotaraError::filesystem("read project post", &path, source))?;
+    let text = std::str::from_utf8(&bytes)
+        .map_err(|_| PhotaraError::Configuration("project post is not valid UTF-8".into()))?;
+    let post: PostSpecification = parse_json(&path, text)?;
+    validate_post(&post, project, post_name, platform)?;
+    let already_applied = results.iter().all(|actual| {
+        current_placement_transform(&post, &actual.item_id, &actual.slot)
+            .is_ok_and(|transform| transform == actual.transform)
+    });
+    if !already_applied && sha256(&bytes) != expected_sha256 {
+        return Err(PhotaraError::Configuration(format!(
+            "{} project post changed after authoring began; prepare a new session",
+            platform.as_str()
+        )));
+    }
+    Ok(())
+}
+
+fn validate_authoring_result_group(
+    project_root: &Path,
+    expected: &[AuthoringPlacement],
+    actual: &[AuthoringResult],
+) -> Result<()> {
+    if expected.len() != actual.len() {
+        return Err(PhotaraError::Configuration(
+            "authoring result group has an unexpected placement count".into(),
+        ));
+    }
+    for (expected, actual) in expected.iter().zip(actual) {
+        if actual.item_id != expected.item_id
+            || actual.slot != expected.slot
+            || actual.asset_id != expected.asset_id
+            || actual.source_sha256 != expected.source_sha256
+        {
+            return Err(PhotaraError::Configuration(format!(
+                "authoring report placement identity does not match {}/{}",
+                expected.item_id, expected.slot
+            )));
+        }
+        validate_placement_transform(actual.transform)?;
+        let source_path = project_root.join(&expected.source_relative_path);
+        if sha256_file(&source_path)? != expected.source_sha256 {
+            return Err(PhotaraError::Configuration(format!(
+                "authoring source changed for {}/{}",
+                expected.item_id, expected.slot
+            )));
+        }
+        let current_dimensions = inspect_tiff_dimensions(&source_path)?;
+        if current_dimensions != (expected.source_width, expected.source_height) {
+            return Err(PhotaraError::Configuration(format!(
+                "authoring source dimensions changed for {}/{}",
+                expected.item_id, expected.slot
+            )));
+        }
+        let (rotated_dimensions, crop) = resolve_placement_transform(
+            actual.transform,
+            expected.source_width,
+            expected.source_height,
+        )?;
+        if (actual.document_width, actual.document_height) != rotated_dimensions {
+            return Err(PhotaraError::Configuration(format!(
+                "authoring report dimensions do not match rotation for {}/{}",
+                expected.item_id, expected.slot
+            )));
+        }
+        let crop = crop.ok_or_else(|| {
+            PhotaraError::Configuration(format!(
+                "authoring report has no crop for {}/{}",
+                expected.item_id, expected.slot
+            ))
+        })?;
+        let actual_ratio = f64::from(crop.width) / f64::from(crop.height);
+        let target_ratio =
+            f64::from(expected.target_bounds.width) / f64::from(expected.target_bounds.height);
+        if (actual_ratio - target_ratio).abs() > 0.002 {
+            return Err(PhotaraError::Configuration(format!(
+                "authored crop ratio {actual_ratio:.6}:1 does not match target {target_ratio:.6}:1 for {}/{}",
+                expected.item_id, expected.slot
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn apply_authoring_result_group(
+    config: &PhotaraConfig,
+    project: &ProjectRecord,
+    post_name: &str,
+    platform: PostPlatform,
+    expected_sha256: &str,
+    results: &[AuthoringResult],
+) -> Result<(PathBuf, PostSpecification, bool)> {
+    let path = post_path(config, &project.slug, post_name, platform)?;
+    let bytes = fs::read(&path)
+        .map_err(|source| PhotaraError::filesystem("read project post", &path, source))?;
+    let text = std::str::from_utf8(&bytes)
+        .map_err(|_| PhotaraError::Configuration("project post is not valid UTF-8".into()))?;
+    let mut post: PostSpecification = parse_json(&path, text)?;
+    validate_post(&post, project, post_name, platform)?;
+    let already_applied = results.iter().all(|actual| {
+        current_placement_transform(&post, &actual.item_id, &actual.slot)
+            .is_ok_and(|transform| transform == actual.transform)
+    });
+    if already_applied {
+        return Ok((path, post, false));
+    }
+    if sha256(&bytes) != expected_sha256 {
+        return Err(PhotaraError::Configuration(format!(
+            "{} project post changed after authoring began; prepare a new session",
+            platform.as_str()
+        )));
+    }
+    let original = post.clone();
+    upgrade_post_to_v2(&mut post)?;
+    for actual in results {
+        set_post_placement_transform(&mut post, &actual.item_id, &actual.slot, actual.transform)?;
+    }
+    let changed = post != original;
+    if changed {
+        write_json_atomic(&path, &post)?;
+    }
+    Ok((path, post, changed))
 }
 
 fn set_post_placement_transform(
@@ -2272,9 +2842,9 @@ async fn resolve_post_item(
                     item.id, binding.original_filename
                 ));
             }
-            if placement_requires_authoring(platform, &placement.fit, transform) {
+            if placement_requires_authoring(&placement.fit, transform) {
                 requirements.insert(format!(
-                    "author the Threads placement for item {} slot {} ({})",
+                    "author the placement for item {} slot {} ({})",
                     item.id, placement.slot, binding.original_filename
                 ));
             }
@@ -2358,14 +2928,8 @@ pub async fn prepare_render_item(
             resolved.requirements.join("; ")
         )));
     }
-    if item_filter.is_none()
-        && resolved.platform == PostPlatform::Instagram
-        && resolved.delivery_frame_count != 20
-    {
-        return Err(PhotaraError::Configuration(format!(
-            "final Instagram render manifest must expand to exactly 20 ordered delivery frames; resolved {}",
-            resolved.delivery_frame_count
-        )));
+    if item_filter.is_none() {
+        validate_delivery_frame_count(&resolved.platform_profile, resolved.delivery_frame_count)?;
     }
     let project_root = config.settings.projects_root.join(&project.slug);
     let edit_sources = load_edit_sources(&project_root, &resolved)?;
@@ -2388,6 +2952,7 @@ pub async fn prepare_render_item(
             "full-frame"
                 | "stacked-two"
                 | "stacked-three"
+                | "grid-four"
                 | "continuous-panorama"
                 | "dynamic-range-comparison"
                 | "edit-comparison"
@@ -2709,6 +3274,24 @@ fn delivery_frame_count(items: &[ResolvedItem]) -> u32 {
                 .unwrap_or(1)
         })
         .sum()
+}
+
+fn validate_delivery_frame_count(profile: &PlatformProfile, count: u32) -> Result<()> {
+    if count < profile.minimum_delivery_frames {
+        return Err(PhotaraError::Configuration(format!(
+            "{} render manifest must contain at least {} delivery frame; resolved {count}",
+            profile.name, profile.minimum_delivery_frames
+        )));
+    }
+    if let Some(maximum) = profile.maximum_delivery_frames
+        && count > maximum
+    {
+        return Err(PhotaraError::Configuration(format!(
+            "{} render manifest exceeds the maximum of {maximum} delivery frames; resolved {count}",
+            profile.name
+        )));
+    }
+    Ok(())
 }
 
 fn resolve_bounds(
@@ -3369,6 +3952,59 @@ fn validate_template(template: &LayoutTemplate, reference: &TemplateRef) -> Resu
                     },
                 )
         }
+        "grid-four" => {
+            if !matches!(template.name.as_str(), "grid-four" | "grid-four-threads") {
+                return Err(PhotaraError::Configuration(format!(
+                    "unsupported four-image grid template name {:?}",
+                    template.name
+                )));
+            }
+            let expected_slots = [
+                (
+                    "top-left",
+                    NormalizedRect {
+                        x: 0.0,
+                        y: 0.0,
+                        width: 0.5,
+                        height: 0.5,
+                    },
+                ),
+                (
+                    "top-right",
+                    NormalizedRect {
+                        x: 0.5,
+                        y: 0.0,
+                        width: 0.5,
+                        height: 0.5,
+                    },
+                ),
+                (
+                    "bottom-left",
+                    NormalizedRect {
+                        x: 0.0,
+                        y: 0.5,
+                        width: 0.5,
+                        height: 0.5,
+                    },
+                ),
+                (
+                    "bottom-right",
+                    NormalizedRect {
+                        x: 0.5,
+                        y: 0.5,
+                        width: 0.5,
+                        height: 0.5,
+                    },
+                ),
+            ];
+            template.slots.len() == 4
+                && expected_slots
+                    .iter()
+                    .all(|(id, bounds)| slot_matches(id, *bounds))
+                && !template.decoration.background
+                && !template.decoration.border
+                && !template.decoration.text
+        }
         "continuous-panorama" => {
             template.slots.len() == 1
                 && slot_matches(
@@ -3516,20 +4152,21 @@ fn validate_post(
                 item.id
             )));
         }
-        if item.placements.is_empty() || item.placements.len() > 3 {
+        if item.placements.is_empty() || item.placements.len() > 4 {
             return Err(PhotaraError::Configuration(format!(
-                "post item {:?} must have one, two, or three placements",
+                "post item {:?} must have one, two, three, or four placements",
                 item.id
             )));
         }
-        let comparison_name = item
+        let template_name = item
             .template
             .as_deref()
             .and_then(|reference| TemplateRef::parse(reference).ok())
             .map(|reference| reference.name);
         let is_dynamic_range_comparison =
-            comparison_name.as_deref() == Some("dynamic-range-comparison");
-        let is_edit_comparison = comparison_name.as_deref() == Some("edit-comparison");
+            template_name.as_deref() == Some("dynamic-range-comparison");
+        let is_edit_comparison = template_name.as_deref() == Some("edit-comparison");
+        let is_continuous_panorama = template_name.as_deref() == Some("continuous-panorama");
         let mut slots = BTreeSet::new();
         for placement in &item.placements {
             if !slots.insert(&placement.slot) {
@@ -3539,8 +4176,9 @@ fn validate_post(
                 )));
             }
             validate_focal_point(placement.focal_point)?;
-            let supports_contain = (is_dynamic_range_comparison || is_edit_comparison)
-                && matches!(placement.slot.as_str(), "top" | "bottom");
+            let supports_contain = !is_continuous_panorama
+                && (!(is_dynamic_range_comparison || is_edit_comparison)
+                    || matches!(placement.slot.as_str(), "top" | "bottom"));
             if !(matches!(placement.fit.as_str(), "fill" | "crop")
                 || placement.fit == "contain" && supports_contain)
             {
@@ -3606,13 +4244,12 @@ fn validate_placement_transform(transform: PlacementTransform) -> Result<()> {
     Ok(())
 }
 
-fn placement_requires_authoring(
-    platform: PostPlatform,
-    fit: &str,
-    transform: PlacementTransform,
-) -> bool {
-    transform.crop.is_none()
-        && (fit == "crop" || (platform == PostPlatform::Threads && fit == "fill"))
+fn placement_requires_authoring(fit: &str, transform: PlacementTransform) -> bool {
+    transform.crop.is_none() && fit == "crop"
+}
+
+fn placement_enters_authoring(fit: &str, transform: PlacementTransform, reauthor: bool) -> bool {
+    fit == "crop" && (transform.crop.is_none() || reauthor)
 }
 
 fn validate_focal_point(point: FocalPoint) -> Result<()> {
@@ -3986,9 +4623,9 @@ mod tests {
     fn installs_and_refuses_mutated_immutable_template() {
         let temporary = tempfile::tempdir().unwrap();
         let first = install_builtin_templates(temporary.path()).unwrap();
-        assert_eq!(first.installed.len(), 9);
+        assert_eq!(first.installed.len(), 11);
         let second = install_builtin_templates(temporary.path()).unwrap();
-        assert_eq!(second.verified.len(), 9);
+        assert_eq!(second.verified.len(), 11);
         fs::write(temporary.path().join("full-frame/v1.json"), "{}\n").unwrap();
         assert!(install_builtin_templates(temporary.path()).is_err());
     }
@@ -4063,6 +4700,46 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn four_image_grid_uses_each_platform_aspect_without_gaps() {
+        let instagram: LayoutTemplate = serde_json::from_str(GRID_FOUR_V1).unwrap();
+        let threads: LayoutTemplate = serde_json::from_str(GRID_FOUR_THREADS_V1).unwrap();
+        validate_template(
+            &instagram,
+            &TemplateRef {
+                name: "grid-four".into(),
+                version: 1,
+            },
+        )
+        .unwrap();
+        validate_template(
+            &threads,
+            &TemplateRef {
+                name: "grid-four-threads".into(),
+                version: 1,
+            },
+        )
+        .unwrap();
+        let instagram_cells: Vec<_> = instagram
+            .slots
+            .iter()
+            .map(|slot| resolve_bounds(slot.bounds, 4500, 6000).unwrap())
+            .collect();
+        let threads_cells: Vec<_> = threads
+            .slots
+            .iter()
+            .map(|slot| resolve_bounds(slot.bounds, 4500, 8000).unwrap())
+            .collect();
+        for cell in &instagram_cells {
+            assert_eq!((cell.width, cell.height), (2250, 3000));
+        }
+        for cell in &threads_cells {
+            assert_eq!((cell.width, cell.height), (2250, 4000));
+        }
+        assert_eq!(threads_cells[0].y, 0);
+        assert_eq!(threads_cells[2].y + threads_cells[2].height, 8000);
     }
 
     #[test]
@@ -4235,6 +4912,20 @@ mod tests {
         let threads = PostPlatform::Threads.profile();
         assert_eq!((instagram.width, instagram.height), (4500, 6000));
         assert_eq!((threads.width, threads.height), (4500, 8000));
+        assert_eq!(instagram.minimum_delivery_frames, 1);
+        assert_eq!(instagram.maximum_delivery_frames, Some(20));
+        assert_eq!(threads.minimum_delivery_frames, 1);
+        assert_eq!(threads.maximum_delivery_frames, None);
+    }
+
+    #[test]
+    fn instagram_delivery_frames_accept_positive_packages_up_to_the_platform_maximum() {
+        let profile = PostPlatform::Instagram.profile();
+        assert!(validate_delivery_frame_count(&profile, 1).is_ok());
+        assert!(validate_delivery_frame_count(&profile, 10).is_ok());
+        assert!(validate_delivery_frame_count(&profile, 20).is_ok());
+        assert!(validate_delivery_frame_count(&profile, 0).is_err());
+        assert!(validate_delivery_frame_count(&profile, 21).is_err());
     }
 
     fn test_placement(crop: Option<NormalizedRect>) -> PostPlacement {
@@ -4257,33 +4948,50 @@ mod tests {
     }
 
     #[test]
-    fn contain_fit_never_requires_crop_authoring() {
+    fn only_unresolved_crop_fit_requires_authoring() {
         let identity = PlacementTransform::default();
+        assert!(!placement_requires_authoring("contain", identity));
+        assert!(!placement_requires_authoring("fill", identity));
+        assert!(placement_requires_authoring("crop", identity));
         assert!(!placement_requires_authoring(
-            PostPlatform::Instagram,
-            "contain",
-            identity
-        ));
-        assert!(!placement_requires_authoring(
-            PostPlatform::Threads,
-            "contain",
-            identity
-        ));
-        assert!(placement_requires_authoring(
-            PostPlatform::Threads,
-            "fill",
-            identity
-        ));
-        assert!(!placement_requires_authoring(
-            PostPlatform::Instagram,
-            "fill",
-            identity
-        ));
-        assert!(placement_requires_authoring(
-            PostPlatform::Instagram,
             "crop",
-            identity
+            PlacementTransform {
+                crop: Some(NormalizedRect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 1.0,
+                    height: 1.0,
+                }),
+                rotation_quarter_turns_cw: 0,
+            }
         ));
+    }
+
+    #[test]
+    fn authoring_selection_excludes_automatic_fits_and_resolved_crops() {
+        let identity = PlacementTransform::default();
+        let authored = PlacementTransform {
+            crop: Some(NormalizedRect {
+                x: 0.1,
+                y: 0.1,
+                width: 0.8,
+                height: 0.8,
+            }),
+            rotation_quarter_turns_cw: 0,
+        };
+        let mixed = [("fill", identity), ("crop", identity), ("fill", identity)];
+        assert_eq!(
+            mixed
+                .iter()
+                .filter(|(fit, transform)| placement_enters_authoring(fit, *transform, false))
+                .count(),
+            1
+        );
+        assert!(!placement_enters_authoring("contain", identity, false));
+        assert!(!placement_enters_authoring("crop", authored, false));
+        assert!(placement_enters_authoring("crop", authored, true));
+        assert!(!placement_enters_authoring("fill", authored, true));
+        assert!(!placement_enters_authoring("contain", authored, true));
     }
 
     #[test]
