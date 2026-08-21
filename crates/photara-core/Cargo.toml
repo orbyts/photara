@@ -7,8 +7,10 @@ repository.workspace = true
 description = "Portable semantic core for the Photara creative workflow platform."
 
 [dependencies]
+semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
 

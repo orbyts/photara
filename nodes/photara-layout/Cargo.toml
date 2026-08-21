@@ -10,5 +10,8 @@ description = "Built-in Layout node package for Photara."
 photara-core = { path = "../../crates/photara-core" }
 photara-node-sdk = { path = "../../crates/photara-node-sdk" }
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true

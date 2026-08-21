@@ -18,6 +18,8 @@ The repository is building generation two from a clean foundation toward
   crop, color, HDR/EDR, or performance needs it;
 - portable Rust Core and heavy application logic;
 - Houdini-like procedural graph semantics;
+- portable human-inspectable project JSON and standalone shareable node-graph
+  JSON;
 - built-in Layout node shipped as an ordinary independently namespaced package;
 - future Windows-native client over the same versioned Core facade;
 - future node marketplace using the same contracts as built-ins.
@@ -56,5 +58,6 @@ unstable while the first vertical application path is built.
 
 - [Roadmap](ROADMAP.md)
 - [Architecture](docs/architecture/README.md)
+- [Portable project and node-graph documents](docs/architecture/PROJECT_DOCUMENTS.md)
 - [Codex handoff](docs/CODEX_HANDOFF.md)
 - [Changelog](CHANGELOG.md)

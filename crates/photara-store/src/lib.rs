@@ -66,6 +66,15 @@ impl GraphRepository for InMemoryGraphRepository {
                 actual: current.revision,
             });
         }
+        let required_revision = expected_revision
+            .checked_next()
+            .ok_or(StoreError::RevisionExhausted)?;
+        if graph.revision != required_revision {
+            return Err(StoreError::InvalidReplacementRevision {
+                expected: required_revision,
+                actual: graph.revision,
+            });
+        }
         self.graphs.insert(graph.id, graph);
         Ok(())
     }
@@ -82,24 +91,95 @@ pub enum StoreError {
         expected: GraphRevision,
         actual: GraphRevision,
     },
+    #[error("graph revision space is exhausted")]
+    RevisionExhausted,
+    #[error("replacement revision must be {expected:?}, got {actual:?}")]
+    InvalidReplacementRevision {
+        expected: GraphRevision,
+        actual: GraphRevision,
+    },
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    use photara_core::{
+        CommandId, GraphCommand, GraphCommandEnvelope, NodeDefinition, NodeDefinitionId,
+        NodeDefinitionRef, NodeDefinitionRegistry, NodeDefinitionVersion, NodeInstance,
+        NodeInstanceId, NodePackageId, PackageVersion, SchemaId, SchemaRef, SchemaValue,
+        SchemaVersion, ValueTypeRegistry, apply_graph_command,
+    };
+    use serde_json::json;
+
     use super::*;
+
+    fn schema(id: &str) -> SchemaRef {
+        SchemaRef {
+            id: SchemaId::parse(id).unwrap(),
+            version: SchemaVersion::first(),
+        }
+    }
 
     #[test]
     fn replacement_uses_optimistic_revision_checks() {
         let id = GraphId::new();
         let graph = GraphDocument::new(id);
+        let definition_ref = NodeDefinitionRef {
+            package_id: NodePackageId::parse("example.persistence").unwrap(),
+            package_version: PackageVersion::new(1, 0, 0),
+            definition_id: NodeDefinitionId::parse("example.persistence.value").unwrap(),
+            definition_version: NodeDefinitionVersion::first(),
+        };
+        let mut definitions = NodeDefinitionRegistry::default();
+        definitions
+            .register(
+                definition_ref.clone(),
+                NodeDefinition {
+                    id: definition_ref.definition_id.clone(),
+                    version: definition_ref.definition_version,
+                    display_name: "Value".to_owned(),
+                    ports: Vec::new(),
+                    config_schema: schema("example.persistence.value.config"),
+                    authored_state_schema: Some(schema("example.persistence.value.state")),
+                    capabilities: BTreeSet::new(),
+                },
+            )
+            .unwrap();
         let mut repository = InMemoryGraphRepository::default();
         repository.create(graph.clone()).unwrap();
 
-        let mut replacement = graph;
-        replacement.revision = replacement.revision.next();
+        let replacement = apply_graph_command(
+            &graph,
+            &GraphCommandEnvelope {
+                command_id: CommandId::new(),
+                graph_id: id,
+                expected_revision: graph.revision,
+                command: GraphCommand::AddNode {
+                    instance: NodeInstance {
+                        id: NodeInstanceId::new(),
+                        definition: definition_ref,
+                        configuration: SchemaValue {
+                            schema: schema("example.persistence.value.config"),
+                            value: json!({"value": 42}),
+                        },
+                        authored_state: Some(SchemaValue {
+                            schema: schema("example.persistence.value.state"),
+                            value: json!({"locked": true}),
+                        }),
+                        extensions: BTreeMap::new(),
+                    },
+                },
+            },
+            &definitions,
+            &ValueTypeRegistry::default(),
+        )
+        .unwrap()
+        .graph;
         repository
             .replace(replacement.clone(), GraphRevision::initial())
             .unwrap();
+        assert_eq!(repository.load(id).unwrap().unwrap(), replacement);
 
         let error = repository
             .replace(replacement, GraphRevision::initial())

@@ -9,3 +9,25 @@
   Layout packages.
 - Replace historical operator documentation with the focused roadmap to the
   macOS SwiftUI/AppKit application over the portable Rust Core.
+- Refine the `0.2.0` critical path around a minimum package/persistence
+  foundation, an early interoperability spike, and a flexible native workspace
+  leading to the real Layout Inspector.
+- Add distinct package, definition, value-type, and schema versions; generic
+  typed-value and port compatibility contracts; identified graph connections;
+  exact definition pins; and deterministic canonical JSON/SHA-256 digests.
+- Add revision-checked semantic graph commands, exact definition resolution,
+  structured validation errors/diagnostics, deterministic topological
+  evaluation, progress, cooperative cancellation, and per-node dirty keys.
+- Tighten in-memory compare-and-swap persistence and add immutable command,
+  error, graph-snapshot, and evaluation-progress DTOs for the native bridge.
+- Add validated portable Project Documents with exact package requirements,
+  embedded authored graphs, project-relative resources, canonical digests, and
+  explicit exclusion of runtime/cache/secret/workspace state.
+- Add standalone Node Graph Documents so configured node topology can be shared
+  independently of project identity and resource inventory.
+- Prove the native-client facade shape with a disposable Swift 6.3/Foundation
+  harness on Quasar: real applied/rejected commands, portable Project and Node
+  Graph documents, correlated evaluation progress, and cooperative cancellation.
+- Select UniFFI as the preferred production in-process Swift bridge direction,
+  reserving IPC/XPC for isolation and keeping bridge infrastructure independent
+  of macOS 27 APIs.

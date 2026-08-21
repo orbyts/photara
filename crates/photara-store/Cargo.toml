@@ -10,5 +10,8 @@ description = "Persistence boundaries and adapters for Photara Core."
 photara-core = { path = "../photara-core" }
 thiserror.workspace = true
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true

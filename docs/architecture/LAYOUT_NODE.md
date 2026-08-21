@@ -29,3 +29,11 @@ Every strategy emits the same versioned semantic Layout plan. Later uniform,
 justified, masonry, packed/mosaic, treemap, constraint, and aesthetic algorithms
 are additive definition versions or strategies whose parameters and tie-breaking
 participate in fingerprints.
+
+The Properties/Inspector is the first major native UI investment. It edits this
+state exclusively through Core commands and may be docked, rearranged, enlarged
+into a focused authoring surface, or eventually detached without changing the
+Layout contract. Its production slice covers frame ordering, canvas and
+template choice, proxy assignment, Fit/Fill/Crop, rotation, visual crop
+authoring, validation, resolved preview, undo, multiple instances, and
+save/reopen before graph rendering or docking receives comparable polish.

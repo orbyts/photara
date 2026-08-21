@@ -47,16 +47,43 @@ crates/photara-bridge
 nodes/photara-layout
 ```
 
-The workspace is `0.2.0-alpha.0`. The initial scaffold contains canonical IDs,
-node/port definitions, graph documents/revisions, diagnostics, an optimistic
-in-memory repository, a versioned client DTO, and a Layout package registered
-through the ordinary node SDK.
+The workspace is `0.2.0-alpha.0`. Core now contains canonical namespaced IDs,
+separate package/definition/value-type/schema versions, typed-value descriptors
+and a minimum registry, generic port compatibility, version-pinned node
+instances, identified connections, configuration/authored-state separation,
+canonical JSON/SHA-256 digests, graph documents/revisions, and diagnostics. It
+now also applies revision-checked Add Node, Connect, Set Configuration, and
+Set Authored State commands; validates exact definitions, schemas, ports,
+cardinality, and cycles; and evaluates a small graph deterministically through
+a general node-runtime callback with request/evaluation identity, progress,
+cooperative cancellation, structured failures, and per-node dirty keys. The
+scaffold also contains a revision-safe in-memory repository, immutable bridge
+DTOs, and a Layout package expressed through the ordinary node SDK.
+
+Portable authored state now has two validated JSON boundaries. `ProjectDocument`
+contains project identity/revision, human metadata, exact package requirements,
+the existing `GraphDocument`, and semantically identified project-relative
+resources. `NodeGraphDocument` exports that same configured graph and topology
+as a standalone shareable file without project identity or resource inventory.
+Both use canonical digests, preserve generic/unknown node state where practical,
+and exclude runtime, caches, secrets, machine paths, and workspace UI state.
 
 ## Local operator environment
 
 These notes describe Suhail's development machine and how Codex should operate
 on it. They are conveniences for development and possible legacy recovery, not
 generation-two product configuration or Core API contracts.
+
+### Development machines
+
+- `quasar` is the M1 Mac Studio and current reference development machine. Keep
+  Rust/Core, persistence/package work, and the Swift bridge compiling with its
+  stable macOS 26.5.2, Xcode 26.6, and Swift 6.3.3 environment.
+- `eclipse` is the M1 MacBook Pro reserved for later macOS 27/Xcode 27 native UI
+  and Layout Inspector experimentation. It is not available to this Codex
+  context.
+- Never make the bridge depend on macOS 27 UI or SDK APIs. New UI design work
+  stays in the Eclipse-side SwiftUI/AppKit presentation layer above the facade.
 
 ### Shell execution
 
@@ -168,21 +195,19 @@ contracts; never make legacy tables, config, paths, or provider types Core APIs.
 
 ## Immediate next work
 
-Follow Roadmap section 1:
+The Roadmap section 3 Swift bridge spike is complete. Its disposable harness is
+under `spikes/swift-bridge`, and the result and transport comparison are in
+`docs/architecture/SWIFT_BRIDGE_SPIKE.md`.
 
-1. review the initial ID syntax and decide canonical version/type identity;
-2. add connection and value registry contracts;
-3. define canonical serialization and digests;
-4. add tests with Layout plus at least one materially different synthetic node;
-5. keep the public surface internal and unstable.
-
-After Roadmap section 2 supplies one real command and evaluation path, perform
-the Roadmap section 3 Swift bridge spike. It must cover one immutable DTO, one
-structured error, progress, and cancellation. It is deliberately a disposable
-interoperability harness, not a production UI foundation.
-
-Do not start the production Swift app, database provider, legacy importer, or
-provider nodes before these contracts pass their generality gate.
+Implement the minimum package registry and persistence foundation (Roadmap 4A),
+not the full package-distribution lifecycle (4B). Start with the manifest and
+exact-definition registration contract, backend-neutral project repository and
+transaction boundary, and authoritative portable Project Document storage. Do
+not proactively add Stage 4B behavior or persistence for future runtime,
+evaluation, evidence, artifact, or receipt concepts unless it becomes
+concretely necessary to pass the existing Stage 4A gate. Do not start the
+production Swift app, legacy importer, remote package store, or provider nodes
+before these contracts pass their generality gate.
 
 ## Verification
 

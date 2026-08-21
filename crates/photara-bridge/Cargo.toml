@@ -9,6 +9,11 @@ description = "Versioned client-facing application facade for Photara."
 [dependencies]
 photara-core = { path = "../photara-core" }
 serde.workspace = true
+serde_json.workspace = true
+
+[[example]]
+name = "swift_bridge_server"
+path = "examples/swift_bridge_server.rs"
 
 [lints]
 workspace = true

@@ -3,56 +3,65 @@
 use std::collections::BTreeSet;
 
 use photara_core::{
-    NodeDefinition, NodeDefinitionVersion, NodePackageId, NodeTypeId, PortCardinality,
-    PortDefinition, PortDirection, PortId, SchemaId, ValueTypeId,
+    NodeDefinition, NodeDefinitionId, NodeDefinitionVersion, NodePackageId, PackageVersion,
+    PortCardinality, PortDefinition, PortDirection, PortId, SchemaId, SchemaRef, SchemaVersion,
+    ValueTypeId, ValueTypeRef, ValueTypeVersion,
 };
-use photara_node_sdk::{NodePackage, NodePackageManifest, PackageVersion};
+use photara_node_sdk::{NodePackage, NodePackageManifest};
 
 pub const PACKAGE_ID: &str = "photara.layout";
 pub const DEFINITION_ID: &str = "photara.layout.compose";
+pub const ASSET_SET_TYPE_ID: &str = "photara.asset-set";
+pub const LAYOUT_PLAN_TYPE_ID: &str = "photara.layout-plan";
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LayoutNodePackage;
 
+fn schema(id: &str) -> SchemaRef {
+    SchemaRef {
+        id: SchemaId::parse(id).expect("built-in schema ID is valid"),
+        version: SchemaVersion::new(1).expect("built-in schema version is valid"),
+    }
+}
+
+fn value_type(id: &str) -> ValueTypeRef {
+    ValueTypeRef {
+        id: ValueTypeId::parse(id).expect("built-in value type ID is valid"),
+        version: ValueTypeVersion::new(1).expect("built-in value type version is valid"),
+    }
+}
+
 impl NodePackage for LayoutNodePackage {
     fn manifest(&self) -> NodePackageManifest {
         let definition = NodeDefinition {
-            type_id: NodeTypeId::parse(DEFINITION_ID).expect("built-in definition ID is valid"),
+            id: NodeDefinitionId::parse(DEFINITION_ID).expect("built-in definition ID is valid"),
             version: NodeDefinitionVersion::new(1).expect("built-in version is valid"),
             display_name: "Layout".to_owned(),
             ports: vec![
                 PortDefinition {
                     id: PortId::parse("assets").expect("built-in port ID is valid"),
                     direction: PortDirection::Input,
-                    value_type: ValueTypeId::parse("photara.asset-set/v1")
-                        .expect("built-in value type is valid"),
+                    value_type: value_type(ASSET_SET_TYPE_ID),
                     cardinality: PortCardinality::One,
                 },
                 PortDefinition {
                     id: PortId::parse("layout").expect("built-in port ID is valid"),
                     direction: PortDirection::Output,
-                    value_type: ValueTypeId::parse("photara.layout-plan/v1")
-                        .expect("built-in value type is valid"),
+                    value_type: value_type(LAYOUT_PLAN_TYPE_ID),
                     cardinality: PortCardinality::One,
                 },
             ],
-            config_schema: SchemaId::parse("photara.layout.config/v1")
-                .expect("built-in schema ID is valid"),
-            authored_state_schema: Some(
-                SchemaId::parse("photara.layout.state/v1").expect("built-in schema ID is valid"),
-            ),
+            config_schema: schema("photara.layout.config"),
+            authored_state_schema: Some(schema("photara.layout.state")),
             capabilities: BTreeSet::new(),
         };
         definition.validate().expect("built-in definition is valid");
 
         NodePackageManifest {
-            schema_version: 1,
+            manifest_schema_version: SchemaVersion::new(1)
+                .expect("manifest schema version is valid"),
             package_id: NodePackageId::parse(PACKAGE_ID).expect("built-in package ID is valid"),
-            package_version: PackageVersion {
-                major: 0,
-                minor: 2,
-                patch: 0,
-            },
+            package_version: PackageVersion::new(0, 2, 0),
             display_name: "Layout".to_owned(),
             definitions: vec![definition],
         }
@@ -61,14 +70,98 @@ impl NodePackage for LayoutNodePackage {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
+    use photara_core::{
+        GraphDocument, GraphId, NodeDefinitionRef, NodeInstance, NodeInstanceId, ProjectDocument,
+        ProjectId, SchemaValue,
+    };
+    use serde_json::json;
+
     use super::*;
 
+    fn dummy_definition() -> NodeDefinition {
+        NodeDefinition {
+            id: NodeDefinitionId::parse("example.text.uppercase").unwrap(),
+            version: NodeDefinitionVersion::new(7).unwrap(),
+            display_name: "Uppercase".to_owned(),
+            ports: vec![PortDefinition {
+                id: PortId::parse("text").unwrap(),
+                direction: PortDirection::Input,
+                value_type: value_type("example.text"),
+                cardinality: PortCardinality::Optional,
+            }],
+            config_schema: schema("example.text.uppercase.config"),
+            authored_state_schema: None,
+            capabilities: BTreeSet::new(),
+        }
+    }
+
     #[test]
-    fn built_in_layout_uses_the_ordinary_package_contract() {
+    fn built_in_layout_uses_the_same_definition_contract_as_an_unrelated_node() {
         let manifest = LayoutNodePackage.manifest();
+        let dummy = dummy_definition();
+
         assert_eq!(manifest.package_id.as_str(), PACKAGE_ID);
+        assert_eq!(manifest.package_version.to_string(), "0.2.0");
         assert_eq!(manifest.definitions.len(), 1);
-        assert_eq!(manifest.definitions[0].type_id.as_str(), DEFINITION_ID);
+        assert_eq!(manifest.definitions[0].id.as_str(), DEFINITION_ID);
         manifest.definitions[0].validate().unwrap();
+        dummy.validate().unwrap();
+        assert_ne!(manifest.definitions[0].id, dummy.id);
+    }
+
+    #[test]
+    fn layout_round_trips_through_generic_project_and_graph_documents() {
+        let manifest = LayoutNodePackage.manifest();
+        let definition = &manifest.definitions[0];
+        let instance = NodeInstance {
+            id: NodeInstanceId::new(),
+            definition: NodeDefinitionRef {
+                package_id: manifest.package_id.clone(),
+                package_version: manifest.package_version.clone(),
+                definition_id: definition.id.clone(),
+                definition_version: definition.version,
+            },
+            configuration: SchemaValue {
+                schema: definition.config_schema.clone(),
+                value: json!({"canvas-profile": "portrait-3x4"}),
+            },
+            authored_state: Some(SchemaValue {
+                schema: definition.authored_state_schema.clone().unwrap(),
+                value: json!({
+                    "frames": [{
+                        "cells": [{
+                            "fit": "crop",
+                            "quarter-turns": 1,
+                            "future-layout-field": {"preserved": true}
+                        }]
+                    }]
+                }),
+            }),
+            extensions: BTreeMap::new(),
+        };
+        let mut graph = GraphDocument::new(GraphId::new());
+        graph.nodes.push(instance);
+        let project = ProjectDocument::new(ProjectId::new(), "Layout Project", graph).unwrap();
+
+        let project_json = project.to_pretty_json().unwrap();
+        let reopened = ProjectDocument::from_json(&project_json).unwrap();
+        assert_eq!(reopened, project);
+        assert_eq!(
+            reopened.required_packages[0].package_id.as_str(),
+            PACKAGE_ID
+        );
+        assert_eq!(
+            reopened.graph.nodes[0].authored_state,
+            project.graph.nodes[0].authored_state
+        );
+
+        let shared = project.export_node_graph("Portrait Layout").unwrap();
+        let shared_json = shared.to_pretty_json().unwrap();
+        assert_eq!(
+            photara_core::NodeGraphDocument::from_json(&shared_json).unwrap(),
+            shared
+        );
     }
 }

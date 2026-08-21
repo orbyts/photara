@@ -3,10 +3,12 @@
 ## Reading order
 
 1. [Core](CORE.md)
-2. [Node packages](NODE_PACKAGES.md)
-3. [Persistence](PERSISTENCE.md)
-4. [Layout node](LAYOUT_NODE.md)
-5. [Native clients](NATIVE_CLIENTS.md)
+2. [Portable project and node-graph documents](PROJECT_DOCUMENTS.md)
+3. [Node packages](NODE_PACKAGES.md)
+4. [Persistence](PERSISTENCE.md)
+5. [Layout node](LAYOUT_NODE.md)
+6. [Native clients](NATIVE_CLIENTS.md)
+7. [Swift bridge spike](SWIFT_BRIDGE_SPIKE.md)
 
 `ROADMAP.md` is authoritative for implementation order and release gates.
 
