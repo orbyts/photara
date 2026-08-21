@@ -9,13 +9,15 @@ mod graph;
 mod identity;
 mod node;
 mod project;
+mod proxy;
 mod value;
 
 pub use asset::{
     ASSET_SET_SCHEMA_ID, ASSET_SET_VALUE_TYPE_ID, AssetContextError, AssetSet, AssetSetValueError,
     FLATTENED_IMAGE_CAPABILITY_ID, FingerprintAlgorithm, HDR_CAPABILITY_ID,
-    HDR_REPRESENTATION_ROLE_ID, IMAGE_CAPABILITY_ID, MaterializedRepresentation, ProjectAsset,
-    ProjectAssetContext, RepresentationAvailability, RepresentationBinding,
+    HDR_REPRESENTATION_ROLE_ID, IMAGE_CAPABILITY_ID, LAYERED_MASTER_REPRESENTATION_ROLE_ID,
+    MaterializedRepresentation, ORIGINAL_REPRESENTATION_ROLE_ID, ProjectAsset, ProjectAssetContext,
+    RAW_PREVIEW_REPRESENTATION_ROLE_ID, RepresentationAvailability, RepresentationBinding,
     RepresentationDescriptor, RepresentationFingerprint, RepresentationMaterializationError,
     RepresentationMaterializationRequest, RepresentationMaterializer, SDR_CAPABILITY_ID,
     SDR_REPRESENTATION_ROLE_ID, TIFF_CAPABILITY_ID, asset_set_value_type_descriptor,
@@ -33,11 +35,13 @@ pub use evaluation::{
 };
 pub use graph::{Connection, GraphDocument, GraphRevision, NodeInstance, PortEndpoint};
 pub use identity::{
-    AssetId, AssetRepresentationId, CanonicalIdError, CapabilityId, CommandId, ConnectionId,
-    EvaluationId, GraphId, NodeDefinitionId, NodeDefinitionVersion, NodeInstanceId, NodePackageId,
-    PackageVersion, PortId, ProjectId, ProjectResourceId, RepresentationCapabilityId,
-    RepresentationRoleId, RequestId, SchemaId, SchemaVersion, ValueTypeId, ValueTypeVersion,
-    VersionError,
+    AssetId, AssetRepresentationId, CanonicalIdError, CapabilityId, ColorSpaceId, CommandId,
+    ConnectionId, EvaluationId, GraphId, NodeDefinitionId, NodeDefinitionVersion, NodeInstanceId,
+    NodePackageId, PackageVersion, PortId, ProjectId, ProjectResourceId, ProxyEncodingId,
+    ProxyEncodingVersion, ProxyGeneratorId, ProxyGeneratorVersion, ProxyProfileId,
+    ProxyProfileVersion, RepresentationCapabilityId, RepresentationRoleId,
+    RepresentationStorageBindingId, RequestId, SchemaId, SchemaVersion, ToneMapOperatorId,
+    ToneMapVersion, ValueTypeId, ValueTypeVersion, VersionError,
 };
 pub use node::{
     DefinitionRegistryError, DefinitionResolver, NodeDefinition, NodeDefinitionError,
@@ -48,6 +52,12 @@ pub use project::{
     NodeGraphDocument, NodeGraphMetadata, PackageRequirement, PortableDocumentError,
     ProjectDocument, ProjectMetadata, ProjectRelativePath, ProjectRelativePathError,
     ProjectResourceRef, ProjectRevision, ProjectValidationError,
+};
+pub use proxy::{
+    ProxyAlphaPolicy, ProxyCacheKey, ProxyChannelDepth, ProxyColorPolicy, ProxyDescriptor,
+    ProxyDynamicRangeDescription, ProxyDynamicRangePolicy, ProxyEncodingRef, ProxyGeneratorRef,
+    ProxyOrientationPolicy, ProxyProfile, ProxyProfileRef, ProxyPurpose, ProxyRenderingIntent,
+    ProxyRequest, ProxyResamplingFilter, ProxySizing, ProxyStoredOrientation, ToneMapPolicy,
 };
 pub use value::{
     SchemaRef, SchemaValue, TypedValue, ValueTypeDescriptor, ValueTypeRef, ValueTypeRegistry,

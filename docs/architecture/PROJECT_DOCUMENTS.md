@@ -17,8 +17,8 @@ the same semantic graph vocabulary.
 - semantically identified supporting resources whose locations are normalized
   relative to an explicit project root;
 - project-owned semantic asset context containing asset/representation
-  identities, roles, capabilities, content fingerprints, and bindings to those
-  supporting resources;
+  identities, roles, capabilities, content fingerprints, and portable
+  project-resource or stable runtime-resolution bindings;
 - preserved unknown extension fields where the current schema can safely carry
   them.
 
@@ -38,8 +38,10 @@ conventions over the versioned JSON schemas, not semantic identity.
 Resource paths never become semantic asset identity. A resource has its own ID;
 its relative path only tells a project adapter where to look. Absolute paths,
 parent traversal, and drive-qualified paths are rejected by the portable Core
-type. Provider-neutral external references are added later when a real provider
-requires them.
+type. Provider/external representations carry only a stable runtime-resolution
+handle in portable JSON. Machine paths, provider locators, accounts, and
+credentials remain outside the document and can be rebound without changing
+asset or representation identity.
 
 One asset may expose multiple related representations. Paired HDR and SDR
 flattened TIFFs remain one asset with two representation identities and content

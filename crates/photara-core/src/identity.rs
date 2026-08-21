@@ -105,6 +105,11 @@ string_id!(SchemaId, true);
 string_id!(CapabilityId, true);
 string_id!(RepresentationCapabilityId, true);
 string_id!(RepresentationRoleId, true);
+string_id!(ProxyProfileId, true);
+string_id!(ProxyEncodingId, true);
+string_id!(ProxyGeneratorId, true);
+string_id!(ColorSpaceId, true);
+string_id!(ToneMapOperatorId, true);
 string_id!(PortId, false);
 
 /// The independently released semantic version of a node package.
@@ -175,6 +180,10 @@ macro_rules! nonzero_version {
 nonzero_version!(NodeDefinitionVersion, "node definition");
 nonzero_version!(ValueTypeVersion, "value type");
 nonzero_version!(SchemaVersion, "schema");
+nonzero_version!(ProxyProfileVersion, "proxy profile");
+nonzero_version!(ProxyEncodingVersion, "proxy encoding");
+nonzero_version!(ProxyGeneratorVersion, "proxy generator");
+nonzero_version!(ToneMapVersion, "tone-map recipe");
 
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 pub enum VersionError {
@@ -231,6 +240,7 @@ uuid_id!(ProjectId);
 uuid_id!(ProjectResourceId);
 uuid_id!(AssetId);
 uuid_id!(AssetRepresentationId);
+uuid_id!(RepresentationStorageBindingId);
 
 #[cfg(test)]
 mod tests {

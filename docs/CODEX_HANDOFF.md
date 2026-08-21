@@ -77,13 +77,25 @@ revision rejection pass together against a brand-new store with no legacy
 database dependency.
 
 Stage 5 is complete. Project Documents now contain semantic asset context with
-separate asset, representation, and project-resource identity; representation
-roles/capabilities and SHA-256 content fingerprints; and no serialized
-availability, materialization, proxy, cache, or Gallery-selection state. Core
+separate asset, representation, project-resource, and stable runtime-binding
+identity; representation roles/capabilities and SHA-256 content fingerprints;
+and no serialized machine locator, availability, materialization, proxy, cache,
+or Gallery-selection state. Core
 defines an explicit ordered `photara.asset-set` typed value used by Layout's
 input port. The local development adapter imports paired HDR/SDR TIFF paths as
 two renditions of one asset, verifies local materialization, survives path
 moves, and detects/refreshes changed content without decoding TIFFs.
+
+Stage 6A is complete. Core defines backend-neutral proxy requests, fully
+versioned profiles, exact profile references, descriptors, and cache keys over
+source fingerprint plus all output-affecting policy. The reproducible Quasar
+benchmark compares ImageIO/Core Image, libvips, ImageMagick, and Rust `image`
+against 8000×5333 high-entropy paired SDR/HDR TIFFs plus orientation. The
+optimized ImageIO floating-point thumbnail path passed exact color, ICC,
+orientation, F16, negative-sample, and HDR-headroom checks and measured 0.45 s
+for SDR thumbnails and 1.09 s for HDR authoring previews. It is the selected
+first macOS backend; details and candidate limitations are in
+`docs/architecture/PROXIES.md`.
 
 ## Local operator environment
 
@@ -216,14 +228,14 @@ The Roadmap section 3 Swift bridge spike is complete. Its disposable harness is
 under `spikes/swift-bridge`, and the result and transport comparison are in
 `docs/architecture/SWIFT_BRIDGE_SPIKE.md`.
 
-Roadmap Stage 5 is complete. The next bounded slice is Stage 6, beginning with
-HDR/SDR proxy-backend characterization—not implementation by assumption. Build
-or identify representative large TIFF fixtures and benchmark ImageIO/Core
-Image, libvips, ImageMagick, and viable Rust-native approaches for ICC/color
-correctness, HDR/SDR and bit-depth behavior, orientation, memory, throughput,
-deployment complexity, and portability. Record the decision before building
-the shared project proxy service. Do not start Layout proxy ownership, Gallery
-or other production UI, Stage 4B lifecycle, legacy import, or provider nodes.
+Roadmap Stage 6A is complete. The next bounded slice is Stage 6B: implement the
+production project-scoped proxy service behind the existing contracts using the
+measured ImageIO/Core Image macOS adapter. Add request deduplication,
+content-addressed cache storage, atomic publication, descriptor verification,
+quota/eviction, corruption recovery, and unavailable/remounted-source behavior.
+Keep cache state derived and disposable. Do not start Layout proxy ownership,
+Gallery or other production UI, Stage 4B lifecycle, legacy import, Photoshop/
+UXP, or other provider nodes.
 
 ## Verification
 

@@ -1,0 +1,58 @@
+[
+  {
+    "id": "photara.proxy-benchmark.thumbnail-sdr",
+    "version": 1,
+    "purpose": "thumbnail",
+    "sizing": {
+      "kind": "long-edge",
+      "pixels": 512
+    },
+    "allow_upscale": false,
+    "resampling": "lanczos3",
+    "orientation": "normalize-pixels",
+    "color": {
+      "kind": "convert",
+      "destination": "photara.color.srgb",
+      "rendering_intent": "relative-colorimetric",
+      "black_point_compensation": true
+    },
+    "dynamic_range": {
+      "kind": "sdr-compatible",
+      "tone_map": {
+        "operator": "photara.tonemap.reinhard-global",
+        "version": 1,
+        "parameters": {}
+      }
+    },
+    "channel_depth": "u8",
+    "alpha": "opaque",
+    "encoding": {
+      "id": "photara.proxy-encoding.png",
+      "version": 1
+    }
+  },
+  {
+    "id": "photara.proxy-benchmark.authoring-hdr",
+    "version": 1,
+    "purpose": "authoring-preview",
+    "sizing": {
+      "kind": "long-edge",
+      "pixels": 2048
+    },
+    "allow_upscale": false,
+    "resampling": "lanczos3",
+    "orientation": "normalize-pixels",
+    "color": {
+      "kind": "preserve-embedded"
+    },
+    "dynamic_range": {
+      "kind": "preserve-source"
+    },
+    "channel_depth": "f16",
+    "alpha": "opaque",
+    "encoding": {
+      "id": "photara.proxy-encoding.tiff",
+      "version": 1
+    }
+  }
+]

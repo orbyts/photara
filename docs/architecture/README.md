@@ -7,9 +7,10 @@
 3. [Node packages](NODE_PACKAGES.md)
 4. [Persistence](PERSISTENCE.md)
 5. [Project assets and representations](ASSETS.md)
-6. [Layout node](LAYOUT_NODE.md)
-7. [Native clients](NATIVE_CLIENTS.md)
-8. [Swift bridge spike](SWIFT_BRIDGE_SPIKE.md)
+6. [Project proxy infrastructure](PROXIES.md)
+7. [Layout node](LAYOUT_NODE.md)
+8. [Native clients](NATIVE_CLIENTS.md)
+9. [Swift bridge spike](SWIFT_BRIDGE_SPIKE.md)
 
 `ROADMAP.md` is authoritative for implementation order and release gates.
 

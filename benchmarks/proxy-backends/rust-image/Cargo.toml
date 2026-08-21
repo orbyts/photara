@@ -1,0 +1,12 @@
+[package]
+name = "photara-rust-image-proxy-benchmark"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+image = { version = "0.25.10", default-features = false, features = ["png", "tiff"] }
+photara-core = { path = "../../../crates/photara-core" }
+serde_json = "1"
+
+[workspace]

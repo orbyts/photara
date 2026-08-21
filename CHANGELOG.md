@@ -47,3 +47,13 @@
 - Add a local paired HDR/SDR TIFF development adapter that preserves identity
   across path moves, detects changed bytes, refreshes fingerprints, and performs
   no Stage 6 decoding, color, proxy, or backend work.
+- Add portable runtime-resolution handles for provider/external representation
+  locations while keeping machine locators and configurable output placement
+  outside semantic asset identity.
+- Add backend-neutral proxy request, profile, descriptor, and cache-key
+  contracts covering resampling, ICC/color intent, HDR/tone-map policy, bit
+  depth, alpha, and exact encoder/generator revisions.
+- Add a reproducible large-TIFF backend harness and record the Quasar decision:
+  ImageIO/Core Image for the first macOS proxy backend, libvips retained as the
+  leading portable candidate, and no default ImageMagick or incomplete
+  Rust-native color path.

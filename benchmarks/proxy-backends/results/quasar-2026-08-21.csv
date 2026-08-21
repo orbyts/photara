@@ -1,0 +1,9 @@
+backend,profile,median_seconds,median_peak_rss_mib,output_bytes,contract_result
+apple-imageio-coreimage,thumbnail-sdr,0.45,474.8,105092,pass
+apple-imageio-coreimage,authoring-hdr,1.09,953.5,16775022,pass
+libvips,thumbnail-sdr,1.60,261.2,221406,pass
+libvips,authoring-hdr,2.28,413.3,18373642,fail-f32-instead-of-f16
+imagemagick,thumbnail-sdr,6.76,1213.0,78717,pass
+imagemagick,authoring-hdr,3.39,1202.8,5753310,pass
+rust-image,thumbnail-sdr,1.28,534.2,111159,fail-no-icc-transform
+rust-image,authoring-hdr,3.71,1210.0,33547334,fail-hdr-clipped-and-f32

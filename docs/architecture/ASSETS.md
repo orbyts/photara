@@ -14,14 +14,16 @@ records. A representation is one concrete rendition of the asset and carries:
 - a namespaced semantic role;
 - an immutable SHA-256 content fingerprint;
 - namespaced capabilities;
-- a portable project-resource binding;
+- a portable project-resource or stable runtime-resolution binding;
 - forward-compatible portable extensions.
 
 Paired HDR and SDR flattened TIFFs are two representations of one asset. The
-initial roles are `photara.rendition.hdr` and `photara.rendition.sdr`; declared
-capabilities describe image, TIFF, flattened-image, and HDR/SDR properties.
-Stage 5 does not decode TIFFs or assert color correctness from those declarations.
-That measurement and imaging work belongs to Stage 6.
+initial vocabulary also accommodates original Camera RAW, a RAW-preview TIFF,
+a layered master PSB, and flattened SDR/HDR renditions. These are ordinary
+namespaced roles, not privileged Core asset variants. Declared capabilities
+describe image, TIFF, flattened-image, and HDR/SDR properties.
+Those declarations do not themselves assert decoded color correctness; the
+Stage 6 benchmark measures that separately.
 
 Asset and representation identity survive a project-relative path change. The
 resource binding points to a `ProjectResourceId`, whose path may change without
@@ -29,11 +31,40 @@ changing either semantic identity or the content fingerprint. When upstream
 content changes, the representation keeps its identity but receives a new
 fingerprint. Future proxy keys therefore change naturally.
 
+## Bindings and configurable placement
+
+`RepresentationBinding::ProjectResource` points to a portable project-relative
+resource. `RepresentationBinding::RuntimeResolved` carries only a stable
+`RepresentationStorageBindingId`; the actual filesystem, library, cloud, mount,
+account, or credential locator is resolved outside the Project Document. A
+runtime materialization returns a verified local path without making that path
+portable authority.
+
+Output placement is separate from representation identity and current binding.
+Configurable storage policy may choose targets per role. A useful default is:
+
+```text
+RAW/original location
+├── camera RAW
+└── layered PSB
+
+Project location
+├── RAW preview TIFF
+├── flattened SDR TIFF
+└── flattened HDR TIFF
+```
+
+That is a preference, not a Core requirement. A user may place any role in any
+resolved storage target. Storage-policy adapters control output placement;
+assets, representations, fingerprints, graph values, and proxy keys remain
+independent of those choices.
+
 ## Portable versus runtime state
 
 `ProjectDocument.asset_context` is portable authored project state. It contains
 semantic assets, representations, roles, capabilities, fingerprints, and
-project-resource bindings. It contains no machine-resolved path.
+portable project-resource or runtime-resolution handles. It contains no
+machine-resolved path.
 
 Availability and materialization are runtime queries. A materialization request
 names the asset, representation, and expected fingerprint. A materializer
@@ -73,7 +104,9 @@ project state for this stage.
 
 No Photoshop, Lightroom, Lureva, filesystem-root, or cloud-provider type enters
 Core. Future upstream nodes publish ordinary assets and representations through
-the same semantic contracts.
+the same semantic contracts. Photoshop will be a separate node shipped with a
+bundled UXP panel; the paired TIFF adapter remains its development stand-in and
+does not implement or anticipate Photoshop behavior in Core.
 
 ## Downstream proxy rule
 

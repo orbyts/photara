@@ -23,6 +23,8 @@ The repository is building generation two from a clean foundation toward
 - exact package registration and atomic revision-safe portable project storage;
 - project-owned semantic assets with multiple fingerprinted representations,
   including paired HDR/SDR local TIFF development inputs;
+- backend-neutral project proxy contracts with a measured ImageIO/Core Image
+  macOS backend decision;
 - built-in Layout node shipped as an ordinary independently namespaced package;
 - future Windows-native client over the same versioned Core facade;
 - future node marketplace using the same contracts as built-ins.
@@ -63,5 +65,6 @@ unstable while the first vertical application path is built.
 - [Architecture](docs/architecture/README.md)
 - [Portable project and node-graph documents](docs/architecture/PROJECT_DOCUMENTS.md)
 - [Project assets and representations](docs/architecture/ASSETS.md)
+- [Project proxy infrastructure](docs/architecture/PROXIES.md)
 - [Codex handoff](docs/CODEX_HANDOFF.md)
 - [Changelog](CHANGELOG.md)

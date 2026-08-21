@@ -9,14 +9,17 @@ use thiserror::Error;
 
 use crate::{
     AssetId, AssetRepresentationId, ProjectResourceId, RepresentationCapabilityId,
-    RepresentationRoleId, SchemaId, SchemaRef, SchemaVersion, TypedValue, ValueTypeDescriptor,
-    ValueTypeId, ValueTypeRef, ValueTypeVersion,
+    RepresentationRoleId, RepresentationStorageBindingId, SchemaId, SchemaRef, SchemaVersion,
+    TypedValue, ValueTypeDescriptor, ValueTypeId, ValueTypeRef, ValueTypeVersion,
 };
 
 pub const ASSET_SET_VALUE_TYPE_ID: &str = "photara.asset-set";
 pub const ASSET_SET_SCHEMA_ID: &str = "photara.asset-set.value";
-pub const HDR_REPRESENTATION_ROLE_ID: &str = "photara.rendition.hdr";
-pub const SDR_REPRESENTATION_ROLE_ID: &str = "photara.rendition.sdr";
+pub const ORIGINAL_REPRESENTATION_ROLE_ID: &str = "photara.representation.original";
+pub const RAW_PREVIEW_REPRESENTATION_ROLE_ID: &str = "photara.representation.raw-preview";
+pub const LAYERED_MASTER_REPRESENTATION_ROLE_ID: &str = "photara.representation.layered-master";
+pub const HDR_REPRESENTATION_ROLE_ID: &str = "photara.representation.hdr-rendition";
+pub const SDR_REPRESENTATION_ROLE_ID: &str = "photara.representation.sdr-rendition";
 pub const IMAGE_CAPABILITY_ID: &str = "photara.media.image";
 pub const TIFF_CAPABILITY_ID: &str = "photara.format.tiff";
 pub const FLATTENED_IMAGE_CAPABILITY_ID: &str = "photara.image.flattened";
@@ -51,11 +54,17 @@ impl RepresentationFingerprint {
     }
 }
 
-/// Portable binding from a semantic representation to a project-owned resource.
+/// Portable binding from a semantic representation to either project-owned
+/// storage or a stable handle whose machine/provider locator is runtime-only.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum RepresentationBinding {
-    ProjectResource { resource_id: ProjectResourceId },
+    ProjectResource {
+        resource_id: ProjectResourceId,
+    },
+    RuntimeResolved {
+        binding_id: RepresentationStorageBindingId,
+    },
 }
 
 /// Portable semantic description of one rendition of an asset.
@@ -147,8 +156,10 @@ impl ProjectAssetContext {
                     ));
                 }
                 validate_extensions(&representation.extensions)?;
-                let RepresentationBinding::ProjectResource { resource_id } = representation.binding;
-                if !resource_ids.contains(&resource_id) {
+                if let RepresentationBinding::ProjectResource { resource_id } =
+                    representation.binding
+                    && !resource_ids.contains(&resource_id)
+                {
                     return Err(AssetContextError::MissingProjectResource {
                         asset_id: asset.id,
                         representation_id: representation.id,
@@ -439,5 +450,37 @@ mod tests {
             with_proxy.validate(&BTreeSet::from([first_resource, second_resource])),
             Err(AssetContextError::ExcludedPortableField(field)) if field == "proxy"
         ));
+    }
+
+    #[test]
+    fn runtime_resolved_binding_is_portable_without_a_machine_locator() {
+        let asset_id = AssetId::new();
+        let context = ProjectAssetContext {
+            assets: vec![ProjectAsset {
+                id: asset_id,
+                display_name: "Provider-owned RAW".to_owned(),
+                representations: vec![RepresentationDescriptor {
+                    id: AssetRepresentationId::new(),
+                    role: RepresentationRoleId::parse(ORIGINAL_REPRESENTATION_ROLE_ID).unwrap(),
+                    fingerprint: RepresentationFingerprint::sha256([11; 32]),
+                    capabilities: BTreeSet::new(),
+                    binding: RepresentationBinding::RuntimeResolved {
+                        binding_id: RepresentationStorageBindingId::new(),
+                    },
+                    extensions: BTreeMap::new(),
+                }],
+                extensions: BTreeMap::new(),
+            }],
+            extensions: BTreeMap::new(),
+        };
+
+        context.validate(&BTreeSet::new()).unwrap();
+        let json = serde_json::to_string(&context).unwrap();
+        assert!(!json.contains('/'));
+        assert!(!json.contains("credentials"));
+        assert_eq!(
+            serde_json::from_str::<ProjectAssetContext>(&json).unwrap(),
+            context
+        );
     }
 }

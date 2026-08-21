@@ -220,8 +220,12 @@ available project-local representation, and round-trips an explicit ordered
 
 **Measured outcome:** the portable Project Document now owns semantic assets and
 multiple independently identified representations with roles, capabilities,
-SHA-256 content fingerprints, and project-resource bindings. Availability and
-verified local materialization remain runtime-only. The exact ordered
+SHA-256 content fingerprints, and portable project-resource or stable
+runtime-resolution bindings. Availability, provider/machine locators, and
+verified local materialization remain runtime-only. Output storage policy is
+separate from identity and binding: placing layered PSBs beside RAWs and
+flattened TIFFs in the project is a useful default, never a Core requirement.
+The exact ordered
 `photara.asset-set` typed value validates project membership and is used by
 Layout's declared input port. A development adapter imports paired HDR/SDR TIFF
 paths as one asset, preserves identities and fingerprints across path moves,
@@ -229,25 +233,46 @@ detects changed bytes, and refreshes the fingerprint without decoding TIFF or
 generating proxies. Project JSON and the Stage 4A store round-trip this context;
 proxy/cache/UI/provider concepts remain absent.
 
-### 6. HDR/SDR-aware project proxy infrastructure
+### 6. HDR/SDR-aware project proxy infrastructure — in progress
+
+#### 6A. Contracts and measured backend decision — complete
+
+- Define backend-neutral project proxy request, profile, exact-profile,
+  descriptor, and content-addressed cache-key contracts before selecting an
+  imaging implementation.
+- Key proxy identity by source representation fingerprint and every
+  output-affecting profile input: sizing, resampling, orientation, color/intent,
+  HDR/tone-map policy, depth, alpha, exact encoding recipe, and generator
+  revision. Project, asset, representation, request, and consumer identity do
+  not affect derived bytes.
+- Benchmark ImageIO/Core Image, libvips, ImageMagick, and a viable Rust-native
+  path against exact profiles and representative TIFFs for ICC/wide gamut,
+  HDR/SDR, depth, orientation, memory, throughput, deployment, and portability.
+- Record the fixture corpus, raw medians, correctness results, deployment
+  assessment, and selected backend before production generation.
+
+**Measured outcome:** Quasar benchmarks used deterministic 8000×5333,
+high-entropy 179 MiB Display-P3 U16 SDR and 302 MiB linear-ACEScg F32 HDR TIFFs,
+plus an orientation-6 fixture. The optimized ImageIO float-thumbnail/Core Image
+path passed ICC, wide-gamut, orientation, F16, negative-value, and HDR-headroom
+checks at median 0.45 s / 475 MiB for a 512 px SDR thumbnail and 1.09 s / 954 MiB
+for a 2048 px HDR preview. It is selected for the first macOS backend and uses
+no macOS 27 APIs. libvips remains the leading future portable/Windows candidate;
+ImageMagick is not the default; the measured Rust `image` path failed the exact
+color/HDR contract. Full results are in `docs/architecture/PROXIES.md`.
+
+#### 6B. Production project proxy service — next
 
 - Build a project-scoped proxy service shared by nodes and UI consumers. Layout
   and Gallery request proxies; neither owns proxy generation or cache policy.
-- Generate reusable thumbnail and authoring-preview proxies from explicit source
-  representations. Proxies are derived/cache data and never authoritative
-  Project Document or node-authored state.
-- Key proxy identity by source representation fingerprint, proxy profile, and
-  every relevant color/HDR policy input. Replacing upstream content produces a
-  new fingerprint and therefore a new cache key without mutating old proxies.
-- Before selecting an imaging backend, benchmark credible candidates—including
-  ImageIO/Core Image, libvips, ImageMagick, and viable Rust-native approaches—on
-  representative large flattened TIFFs, paired HDR/SDR inputs, embedded ICC
-  profiles, wide gamut, bit depth, orientation, memory use, throughput, output
-  correctness, deployment complexity, and eventual portability. Do not choose
-  ImageMagick or any other backend by default.
-- Implement only after measurement: color-described thumbnail and
-  authoring-preview profiles, request deduplication, content-addressed storage,
-  quotas, corruption recovery, and unmounted/remounted source behavior.
+- Generate reusable color-described thumbnail and authoring-preview proxies
+  from explicit source representations. Proxies are derived/cache data and
+  never authoritative Project Document or node-authored state.
+- Add request deduplication, content-addressed storage, atomic publication,
+  descriptor verification, quotas, corruption recovery, and
+  unmounted/remounted-source behavior behind the backend-neutral contracts.
+- Keep ImageIO/Core Image in the macOS adapter. No platform image, color, EDR,
+  filesystem, or cache-backend object enters Core.
 
 **Gate:** the measured backend decision is recorded; shared project services
 produce responsive, color/HDR-described proxies whose cache identity changes

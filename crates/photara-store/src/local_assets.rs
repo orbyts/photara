@@ -12,7 +12,8 @@ use photara_core::{
     RepresentationAvailability, RepresentationBinding, RepresentationCapabilityId,
     RepresentationDescriptor, RepresentationFingerprint, RepresentationMaterializationError,
     RepresentationMaterializationRequest, RepresentationMaterializer, RepresentationRoleId,
-    SDR_CAPABILITY_ID, SDR_REPRESENTATION_ROLE_ID, TIFF_CAPABILITY_ID,
+    RepresentationStorageBindingId, SDR_CAPABILITY_ID, SDR_REPRESENTATION_ROLE_ID,
+    TIFF_CAPABILITY_ID,
 };
 use sha2::{Digest as _, Sha256};
 use thiserror::Error;
@@ -60,7 +61,16 @@ impl<'a> LocalProjectAssetAdapter<'a> {
         &self,
         representation: &RepresentationDescriptor,
     ) -> Result<PathBuf, RepresentationMaterializationError> {
-        let RepresentationBinding::ProjectResource { resource_id } = representation.binding;
+        let resource_id = match representation.binding {
+            RepresentationBinding::ProjectResource { resource_id } => resource_id,
+            RepresentationBinding::RuntimeResolved { binding_id } => {
+                return Err(RepresentationMaterializationError::Backend {
+                    message: format!(
+                        "runtime storage binding {binding_id} is not resolved by the local project adapter"
+                    ),
+                });
+            }
+        };
         let resource = self
             .project
             .resources
@@ -201,7 +211,14 @@ pub fn refresh_local_representation_fingerprint(
             asset_id,
             representation_id,
         })?;
-    let RepresentationBinding::ProjectResource { resource_id } = representation.binding;
+    let resource_id = match representation.binding {
+        RepresentationBinding::ProjectResource { resource_id } => resource_id,
+        RepresentationBinding::RuntimeResolved { binding_id } => {
+            return Err(LocalAssetAdapterError::UnsupportedRuntimeBinding(
+                binding_id,
+            ));
+        }
+    };
     let resource = project
         .resources
         .iter()
@@ -319,6 +336,8 @@ pub enum LocalAssetAdapterError {
     },
     #[error("project resource {0} does not exist")]
     MissingProjectResource(ProjectResourceId),
+    #[error("runtime storage binding {0} is not supported by the local project adapter")]
+    UnsupportedRuntimeBinding(RepresentationStorageBindingId),
     #[error("invalid project after local asset update: {0}")]
     InvalidProject(#[from] photara_core::ProjectValidationError),
     #[error("could not {operation} at {path}: {source}")]
@@ -444,7 +463,9 @@ mod tests {
             root.0.join("fixtures/hdr-moved.tiff"),
         )
         .unwrap();
-        let RepresentationBinding::ProjectResource { resource_id } = hdr.binding;
+        let RepresentationBinding::ProjectResource { resource_id } = hdr.binding else {
+            panic!("imported fixture should use a project resource binding");
+        };
         project
             .resources
             .iter_mut()
