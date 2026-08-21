@@ -1,2 +1,6 @@
 /target
+/.build
+/DerivedData
+.DS_Store
+*.xcuserstate
 nvim.log

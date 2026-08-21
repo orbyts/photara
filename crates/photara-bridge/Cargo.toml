@@ -1,0 +1,14 @@
+[package]
+name = "photara-bridge"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Versioned client-facing application facade for Photara."
+
+[dependencies]
+photara-core = { path = "../photara-core" }
+serde.workspace = true
+
+[lints]
+workspace = true
