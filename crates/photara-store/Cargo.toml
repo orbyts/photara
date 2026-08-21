@@ -8,10 +8,10 @@ description = "Persistence boundaries and adapters for Photara Core."
 
 [dependencies]
 photara-core = { path = "../photara-core" }
-thiserror.workspace = true
-
-[dev-dependencies]
+photara-node-sdk = { path = "../photara-node-sdk" }
 serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

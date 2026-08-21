@@ -9,6 +9,8 @@ description = "Internal node package contracts for Photara generation two."
 [dependencies]
 photara-core = { path = "../photara-core" }
 serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

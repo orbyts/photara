@@ -9,8 +9,9 @@ use serde_json::Value;
 use thiserror::Error;
 
 use crate::{
-    CanonicalDigest, ConnectionId, GraphDocument, NodeInstanceId, NodePackageId, PackageVersion,
-    ProjectId, ProjectResourceId, SchemaVersion, canonical_digest,
+    AssetContextError, CanonicalDigest, ConnectionId, GraphDocument, NodeInstanceId, NodePackageId,
+    PackageVersion, ProjectAssetContext, ProjectId, ProjectResourceId, SchemaVersion,
+    canonical_digest,
 };
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -171,6 +172,8 @@ pub struct ProjectDocument {
     pub graph: GraphDocument,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub resources: Vec<ProjectResourceRef>,
+    #[serde(default, skip_serializing_if = "ProjectAssetContext::is_empty")]
+    pub asset_context: ProjectAssetContext,
     #[serde(default, flatten)]
     pub extensions: BTreeMap<String, Value>,
 }
@@ -210,6 +213,7 @@ impl ProjectDocument {
             required_packages: package_requirements(&graph),
             graph,
             resources: Vec::new(),
+            asset_context: ProjectAssetContext::default(),
             extensions: BTreeMap::new(),
         };
         document.validate()?;
@@ -228,6 +232,8 @@ impl ProjectDocument {
         validate_requirements(&self.required_packages, &self.graph)?;
         validate_graph_structure(&self.graph)?;
         validate_resources(&self.resources)?;
+        let resource_ids = self.resources.iter().map(|resource| resource.id).collect();
+        self.asset_context.validate(&resource_ids)?;
         validate_extension_keys(
             &self.extensions,
             &[
@@ -238,6 +244,7 @@ impl ProjectDocument {
                 "required_packages",
                 "graph",
                 "resources",
+                "asset_context",
             ],
         )
     }
@@ -538,6 +545,12 @@ fn validate_extension_keys(
         "evaluations",
         "progress",
         "cancellation",
+        "availability",
+        "materialization",
+        "proxy",
+        "proxies",
+        "thumbnail",
+        "preview",
         "cache",
         "caches",
         "credentials",
@@ -546,6 +559,7 @@ fn validate_extension_keys(
         "workspace",
         "panels",
         "window_geometry",
+        "gallery_selection",
     ];
     if let Some(key) = extensions
         .keys()
@@ -605,10 +619,18 @@ pub enum ProjectValidationError {
     DuplicateResourceId(ProjectResourceId),
     #[error("duplicate project resource path {0}")]
     DuplicateResourcePath(ProjectRelativePath),
+    #[error("invalid project asset context: {0}")]
+    InvalidAssetContext(Box<AssetContextError>),
     #[error("extension key {0:?} collides with a defined document field")]
     ReservedExtensionKey(String),
     #[error("portable document must not contain excluded state field {0:?}")]
     ExcludedPortableField(String),
+}
+
+impl From<AssetContextError> for ProjectValidationError {
+    fn from(error: AssetContextError) -> Self {
+        Self::InvalidAssetContext(Box::new(error))
+    }
 }
 
 #[cfg(test)]
@@ -619,8 +641,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        Connection, GraphId, NodeDefinitionId, NodeDefinitionRef, NodeDefinitionVersion,
-        NodeInstance, PortEndpoint, PortId, SchemaId, SchemaRef, SchemaValue,
+        AssetId, AssetRepresentationId, Connection, GraphId, NodeDefinitionId, NodeDefinitionRef,
+        NodeDefinitionVersion, NodeInstance, PortEndpoint, PortId, ProjectAsset,
+        RepresentationBinding, RepresentationDescriptor, RepresentationFingerprint,
+        RepresentationRoleId, SchemaId, SchemaRef, SchemaValue,
     };
 
     fn schema(id: &str) -> SchemaRef {
@@ -672,9 +696,26 @@ mod tests {
             extensions: BTreeMap::from([("future-connection-field".to_owned(), json!(9))]),
         });
         let mut project = ProjectDocument::new(ProjectId::new(), "Portable Test", graph).unwrap();
+        let resource_id = ProjectResourceId::new();
         project.resources.push(ProjectResourceRef {
-            id: ProjectResourceId::new(),
+            id: resource_id,
             relative_path: ProjectRelativePath::parse("assets/./session//image.tif").unwrap(),
+        });
+        project.asset_context.assets.push(ProjectAsset {
+            id: AssetId::new(),
+            display_name: "Portable Asset".to_owned(),
+            representations: vec![RepresentationDescriptor {
+                id: AssetRepresentationId::new(),
+                role: RepresentationRoleId::parse("example.rendition.original").unwrap(),
+                fingerprint: RepresentationFingerprint::sha256([9; 32]),
+                capabilities: BTreeSet::new(),
+                binding: RepresentationBinding::ProjectResource { resource_id },
+                extensions: BTreeMap::from([(
+                    "future-representation-field".to_owned(),
+                    json!({"kept": true}),
+                )]),
+            }],
+            extensions: BTreeMap::new(),
         });
         project
             .extensions
@@ -730,6 +771,7 @@ mod tests {
         assert_eq!(decoded.graph, project.graph);
         assert!(!json.contains("project_id"));
         assert!(!json.contains("resources"));
+        assert!(!json.contains("asset_context"));
     }
 
     #[test]
@@ -741,6 +783,7 @@ mod tests {
             BTreeSet::from([
                 "future-project-field",
                 "graph",
+                "asset_context",
                 "metadata",
                 "project_id",
                 "required_packages",

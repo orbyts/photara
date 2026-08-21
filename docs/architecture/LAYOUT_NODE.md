@@ -3,6 +3,12 @@
 Layout is the first production node and the first rich inspector. It is an
 ordinary package installed by default, not a Core node category.
 
+Layout consumes Core's explicit ordered `photara.asset-set` typed input. It
+never reads Gallery selection or ambient project context. It resolves visual
+representations and future proxies through shared project services, owns no
+proxy generator/cache, and is indifferent to whether assets originated from a
+local fixture, Photoshop, Lightroom, Lureva, cloud storage, or another node.
+
 Its authored hierarchy is:
 
 ```text

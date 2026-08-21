@@ -20,6 +20,14 @@ A definition is code and metadata. A node instance is user-owned graph state
 that pins a definition version. Installing a newer package never silently
 changes an existing instance.
 
+The Stage 4A `NodePackageRegistry` accepts the same validated manifest returned
+by a live bundled package or reopened from persistence. It builds exact Core
+definition coordinates from the package release plus each definition identity
+and version. Resolution never falls forward to another release or definition
+version. Manifests require schema version 1, a nonempty display name, at least
+one valid definition, unique definition coordinates, and definitions inside the
+package namespace. Unknown top-level manifest fields survive JSON round trips.
+
 Built-in and downloadable nodes use the same semantic package contract. A
 built-in may be trusted and bundled by the installer, but that does not give it
 special graph semantics or direct database access.
@@ -36,6 +44,10 @@ are distribution policies over the same identities and registry contract, not
 different Core node types. The `0.2.0` critical path implements bundled
 registration and sensible missing-package behavior, not the remote store or
 complete install/update/uninstall lifecycle.
+
+Persisted manifest records describe registrations only. They do not claim that
+package code was downloaded, trusted, enabled, migrated, or executable; those
+are later lifecycle concerns.
 
 The first package is:
 

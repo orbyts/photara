@@ -16,6 +16,9 @@ the same semantic graph vocabulary.
   authored state;
 - semantically identified supporting resources whose locations are normalized
   relative to an explicit project root;
+- project-owned semantic asset context containing asset/representation
+  identities, roles, capabilities, content fingerprints, and bindings to those
+  supporting resources;
 - preserved unknown extension fields where the current schema can safely carry
   them.
 
@@ -38,6 +41,12 @@ parent traversal, and drive-qualified paths are rejected by the portable Core
 type. Provider-neutral external references are added later when a real provider
 requires them.
 
+One asset may expose multiple related representations. Paired HDR and SDR
+flattened TIFFs remain one asset with two representation identities and content
+fingerprints. Moving either resource changes only its binding path; replacing
+its bytes changes the fingerprint. Runtime availability and materialized local
+paths are not serialized.
+
 ## Standalone Node Graph Document
 
 `NodeGraphDocument` is the trivial graph-sharing file. It copies the same
@@ -58,6 +67,7 @@ Neither portable document contains:
 
 - evaluation attempts, dirty/cooked markers, progress, or cancellation;
 - proxy, thumbnail, typed-value, preview, or intermediate caches;
+- materialization results, current availability, or Gallery selection;
 - passwords, API keys, OAuth material, environment values, or resolved secret
   contents;
 - machine-specific host paths, mount paths, or account bindings;

@@ -140,7 +140,7 @@ production in-process facade; handwritten C ABI is not justified, and IPC/XPC
 is reserved for boundaries that need process isolation. The bridge remains
 free of macOS 27 APIs; later SDK-27 UI experiments belong above it.
 
-### 4A. Minimum package registry and persistence foundation
+### 4A. Minimum package registry and persistence foundation — complete
 
 - Define a manifest/descriptor contract and package/definition registry that
   registers bundled packages through the ordinary node-package path.
@@ -165,6 +165,17 @@ Layout dependency; a graph pins the exact Layout package/definition versions;
 graph and Layout authored state save and reopen; revision-safe writes work; and
 a brand-new store has no dependency on the `v0.1.0` database.
 
+**Measured outcome:** exact package manifests validate, persist, and rebuild the
+ordinary definition registry after reopen. The portable Project Document is the
+single authoritative project/graph aggregate behind backend-neutral create,
+load, and revision-checked replace operations. A minimal filesystem adapter
+uses synchronized temporary files and atomic publication/replacement, while an
+in-memory adapter supports tests and short-lived services. The real Layout
+package, exact node pins, configuration, authored state, and unknown future
+state round-trip through a brand-new store. No legacy database, normalized
+graph copy, Stage 4B lifecycle, credential store, or runtime/evidence
+persistence was introduced.
+
 ### 4B. Full package distribution lifecycle — after the first Layout Inspector
 
 - Add remote and local-development installation, compatible update, rollback,
@@ -181,29 +192,77 @@ a brand-new store has no dependency on the `v0.1.0` database.
 **Gate:** Stage 4B is not a `0.2.0` release gate. Implement an individual piece
 early only when the Layout vertical slice genuinely requires it.
 
-### 5. Asset context and representations
+### 5. Project asset context and representations — complete
 
-- Define media-general `AssetRef`, representation, capability, fingerprint,
-  availability, and materialization contracts.
-- Add an initial local/project asset adapter without making paths identity.
+- Define media-general semantic asset identity independently of any file,
+  provider, host application, media kind, or current location.
+- Let one asset expose multiple independently identified related
+  representations/renditions. In particular, paired HDR and SDR flattened TIFFs
+  are two representations of one asset, not two unrelated assets.
+- Define representation capabilities, immutable content fingerprints,
+  availability, locator/binding separation, and explicit materialization
+  requests/results. Moving a representation must not change asset or
+  representation identity; changing its content must produce a new fingerprint.
+- Add project-owned asset context with explicit lookup and `AssetSet` values.
+  Asset ordering and membership used by a graph are declared typed input, while
+  transient Gallery selection remains client state.
+- Add a minimal local/project adapter for development fixtures and imported
+  paired HDR/SDR flattened TIFFs. These stand in for representations that future
+  Photoshop, Lightroom, Lureva, cloud, or other upstream nodes may produce.
+- Keep every provider/host concept outside Core. Future upstream nodes create or
+  replace ordinary assets/representations through the same contracts.
 
-**Gate:** Core can retain asset identity across representation and path changes,
-describe availability/capabilities, and materialize a local project
-representation without making gallery selection an implicit graph input.
+**Gate:** Core retains asset and representation identity across path changes,
+represents paired HDR/SDR renditions under one asset, describes capabilities and
+availability, detects changed content through fingerprints, materializes an
+available project-local representation, and round-trips an explicit ordered
+`AssetSet` without Gallery selection or Photoshop-specific state.
 
-### 6. Visual proxy pipeline
+**Measured outcome:** the portable Project Document now owns semantic assets and
+multiple independently identified representations with roles, capabilities,
+SHA-256 content fingerprints, and project-resource bindings. Availability and
+verified local materialization remain runtime-only. The exact ordered
+`photara.asset-set` typed value validates project membership and is used by
+Layout's declared input port. A development adapter imports paired HDR/SDR TIFF
+paths as one asset, preserves identities and fingerprints across path moves,
+detects changed bytes, and refreshes the fingerprint without decoding TIFF or
+generating proxies. Project JSON and the Stage 4A store round-trip this context;
+proxy/cache/UI/provider concepts remain absent.
 
-- Measure thumbnail and authoring-preview backends using representative SDR,
-  wide-gamut, HDR, rotated, portrait, landscape, and large sources.
-- Implement content-addressed proxy caching, request deduplication, quotas,
-  corruption recovery, source-change invalidation, and unmounted/remounted
-  storage behavior.
+### 6. HDR/SDR-aware project proxy infrastructure
 
-**Gate:** responsive, color-described proxies can be requested through Core;
-cache deletion cannot remove authored or evidentiary state.
+- Build a project-scoped proxy service shared by nodes and UI consumers. Layout
+  and Gallery request proxies; neither owns proxy generation or cache policy.
+- Generate reusable thumbnail and authoring-preview proxies from explicit source
+  representations. Proxies are derived/cache data and never authoritative
+  Project Document or node-authored state.
+- Key proxy identity by source representation fingerprint, proxy profile, and
+  every relevant color/HDR policy input. Replacing upstream content produces a
+  new fingerprint and therefore a new cache key without mutating old proxies.
+- Before selecting an imaging backend, benchmark credible candidates—including
+  ImageIO/Core Image, libvips, ImageMagick, and viable Rust-native approaches—on
+  representative large flattened TIFFs, paired HDR/SDR inputs, embedded ICC
+  profiles, wide gamut, bit depth, orientation, memory use, throughput, output
+  correctness, deployment complexity, and eventual portability. Do not choose
+  ImageMagick or any other backend by default.
+- Implement only after measurement: color-described thumbnail and
+  authoring-preview profiles, request deduplication, content-addressed storage,
+  quotas, corruption recovery, and unmounted/remounted source behavior.
+
+**Gate:** the measured backend decision is recorded; shared project services
+produce responsive, color/HDR-described proxies whose cache identity changes
+with source fingerprint or proxy/color policy; multiple Layout/UI consumers
+reuse them; and deleting the cache cannot remove project, authored, or
+evidentiary state.
 
 ### 7. Built-in Layout node
 
+- Consume an explicit ordered `AssetSet` typed input. Layout never reads Gallery
+  selection or ambient project UI context.
+- Resolve visual source representations and proxies through project services.
+  Layout does not generate or own proxies and is indifferent to whether an
+  asset originated on disk, in Photoshop, Lightroom, Lureva, cloud storage, or
+  another upstream node.
 - Define versioned output canvas profiles: bundled ratios and custom positive
   dimensions/aspects.
 - Support arbitrary positive ordered frame counts.
@@ -219,8 +278,10 @@ cache deletion cannot remove authored or evidentiary state.
 - Keep later justified, masonry, packed/mosaic, treemap, constraint, and
   aesthetic optimization strategies version-additive behind the same plan type.
 
-**Gate:** independent 3:4 and 9:16 Layout instances can use the same assets,
-retain independent crops, survive save/reopen/undo, and resolve exactly.
+**Gate:** independent 3:4 and 9:16 Layout instances consume explicit AssetSets,
+reuse project-scoped proxies for the same representations, retain independent
+crops, survive save/reopen/undo, and resolve exactly without ambient Gallery or
+provider-specific dependencies.
 
 ### 8. Minimal dockable macOS workspace
 
@@ -242,10 +303,15 @@ retain independent crops, survive save/reopen/undo, and resolve exactly.
   first useful Layout workflow.
 - Use AppKit/Metal selectively for high-performance graph/crop/HDR surfaces.
 - Keep every semantic edit as a Core command.
+- Treat Gallery strictly as a view over project-owned asset context and proxy
+  services. Closing, docking, moving, filtering, or selecting in Gallery changes
+  no project or graph semantics; drag/drop creates explicit commands or typed
+  AssetSet bindings.
 
 **Gate:** the app creates, edits, saves, closes, and reopens a graph through the
 same facade exercised by Rust tests; selecting a Layout node presents its real
-Inspector regardless of that panel's placement.
+Inspector regardless of that panel's placement; and Gallery can be closed or
+moved without changing evaluation inputs or project digests.
 
 ### 9. Production Layout inspector
 
@@ -253,6 +319,8 @@ Inspector regardless of that panel's placement.
   direct Fit/Fill/Crop controls, rotation, crop authoring, validation, and
   resolved preview. The Inspector may occupy most of a workspace or become a
   focused/detached authoring surface without changing Core commands.
+- Request thumbnails and authoring previews from the shared project proxy
+  service, preserving HDR/SDR/color descriptions through preview selection.
 - Support multiple independent Layout nodes.
 - Harden unavailable storage, source replacement, stale revisions, cancellation,
   corrupted cache, and interrupted save recovery.

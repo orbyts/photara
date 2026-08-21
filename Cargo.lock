@@ -159,6 +159,7 @@ version = "0.2.0-alpha.0"
 dependencies = [
  "photara-core",
  "photara-node-sdk",
+ "photara-store",
  "serde_json",
 ]
 
@@ -168,6 +169,8 @@ version = "0.2.0-alpha.0"
 dependencies = [
  "photara-core",
  "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -175,7 +178,9 @@ name = "photara-store"
 version = "0.2.0-alpha.0"
 dependencies = [
  "photara-core",
+ "photara-node-sdk",
  "serde_json",
+ "sha2",
  "thiserror",
 ]
 

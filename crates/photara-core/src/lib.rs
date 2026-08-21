@@ -1,5 +1,6 @@
 //! Portable, UI-independent semantic core for the generation-two application.
 
+mod asset;
 mod canonical;
 mod command;
 mod diagnostic;
@@ -10,6 +11,16 @@ mod node;
 mod project;
 mod value;
 
+pub use asset::{
+    ASSET_SET_SCHEMA_ID, ASSET_SET_VALUE_TYPE_ID, AssetContextError, AssetSet, AssetSetValueError,
+    FLATTENED_IMAGE_CAPABILITY_ID, FingerprintAlgorithm, HDR_CAPABILITY_ID,
+    HDR_REPRESENTATION_ROLE_ID, IMAGE_CAPABILITY_ID, MaterializedRepresentation, ProjectAsset,
+    ProjectAssetContext, RepresentationAvailability, RepresentationBinding,
+    RepresentationDescriptor, RepresentationFingerprint, RepresentationMaterializationError,
+    RepresentationMaterializationRequest, RepresentationMaterializer, SDR_CAPABILITY_ID,
+    SDR_REPRESENTATION_ROLE_ID, TIFF_CAPABILITY_ID, asset_set_value_type_descriptor,
+    asset_set_value_type_ref,
+};
 pub use canonical::{CanonicalDigest, canonical_digest, canonical_json};
 pub use command::{
     GraphCommand, GraphCommandEnvelope, GraphCommandError, GraphCommandResult, apply_graph_command,
@@ -22,10 +33,11 @@ pub use evaluation::{
 };
 pub use graph::{Connection, GraphDocument, GraphRevision, NodeInstance, PortEndpoint};
 pub use identity::{
-    CanonicalIdError, CapabilityId, CommandId, ConnectionId, EvaluationId, GraphId,
-    NodeDefinitionId, NodeDefinitionVersion, NodeInstanceId, NodePackageId, PackageVersion, PortId,
-    ProjectId, ProjectResourceId, RequestId, SchemaId, SchemaVersion, ValueTypeId,
-    ValueTypeVersion, VersionError,
+    AssetId, AssetRepresentationId, CanonicalIdError, CapabilityId, CommandId, ConnectionId,
+    EvaluationId, GraphId, NodeDefinitionId, NodeDefinitionVersion, NodeInstanceId, NodePackageId,
+    PackageVersion, PortId, ProjectId, ProjectResourceId, RepresentationCapabilityId,
+    RepresentationRoleId, RequestId, SchemaId, SchemaVersion, ValueTypeId, ValueTypeVersion,
+    VersionError,
 };
 pub use node::{
     DefinitionRegistryError, DefinitionResolver, NodeDefinition, NodeDefinitionError,

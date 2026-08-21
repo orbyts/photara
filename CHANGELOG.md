@@ -31,3 +31,19 @@
 - Select UniFFI as the preferred production in-process Swift bridge direction,
   reserving IPC/XPC for isolation and keeping bridge infrastructure independent
   of macOS 27 APIs.
+- Add validated exact package manifests and an ordinary package/definition
+  registry used identically by bundled packages and persisted registrations.
+- Replace graph-only persistence with backend-neutral whole-project and package
+  manifest repositories, plus in-memory and atomic filesystem adapters.
+- Prove the Stage 4A gate with the real Layout package: exact pins,
+  configuration, authored and unknown state, durable save/reopen, stale-writer
+  rejection, and a brand-new store with no legacy database dependency.
+- Refine Stages 5–9 around project-owned assets, shared HDR/SDR-aware derived
+  proxies, explicit Layout AssetSet input, semantic-free Gallery state, and a
+  proxy-consuming production Inspector.
+- Add portable project asset context with semantic asset/representation IDs,
+  rendition roles, capabilities, SHA-256 fingerprints, project-resource
+  bindings, runtime availability/materialization, and typed ordered AssetSets.
+- Add a local paired HDR/SDR TIFF development adapter that preserves identity
+  across path moves, detects changed bytes, refreshes fingerprints, and performs
+  no Stage 6 decoding, color, proxy, or backend work.

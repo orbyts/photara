@@ -103,6 +103,8 @@ string_id!(NodeDefinitionId, true);
 string_id!(ValueTypeId, true);
 string_id!(SchemaId, true);
 string_id!(CapabilityId, true);
+string_id!(RepresentationCapabilityId, true);
+string_id!(RepresentationRoleId, true);
 string_id!(PortId, false);
 
 /// The independently released semantic version of a node package.
@@ -227,6 +229,8 @@ uuid_id!(RequestId);
 uuid_id!(EvaluationId);
 uuid_id!(ProjectId);
 uuid_id!(ProjectResourceId);
+uuid_id!(AssetId);
+uuid_id!(AssetRepresentationId);
 
 #[cfg(test)]
 mod tests {

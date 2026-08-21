@@ -68,6 +68,23 @@ as a standalone shareable file without project identity or resource inventory.
 Both use canonical digests, preserve generic/unknown node state where practical,
 and exclude runtime, caches, secrets, machine paths, and workspace UI state.
 
+Stage 4A is complete. Exact package manifests validate and rebuild an ordinary
+package/definition registry. Backend-neutral repositories now persist exact
+manifest registrations and whole portable Project Documents through in-memory
+and atomic filesystem adapters. The real Layout package, exact node pins,
+configuration, authored state, future unknown state, save/reopen, and stale
+revision rejection pass together against a brand-new store with no legacy
+database dependency.
+
+Stage 5 is complete. Project Documents now contain semantic asset context with
+separate asset, representation, and project-resource identity; representation
+roles/capabilities and SHA-256 content fingerprints; and no serialized
+availability, materialization, proxy, cache, or Gallery-selection state. Core
+defines an explicit ordered `photara.asset-set` typed value used by Layout's
+input port. The local development adapter imports paired HDR/SDR TIFF paths as
+two renditions of one asset, verifies local materialization, survives path
+moves, and detects/refreshes changed content without decoding TIFFs.
+
 ## Local operator environment
 
 These notes describe Suhail's development machine and how Codex should operate
@@ -199,15 +216,14 @@ The Roadmap section 3 Swift bridge spike is complete. Its disposable harness is
 under `spikes/swift-bridge`, and the result and transport comparison are in
 `docs/architecture/SWIFT_BRIDGE_SPIKE.md`.
 
-Implement the minimum package registry and persistence foundation (Roadmap 4A),
-not the full package-distribution lifecycle (4B). Start with the manifest and
-exact-definition registration contract, backend-neutral project repository and
-transaction boundary, and authoritative portable Project Document storage. Do
-not proactively add Stage 4B behavior or persistence for future runtime,
-evaluation, evidence, artifact, or receipt concepts unless it becomes
-concretely necessary to pass the existing Stage 4A gate. Do not start the
-production Swift app, legacy importer, remote package store, or provider nodes
-before these contracts pass their generality gate.
+Roadmap Stage 5 is complete. The next bounded slice is Stage 6, beginning with
+HDR/SDR proxy-backend characterization—not implementation by assumption. Build
+or identify representative large TIFF fixtures and benchmark ImageIO/Core
+Image, libvips, ImageMagick, and viable Rust-native approaches for ICC/color
+correctness, HDR/SDR and bit-depth behavior, orientation, memory, throughput,
+deployment complexity, and portability. Record the decision before building
+the shared project proxy service. Do not start Layout proxy ownership, Gallery
+or other production UI, Stage 4B lifecycle, legacy import, or provider nodes.
 
 ## Verification
 

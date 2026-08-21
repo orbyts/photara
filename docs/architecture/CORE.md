@@ -9,6 +9,8 @@ It owns:
 - typed value and port compatibility;
 - graph documents, connections, revisions, and commands;
 - portable project and standalone node-graph documents;
+- project-owned semantic assets, representations, fingerprints, explicit
+  AssetSet values, and materialization contracts;
 - configuration versus authored-state separation;
 - validation, planning, evaluation, dirty propagation, and diagnostics;
 - cache keys, artifacts, receipts, and evidence semantics;
@@ -48,3 +50,10 @@ workspace UI state. The Project Document embeds the authored graph; a separate
 Node Graph Document exports that same graph for trivial sharing. Neither format
 contains secrets, machine bindings, evaluation progress, caches, or panel/window
 layout.
+
+Project asset context separates three identities that must not collapse:
+`AssetId` is the user-recognized creative item, `AssetRepresentationId` is one
+rendition such as a paired HDR or SDR flattened TIFF, and `ProjectResourceId`
+binds that rendition to a movable project-relative location. Content changes
+produce new representation fingerprints; path changes do not. Availability and
+materialized machine paths are runtime results rather than portable state.

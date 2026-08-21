@@ -20,6 +20,9 @@ The repository is building generation two from a clean foundation toward
 - Houdini-like procedural graph semantics;
 - portable human-inspectable project JSON and standalone shareable node-graph
   JSON;
+- exact package registration and atomic revision-safe portable project storage;
+- project-owned semantic assets with multiple fingerprinted representations,
+  including paired HDR/SDR local TIFF development inputs;
 - built-in Layout node shipped as an ordinary independently namespaced package;
 - future Windows-native client over the same versioned Core facade;
 - future node marketplace using the same contracts as built-ins.
@@ -59,5 +62,6 @@ unstable while the first vertical application path is built.
 - [Roadmap](ROADMAP.md)
 - [Architecture](docs/architecture/README.md)
 - [Portable project and node-graph documents](docs/architecture/PROJECT_DOCUMENTS.md)
+- [Project assets and representations](docs/architecture/ASSETS.md)
 - [Codex handoff](docs/CODEX_HANDOFF.md)
 - [Changelog](CHANGELOG.md)
