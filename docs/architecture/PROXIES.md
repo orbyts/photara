@@ -120,10 +120,84 @@ and [ICC color management](https://imagemagick.org/color-management/). The Rust
 [ICC and orientation metadata](https://docs.rs/image/latest/image/trait.ImageDecoder.html),
 which the measurement confirms is not by itself a complete color pipeline.
 
+## Production project service
+
+`photara-proxy` implements the runtime service without adding cache state to
+Core or the Project Document. One service instance is scoped to one semantic
+project ID and one cache root. Its request order is deliberate:
+
+1. derive the Stage 6A key and verify an existing object;
+2. join or install the key's in-flight record;
+3. only the leader waits for a bounded generation slot;
+4. materialize and fingerprint-check the explicit source representation;
+5. generate into a unique staging directory;
+6. validate backend-reported output policy and dimensions, then verify bytes
+   and SHA-256 fingerprint;
+7. synchronize metadata and atomically publish the complete directory.
+
+This ordering means identical concurrent requests consume one slot, one source
+materialization, and one generation. Followers receive the same verified
+artifact. Failures are not negatively cached, so a missing or unmounted source
+can be retried normally after it becomes available.
+
+Each content-addressed object contains only `proxy`, `descriptor.json`, and a
+derived access marker. Cache hits re-hash the payload and verify its byte length,
+profile digest, source fingerprint, generator revision, and cache key. A failed
+check deletes that exact derived entry and regenerates it. Publication renames a
+synchronized staging directory, preventing interrupted jobs from appearing as
+hits. The quota counts payload and metadata bytes and evicts least-recently-used
+objects while preserving the just-published result. An object larger than the
+quota is rejected before publication. Returned artifacts hold a lightweight
+lease, so quota enforcement and cache clearing cannot delete a payload while a
+consumer still holds its runtime handle; eviction resumes on later requests
+after leases are released.
+
+Clearing the service deletes only the project's derived cache directory and is
+rejected while requests or artifact leases are live. Project JSON, authored
+node state, artifacts, receipts, and evidence live outside this directory and
+cannot be removed by cache operations.
+
+## macOS production adapter
+
+The first adapter launches the bundled `photara-proxy-imageio` helper for one
+generation, then reads a small JSON metadata result. The helper contains the
+large ImageIO/Core Image decoder working set and exits after the job; no pixel
+buffer, `CGColorSpace`, `CIImage`, filesystem locator, or macOS object crosses
+into Core. Process isolation is intentional for this memory-heavy boundary, not
+a replacement for the selected in-process UniFFI application facade.
+
+The helper implements the measured 512 px Display-P3-to-sRGB U8 PNG thumbnail
+path and the 2048 px embedded-color F16 TIFF HDR authoring-preview path. It
+normalizes orientation and composites to opaque output. The current HDR adapter
+recognizes the system sRGB, Display P3, and linear ACEScg profiles; an unknown
+embedded HDR profile fails explicitly instead of silently writing mislabeled
+color. It builds on Quasar with Xcode 26.6 and uses no macOS 27 API.
+
+## Measured concurrency policy
+
+Stage 6A measured the isolated 42.7 MP Apple HDR path at about 954 MiB peak RSS.
+Stage 6B additionally sampled the summed RSS of production helper processes at
+20 ms intervals for three one-job and three two-job groups:
+
+| Simultaneous jobs | Median group time | Median sampled aggregate RSS |
+|---:|---:|---:|
+| 1 | 0.795 s | 658 MiB |
+| 2 | 0.857 s | 1,316 MiB |
+
+The sampled comparison is useful for scaling, while `/usr/bin/time` from Stage
+6A remains the more conservative per-process peak. Two jobs nearly doubled
+resident memory. Until the complete native application is measured on supported
+lower-memory Macs, `ProxyServiceConfig::conservative` therefore permits exactly
+one active generation. The bound is explicit and configurable; it is not based
+on core count. The service tests separately prove that deduplicated followers
+do not consume this single slot.
+
+Raw concurrency samples are in
+[`benchmarks/proxy-concurrency/results/quasar-2026-08-21.csv`](../../benchmarks/proxy-concurrency/results/quasar-2026-08-21.csv).
+
 ## Next implementation boundary
 
-The measured decision authorizes a production macOS backend adapter; it does
-not move platform objects into Core. The next slice is request deduplication,
-content-addressed cache storage, atomic writes, descriptor verification, quotas,
-corruption recovery, and unavailable/remounted-source behavior behind these
-contracts. No Layout or Gallery UI belongs in that slice.
+Stage 6 is complete. Stage 7 may consume this service through explicit
+representations and `AssetSet` inputs. It must not move proxy generation or
+cache ownership into Layout. Gallery, Inspector, Photoshop/UXP, and production
+UI work remain outside this slice.

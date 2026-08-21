@@ -20,10 +20,18 @@ records. A representation is one concrete rendition of the asset and carries:
 Paired HDR and SDR flattened TIFFs are two representations of one asset. The
 initial vocabulary also accommodates original Camera RAW, a RAW-preview TIFF,
 a layered master PSB, and flattened SDR/HDR renditions. These are ordinary
-namespaced roles, not privileged Core asset variants. Declared capabilities
-describe image, TIFF, flattened-image, and HDR/SDR properties.
-Those declarations do not themselves assert decoded color correctness; the
-Stage 6 benchmark measures that separately.
+namespaced roles, not privileged Core asset variants.
+
+Capabilities should increasingly describe what a consumer can do with a
+representation: for example `visual`, `raster`, `hdr`, `has-alpha`,
+`previewable`, `color-managed`, `timed-media`, `seekable`, or `audio`. TIFF,
+AVIF, EXR, ProRes, and similar format or container identities belong in
+representation metadata rather than defining the asset model. The initial
+Stage 5 vocabulary still contains image, TIFF, flattened-image, and HDR/SDR
+declarations for the paired-TIFF adapter; it is a narrow starting vocabulary,
+not a closed capability taxonomy or a Core assumption that visual assets are
+still images. Those declarations do not themselves assert decoded color
+correctness; the Stage 6 measurements test that separately.
 
 Asset and representation identity survive a project-relative path change. The
 resource binding points to a `ProjectResourceId`, whose path may change without

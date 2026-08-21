@@ -57,3 +57,14 @@
   ImageIO/Core Image for the first macOS proxy backend, libvips retained as the
   leading portable candidate, and no default ImageMagick or incomplete
   Rust-native color path.
+- Add the project-scoped production proxy service with pre-scheduling in-flight
+  deduplication, explicitly bounded generation, content-addressed verified
+  objects, atomic publication, quota eviction, corruption recovery, remount
+  retry, and derived-only cache clearing.
+- Add the process-isolated ImageIO/Core Image macOS helper for measured SDR PNG
+  thumbnails and F16 HDR TIFF previews, plus a one-versus-two job RSS harness
+  that establishes an initial one-generation concurrency policy independent of
+  CPU count.
+- Clarify that asset capabilities should describe consumer abilities across
+  still image, video and audio representations, while TIFF, AVIF, EXR, ProRes
+  and similar formats or containers remain representation metadata.

@@ -23,8 +23,8 @@ The repository is building generation two from a clean foundation toward
 - exact package registration and atomic revision-safe portable project storage;
 - project-owned semantic assets with multiple fingerprinted representations,
   including paired HDR/SDR local TIFF development inputs;
-- backend-neutral project proxy contracts with a measured ImageIO/Core Image
-  macOS backend decision;
+- a project-scoped, deduplicated, bounded and disposable proxy service with the
+  measured ImageIO/Core Image macOS backend;
 - built-in Layout node shipped as an ordinary independently namespaced package;
 - future Windows-native client over the same versioned Core facade;
 - future node marketplace using the same contracts as built-ins.
@@ -36,10 +36,13 @@ remain intentionally undecided while the working application evolves.
 
 ```text
 crates/
+├── photara-bridge/     immutable DTO facade for native clients
 ├── photara-core/       semantic IDs, graph state, node definitions, diagnostics
 ├── photara-node-sdk/   package manifest and node registration contracts
-├── photara-store/      backend-neutral authoritative persistence boundaries
-└── photara-bridge/     immutable DTO facade for native clients
+├── photara-proxy/      shared derived proxy generation and cache service
+└── photara-store/      backend-neutral authoritative persistence boundaries
+platform/macos/
+└── photara-proxy-imageio/  process-isolated ImageIO/Core Image helper
 nodes/
 └── photara-layout/     built-in Layout node package
 ```

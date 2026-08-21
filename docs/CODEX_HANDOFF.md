@@ -97,6 +97,15 @@ for SDR thumbnails and 1.09 s for HDR authoring previews. It is the selected
 first macOS backend; details and candidate limitations are in
 `docs/architecture/PROXIES.md`.
 
+Stage 6B is complete. The runtime-only `photara-proxy` crate provides a
+project-scoped content-addressed cache with atomic publication, verified hits,
+quota/LRU eviction, corruption recovery, unavailable-source retry, and bounded
+generation. In-flight deduplication happens before slot acquisition. The
+initial bound is one active generation, based on the measured 954 MiB isolated
+HDR peak and near-linear one-versus-two helper RSS scaling, not CPU count. The
+selected ImageIO/Core Image implementation is a short-lived macOS helper built
+with Xcode 26.6 and no macOS 27 API; no Apple imaging object enters Core.
+
 ## Local operator environment
 
 These notes describe Suhail's development machine and how Codex should operate
@@ -228,13 +237,11 @@ The Roadmap section 3 Swift bridge spike is complete. Its disposable harness is
 under `spikes/swift-bridge`, and the result and transport comparison are in
 `docs/architecture/SWIFT_BRIDGE_SPIKE.md`.
 
-Roadmap Stage 6A is complete. The next bounded slice is Stage 6B: implement the
-production project-scoped proxy service behind the existing contracts using the
-measured ImageIO/Core Image macOS adapter. Add request deduplication,
-content-addressed cache storage, atomic publication, descriptor verification,
-quota/eviction, corruption recovery, and unavailable/remounted-source behavior.
-Keep cache state derived and disposable. Do not start Layout proxy ownership,
-Gallery or other production UI, Stage 4B lifecycle, legacy import, Photoshop/
+Roadmap Stage 6 is complete. The next bounded slice is Stage 7: implement the
+built-in Layout node semantics over explicit ordered `AssetSet` input and the
+project proxy service. Layout may request proxies but cannot own generation,
+cache policy, asset context, or ambient Gallery selection. Do not start Gallery,
+Inspector or other production UI, Stage 4B lifecycle, legacy import, Photoshop/
 UXP, or other provider nodes.
 
 ## Verification

@@ -233,7 +233,7 @@ detects changed bytes, and refreshes the fingerprint without decoding TIFF or
 generating proxies. Project JSON and the Stage 4A store round-trip this context;
 proxy/cache/UI/provider concepts remain absent.
 
-### 6. HDR/SDR-aware project proxy infrastructure — in progress
+### 6. HDR/SDR-aware project proxy infrastructure — complete
 
 #### 6A. Contracts and measured backend decision — complete
 
@@ -261,7 +261,7 @@ no macOS 27 APIs. libvips remains the leading future portable/Windows candidate;
 ImageMagick is not the default; the measured Rust `image` path failed the exact
 color/HDR contract. Full results are in `docs/architecture/PROXIES.md`.
 
-#### 6B. Production project proxy service — next
+#### 6B. Production project proxy service — complete
 
 - Build a project-scoped proxy service shared by nodes and UI consumers. Layout
   and Gallery request proxies; neither owns proxy generation or cache policy.
@@ -271,6 +271,9 @@ color/HDR contract. Full results are in `docs/architecture/PROXIES.md`.
 - Add request deduplication, content-addressed storage, atomic publication,
   descriptor verification, quotas, corruption recovery, and
   unmounted/remounted-source behavior behind the backend-neutral contracts.
+- Deduplicate identical in-flight requests before they wait for deliberately
+  bounded generation capacity. Set the initial bound from measured decoder
+  memory and responsiveness rather than logical CPU count.
 - Keep ImageIO/Core Image in the macOS adapter. No platform image, color, EDR,
   filesystem, or cache-backend object enters Core.
 
@@ -279,6 +282,21 @@ produce responsive, color/HDR-described proxies whose cache identity changes
 with source fingerprint or proxy/color policy; multiple Layout/UI consumers
 reuse them; and deleting the cache cannot remove project, authored, or
 evidentiary state.
+
+**Measured outcome:** a new runtime-only `photara-proxy` crate provides one
+project-scoped service over the Stage 6A contracts. It verifies content-addressed
+objects and descriptors on every hit, publishes synchronized staging directories
+atomically, evicts least-recently-used derived entries to a byte quota, removes
+corrupt entries, and retries unavailable sources after remount. In-flight
+deduplication precedes the generation limiter: eight concurrent identical test
+requests materialized and generated once while six distinct requests never
+exceeded a configured bound of two. The first macOS adapter runs the measured
+ImageIO/Core Image path in a short-lived helper process built with Xcode 26.6
+and no macOS 27 API. On the 42.7 MP HDR fixture, sampled aggregate RSS scaled
+from a 658 MiB median for one helper to 1,316 MiB for two; the isolated Stage 6A
+peak remains the more conservative 954 MiB per-job sizing datum. The initial
+production default is therefore one generation at a time, explicitly
+configurable and intentionally not derived from CPU count.
 
 ### 7. Built-in Layout node
 

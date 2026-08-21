@@ -3,6 +3,7 @@ members = [
     "crates/photara-bridge",
     "crates/photara-core",
     "crates/photara-node-sdk",
+    "crates/photara-proxy",
     "crates/photara-store",
     "nodes/photara-layout",
 ]
