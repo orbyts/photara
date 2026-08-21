@@ -52,6 +52,79 @@ node/port definitions, graph documents/revisions, diagnostics, an optimistic
 in-memory repository, a versioned client DTO, and a Layout package registered
 through the ordinary node SDK.
 
+## Local operator environment
+
+These notes describe Suhail's development machine and how Codex should operate
+on it. They are conveniences for development and possible legacy recovery, not
+generation-two product configuration or Core API contracts.
+
+### Shell execution
+
+- The repository is
+  `/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara`.
+- Ghostty receives the user's full shell environment, but do not open Ghostty
+  merely to run a command or obtain that environment. Run builds, tests,
+  inspections, and other noninteractive work directly in the background shell.
+- Use a terminal UI only when the user asks for one or an operation genuinely
+  requires the user's interaction. Otherwise, keep long-running work in the
+  background and report progress through Codex.
+- Request one narrowly scoped macOS or Codex sandbox permission when required.
+  Do not replace a permission request with instructions for the user to rerun a
+  background-capable command manually.
+
+### Apogee and environment
+
+- Apogee `0.1.3` is installed at `/opt/homebrew/bin/apogee` and supplies the
+  machine's shell environment through its existing shell integration. A login
+  background shell should inherit that environment without launching Ghostty.
+- Do not run bare `apogee` merely to inspect its output: its command contract is
+  to emit shell configuration, which may include values that should not appear
+  in captured logs.
+- Useful non-secret environment names include `DROPBOX`, `PHOTARA_REPO`,
+  `XDG_CONFIG_HOME`, `XDG_CACHE_HOME`, `XDG_DATA_HOME`, and `XDG_STATE_HOME`.
+- Existing legacy variables include `PHOTARA_CONFIG_ROOT`,
+  `PHOTARA_IMAGES_ROOT`, `PHOTARA_PROJECTS_ROOT`,
+  `PHOTARA_DEV_DATABASE_URL`, `PHOTARA_DEV_DATABASE_URL_POOLED`,
+  `PHOTARA_ADOBE_CLIENT_ID`, and `PHOTARA_ADOBE_REDIRECT_URI`. Their presence
+  does not authorize generation-two code to depend on them. Consult `v0.1.0`
+  only when deliberately recovering or importing legacy behavior.
+- Check whether a variable exists without printing its value. Never capture a
+  complete environment in task output.
+
+### Secrets and credentials
+
+- The 1Password CLI is installed at `/opt/homebrew/bin/op`. Retrieve a secret
+  only when the current operation requires it, keep it in memory for the
+  shortest practical time, and avoid placing it in command arguments, files,
+  documentation, Git, or task output.
+- Existing 1Password references may be used without revealing their resolved
+  values. For example, legacy Cloudinary credentials live at
+  `op://API/Cloudinary/API Key` and `op://API/Cloudinary/API Secret`; the known
+  non-secret cloud name is `dicttuyma`.
+- Prefer an already established keychain or provider session. If macOS requires
+  authorization, perform credential access serially so the user receives one
+  meaningful prompt rather than several concurrent Keychain dialogs.
+- Never rotate, replace, persist, or change credentials, Keychain ACLs, or
+  secret-manager configuration unless the user explicitly requests it.
+
+### Network volume
+
+- `whisk` is an SMB share normally mounted at `/Volumes/whisk`. macOS may
+  unmount it after inactivity.
+- If work needs the share and `/Volumes/whisk` is unavailable, reconnect it from
+  the background shell using the machine's existing macOS network credentials
+  and configuration. Do not ask the user to mount it in Finder first.
+- Reuse `/Volumes/whisk`; do not change the SMB server configuration,
+  credentials, permissions, mount destination, or persistent macOS network
+  settings merely to reconnect it.
+- After mounting, verify `/Volumes/whisk` is accessible before performing the
+  dependent operation. If mounting or access requires macOS Network Volumes or
+  Codex sandbox permission, request that scoped permission and continue after
+  approval.
+- Historical roots were `/Volumes/whisk/Pictures/Images` and
+  `/Volumes/whisk/Pictures/Projects`. They are legacy/operator context, not
+  generation-two identity or storage contracts.
+
 ## Historical archive
 
 The official legacy archive is:
