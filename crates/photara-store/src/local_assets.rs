@@ -24,6 +24,14 @@ pub struct LocalProjectAssetAdapter<'a> {
     project: &'a ProjectDocument,
 }
 
+/// Fingerprinted portable values prepared by the local TIFF runtime adapter.
+/// A Core project command remains responsible for semantic publication.
+#[derive(Clone, Debug)]
+pub struct LocalTiffPairImport {
+    pub asset: ProjectAsset,
+    pub resources: Vec<ProjectResourceRef>,
+}
+
 impl<'a> LocalProjectAssetAdapter<'a> {
     #[must_use]
     pub const fn new(project_root: &'a Path, project: &'a ProjectDocument) -> Self {
@@ -146,6 +154,27 @@ pub fn import_local_tiff_pair(
     hdr_path: ProjectRelativePath,
     sdr_path: ProjectRelativePath,
 ) -> Result<AssetId, LocalAssetAdapterError> {
+    let prepared = prepare_local_tiff_pair_import(project_root, display_name, hdr_path, sdr_path)?;
+    let asset_id = prepared.asset.id;
+    let mut updated = project.clone();
+    updated.resources.extend(prepared.resources);
+    updated.asset_context.assets.push(prepared.asset);
+    updated.validate()?;
+    *project = updated;
+    Ok(asset_id)
+}
+
+/// Prepares one paired local TIFF import without mutating authoritative state.
+///
+/// # Errors
+///
+/// Returns [`LocalAssetAdapterError`] for non-TIFF paths or unreadable files.
+pub fn prepare_local_tiff_pair_import(
+    project_root: &Path,
+    display_name: impl Into<String>,
+    hdr_path: ProjectRelativePath,
+    sdr_path: ProjectRelativePath,
+) -> Result<LocalTiffPairImport, LocalAssetAdapterError> {
     validate_tiff_path(&hdr_path)?;
     validate_tiff_path(&sdr_path)?;
     let (hdr_fingerprint, _) = fingerprint_file(&project_root.join(hdr_path.as_str()))?;
@@ -174,21 +203,19 @@ pub fn import_local_tiff_pair(
         extensions: BTreeMap::new(),
     };
 
-    let mut updated = project.clone();
-    updated.resources.extend([
-        ProjectResourceRef {
-            id: hdr_resource,
-            relative_path: hdr_path,
-        },
-        ProjectResourceRef {
-            id: sdr_resource,
-            relative_path: sdr_path,
-        },
-    ]);
-    updated.asset_context.assets.push(asset);
-    updated.validate()?;
-    *project = updated;
-    Ok(asset_id)
+    Ok(LocalTiffPairImport {
+        asset,
+        resources: vec![
+            ProjectResourceRef {
+                id: hdr_resource,
+                relative_path: hdr_path,
+            },
+            ProjectResourceRef {
+                id: sdr_resource,
+                relative_path: sdr_path,
+            },
+        ],
+    })
 }
 
 /// Re-fingerprints one local representation after its upstream content changes,

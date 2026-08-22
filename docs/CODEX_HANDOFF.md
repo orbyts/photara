@@ -237,14 +237,19 @@ The Roadmap section 3 Swift bridge spike is complete. Its disposable harness is
 under `spikes/swift-bridge`, and the result and transport comparison are in
 `docs/architecture/SWIFT_BRIDGE_SPIKE.md`.
 
-Roadmap Stage 7 is complete. The next bounded slice is Stage 8: create the
-minimal dockable macOS workspace and document lifecycle over the existing
-facade, project asset context, semantic Layout runtime, and project proxy
-service. Gallery remains a view of project assets: its placement, visibility,
-filters, and selection are UI state, and only explicit commands or typed
-`AssetSet` bindings change graph semantics. Do not fold Stage 9's production
-Layout Inspector into this slice, begin Stage 4B lifecycle work, or introduce
-Photoshop/UXP and other provider nodes.
+Roadmap Stage 8 is complete. The production UniFFI facade and Swift gate live in
+`photara-bridge` and `platform/macos/photara-app`. Rust alone decodes Layout
+authored state and exposes typed inspection DTOs. The first vertical slice has
+real create/open/save/close/reopen lifecycle, paired local TIFF import into
+project resources, an ordinary explicit `AssetSet` source, explicit Layout
+binding, Gallery thumbnails, and a proxy-backed Layout preview. Proxy payloads
+cross as leased verified file references with color/HDR descriptors, never
+pixel buffers. Gallery placement, visibility, filters, and selection remain
+Swift workspace state and the verification proves they cannot change the graph
+digest. Proceed to Stage 9 authoring controls while keeping the graph a plain
+node list and the platform UI a thin skin over portable Rust contracts. Do not
+begin Stage 4B lifecycle work or introduce Photoshop/UXP and other provider
+nodes.
 
 ## Verification
 

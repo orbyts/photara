@@ -9,6 +9,7 @@ mod graph;
 mod identity;
 mod node;
 mod project;
+mod project_command;
 mod proxy;
 mod value;
 
@@ -52,6 +53,10 @@ pub use project::{
     NodeGraphDocument, NodeGraphMetadata, PackageRequirement, PortableDocumentError,
     ProjectDocument, ProjectMetadata, ProjectRelativePath, ProjectRelativePathError,
     ProjectResourceRef, ProjectRevision, ProjectValidationError,
+};
+pub use project_command::{
+    ProjectCommand, ProjectCommandEnvelope, ProjectCommandError, ProjectCommandResult,
+    apply_project_command,
 };
 pub use proxy::{
     ProxyAlphaPolicy, ProxyCacheKey, ProxyChannelDepth, ProxyColorPolicy, ProxyDescriptor,

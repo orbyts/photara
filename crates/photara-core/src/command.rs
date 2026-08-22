@@ -19,6 +19,10 @@ pub struct GraphCommandEnvelope {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum GraphCommand {
+    /// Applies several ordinary operations atomically with one graph revision.
+    Batch {
+        commands: Vec<GraphCommand>,
+    },
     AddNode {
         instance: NodeInstance,
     },
@@ -74,18 +78,47 @@ pub fn apply_graph_command<R: DefinitionResolver>(
     }
 
     let mut updated = graph.clone();
-    match &envelope.command {
+    apply_command_operations(&mut updated, &envelope.command, definitions, value_types)?;
+
+    let previous_revision = updated.revision;
+    let revision = previous_revision
+        .checked_next()
+        .ok_or(GraphCommandError::RevisionExhausted)?;
+    updated.revision = revision;
+    Ok(GraphCommandResult {
+        command_id: envelope.command_id,
+        previous_revision,
+        revision,
+        graph: updated,
+    })
+}
+
+fn apply_command_operations<R: DefinitionResolver>(
+    updated: &mut GraphDocument,
+    command: &GraphCommand,
+    definitions: &R,
+    value_types: &ValueTypeRegistry,
+) -> Result<(), GraphCommandError> {
+    match command {
+        GraphCommand::Batch { commands } => {
+            if commands.is_empty() {
+                return Err(GraphCommandError::EmptyBatch);
+            }
+            for command in commands {
+                apply_command_operations(updated, command, definitions, value_types)?;
+            }
+        }
         GraphCommand::AddNode { instance } => {
-            add_node(&mut updated, instance.clone(), definitions)?;
+            add_node(updated, instance.clone(), definitions)?;
         }
         GraphCommand::Connect { connection } => {
-            connect(&mut updated, connection.clone(), definitions, value_types)?;
+            connect(updated, connection.clone(), definitions, value_types)?;
         }
         GraphCommand::SetConfiguration {
             node_id,
             configuration,
         } => {
-            let node = node_mut(&mut updated, *node_id)?;
+            let node = node_mut(updated, *node_id)?;
             let definition = resolve_definition(definitions, node)?;
             validate_schema(
                 *node_id,
@@ -99,24 +132,13 @@ pub fn apply_graph_command<R: DefinitionResolver>(
             node_id,
             authored_state,
         } => {
-            let node = node_mut(&mut updated, *node_id)?;
+            let node = node_mut(updated, *node_id)?;
             let definition = resolve_definition(definitions, node)?;
             validate_authored_state(*node_id, definition, authored_state.as_ref())?;
             node.authored_state.clone_from(authored_state);
         }
     }
-
-    let previous_revision = updated.revision;
-    let revision = previous_revision
-        .checked_next()
-        .ok_or(GraphCommandError::RevisionExhausted)?;
-    updated.revision = revision;
-    Ok(GraphCommandResult {
-        command_id: envelope.command_id,
-        previous_revision,
-        revision,
-        graph: updated,
-    })
+    Ok(())
 }
 
 fn add_node<R: DefinitionResolver>(
@@ -304,6 +326,8 @@ pub enum GraphCommandError {
     },
     #[error("graph revision space is exhausted")]
     RevisionExhausted,
+    #[error("graph command batch must contain at least one operation")]
+    EmptyBatch,
     #[error("node {0} already exists")]
     DuplicateNode(NodeInstanceId),
     #[error("node {0} does not exist")]
@@ -372,6 +396,7 @@ impl GraphCommandError {
             Self::GraphMismatch { .. }
             | Self::RevisionConflict { .. }
             | Self::RevisionExhausted
+            | Self::EmptyBatch
             | Self::DuplicateConnection(_)
             | Self::DuplicateEndpoints { .. }
             | Self::PortCompatibility { .. } => (None, None),
@@ -391,6 +416,7 @@ impl GraphCommandError {
             Self::GraphMismatch { .. } => "graph-mismatch",
             Self::RevisionConflict { .. } => "revision-conflict",
             Self::RevisionExhausted => "revision-exhausted",
+            Self::EmptyBatch => "empty-batch",
             Self::DuplicateNode(_) => "duplicate-node",
             Self::UnknownNode(_) => "unknown-node",
             Self::DefinitionUnavailable { .. } => "definition-unavailable",

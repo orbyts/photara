@@ -1,5 +1,9 @@
 # Swift bridge spike
 
+> Historical gate: the disposable NDJSON harness has now been superseded by
+> the production-shaped UniFFI facade and Quasar verification under
+> `platform/macos/photara-app`.
+
 ## Outcome
 
 The early interoperability gate is complete. A deliberately disposable Swift
@@ -38,11 +42,11 @@ No Rust graph object, repository, executor, or pixel buffer crossed the boundary
 | NDJSON child-process IPC | Two pipes, immutable JSON messages, request IDs, and cancellation messages | Implemented and passed. Excellent for contract testing and debugging, but process lifecycle, streaming backpressure, and serialization overhead are unnecessary for the trusted in-process Core. |
 | XPC | Codable messages and service lifecycle across process isolation | Reserve for a boundary that genuinely needs crash, privilege, or untrusted-package isolation. It is macOS-specific and should not define the portable application facade. |
 
-The production direction is therefore UniFFI for the narrow in-process Swift ↔
-Rust facade, with transport-neutral immutable DTO semantics. IPC/XPC can reuse
-those semantics at later isolation boundaries. Before adopting UniFFI, the
-facade implementation should confirm cancellation callback behavior and Swift
-concurrency integration with a tiny production-shaped target.
+The selected production direction is UniFFI for the narrow in-process Swift ↔
+Rust facade, with transport-neutral immutable DTO semantics. Stage 8A adopted
+UniFFI 0.32 and verified foreign progress callbacks, explicit cancellation, and
+Swift 6 concurrency compilation. IPC/XPC can reuse those semantics at later
+isolation boundaries.
 
 ## Machine and SDK policy
 

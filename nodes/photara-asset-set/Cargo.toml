@@ -1,0 +1,15 @@
+[package]
+name = "photara-asset-set-node"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Explicit project AssetSet source node for Photara graphs."
+
+[dependencies]
+photara-core = { path = "../../crates/photara-core" }
+photara-node-sdk = { path = "../../crates/photara-node-sdk" }
+serde_json.workspace = true
+
+[lints]
+workspace = true

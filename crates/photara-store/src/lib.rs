@@ -3,8 +3,8 @@
 mod local_assets;
 
 pub use local_assets::{
-    LocalAssetAdapterError, LocalProjectAssetAdapter, import_local_tiff_pair,
-    refresh_local_representation_fingerprint,
+    LocalAssetAdapterError, LocalProjectAssetAdapter, LocalTiffPairImport, import_local_tiff_pair,
+    prepare_local_tiff_pair_import, refresh_local_representation_fingerprint,
 };
 
 use std::{

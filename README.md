@@ -27,6 +27,9 @@ The repository is building generation two from a clean foundation toward
   measured ImageIO/Core Image macOS backend;
 - built-in Layout node with deterministic geometry, explicit AssetSet input,
   exact undo, and runtime-only access to shared project proxies;
+- a production UniFFI facade verified from Swift 6 on Quasar, plus a deliberately
+  small three-region macOS vertical slice with real project lifecycle, import,
+  explicit asset binding, typed Layout inspection, and shared proxies;
 - future Windows-native client over the same versioned Core facade;
 - future node marketplace using the same contracts as built-ins.
 
@@ -43,13 +46,16 @@ crates/
 ├── photara-proxy/      shared derived proxy generation and cache service
 └── photara-store/      backend-neutral authoritative persistence boundaries
 platform/macos/
+├── photara-app/            UniFFI verification and minimal native workspace
 └── photara-proxy-imageio/  process-isolated ImageIO/Core Image helper
 nodes/
+├── photara-asset-set/  explicit project AssetSet source node
 └── photara-layout/     built-in Layout node package
 ```
 
-The next slice adds the minimal SwiftUI/AppKit workspace over these Rust
-contracts, keeping Swift focused on presentation and interaction.
+Stage 8 has completed the minimal SwiftUI/AppKit vertical slice over these Rust
+contracts. Swift remains focused on presentation and interaction; Stage 9 adds
+the production Layout authoring surface without moving semantics into the UI.
 
 ## Development
 

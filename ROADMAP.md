@@ -341,7 +341,34 @@ authored state or the semantic plan. The gate test gives independent 3:4 and
 hit, deletes the complete proxy cache, and reopens both Layouts byte-for-byte
 from the portable project store.
 
-### 8. Minimal dockable macOS workspace
+### 8. Minimal dockable macOS workspace — complete
+
+#### 8A. Production native facade — complete
+
+- Replace the disposable NDJSON spike with a workspace-pinned UniFFI library
+  facade before substantial SwiftUI work.
+- Expose project create/open/save, immutable project/node/asset snapshots,
+  structured diagnostics and command rejection, evaluation progress, and
+  explicit cancellation handles without exposing Rust repositories or graph
+  objects.
+- Translate Layout authoring intent to exact Layout commands and commit the
+  resulting authored state through revision-checked Core commands. Undo and
+  redo must use the same Core command path.
+- Compile and run the generated Swift bindings on Quasar with macOS 26.5.2,
+  Xcode 26.6, and Swift 6.3.3. The facade has no SwiftUI/AppKit or macOS 27
+  dependency.
+
+**Measured outcome:** workspace-pinned UniFFI 0.32 generates Swift 6 bindings
+from the real `photara-bridge` dynamic library. The Quasar verification creates,
+inspects, edits, saves, and reopens a portable project; observes immutable,
+typed Layout inspection DTOs; rejects a stale revision with a structured
+diagnostic; applies
+and undoes a crop through Core `SetAuthoredState` commands; streams evaluation
+progress; and honors Swift-triggered cancellation. It also moves the Inspector,
+hides Gallery, preserves node selection, and verifies that the graph digest is
+unchanged.
+
+#### 8B. First workspace vertical slice — complete
 
 - Create the SwiftUI/AppKit application and document lifecycle.
 - Model independently identified panels/surfaces separately from their current
@@ -350,26 +377,54 @@ from the portable project store.
 - Ship a useful default Layout Authoring preset, which may initially place
   Assets, Workspace/Graph, and Properties/Inspector in three regions without
   making left/center/right placement part of panel identity.
-- Build the minimum project navigation, asset gallery, graph/workspace
-  placeholder, real Properties/Inspector framework, diagnostics, progress,
-  cancellation, accessibility, menus, keyboard focus, drag/drop, undo,
-  resizing, visibility, practical rearrangement, and restoration needed by the
-  first vertical slice.
+- Build only the project lifecycle, project-owned asset Gallery, primitive
+  graph list, typed Layout Inspector, diagnostics, progress/cancellation,
+  menus, resizing, visibility, movement, and restoration required by the first
+  vertical slice. Defer polished docking, graph editing, and Stage 9 controls.
 - Keep the graph representation intentionally simple. Polished wires, ports,
   groups, minimaps, macros, search, final visual language, advanced tabbing,
   floating, multi-display behavior, and workspace management do not block the
   first useful Layout workflow.
 - Use AppKit/Metal selectively for high-performance graph/crop/HDR surfaces.
 - Keep every semantic edit as a Core command.
+- Keep Rust as the sole interpreter of opaque node-authored state. Native
+  clients consume immutable presentation DTOs, never Layout's persisted JSON.
+- Import selected local HDR/SDR TIFFs into project-relative resources as a
+  development stand-in for future upstream nodes. Bind them through an explicit
+  ordinary `AssetSet` source and revision-checked Core command.
+- Return leased, verified proxy file references and backend-neutral descriptors
+  across the facade, preserving color space, ICC identity when present,
+  dynamic range, depth, orientation, and content fingerprints. Never move image
+  pixel buffers through UniFFI.
 - Treat Gallery strictly as a view over project-owned asset context and proxy
   services. Closing, docking, moving, filtering, or selecting in Gallery changes
   no project or graph semantics; drag/drop creates explicit commands or typed
   AssetSet bindings.
 
-**Gate:** the app creates, edits, saves, closes, and reopens a graph through the
-same facade exercised by Rust tests; selecting a Layout node presents its real
-Inspector regardless of that panel's placement; and Gallery can be closed or
-moved without changing evaluation inputs or project digests.
+**Gate:** create/open/save/close/reopen a real project; import and explicitly
+bind assets; display project Asset Context through shared proxies; inspect a
+selected Layout through typed DTOs regardless of Inspector placement; obtain a
+proxy-backed Layout preview; and prove that moving, closing, filtering, or
+selecting Gallery changes neither project semantics nor graph digest unless an
+explicit Core command is issued.
+
+**Measured outcome:** the production UniFFI facade no longer exposes Layout
+authored-state JSON. Rust validates and converts it into immutable canvas,
+frame, cell, placement, crop/focal, rotation, and digest DTOs. A new ordinary
+`Project Assets` source node produces the explicit ordered `AssetSet`; one
+atomic Core batch creates source + Layout + connection. A project-level Core
+command publishes a fingerprinted import, and another explicit graph batch adds
+its identity to the `AssetSet` and assigns it to a Layout cell. The macOS shell
+creates, closes, and reopens projects, copies paired local
+TIFFs into project-relative resources, populates Gallery solely from Project
+Asset Context, and holds Gallery selection/filtering in workspace state. Gallery
+and Layout request the same bounded project proxy service and receive leased
+verified file references with SDR/HDR and color descriptors rather than pixel
+buffers. The Swift 6.3.3 Quasar harness generates real TIFFs and proves import,
+binding, SDR thumbnail, HDR authoring preview, connected graph evaluation,
+save/reopen, typed inspection, Inspector movement, Gallery hide/filter/select
+digest invariance, and explicit-command-only semantic change using Xcode 26.6
+without macOS 27 APIs.
 
 ### 9. Production Layout inspector
 

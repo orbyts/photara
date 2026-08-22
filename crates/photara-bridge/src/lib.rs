@@ -1,5 +1,17 @@
 //! Immutable DTO boundary for SwiftUI/AppKit and future native clients.
 
+uniffi::setup_scaffolding!();
+
+mod production;
+
+pub use production::{
+    BridgeAssetDto, BridgeCommandResponseDto, BridgeDiagnosticDto, BridgeDiagnosticSeverity,
+    BridgeError, BridgeEvaluationFinishedDto, BridgeEvaluationPhase, BridgeEvaluationProgressDto,
+    BridgeEvaluationStatus, BridgeGraphSnapshotDto, BridgeLayoutCanvas, BridgeNodeDto,
+    BridgeProjectSnapshotDto, BridgeStructuredErrorDto, EvaluationHandle, EvaluationObserver,
+    PhotaraApplication, PhotaraProject,
+};
+
 use photara_core::{
     APPLICATION_API_VERSION, CanonicalDigest, CommandId, Diagnostic, EvaluationError, EvaluationId,
     EvaluationPhase, EvaluationProgress, GraphCommandError, GraphCommandResult, GraphId,
@@ -8,7 +20,7 @@ use photara_core::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, uniffi::Record)]
 pub struct ApplicationInfo {
     pub api_version: u32,
     pub core_version: String,
@@ -16,6 +28,7 @@ pub struct ApplicationInfo {
 }
 
 #[must_use]
+#[uniffi::export]
 pub fn application_info() -> ApplicationInfo {
     ApplicationInfo {
         api_version: APPLICATION_API_VERSION,

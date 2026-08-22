@@ -6,14 +6,32 @@ license.workspace = true
 repository.workspace = true
 description = "Versioned client-facing application facade for Photara."
 
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[features]
+bindgen = ["uniffi/cli"]
+
 [dependencies]
 photara-core = { path = "../photara-core" }
+photara-asset-set-node = { path = "../../nodes/photara-asset-set" }
+photara-layout-node = { path = "../../nodes/photara-layout" }
+photara-node-sdk = { path = "../photara-node-sdk" }
+photara-proxy = { path = "../photara-proxy" }
+photara-store = { path = "../photara-store" }
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
+uniffi.workspace = true
 
 [[example]]
 name = "swift_bridge_server"
 path = "examples/swift_bridge_server.rs"
+
+[[bin]]
+name = "photara-uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["bindgen"]
 
 [lints]
 workspace = true

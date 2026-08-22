@@ -78,3 +78,23 @@
   independent Layouts reuse a shared derived proxy while their authored state,
   plans, crops, save/reopen, and undo remain intact after complete cache
   deletion.
+- Replace the disposable bridge transport with a workspace-pinned UniFFI 0.32
+  facade exposing durable project sessions, immutable project/node/asset DTOs,
+  structured semantic command responses and diagnostics, evaluation progress,
+  and explicit cooperative cancellation.
+- Verify the generated bindings with Swift 6.3.3 and Xcode 26.6 on macOS 26.5.2,
+  including create/save/reopen, stale command rejection, Layout crop and undo
+  through Core commands, progress callbacks, and Swift-triggered cancellation.
+- Begin the native workspace with independently identified movable panels in
+  three resizable regions, a deliberately primitive node list, project-backed
+  Gallery and diagnostics views, and the first Layout Inspector controls.
+- Replace Layout authored-state JSON at the Swift boundary with immutable typed
+  canvas/frame/cell inspection DTOs interpreted exclusively by Rust.
+- Add an ordinary explicit `Project Assets` source node and atomic Core command
+  batches for source/Layout connection and explicit asset-to-cell binding.
+- Complete the Stage 8 vertical slice with paired project-resource TIFF import,
+  create/save/close/reopen lifecycle, Project Asset Context Gallery, leased
+  verified SDR/HDR proxy references, and a proxy-backed Layout preview.
+- Prove from generated Swift 6 bindings on Quasar that Gallery filter,
+  selection, visibility, and Inspector placement do not change graph semantics,
+  while explicit binding does and survives save/reopen and evaluation.

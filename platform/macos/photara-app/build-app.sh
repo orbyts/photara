@@ -1,0 +1,53 @@
+#!/bin/zsh
+set -euo pipefail
+
+SCRIPT_ROOT="${0:A:h}"
+REPOSITORY_ROOT="${SCRIPT_ROOT:h:h:h}"
+BUILD_ROOT="$SCRIPT_ROOT/.build/app"
+RUST_TARGET="$BUILD_ROOT/rust-target"
+GENERATED_ROOT="$BUILD_ROOT/generated"
+MODULE_CACHE="$BUILD_ROOT/module-cache"
+EXECUTABLE="$BUILD_ROOT/Photara"
+PROXY_HELPER_BUILD="$BUILD_ROOT/proxy-helper-build"
+PROXY_HELPER="$BUILD_ROOT/photara-proxy-imageio"
+
+mkdir -p "$GENERATED_ROOT" "$MODULE_CACHE"
+
+swift build \
+  --package-path "$REPOSITORY_ROOT/platform/macos/photara-proxy-imageio" \
+  --scratch-path "$PROXY_HELPER_BUILD"
+cp -p "$PROXY_HELPER_BUILD/debug/photara-proxy-imageio" "$PROXY_HELPER"
+
+CARGO_TARGET_DIR="$RUST_TARGET" cargo build \
+  --manifest-path "$REPOSITORY_ROOT/Cargo.toml" \
+  -p photara-bridge
+
+CARGO_TARGET_DIR="$RUST_TARGET" cargo run \
+  --manifest-path "$REPOSITORY_ROOT/Cargo.toml" \
+  -p photara-bridge \
+  --features bindgen \
+  --bin photara-uniffi-bindgen \
+  -- generate \
+  --library "$RUST_TARGET/debug/libphotara_bridge.dylib" \
+  --language swift \
+  --out-dir "$GENERATED_ROOT"
+
+xcrun swiftc \
+  -swift-version 6 \
+  -parse-as-library \
+  -module-cache-path "$MODULE_CACHE" \
+  "$GENERATED_ROOT/PhotaraBridge.swift" \
+  "$SCRIPT_ROOT/Sources/AppModel.swift" \
+  "$SCRIPT_ROOT/Sources/WorkspaceModel.swift" \
+  "$SCRIPT_ROOT/Sources/WorkspaceView.swift" \
+  "$SCRIPT_ROOT/Sources/PhotaraMacApp.swift" \
+  -Xcc "-fmodule-map-file=$GENERATED_ROOT/PhotaraBridgeFFI.modulemap" \
+  -L "$RUST_TARGET/debug" \
+  -lphotara_bridge \
+  -framework SwiftUI \
+  -framework AppKit \
+  -Xlinker -rpath \
+  -Xlinker "$RUST_TARGET/debug" \
+  -o "$EXECUTABLE"
+
+print -r -- "$EXECUTABLE"
