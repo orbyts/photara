@@ -87,6 +87,7 @@ impl Fixture {
                 config_schema: schema("example.bridge.source.config")?,
                 authored_state_schema: None,
                 capabilities: BTreeSet::new(),
+                extensions: BTreeMap::new(),
             },
         )?;
         Ok(Self {

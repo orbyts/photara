@@ -12,7 +12,10 @@ use photara_core::{
     PortDefinition, PortDirection, PortId, SchemaId, SchemaRef, SchemaVersion,
     asset_set_value_type_ref, canonical_digest,
 };
-use photara_node_sdk::{NodePackage, NodePackageManifest};
+use photara_node_sdk::{
+    NodeBrandMetadata, NodeCatalogVisibility, NodePackage, NodePackageManifest,
+    NodePresentationMetadata, set_node_presentation,
+};
 
 pub const PACKAGE_ID: &str = "photara.asset-set-source";
 pub const DEFINITION_ID: &str = "photara.asset-set-source.project-assets";
@@ -38,7 +41,7 @@ pub fn asset_set_state_schema() -> SchemaRef {
 
 impl NodePackage for AssetSetNodePackage {
     fn manifest(&self) -> NodePackageManifest {
-        let definition = NodeDefinition {
+        let mut definition = NodeDefinition {
             id: NodeDefinitionId::parse(DEFINITION_ID).expect("built-in definition ID is valid"),
             version: NodeDefinitionVersion::new(1).expect("built-in version is valid"),
             display_name: "Project Assets".to_owned(),
@@ -55,7 +58,24 @@ impl NodePackage for AssetSetNodePackage {
             },
             authored_state_schema: Some(asset_set_state_schema()),
             capabilities: BTreeSet::new(),
+            extensions: BTreeMap::new(),
         };
+        set_node_presentation(
+            &mut definition,
+            NodePresentationMetadata {
+                brand: NodeBrandMetadata {
+                    name: "Project Assets".to_owned(),
+                    icon_resource_id: "photara.project.assets".to_owned(),
+                    accent_srgb_hex: Some("#58BE78".to_owned()),
+                },
+                catalog_path: vec!["Input".to_owned(), "Project".to_owned()],
+                search_terms: vec!["assets".to_owned(), "project".to_owned()],
+                catalog_visibility: NodeCatalogVisibility::Hidden,
+                inspector_contribution_id: Some("photara.asset-set.inspector".to_owned()),
+                workspace_contribution_id: None,
+            },
+        )
+        .expect("built-in presentation metadata is valid");
         NodePackageManifest {
             manifest_schema_version: SchemaVersion::first(),
             package_id: NodePackageId::parse(PACKAGE_ID).expect("built-in package ID is valid"),

@@ -11,6 +11,133 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
 
+/// Namespaced extension carried by an exact node definition's portable metadata.
+pub const NODE_PRESENTATION_EXTENSION_KEY: &str = "photara.presentation";
+
+/// Catalog visibility is presentation policy, never a Core evaluator kind.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum NodeCatalogVisibility {
+    #[default]
+    Visible,
+    Hidden,
+}
+
+/// Independent brand identity owned by one exact node definition.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NodeBrandMetadata {
+    pub name: String,
+    /// Neutral package resource identifier resolved by each native client.
+    pub icon_resource_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accent_srgb_hex: Option<String>,
+}
+
+/// Immutable presentation contribution advertised by an exact definition.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NodePresentationMetadata {
+    pub brand: NodeBrandMetadata,
+    #[serde(default)]
+    pub catalog_path: Vec<String>,
+    #[serde(default)]
+    pub search_terms: Vec<String>,
+    #[serde(default)]
+    pub catalog_visibility: NodeCatalogVisibility,
+    /// Neutral contribution identifier rendered inside the generic Inspector.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inspector_contribution_id: Option<String>,
+    /// Neutral contribution identifier for an optional rich authoring Workspace.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_contribution_id: Option<String>,
+}
+
+impl NodePresentationMetadata {
+    /// Validates client-neutral presentation metadata.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for empty brand/resource/category/contribution fields.
+    pub fn validate(&self) -> Result<(), NodePresentationMetadataError> {
+        if self.brand.name.trim().is_empty() {
+            return Err(NodePresentationMetadataError::EmptyBrandName);
+        }
+        if self.brand.icon_resource_id.trim().is_empty() {
+            return Err(NodePresentationMetadataError::EmptyIconResource);
+        }
+        if self.catalog_path.iter().any(|part| part.trim().is_empty()) {
+            return Err(NodePresentationMetadataError::EmptyCatalogPathComponent);
+        }
+        if self.search_terms.iter().any(|term| term.trim().is_empty()) {
+            return Err(NodePresentationMetadataError::EmptySearchTerm);
+        }
+        for contribution in [
+            self.inspector_contribution_id.as_deref(),
+            self.workspace_contribution_id.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if contribution.trim().is_empty() {
+                return Err(NodePresentationMetadataError::EmptyContributionId);
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Adds typed presentation metadata to an exact definition.
+///
+/// # Errors
+///
+/// Returns an error when the metadata is invalid or cannot be serialized.
+pub fn set_node_presentation(
+    definition: &mut NodeDefinition,
+    presentation: NodePresentationMetadata,
+) -> Result<(), NodePresentationMetadataError> {
+    presentation.validate()?;
+    let value = serde_json::to_value(presentation)
+        .map_err(|error| NodePresentationMetadataError::Encoding(error.to_string()))?;
+    definition
+        .extensions
+        .insert(NODE_PRESENTATION_EXTENSION_KEY.to_owned(), value);
+    Ok(())
+}
+
+/// Reads typed presentation metadata without making Core interpret it.
+///
+/// # Errors
+///
+/// Returns an error when the namespaced extension is malformed.
+pub fn node_presentation(
+    definition: &NodeDefinition,
+) -> Result<Option<NodePresentationMetadata>, NodePresentationMetadataError> {
+    let Some(value) = definition.extensions.get(NODE_PRESENTATION_EXTENSION_KEY) else {
+        return Ok(None);
+    };
+    let presentation: NodePresentationMetadata = serde_json::from_value(value.clone())
+        .map_err(|error| NodePresentationMetadataError::Decoding(error.to_string()))?;
+    presentation.validate()?;
+    Ok(Some(presentation))
+}
+
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+pub enum NodePresentationMetadataError {
+    #[error("node brand name must not be empty")]
+    EmptyBrandName,
+    #[error("node icon resource identifier must not be empty")]
+    EmptyIconResource,
+    #[error("node catalog path components must not be empty")]
+    EmptyCatalogPathComponent,
+    #[error("node search terms must not be empty")]
+    EmptySearchTerm,
+    #[error("node presentation contribution identifiers must not be empty")]
+    EmptyContributionId,
+    #[error("could not encode node presentation metadata: {0}")]
+    Encoding(String),
+    #[error("could not decode node presentation metadata: {0}")]
+    Decoding(String),
+}
+
 /// Serializable metadata for one exact node-package release.
 ///
 /// This is registration metadata, not an installer or distribution record.
@@ -61,6 +188,13 @@ impl NodePackageManifest {
                     definition_version: definition.version,
                     error,
                 })?;
+            node_presentation(definition).map_err(|error| {
+                NodePackageManifestError::InvalidPresentation {
+                    definition_id: definition.id.clone(),
+                    definition_version: definition.version,
+                    error,
+                }
+            })?;
             let coordinate = (definition.id.clone(), definition.version);
             if !definitions.insert(coordinate) {
                 return Err(NodePackageManifestError::DuplicateDefinition {
@@ -142,6 +276,11 @@ impl NodePackageRegistry {
     pub fn manifest(&self, requirement: &PackageRequirement) -> Option<&NodePackageManifest> {
         self.manifests.get(requirement)
     }
+
+    /// Iterates installed exact package manifests in stable coordinate order.
+    pub fn manifests(&self) -> impl Iterator<Item = &NodePackageManifest> {
+        self.manifests.values()
+    }
 }
 
 impl DefinitionResolver for NodePackageRegistry {
@@ -168,6 +307,12 @@ pub enum NodePackageManifestError {
         definition_id: NodeDefinitionId,
         definition_version: NodeDefinitionVersion,
         error: NodeDefinitionError,
+    },
+    #[error("invalid presentation for {definition_id}@{definition_version:?}: {error}")]
+    InvalidPresentation {
+        definition_id: NodeDefinitionId,
+        definition_version: NodeDefinitionVersion,
+        error: NodePresentationMetadataError,
     },
     #[error("duplicate definition {definition_id}@{definition_version:?}")]
     DuplicateDefinition {
@@ -234,6 +379,7 @@ mod tests {
                 config_schema: schema("example.text.source.config"),
                 authored_state_schema: None,
                 capabilities: BTreeSet::new(),
+                extensions: BTreeMap::new(),
             }],
             extensions: BTreeMap::from([("future-field".to_owned(), json!({"kept": true}))]),
         }

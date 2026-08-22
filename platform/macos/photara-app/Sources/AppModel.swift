@@ -20,6 +20,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var galleryProxies: [String: BridgeProxyReference] = [:]
     @Published private(set) var layoutCellProxies: [String: BridgeProxyReference] = [:]
     @Published private(set) var recentProjects: [RecentProject]
+    @Published private(set) var nodeDefinitions: [BridgeAvailableNodeDefinitionDto] = []
     @Published var presentedError: String?
 
     private var application: PhotaraApplication?
@@ -28,6 +29,7 @@ final class AppModel: ObservableObject {
     private var observer: AppEvaluationObserver?
     private let defaults: UserDefaults
     private var projectsDirectory: URL?
+    private var activeFolderGrants: [String: URL] = [:]
 
     private static let recentProjectsKey = "photara.recent-projects.v1"
 
@@ -60,6 +62,7 @@ final class AppModel: ObservableObject {
                 proxyHelperExecutable: helper
             )
             self.application = application
+            nodeDefinitions = application.availableNodeDefinitions()
             projectsDirectory = storeRoot.appending(path: "projects")
             if let documentPath = CommandLine.arguments.dropFirst().first(where: {
                 $0.hasSuffix(".photara-project.json")
@@ -67,6 +70,7 @@ final class AppModel: ObservableObject {
                 let project = try application.openProjectDocument(documentPath: documentPath)
                 self.project = project
                 snapshot = try project.snapshot()
+                restoreDiskFolderGrants()
                 rememberCurrentProject(documentPath: documentPath)
             }
         } catch {
@@ -98,6 +102,7 @@ final class AppModel: ObservableObject {
         snapshot = nil
         galleryProxies.removeAll()
         layoutCellProxies.removeAll()
+        stopFolderGrants()
     }
 
     func reopenLastProject() {
@@ -118,6 +123,7 @@ final class AppModel: ObservableObject {
             }
             self.project = project
             snapshot = try project.snapshot()
+            restoreDiskFolderGrants()
             galleryProxies.removeAll()
             layoutCellProxies.removeAll()
             rememberCurrentProject(documentPath: recent.documentPath)
@@ -140,6 +146,7 @@ final class AppModel: ObservableObject {
             let project = try application.openProjectDocument(documentPath: url.path)
             self.project = project
             snapshot = try project.snapshot()
+            restoreDiskFolderGrants()
             galleryProxies.removeAll()
             layoutCellProxies.removeAll()
             rememberCurrentProject(documentPath: url.path)
@@ -149,13 +156,79 @@ final class AppModel: ObservableObject {
     }
 
     func addLayout() {
+        guard let definition = nodeDefinitions.first(where: {
+            $0.definitionId == "photara.layout.compose"
+        }) else { return }
+        addNode(definition)
+    }
+
+    func addNode(_ definition: BridgeAvailableNodeDefinitionDto) {
         guard let project, let snapshot else { return }
-        accept(
-            project.addLayoutNode(
-                expectedGraphRevision: snapshot.graph.revision,
-                canvas: .portrait3x4(longEdgePixels: 4000)
+        accept(project.addNode(
+            expectedGraphRevision: snapshot.graph.revision,
+            definition: BridgeNodeDefinitionRefDto(
+                packageId: definition.packageId,
+                packageVersion: definition.packageVersion,
+                definitionId: definition.definitionId,
+                definitionVersion: definition.definitionVersion
             )
-        )
+        ))
+    }
+
+    func chooseFolder(for node: BridgeNodeDto) {
+        guard let project, let disk = node.disk else { return }
+        let panel = NSOpenPanel()
+        panel.title = "Choose Folder for \(node.brandName)"
+        panel.message = "Photara will remember this device's permission separately from the project."
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            stopFolderGrant(bindingID: disk.folderBindingId)
+            guard url.startAccessingSecurityScopedResource() else {
+                throw CocoaError(.fileReadNoPermission)
+            }
+            activeFolderGrants[disk.folderBindingId] = url
+            let bookmark = try url.bookmarkData(
+                options: [.withSecurityScope],
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+            defaults.set(bookmark, forKey: folderBookmarkKey(disk.folderBindingId))
+            _ = try project.attachDiskFolder(nodeId: node.nodeId, folderPath: url.path)
+            scanDisk(node)
+        } catch {
+            presentedError = error.localizedDescription
+        }
+    }
+
+    func scanDisk(_ node: BridgeNodeDto) {
+        guard let project, let snapshot else { return }
+        accept(project.scanDiskFolder(
+            expectedGraphRevision: snapshot.graph.revision,
+            nodeId: node.nodeId
+        ))
+    }
+
+    func connectDiskToAvailableLayout(_ node: BridgeNodeDto) {
+        guard let project, let snapshot,
+              let layout = snapshot.nodes.first(where: { candidate in
+                  candidate.layout != nil && candidate.ports.contains {
+                      $0.direction == .input && $0.portId == "assets" && $0.connectedNodeId == nil
+                  }
+              })
+        else {
+            presentedError = "Add an unconnected Layout node before connecting Disk."
+            return
+        }
+        accept(project.connectNodes(
+            expectedGraphRevision: snapshot.graph.revision,
+            outputNodeId: node.nodeId,
+            outputPortId: "assets",
+            inputNodeId: layout.nodeId,
+            inputPortId: "assets"
+        ))
     }
 
     func save() {
@@ -330,6 +403,53 @@ final class AppModel: ObservableObject {
         } else {
             presentedError = response.error?.message ?? "Semantic command was rejected"
         }
+    }
+
+    private func restoreDiskFolderGrants() {
+        guard let project else { return }
+        for node in snapshot?.nodes ?? [] {
+            guard let disk = node.disk,
+                  activeFolderGrants[disk.folderBindingId] == nil,
+                  let bookmark = defaults.data(forKey: folderBookmarkKey(disk.folderBindingId))
+            else { continue }
+            do {
+                var stale = false
+                let url = try URL(
+                    resolvingBookmarkData: bookmark,
+                    options: [.withSecurityScope],
+                    relativeTo: nil,
+                    bookmarkDataIsStale: &stale
+                )
+                guard url.startAccessingSecurityScopedResource() else { continue }
+                activeFolderGrants[disk.folderBindingId] = url
+                _ = try project.attachDiskFolder(nodeId: node.nodeId, folderPath: url.path)
+                if stale {
+                    let refreshed = try url.bookmarkData(
+                        options: [.withSecurityScope],
+                        includingResourceValuesForKeys: nil,
+                        relativeTo: nil
+                    )
+                    defaults.set(refreshed, forKey: folderBookmarkKey(disk.folderBindingId))
+                }
+            } catch {
+                presentedError = "Could not restore \(node.brandName) folder permission: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func folderBookmarkKey(_ bindingID: String) -> String {
+        "photara.disk.folder-bookmark.v1.\(bindingID)"
+    }
+
+    private func stopFolderGrant(bindingID: String) {
+        activeFolderGrants.removeValue(forKey: bindingID)?.stopAccessingSecurityScopedResource()
+    }
+
+    private func stopFolderGrants() {
+        for url in activeFolderGrants.values {
+            url.stopAccessingSecurityScopedResource()
+        }
+        activeFolderGrants.removeAll()
     }
 
     private func refreshLayoutProxies() {

@@ -446,12 +446,38 @@ without macOS 27 APIs.
 - Support multiple independent Layout nodes.
 - Harden unavailable storage, source replacement, stale revisions, cancellation,
   corrupted cache, and interrupted save recovery.
+- Expose an immutable available-definition catalog through the application
+  facade. Exact package definitions contribute hierarchical category paths,
+  search metadata, independent brand identity, package-owned neutral icon
+  resources, generic Inspector contribution hints, and optional rich Workspace
+  capabilities without becoming Core evaluator variants. Native clients resolve
+  those resources into platform skins rather than hard-coding definition
+  identities. Graph's
+  `Tab` interaction renders this catalog rather than hard-coding node cases in
+  Swift.
+- Add `photara.disk.folder` as the second ordinary bundled node and first
+  live-data source. It emits explicit `photara.asset-set`, uses a stable portable
+  folder-binding identity, and keeps macOS security-scoped bookmarks, absolute
+  paths, availability, and materialized locations in native/runtime binding
+  state. Disk receives a compact custom Inspector contribution but no canvas
+  Workspace.
+- Exercise Stage 9 against a real authorized folder and real project data.
+  Folder scanning/reconciliation must publish asset-context and node-membership
+  changes through an explicit revision-checked Core command; it cannot mutate
+  project semantics merely because a directory changed.
+- Iterate native density, border, material, background, shape, typography, and
+  interaction using measured visual references while preserving independent
+  panel identity and optional node Workspaces.
 
 **Gate:** a real project can be authored visually without the old manual Layout
 worksheet/crop-authoring process, including multiple independent Layout nodes,
 explicit asset placement, frame/cell editing, Fit/Fill/Crop, rotation, crop
 authoring, validation, resolved proxy-backed preview, save/reopen, and coherent
-undo/redo.
+undo/redo. The same project can add a Disk node from a hierarchical `Tab`
+catalog, grant/rebind a folder through native permission UI, explicitly scan
+real supported files into project Asset Context, connect its `AssetSet` to
+Layout, and reopen with portable semantics intact even when the machine-local
+folder grant is unavailable.
 
 **Current slice:** the facade exposes resolved normalized/pixel cell geometry
 and semantic cell/structure edit enums. Exact forward/reverse Core graph
@@ -473,8 +499,25 @@ Layout through one Inspector shell. A primitive spatial graph replaces the
 engineering list, Layout Workspace opens explicitly, and Workspace → Restore
 Default Workspace recovers presentation state without semantic mutation.
 
-### 10. 0.2.0 stabilization
+### 10. Scoped runtime persistence and 0.2.0 stabilization
 
+- Introduce the first database-backed implementation of the Core-owned state
+  service only after the Stage 9 Disk/live-project workflow proves a concrete
+  runtime-state need. Preserve the portable Project Document as authored
+  authority.
+- Define explicit state scopes: syncable `user + exact definition` libraries
+  and preferences; private `project + node instance` operational state;
+  device-only grants, credentials, and paths; and portable authored Project
+  Document state. Saving a reusable preset and applying it to a project are
+  distinct semantic operations.
+- Give exact definitions and node instances logically isolated, versioned state
+  namespaces and narrowly scoped host APIs. Nodes never receive connection
+  strings, arbitrary SQL, another node's namespace, or ambient access to the
+  Core database. Cross-machine state is an authenticated host sync capability,
+  not direct network/database authority for node code.
+- Define migration, quota, backup, corruption recovery, deletion, package
+  disable/uninstall, and missing-definition behavior for scoped node state
+  before relying on it for production work.
 - Exercise several real projects and refine workflow, performance, diagnostics,
   recovery, and native interaction.
 - Document install, backup, update, rollback, crash recovery, and the explicit
@@ -489,6 +532,10 @@ recover safely from interruption without external legacy state.
 
 - Photoshop, Lightroom Classic, Lightroom Desktop/Cloud, Cloudinary, delivery,
   metadata, ML, and other independently installable nodes.
+- Independently branded asset-provider nodes for Dropbox, Google Drive, Box,
+  iCloud/File Provider, Photos/PhotoKit, and studio DAMs. Each emits ordinary
+  semantic assets while authorization and remote materialization remain scoped
+  host capabilities.
 - Selective reuse of proven historical Rust, Lua, PSJS, validation, and tests
   through the new package/host/receipt contracts.
 - Explicit legacy-data importer only after new identity and evidence contracts

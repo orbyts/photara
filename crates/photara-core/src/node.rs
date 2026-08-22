@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use thiserror::Error;
 
 use crate::{
@@ -49,6 +50,9 @@ pub struct NodeDefinition {
     pub config_schema: SchemaRef,
     pub authored_state_schema: Option<SchemaRef>,
     pub capabilities: BTreeSet<CapabilityId>,
+    /// Namespaced, version-pinned definition metadata ignored by Core semantics.
+    #[serde(default, flatten)]
+    pub extensions: BTreeMap<String, Value>,
 }
 
 impl NodeDefinition {

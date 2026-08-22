@@ -47,6 +47,24 @@ document because none is required by its gate. When a concrete later node needs
 private durable state, it receives a scoped namespace rather than database
 access. Credentials likewise remain behind future scoped host handles.
 
+The future state service distinguishes scope explicitly:
+
+- **user + exact node definition** stores reusable libraries and preferences,
+  such as saved Layout presets or a Lightroom node's saved selections. This
+  scope may participate in authenticated cross-device synchronization;
+- **project + node instance** stores private operational state for one instance
+  when that state is not portable authored semantics;
+- **device** stores machine-only grants, security bookmarks, credential handles,
+  cache locations, and local availability;
+- the **Project Document** remains the portable authority for graph topology and
+  authored edits that must travel with the project.
+
+Moving data between these scopes is explicit. Saving a reusable preset is not
+the same operation as applying that preset to authored project state. Sync is a
+host/account capability over a user-scoped namespace, with schema versioning,
+conflict handling, and deletion semantics; it is not network or database access
+granted to node implementation code.
+
 Representation availability and materialized machine paths remain runtime
 state. Stage 6 proxy files and indexes are derived cache data stored outside the
 portable project aggregate; deleting them cannot delete assets, representation

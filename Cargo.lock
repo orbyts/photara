@@ -417,14 +417,17 @@ version = "0.2.0-alpha.0"
 dependencies = [
  "photara-asset-set-node",
  "photara-core",
+ "photara-disk-node",
  "photara-layout-node",
  "photara-node-sdk",
  "photara-proxy",
  "photara-store",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror",
  "uniffi",
+ "uuid",
 ]
 
 [[package]]
@@ -436,6 +439,17 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "photara-disk-node"
+version = "0.2.0-alpha.0"
+dependencies = [
+ "photara-core",
+ "photara-node-sdk",
+ "serde",
+ "serde_json",
  "uuid",
 ]
 

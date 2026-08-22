@@ -50,6 +50,7 @@ impl Fixture {
                     config_schema: schema("example.text.source.config"),
                     authored_state_schema: None,
                     capabilities: BTreeSet::new(),
+                    extensions: BTreeMap::new(),
                 },
             )
             .unwrap();
@@ -77,6 +78,7 @@ impl Fixture {
                     config_schema: schema("example.text.uppercase.config"),
                     authored_state_schema: None,
                     capabilities: BTreeSet::new(),
+                    extensions: BTreeMap::new(),
                 },
             )
             .unwrap();

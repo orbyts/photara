@@ -21,6 +21,9 @@ pub enum ProjectCommand {
         asset: ProjectAsset,
         resources: Vec<ProjectResourceRef>,
     },
+    /// Inserts or replaces semantic assets by identity without interpreting
+    /// provider-specific node state or runtime locators.
+    UpsertAssets { assets: Vec<ProjectAsset> },
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -58,6 +61,20 @@ pub fn apply_project_command(
         ProjectCommand::AddAsset { asset, resources } => {
             updated.resources.extend(resources.iter().cloned());
             updated.asset_context.assets.push(asset.clone());
+        }
+        ProjectCommand::UpsertAssets { assets } => {
+            for asset in assets {
+                if let Some(existing) = updated
+                    .asset_context
+                    .assets
+                    .iter_mut()
+                    .find(|existing| existing.id == asset.id)
+                {
+                    existing.clone_from(asset);
+                } else {
+                    updated.asset_context.assets.push(asset.clone());
+                }
+            }
         }
     }
     updated

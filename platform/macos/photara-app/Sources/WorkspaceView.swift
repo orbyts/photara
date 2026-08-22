@@ -35,8 +35,8 @@ struct WorkspaceView: View {
                     app.chooseAndImportTiffPair()
                 }
                 .disabled(!app.hasOpenProject)
-                Button("Add Layout", systemImage: "rectangle.3.group") {
-                    app.addLayout()
+                Button("Add Node", systemImage: "square.grid.2x2") {
+                    workspace.requestNodeMenu()
                 }
                 Button("Save", systemImage: "square.and.arrow.down") {
                     app.save()
@@ -595,6 +595,7 @@ private struct SpatialGraphView: View {
     @State private var pan: CGSize = .zero
     @State private var zoom: CGFloat = 1
     @State private var showsNodeMenu = false
+    @State private var nodeFilter = ""
     @FocusState private var graphHasFocus: Bool
     @GestureState private var dragPan: CGSize = .zero
     @GestureState private var magnification: CGFloat = 1
@@ -609,30 +610,45 @@ private struct SpatialGraphView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Add Node")
                             .font(.headline)
-                        Button {
-                            app.addLayout()
-                            showsNodeMenu = false
-                        } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: "rectangle.3.group")
-                                    .font(.title3)
-                                    .foregroundStyle(.tint)
-                                    .frame(width: 28, height: 28)
-                                    .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Layout")
-                                        .font(.subheadline.weight(.semibold))
-                                    Text("Author frames, cells, placement, and crops")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .contentShape(Rectangle())
+                        TextField("Search nodes", text: $nodeFilter)
+                            .textFieldStyle(.roundedBorder)
+                        let definitions = filteredDefinitions
+                        let categories = Dictionary(grouping: definitions) {
+                            $0.catalogPath.first ?? "Other"
                         }
-                        .buttonStyle(.plain)
+                        ForEach(categories.keys.sorted(), id: \.self) { category in
+                            Text(category.uppercased())
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            ForEach(categories[category] ?? [], id: \.definitionId) { definition in
+                                Button {
+                                    app.addNode(definition)
+                                    showsNodeMenu = false
+                                    nodeFilter = ""
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        NodeBrandIcon(
+                                            resourceID: definition.iconResourceId,
+                                            accentHex: definition.accentSrgbHex,
+                                            size: 28
+                                        )
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(definition.brandName)
+                                                .font(.subheadline.weight(.semibold))
+                                            Text(definition.catalogPath.dropFirst().joined(separator: " › "))
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Spacer(minLength: 8)
+                                    }
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
                     }
                     .padding(12)
-                    .frame(width: 290, alignment: .leading)
+                    .frame(width: 310, alignment: .leading)
                 }
                 Button("Lock", systemImage: "lock.open") {}
                     .disabled(true)
@@ -733,10 +749,10 @@ private struct SpatialGraphView: View {
                                 systemImage: "point.3.connected.trianglepath.dotted"
                             )
                         } description: {
-                            Text("Add a Layout to begin.")
+                            Text("Add a node to begin.")
                         } actions: {
-                            Button("Add Layout", systemImage: "rectangle.3.group") {
-                                app.addLayout()
+                            Button("Add Node", systemImage: "square.grid.2x2") {
+                                showsNodeMenu = true
                             }
                             .buttonStyle(.borderedProminent)
                         }
@@ -760,6 +776,16 @@ private struct SpatialGraphView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    private var filteredDefinitions: [BridgeAvailableNodeDefinitionDto] {
+        let query = nodeFilter.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return app.nodeDefinitions }
+        return app.nodeDefinitions.filter { definition in
+            ([definition.brandName, definition.displayName, definition.definitionId]
+                + definition.catalogPath + definition.searchTerms)
+                .contains { $0.localizedCaseInsensitiveContains(query) }
+        }
+    }
+
     private func graphPositions(
         nodes: [BridgeNodeDto],
         size: CGSize
@@ -777,6 +803,50 @@ private struct SpatialGraphView: View {
             }
         }
         return positions
+    }
+}
+
+/// Resolves package-neutral icon resources into this macOS client's skin.
+private enum NativeNodeResources {
+    static func symbol(for resourceID: String) -> String {
+        switch resourceID {
+        case "photara.layout.compose": "rectangle.3.group"
+        case "photara.project.assets": "photo.stack"
+        case "photara.disk.folder": "folder"
+        default: "square.dashed"
+        }
+    }
+}
+
+private struct NodeBrandIcon: View {
+    let resourceID: String
+    let accentHex: String?
+    let size: CGFloat
+
+    var body: some View {
+        let accent = Color(srgbHex: accentHex) ?? .accentColor
+        Image(systemName: NativeNodeResources.symbol(for: resourceID))
+            .font(.system(size: size * 0.56, weight: .medium))
+            .foregroundStyle(accent)
+            .frame(width: size, height: size)
+            .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: size * 0.22))
+    }
+}
+
+private extension Color {
+    init?(srgbHex: String?) {
+        guard var value = srgbHex?.trimmingCharacters(in: .whitespacesAndNewlines),
+              value.hasPrefix("#")
+        else { return nil }
+        value.removeFirst()
+        guard value.count == 6, let rgb = UInt64(value, radix: 16) else { return nil }
+        self.init(
+            .sRGB,
+            red: Double((rgb >> 16) & 0xff) / 255,
+            green: Double((rgb >> 8) & 0xff) / 255,
+            blue: Double(rgb & 0xff) / 255,
+            opacity: 1
+        )
     }
 }
 
@@ -812,8 +882,11 @@ private struct GraphNodeCard: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Image(systemName: node.iconSymbol)
-                    .foregroundStyle(.tint)
+                NodeBrandIcon(
+                    resourceID: node.iconResourceId,
+                    accentHex: node.accentSrgbHex,
+                    size: 24
+                )
                 VStack(alignment: .leading, spacing: 1) {
                     Text(node.displayName).font(.headline)
                     if let canvas = node.layout?.canvas {
@@ -895,9 +968,11 @@ private struct LayoutInspectorView: View {
             Form {
                 Section {
                     HStack(spacing: 12) {
-                        Image(systemName: node.iconSymbol)
-                            .font(.title2)
-                            .foregroundStyle(.tint)
+                        NodeBrandIcon(
+                            resourceID: node.iconResourceId,
+                            accentHex: node.accentSrgbHex,
+                            size: 30
+                        )
                         VStack(alignment: .leading, spacing: 2) {
                             Text(node.displayName).font(.headline)
                             Text(node.status)
@@ -911,6 +986,24 @@ private struct LayoutInspectorView: View {
                         .font(.caption)
                     LabeledContent("Node ID", value: node.nodeId)
                         .font(.caption.monospaced())
+                }
+                if let disk = node.disk {
+                    Section("Folder Source") {
+                        LabeledContent("Accepted Assets", value: String(disk.acceptedAssetCount))
+                        LabeledContent("Scan", value: disk.recursive ? "Recursive" : "Top Level")
+                        LabeledContent("Portable Binding", value: disk.folderBindingId)
+                            .font(.caption.monospaced())
+                            .lineLimit(1)
+                        Button("Choose or Rebind Folder", systemImage: "folder.badge.plus") {
+                            app.chooseFolder(for: node)
+                        }
+                        Button("Scan Folder", systemImage: "arrow.clockwise") {
+                            app.scanDisk(node)
+                        }
+                        Button("Connect to Available Layout", systemImage: "point.3.connected.trianglepath.dotted") {
+                            app.connectDiskToAvailableLayout(node)
+                        }
+                    }
                 }
                 if !inputPorts(node).isEmpty {
                     Section("Inputs") {

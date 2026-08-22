@@ -15,14 +15,17 @@ bindgen = ["uniffi/cli"]
 [dependencies]
 photara-core = { path = "../photara-core" }
 photara-asset-set-node = { path = "../../nodes/photara-asset-set" }
+photara-disk-node = { path = "../../nodes/photara-disk" }
 photara-layout-node = { path = "../../nodes/photara-layout" }
 photara-node-sdk = { path = "../photara-node-sdk" }
 photara-proxy = { path = "../photara-proxy" }
 photara-store = { path = "../photara-store" }
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 uniffi.workspace = true
+uuid.workspace = true
 
 [[example]]
 name = "swift_bridge_server"

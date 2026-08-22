@@ -45,6 +45,8 @@ crates/photara-node-sdk
 crates/photara-store
 crates/photara-bridge
 nodes/photara-layout
+nodes/photara-asset-set
+nodes/photara-disk
 ```
 
 The workspace is `0.2.0-alpha.0`. Core now contains canonical namespaced IDs,
@@ -258,9 +260,22 @@ a separately identified Layout Authoring surface that composes shared per-cell
 proxy references, plus conventional Inspector controls. Crop dragging keeps
 only transient Swift translation during pointer movement and commits one Core
 command on gesture completion. Keep Stage 9 open until the complete real-project
-gate in `ROADMAP.md` is exercised and hardened. Keep the graph plain and do not
-begin Stage 4B lifecycle work, graph polish, advanced docking, Photoshop/UXP,
-macros, or other provider/generalized UI work.
+gate in `ROADMAP.md` is exercised and hardened. Exact definition metadata now
+owns each node's independent brand, neutral icon resource, hierarchical catalog
+path, Inspector contribution, and optional Workspace contribution. The facade
+returns that immutable catalog and the Swift Tab popover renders it generically.
+
+`photara.disk.folder` is the second visible bundled definition and first live
+asset provider. It is an ordinary no-Workspace node under Input → Filesystem.
+Portable authored state contains a stable folder-binding UUID, scan policy, and
+last accepted `AssetSet`; macOS security bookmarks and paths are device-only.
+The Disk Inspector can grant/rebind, explicitly scan, and explicitly connect to
+an available Layout. Scanning fingerprints supported visual files, publishes
+stable semantic assets through Core commands, and supplies runtime-resolved
+representations to the existing shared proxy service. Tests prove attaching a
+folder does not change the graph digest and that save/reopen preserves semantics
+when the grant is unavailable. Keep the graph plain and do not begin Stage 4B
+lifecycle work, graph polish, advanced docking, Photoshop/UXP, or macros.
 
 The first recognizable-product refinement is implemented in this working
 slice. Startup has no implicit project: it presents Create/Open/Recent, with
@@ -268,12 +283,20 @@ recent locations in native `UserDefaults`. `open_project_document` validates
 portable JSON, imports it into the filesystem store, and rejects divergent
 content with an existing project identity; no cloud database was added. The
 visible node list is now a minimal spatial Graph. Generic bridge DTOs expose
-typed ports, connections, status, icon/workspace hints, and summary fields so
+typed ports, connections, status, versioned brand/workspace metadata, and summary fields so
 Project Assets and Layout share one standard Inspector shell. Layout's existing
 Stage 9 surface is an optional Workspace activated by double-click, while
 Assets/Diagnostics remain project panels. A native Workspace menu restores the
 default presentation only. Continue hardening this recognizable shell and real
 Layout projects without building final graph editing or docking.
+
+Stage 10's state direction is scope-based, not one database per node. One
+Core-owned service will distinguish syncable `user + exact definition`
+libraries/preferences, private `project + node instance` operational state,
+device-only grants/credentials/paths, and portable Project Document authority.
+Nodes receive only their versioned namespace and narrow host capability; they
+never receive SQL, connection strings, or another namespace. Saved Layout
+presets are the motivating user-scoped example.
 
 ## Verification
 

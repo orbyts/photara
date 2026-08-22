@@ -50,6 +50,7 @@ platform/macos/
 └── photara-proxy-imageio/  process-isolated ImageIO/Core Image helper
 nodes/
 ├── photara-asset-set/  explicit project AssetSet source node
+├── photara-disk/       authorized-folder AssetSet provider node
 └── photara-layout/     built-in Layout node package
 ```
 
@@ -60,6 +61,9 @@ presentation only; intentional edits and undo/redo remain Core commands.
 The native first-look shell launches through Create/Open/Recent and separates a
 spatial Graph, generic standard Inspector, optional Layout Workspace, and
 project-level Assets without introducing a database dependency.
+The immutable node catalog now drives branded hierarchical creation metadata,
+and the first live provider is an ordinary Disk node whose macOS folder grant
+stays outside the portable project.
 
 ## Development
 

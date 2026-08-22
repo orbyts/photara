@@ -9,8 +9,9 @@
 5. [Project assets and representations](ASSETS.md)
 6. [Project proxy infrastructure](PROXIES.md)
 7. [Layout node](LAYOUT_NODE.md)
-8. [Native clients](NATIVE_CLIENTS.md)
-9. [Swift bridge spike](SWIFT_BRIDGE_SPIKE.md)
+8. [Disk node](DISK_NODE.md)
+9. [Native clients](NATIVE_CLIENTS.md)
+10. [Swift bridge spike](SWIFT_BRIDGE_SPIKE.md)
 
 `ROADMAP.md` is authoritative for implementation order and release gates.
 

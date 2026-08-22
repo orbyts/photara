@@ -1,7 +1,8 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
-    fs,
+    fs::{self, File},
+    io::{BufReader, Read},
     num::NonZeroU32,
     path::PathBuf,
     sync::{
@@ -13,22 +14,29 @@ use std::{
 
 use photara_asset_set_node::{AssetSetNodePackage, AssetSetNodeRuntime, asset_set_state_schema};
 use photara_core::{
-    AssetId, AssetSet, CancellationToken, CommandId, Connection, ConnectionId, DefinitionResolver,
-    Diagnostic, DiagnosticSeverity, EvaluationError, EvaluationId, EvaluationPhase,
-    EvaluationRequest, GraphCommand, GraphCommandEnvelope, GraphDocument, GraphId,
-    NodeDefinitionRef, NodeEvaluationOutput, NodeEvaluationRequest, NodeInstance, NodeInstanceId,
-    NodeRuntime, PackageRequirement, PortDirection, PortEndpoint, PortId, ProjectCommand,
-    ProjectCommandEnvelope, ProjectDocument, ProjectId, ProjectRelativePath, RequestId,
+    AssetId, AssetRepresentationId, AssetSet, CancellationToken, CommandId, Connection,
+    ConnectionId, DefinitionResolver, Diagnostic, DiagnosticSeverity, EvaluationError,
+    EvaluationId, EvaluationPhase, EvaluationRequest, GraphCommand, GraphCommandEnvelope,
+    GraphDocument, GraphId, NodeDefinitionRef, NodeEvaluationOutput, NodeEvaluationRequest,
+    NodeInstance, NodeInstanceId, NodeRuntime, PackageRequirement, PortDirection, PortEndpoint,
+    PortId, ProjectAsset, ProjectCommand, ProjectCommandEnvelope, ProjectDocument, ProjectId,
+    ProjectRelativePath, RepresentationAvailability, RepresentationBinding,
+    RepresentationCapabilityId, RepresentationDescriptor, RepresentationFingerprint,
+    RepresentationMaterializationError, RepresentationMaterializationRequest,
+    RepresentationMaterializer, RepresentationRoleId, RepresentationStorageBindingId, RequestId,
     SchemaValue, ValueTypeRegistry, apply_graph_command, apply_project_command,
     asset_set_value_type_descriptor, canonical_digest, evaluate_graph,
 };
+use photara_disk_node::{DiskFolderState, DiskNodePackage, DiskNodeRuntime};
 use photara_layout_node::{
     BundledCanvasProfile, CellArrangement, CellContentMode, LayoutCanvas, LayoutCell,
     LayoutCommand, LayoutCommandError, LayoutFrame, LayoutNodePackage, LayoutNodeRuntime,
     LayoutState, NormalizedPoint, NormalizedRect, NormalizedUnit, QuarterTurn,
     apply_layout_command, layout_plan_value_type_descriptor, resolve_layout,
 };
-use photara_node_sdk::{NodePackage, NodePackageRegistry};
+use photara_node_sdk::{
+    NodeCatalogVisibility, NodePackage, NodePackageRegistry, node_presentation,
+};
 #[cfg(target_os = "macos")]
 use photara_proxy::{
     AssetContextProjectProxyService, ImageIoCoreImageGenerator, ImageIoGeneratorConfig,
@@ -42,7 +50,9 @@ use photara_store::{
 };
 use serde::de::DeserializeOwned;
 use serde_json::json;
+use sha2::{Digest as _, Sha256};
 use thiserror::Error;
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Enum)]
 pub enum BridgeDiagnosticSeverity {
@@ -117,13 +127,58 @@ pub struct BridgeNodeDto {
     pub package_version: String,
     pub definition_id: String,
     pub definition_version: u32,
-    pub icon_symbol: String,
+    pub brand_name: String,
+    pub icon_resource_id: String,
+    pub accent_srgb_hex: Option<String>,
+    pub inspector_contribution_id: Option<String>,
+    pub workspace_contribution_id: Option<String>,
     pub has_workspace: bool,
     pub status: String,
     pub ports: Vec<BridgePortInspectionDto>,
     pub output_summary: Vec<BridgeInspectionFieldDto>,
+    pub disk: Option<BridgeDiskInspectionDto>,
     pub layout: Option<BridgeLayoutInspectionDto>,
     pub diagnostics: Vec<BridgeDiagnosticDto>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct BridgeDiskInspectionDto {
+    pub folder_binding_id: String,
+    pub recursive: bool,
+    pub accepted_asset_count: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct BridgeDiskBindingDto {
+    pub node_id: String,
+    pub folder_binding_id: String,
+    pub folder_display_name: String,
+}
+
+/// Immutable catalog entry for one exact installed node definition.
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct BridgeAvailableNodeDefinitionDto {
+    pub package_id: String,
+    pub package_version: String,
+    pub definition_id: String,
+    pub definition_version: u32,
+    pub display_name: String,
+    pub brand_name: String,
+    pub icon_resource_id: String,
+    pub accent_srgb_hex: Option<String>,
+    pub catalog_path: Vec<String>,
+    pub search_terms: Vec<String>,
+    pub inspector_contribution_id: Option<String>,
+    pub workspace_contribution_id: Option<String>,
+}
+
+/// Exact definition coordinate selected from the immutable application catalog.
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct BridgeNodeDefinitionRefDto {
+    pub package_id: String,
+    pub package_version: String,
+    pub definition_id: String,
+    pub definition_version: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
@@ -475,6 +530,11 @@ impl PhotaraApplication {
             .map_err(|error| BridgeError::State {
                 message: error.to_string(),
             })?;
+        definitions
+            .register_package(&DiskNodePackage)
+            .map_err(|error| BridgeError::State {
+                message: error.to_string(),
+            })?;
         let mut value_types = ValueTypeRegistry::default();
         value_types
             .register(asset_set_value_type_descriptor())
@@ -493,6 +553,44 @@ impl PhotaraApplication {
             proxy_cache_root: PathBuf::from(proxy_cache_root),
             proxy_helper_executable: PathBuf::from(proxy_helper_executable),
         }))
+    }
+
+    /// Returns the visible installed definition catalog in stable presentation order.
+    #[must_use]
+    pub fn available_node_definitions(&self) -> Vec<BridgeAvailableNodeDefinitionDto> {
+        let mut catalog = self
+            .definitions
+            .manifests()
+            .flat_map(|manifest| {
+                manifest.definitions.iter().filter_map(|definition| {
+                    let presentation = node_presentation(definition).ok().flatten()?;
+                    if presentation.catalog_visibility == NodeCatalogVisibility::Hidden {
+                        return None;
+                    }
+                    Some(BridgeAvailableNodeDefinitionDto {
+                        package_id: manifest.package_id.to_string(),
+                        package_version: manifest.package_version.to_string(),
+                        definition_id: definition.id.to_string(),
+                        definition_version: definition.version.get(),
+                        display_name: definition.display_name.clone(),
+                        brand_name: presentation.brand.name,
+                        icon_resource_id: presentation.brand.icon_resource_id,
+                        accent_srgb_hex: presentation.brand.accent_srgb_hex,
+                        catalog_path: presentation.catalog_path,
+                        search_terms: presentation.search_terms,
+                        inspector_contribution_id: presentation.inspector_contribution_id,
+                        workspace_contribution_id: presentation.workspace_contribution_id,
+                    })
+                })
+            })
+            .collect::<Vec<_>>();
+        catalog.sort_by(|left, right| {
+            left.catalog_path
+                .cmp(&right.catalog_path)
+                .then_with(|| left.brand_name.cmp(&right.brand_name))
+                .then_with(|| left.definition_id.cmp(&right.definition_id))
+        });
+        catalog
     }
 
     /// Creates and durably publishes an empty portable project.
@@ -643,6 +741,8 @@ pub struct PhotaraProject {
     project_root: PathBuf,
     #[cfg(target_os = "macos")]
     proxy_service: Arc<ProjectProxyService<ImageIoCoreImageGenerator>>,
+    folder_bindings: Mutex<BTreeMap<Uuid, PathBuf>>,
+    representation_bindings: Mutex<BTreeMap<RepresentationStorageBindingId, PathBuf>>,
     state: Mutex<ProjectSessionState>,
 }
 
@@ -682,6 +782,8 @@ impl PhotaraProject {
             project_root,
             #[cfg(target_os = "macos")]
             proxy_service: Arc::new(proxy_service),
+            folder_bindings: Mutex::new(BTreeMap::new()),
+            representation_bindings: Mutex::new(BTreeMap::new()),
             state: Mutex::new(ProjectSessionState {
                 project,
                 dirty: false,
@@ -702,6 +804,119 @@ impl PhotaraProject {
     pub fn snapshot(&self) -> Result<BridgeProjectSnapshotDto, BridgeError> {
         let state = self.lock_state()?;
         project_snapshot(&state, &self.definitions)
+    }
+
+    /// Creates an ordinary node from an exact installed catalog coordinate.
+    ///
+    /// Package-specific default authored state is constructed inside the Rust
+    /// host; native clients do not interpret node schemas.
+    ///
+    /// # Panics
+    ///
+    /// Panics only if Photara's compile-time nonzero Layout default is invalid.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn add_node(
+        &self,
+        expected_graph_revision: u64,
+        definition: BridgeNodeDefinitionRefDto,
+    ) -> BridgeCommandResponseDto {
+        let layout = LayoutNodePackage.manifest();
+        let layout_definition = &layout.definitions[0];
+        if definition.package_id == layout.package_id.as_str()
+            && definition.package_version == layout.package_version.to_string()
+            && definition.definition_id == layout_definition.id.as_str()
+            && definition.definition_version == layout_definition.version.get()
+        {
+            let command_id = CommandId::new();
+            let canvas = LayoutCanvas::portrait_3x4(
+                NonZeroU32::new(4_000).expect("built-in default is nonzero"),
+            );
+            let authored_state = match LayoutState::new(canvas).to_schema_value() {
+                Ok(value) => value,
+                Err(error) => {
+                    return rejected_command(
+                        command_id,
+                        expected_graph_revision,
+                        "photara.layout.invalid-default-state",
+                        error.to_string(),
+                    );
+                }
+            };
+            return self.apply_core_command(
+                command_id,
+                expected_graph_revision,
+                GraphCommand::AddNode {
+                    instance: NodeInstance {
+                        id: NodeInstanceId::new(),
+                        definition: NodeDefinitionRef {
+                            package_id: layout.package_id,
+                            package_version: layout.package_version,
+                            definition_id: layout_definition.id.clone(),
+                            definition_version: layout_definition.version,
+                        },
+                        configuration: SchemaValue {
+                            schema: layout_definition.config_schema.clone(),
+                            value: json!({}),
+                        },
+                        authored_state: Some(authored_state),
+                        extensions: BTreeMap::new(),
+                    },
+                },
+            );
+        }
+        let disk = DiskNodePackage.manifest();
+        let disk_definition = &disk.definitions[0];
+        if definition.package_id == disk.package_id.as_str()
+            && definition.package_version == disk.package_version.to_string()
+            && definition.definition_id == disk_definition.id.as_str()
+            && definition.definition_version == disk_definition.version.get()
+        {
+            let command_id = CommandId::new();
+            let authored_state = match DiskFolderState::default().to_schema_value() {
+                Ok(value) => value,
+                Err(error) => {
+                    return rejected_command(
+                        command_id,
+                        expected_graph_revision,
+                        "photara.disk.invalid-default-state",
+                        error.to_string(),
+                    );
+                }
+            };
+            return self.apply_core_command(
+                command_id,
+                expected_graph_revision,
+                GraphCommand::AddNode {
+                    instance: NodeInstance {
+                        id: NodeInstanceId::new(),
+                        definition: NodeDefinitionRef {
+                            package_id: disk.package_id,
+                            package_version: disk.package_version,
+                            definition_id: disk_definition.id.clone(),
+                            definition_version: disk_definition.version,
+                        },
+                        configuration: SchemaValue {
+                            schema: disk_definition.config_schema.clone(),
+                            value: json!({}),
+                        },
+                        authored_state: Some(authored_state),
+                        extensions: BTreeMap::new(),
+                    },
+                },
+            );
+        }
+        rejected_command(
+            CommandId::new(),
+            expected_graph_revision,
+            "photara.bridge.unsupported-node-creation",
+            format!(
+                "definition {}@{} from {} {} has no registered creation factory",
+                definition.definition_id,
+                definition.definition_version,
+                definition.package_id,
+                definition.package_version
+            ),
+        )
     }
 
     /// Atomically saves this session against its last opened project revision.
@@ -1022,6 +1237,326 @@ impl PhotaraProject {
         )
     }
 
+    /// Attaches one device-local authorized folder to a portable Disk binding.
+    /// This runtime operation does not change graph or project semantics.
+    ///
+    /// # Errors
+    ///
+    /// Returns an identity, node-state, folder-availability, or lock error.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn attach_disk_folder(
+        &self,
+        node_id: String,
+        folder_path: String,
+    ) -> Result<BridgeDiskBindingDto, BridgeError> {
+        let node_id: NodeInstanceId = parse_uuid_id(&node_id, "Disk node ID")?;
+        let folder = PathBuf::from(folder_path);
+        if !folder.is_dir() {
+            return Err(BridgeError::InvalidArgument {
+                message: format!(
+                    "Disk binding is not a readable folder: {}",
+                    folder.display()
+                ),
+            });
+        }
+        let disk = {
+            let state = self.lock_state()?;
+            let node = state
+                .project
+                .graph
+                .nodes
+                .iter()
+                .find(|node| node.id == node_id)
+                .ok_or_else(|| BridgeError::InvalidArgument {
+                    message: format!("unknown Disk node {node_id}"),
+                })?;
+            if node.definition.package_id.as_str() != photara_disk_node::PACKAGE_ID {
+                return Err(BridgeError::InvalidArgument {
+                    message: format!("node {node_id} is not a Disk definition"),
+                });
+            }
+            DiskFolderState::from_schema_value(node.authored_state.as_ref().ok_or_else(|| {
+                BridgeError::State {
+                    message: format!("Disk {node_id} has no authored state"),
+                }
+            })?)
+            .map_err(|message| BridgeError::State { message })?
+        };
+        self.folder_bindings
+            .lock()
+            .map_err(|_| BridgeError::State {
+                message: "Disk folder-binding lock was poisoned".to_owned(),
+            })?
+            .insert(disk.folder_binding_id, folder.clone());
+        Ok(BridgeDiskBindingDto {
+            node_id: node_id.to_string(),
+            folder_binding_id: disk.folder_binding_id.to_string(),
+            folder_display_name: folder.file_name().map_or_else(
+                || folder.display().to_string(),
+                |name| name.to_string_lossy().into(),
+            ),
+        })
+    }
+
+    /// Explicitly scans an attached Disk folder and atomically publishes the
+    /// resulting assets plus accepted `AssetSet` through Core commands.
+    #[allow(clippy::needless_pass_by_value, clippy::too_many_lines)]
+    pub fn scan_disk_folder(
+        &self,
+        expected_graph_revision: u64,
+        node_id: String,
+    ) -> BridgeCommandResponseDto {
+        let command_id = CommandId::new();
+        let node_id: NodeInstanceId = match parse_uuid_id(&node_id, "Disk node ID") {
+            Ok(value) => value,
+            Err(error) => {
+                return rejected_command(
+                    command_id,
+                    expected_graph_revision,
+                    "photara.disk.invalid-node",
+                    error.to_string(),
+                );
+            }
+        };
+        let disk = {
+            let Ok(state) = self.lock_state() else {
+                return rejected_command(
+                    command_id,
+                    expected_graph_revision,
+                    "photara.bridge.lock-poisoned",
+                    "project session lock was poisoned".to_owned(),
+                );
+            };
+            if state.project.graph.revision.get() != expected_graph_revision {
+                return rejected_command(
+                    command_id,
+                    state.project.graph.revision.get(),
+                    "revision-conflict",
+                    format!(
+                        "expected graph revision {expected_graph_revision}, actual {}",
+                        state.project.graph.revision.get()
+                    ),
+                );
+            }
+            let Some(node) = state
+                .project
+                .graph
+                .nodes
+                .iter()
+                .find(|node| node.id == node_id)
+            else {
+                return rejected_command(
+                    command_id,
+                    expected_graph_revision,
+                    "photara.disk.unknown-node",
+                    format!("unknown Disk node {node_id}"),
+                );
+            };
+            match node
+                .authored_state
+                .as_ref()
+                .map(DiskFolderState::from_schema_value)
+            {
+                Some(Ok(value)) => value,
+                Some(Err(message)) => {
+                    return rejected_command(
+                        command_id,
+                        expected_graph_revision,
+                        "photara.disk.invalid-state",
+                        message,
+                    );
+                }
+                None => {
+                    return rejected_command(
+                        command_id,
+                        expected_graph_revision,
+                        "photara.disk.missing-state",
+                        format!("Disk {node_id} has no authored state"),
+                    );
+                }
+            }
+        };
+        let Some(folder) = self
+            .folder_bindings
+            .lock()
+            .ok()
+            .and_then(|bindings| bindings.get(&disk.folder_binding_id).cloned())
+        else {
+            return rejected_command(
+                command_id,
+                expected_graph_revision,
+                "photara.disk.binding-unavailable",
+                "Choose or restore this Disk node's folder before scanning".to_owned(),
+            );
+        };
+        let prepared = match prepare_disk_scan(&folder, disk.folder_binding_id, disk.recursive) {
+            Ok(value) => value,
+            Err(message) => {
+                return rejected_command(
+                    command_id,
+                    expected_graph_revision,
+                    "photara.disk.scan-failed",
+                    message,
+                );
+            }
+        };
+        let mut accepted = disk;
+        accepted.accepted_assets = AssetSet {
+            assets: prepared.assets.iter().map(|asset| asset.id).collect(),
+        };
+        let authored_state = match accepted.to_schema_value() {
+            Ok(value) => value,
+            Err(error) => {
+                return rejected_command(
+                    command_id,
+                    expected_graph_revision,
+                    "photara.disk.invalid-scan-state",
+                    error.to_string(),
+                );
+            }
+        };
+
+        let Ok(mut state) = self.lock_state() else {
+            return rejected_command(
+                command_id,
+                expected_graph_revision,
+                "photara.bridge.lock-poisoned",
+                "project session lock was poisoned".to_owned(),
+            );
+        };
+        let actual = state.project.graph.revision;
+        if actual.get() != expected_graph_revision {
+            return rejected_command(
+                command_id,
+                actual.get(),
+                "revision-conflict",
+                "the graph changed while Disk was scanning; scan again".to_owned(),
+            );
+        }
+        let project_result = match apply_project_command(
+            &state.project,
+            &ProjectCommandEnvelope {
+                command_id,
+                project_id: state.project.project_id,
+                expected_revision: state.project.revision,
+                command: ProjectCommand::UpsertAssets {
+                    assets: prepared.assets,
+                },
+            },
+        ) {
+            Ok(value) => value,
+            Err(error) => {
+                return rejected_command(
+                    command_id,
+                    actual.get(),
+                    "photara.disk.asset-reconciliation-failed",
+                    error.to_string(),
+                );
+            }
+        };
+        let graph_result = match apply_graph_command(
+            &project_result.project.graph,
+            &GraphCommandEnvelope {
+                command_id,
+                graph_id: state.project.graph.id,
+                expected_revision: actual,
+                command: GraphCommand::SetAuthoredState {
+                    node_id,
+                    authored_state: Some(authored_state),
+                },
+            },
+            self.definitions.as_ref(),
+            self.value_types.as_ref(),
+        ) {
+            Ok(value) => value,
+            Err(error) => {
+                return rejected_command(
+                    command_id,
+                    actual.get(),
+                    "photara.disk.membership-reconciliation-failed",
+                    error.to_string(),
+                );
+            }
+        };
+        let mut project = project_result.project;
+        project.graph = graph_result.graph;
+        sync_requirements(&mut project);
+        if let Err(error) = project.validate() {
+            return rejected_command(
+                command_id,
+                actual.get(),
+                "photara.disk.invalid-reconciliation",
+                error.to_string(),
+            );
+        }
+        if let Ok(mut bindings) = self.representation_bindings.lock() {
+            bindings.extend(prepared.bindings);
+        }
+        state.project = project;
+        state.dirty = true;
+        match project_snapshot(&state, &self.definitions) {
+            Ok(snapshot) => BridgeCommandResponseDto {
+                command_id: command_id.to_string(),
+                applied: true,
+                previous_graph_revision: actual.get(),
+                snapshot: Some(snapshot),
+                error: None,
+            },
+            Err(error) => rejected_command(
+                command_id,
+                actual.get(),
+                "photara.bridge.snapshot-failed",
+                error.to_string(),
+            ),
+        }
+    }
+
+    /// Explicitly connects two typed ports through one revision-checked Core command.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn connect_nodes(
+        &self,
+        expected_graph_revision: u64,
+        output_node_id: String,
+        output_port_id: String,
+        input_node_id: String,
+        input_port_id: String,
+    ) -> BridgeCommandResponseDto {
+        let command_id = CommandId::new();
+        let parsed = (
+            parse_uuid_id(&output_node_id, "output node ID"),
+            PortId::parse(output_port_id),
+            parse_uuid_id(&input_node_id, "input node ID"),
+            PortId::parse(input_port_id),
+        );
+        let (Ok(output_node_id), Ok(output_port_id), Ok(input_node_id), Ok(input_port_id)) = parsed
+        else {
+            return rejected_command(
+                command_id,
+                expected_graph_revision,
+                "photara.bridge.invalid-connection",
+                "connection contains an invalid node or port identity".to_owned(),
+            );
+        };
+        self.apply_core_command(
+            command_id,
+            expected_graph_revision,
+            GraphCommand::Connect {
+                connection: Connection {
+                    id: ConnectionId::new(),
+                    output: PortEndpoint {
+                        node_id: output_node_id,
+                        port_id: output_port_id,
+                    },
+                    input: PortEndpoint {
+                        node_id: input_node_id,
+                        port_id: input_port_id,
+                    },
+                    extensions: BTreeMap::new(),
+                },
+            },
+        )
+    }
+
     /// Returns a leased, verified shared SDR thumbnail for one project asset.
     ///
     /// # Errors
@@ -1124,7 +1659,18 @@ impl PhotaraProject {
                 message: format!("unknown project asset {asset_id}"),
             });
         }
-        let materializer = LocalProjectAssetAdapter::new(&self.project_root, &project);
+        let runtime_bindings = self
+            .representation_bindings
+            .lock()
+            .map_err(|_| BridgeError::State {
+                message: "representation-binding lock was poisoned".to_owned(),
+            })?
+            .clone();
+        let materializer = RuntimeAwareMaterializer {
+            local: LocalProjectAssetAdapter::new(&self.project_root, &project),
+            project: &project,
+            runtime_bindings: &runtime_bindings,
+        };
         let services = AssetContextProjectProxyService::new(
             self.proxy_service.as_ref(),
             &project.asset_context,
@@ -1663,6 +2209,269 @@ impl EvaluationHandle {
     }
 }
 
+struct PreparedDiskScan {
+    assets: Vec<ProjectAsset>,
+    bindings: BTreeMap<RepresentationStorageBindingId, PathBuf>,
+}
+
+fn prepare_disk_scan(
+    root: &std::path::Path,
+    folder_binding_id: Uuid,
+    recursive: bool,
+) -> Result<PreparedDiskScan, String> {
+    let mut files = Vec::new();
+    collect_supported_files(root, root, recursive, &mut files)?;
+    files.sort();
+    let mut assets = Vec::with_capacity(files.len());
+    let mut bindings = BTreeMap::new();
+    for path in files {
+        let relative = path.strip_prefix(root).map_err(|error| {
+            format!(
+                "could not identify {} relative to folder: {error}",
+                path.display()
+            )
+        })?;
+        let identity_key = relative.to_string_lossy();
+        let asset_id = AssetId::from_uuid(stable_disk_uuid(
+            "photara.disk.asset",
+            folder_binding_id,
+            &identity_key,
+        ));
+        let representation_id = AssetRepresentationId::from_uuid(stable_disk_uuid(
+            "photara.disk.representation",
+            folder_binding_id,
+            &identity_key,
+        ));
+        let binding_id = RepresentationStorageBindingId::from_uuid(stable_disk_uuid(
+            "photara.disk.storage-binding",
+            folder_binding_id,
+            &identity_key,
+        ));
+        let fingerprint = fingerprint_runtime_file(&path)?;
+        let mut capabilities = [
+            photara_core::IMAGE_CAPABILITY_ID,
+            photara_core::FLATTENED_IMAGE_CAPABILITY_ID,
+            photara_core::HDR_CAPABILITY_ID,
+            photara_core::SDR_CAPABILITY_ID,
+        ]
+        .into_iter()
+        .map(|value| {
+            RepresentationCapabilityId::parse(value)
+                .expect("built-in representation capability is valid")
+        })
+        .collect::<BTreeSet<_>>();
+        if is_tiff(&path) {
+            capabilities.insert(
+                RepresentationCapabilityId::parse(photara_core::TIFF_CAPABILITY_ID)
+                    .expect("built-in TIFF capability is valid"),
+            );
+        }
+        assets.push(ProjectAsset {
+            id: asset_id,
+            display_name: path.file_stem().map_or_else(
+                || path.display().to_string(),
+                |name| name.to_string_lossy().into_owned(),
+            ),
+            representations: vec![RepresentationDescriptor {
+                id: representation_id,
+                role: RepresentationRoleId::parse(photara_core::ORIGINAL_REPRESENTATION_ROLE_ID)
+                    .expect("built-in representation role is valid"),
+                fingerprint,
+                capabilities,
+                binding: RepresentationBinding::RuntimeResolved { binding_id },
+                extensions: BTreeMap::new(),
+            }],
+            extensions: BTreeMap::new(),
+        });
+        bindings.insert(binding_id, path);
+    }
+    Ok(PreparedDiskScan { assets, bindings })
+}
+
+fn collect_supported_files(
+    root: &std::path::Path,
+    directory: &std::path::Path,
+    recursive: bool,
+    files: &mut Vec<PathBuf>,
+) -> Result<(), String> {
+    let entries = fs::read_dir(directory)
+        .map_err(|error| format!("could not read folder {}: {error}", directory.display()))?;
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            format!(
+                "could not read an entry in {}: {error}",
+                directory.display()
+            )
+        })?;
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("could not inspect {}: {error}", entry.path().display()))?;
+        if file_type.is_file() && is_supported_visual_file(&entry.path()) {
+            files.push(entry.path());
+        } else if recursive && file_type.is_dir() && entry.path() != root {
+            collect_supported_files(root, &entry.path(), true, files)?;
+        }
+    }
+    Ok(())
+}
+
+fn is_supported_visual_file(path: &std::path::Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|extension| {
+            ["tif", "tiff", "jpg", "jpeg", "png", "heic", "heif", "avif"]
+                .iter()
+                .any(|supported| extension.eq_ignore_ascii_case(supported))
+        })
+}
+
+fn is_tiff(path: &std::path::Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|extension| {
+            extension.eq_ignore_ascii_case("tif") || extension.eq_ignore_ascii_case("tiff")
+        })
+}
+
+fn stable_disk_uuid(domain: &str, folder_binding_id: Uuid, identity_key: &str) -> Uuid {
+    let mut digest = Sha256::new();
+    digest.update(domain.as_bytes());
+    digest.update(folder_binding_id.as_bytes());
+    digest.update(identity_key.as_bytes());
+    let hash = digest.finalize();
+    let mut bytes = [0_u8; 16];
+    bytes.copy_from_slice(&hash[..16]);
+    bytes[6] = (bytes[6] & 0x0f) | 0x50;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    Uuid::from_bytes(bytes)
+}
+
+fn fingerprint_runtime_file(path: &std::path::Path) -> Result<RepresentationFingerprint, String> {
+    let file =
+        File::open(path).map_err(|error| format!("could not open {}: {error}", path.display()))?;
+    let mut reader = BufReader::new(file);
+    let mut digest = Sha256::new();
+    let mut buffer = vec![0_u8; 1024 * 1024];
+    loop {
+        let count = reader
+            .read(&mut buffer)
+            .map_err(|error| format!("could not read {}: {error}", path.display()))?;
+        if count == 0 {
+            break;
+        }
+        digest.update(&buffer[..count]);
+    }
+    Ok(RepresentationFingerprint::sha256(digest.finalize().into()))
+}
+
+struct RuntimeAwareMaterializer<'a> {
+    local: LocalProjectAssetAdapter<'a>,
+    project: &'a ProjectDocument,
+    runtime_bindings: &'a BTreeMap<RepresentationStorageBindingId, PathBuf>,
+}
+
+impl RuntimeAwareMaterializer<'_> {
+    fn descriptor(
+        &self,
+        request: &RepresentationMaterializationRequest,
+    ) -> Result<&RepresentationDescriptor, RepresentationMaterializationError> {
+        let descriptor = self
+            .project
+            .asset_context
+            .representation(request.asset_id, request.representation_id)
+            .ok_or(RepresentationMaterializationError::UnknownRepresentation {
+                asset_id: request.asset_id,
+                representation_id: request.representation_id,
+            })?;
+        if descriptor.fingerprint != request.expected_fingerprint {
+            return Err(RepresentationMaterializationError::StaleRequest {
+                expected: request.expected_fingerprint,
+                actual: descriptor.fingerprint,
+            });
+        }
+        Ok(descriptor)
+    }
+
+    fn runtime_path(
+        &self,
+        request: &RepresentationMaterializationRequest,
+    ) -> Result<Option<&PathBuf>, RepresentationMaterializationError> {
+        match self.descriptor(request)?.binding {
+            RepresentationBinding::ProjectResource { .. } => Ok(None),
+            RepresentationBinding::RuntimeResolved { binding_id } => self
+                .runtime_bindings
+                .get(&binding_id)
+                .map(Some)
+                .ok_or_else(|| RepresentationMaterializationError::Backend {
+                    message: format!("runtime storage binding {binding_id} is unavailable"),
+                }),
+        }
+    }
+}
+
+impl RepresentationMaterializer for RuntimeAwareMaterializer<'_> {
+    fn availability(
+        &self,
+        request: &RepresentationMaterializationRequest,
+    ) -> Result<RepresentationAvailability, RepresentationMaterializationError> {
+        let descriptor = self.descriptor(request)?;
+        let path = match descriptor.binding {
+            RepresentationBinding::ProjectResource { .. } => {
+                return self.local.availability(request);
+            }
+            RepresentationBinding::RuntimeResolved { binding_id } => {
+                let Some(path) = self.runtime_bindings.get(&binding_id) else {
+                    return Ok(RepresentationAvailability::Missing);
+                };
+                path
+            }
+        };
+        match path.metadata() {
+            Ok(metadata) if metadata.is_file() => Ok(RepresentationAvailability::Available),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                Ok(RepresentationAvailability::Missing)
+            }
+            Ok(_) | Err(_) => Ok(RepresentationAvailability::Inaccessible),
+        }
+    }
+
+    fn materialize(
+        &self,
+        request: &RepresentationMaterializationRequest,
+    ) -> Result<photara_core::MaterializedRepresentation, RepresentationMaterializationError> {
+        let availability = self.availability(request)?;
+        if availability != RepresentationAvailability::Available {
+            return Err(RepresentationMaterializationError::Unavailable(
+                availability,
+            ));
+        }
+        let Some(path) = self.runtime_path(request)? else {
+            return self.local.materialize(request);
+        };
+        let actual = fingerprint_runtime_file(path)
+            .map_err(|message| RepresentationMaterializationError::Backend { message })?;
+        if actual != request.expected_fingerprint {
+            return Err(RepresentationMaterializationError::SourceChanged {
+                expected: request.expected_fingerprint,
+                actual,
+            });
+        }
+        let byte_length = path
+            .metadata()
+            .map_err(|error| RepresentationMaterializationError::Backend {
+                message: format!("could not inspect {}: {error}", path.display()),
+            })?
+            .len();
+        Ok(photara_core::MaterializedRepresentation {
+            asset_id: request.asset_id,
+            representation_id: request.representation_id,
+            fingerprint: actual,
+            local_path: path.clone(),
+            byte_length,
+        })
+    }
+}
+
 #[derive(Clone, Copy)]
 struct ApplicationRuntime;
 
@@ -1673,6 +2482,7 @@ impl NodeRuntime for ApplicationRuntime {
     ) -> Option<photara_core::CanonicalDigest> {
         AssetSetNodeRuntime
             .implementation_fingerprint(definition)
+            .or_else(|| DiskNodeRuntime.implementation_fingerprint(definition))
             .or_else(|| LayoutNodeRuntime.implementation_fingerprint(definition))
     }
 
@@ -1685,6 +2495,11 @@ impl NodeRuntime for ApplicationRuntime {
             .is_some()
         {
             AssetSetNodeRuntime.evaluate(request)
+        } else if DiskNodeRuntime
+            .implementation_fingerprint(&request.node.definition)
+            .is_some()
+        {
+            DiskNodeRuntime.evaluate(request)
         } else {
             LayoutNodeRuntime.evaluate(request)
         }
@@ -1834,11 +2649,19 @@ fn node_snapshot(
     definitions: &NodePackageRegistry,
     project_diagnostics: &mut Vec<BridgeDiagnosticDto>,
 ) -> BridgeNodeDto {
-    let display_name = definitions.resolve(&node.definition).map_or_else(
+    let definition = definitions.resolve(&node.definition);
+    let display_name = definition.map_or_else(
         || node.definition.definition_id.to_string(),
         |value| value.display_name.clone(),
     );
+    let presentation = definition
+        .and_then(|value| node_presentation(value).ok())
+        .flatten();
+    let brand_name = presentation
+        .as_ref()
+        .map_or_else(|| display_name.clone(), |value| value.brand.name.clone());
     let (layout, mut diagnostics) = layout_inspection(node, &project.graph);
+    let disk = disk_inspection(node, &mut diagnostics);
     let ports = node_port_inspections(node, project, definitions, layout.as_ref());
     let output_summary = ports
         .iter()
@@ -1863,23 +2686,61 @@ fn node_snapshot(
         package_version: node.definition.package_version.to_string(),
         definition_id: node.definition.definition_id.to_string(),
         definition_version: node.definition.definition_version.get(),
-        icon_symbol: node_icon_symbol(node),
-        has_workspace: node.definition.package_id.as_str() == photara_layout_node::PACKAGE_ID,
+        brand_name,
+        icon_resource_id: presentation.as_ref().map_or_else(
+            || "photara.node.generic".to_owned(),
+            |value| value.brand.icon_resource_id.clone(),
+        ),
+        accent_srgb_hex: presentation
+            .as_ref()
+            .and_then(|value| value.brand.accent_srgb_hex.clone()),
+        inspector_contribution_id: presentation
+            .as_ref()
+            .and_then(|value| value.inspector_contribution_id.clone()),
+        workspace_contribution_id: presentation
+            .as_ref()
+            .and_then(|value| value.workspace_contribution_id.clone()),
+        has_workspace: presentation
+            .as_ref()
+            .is_some_and(|value| value.workspace_contribution_id.is_some()),
         status: status.to_owned(),
         ports,
         output_summary,
+        disk,
         layout,
         diagnostics: std::mem::take(&mut diagnostics),
     }
 }
 
-fn node_icon_symbol(node: &NodeInstance) -> String {
-    if node.definition.package_id.as_str() == photara_layout_node::PACKAGE_ID {
-        "rectangle.3.group".to_owned()
-    } else if node.definition.package_id.as_str() == photara_asset_set_node::PACKAGE_ID {
-        "photo.stack".to_owned()
-    } else {
-        "square.dashed".to_owned()
+fn disk_inspection(
+    node: &NodeInstance,
+    diagnostics: &mut Vec<BridgeDiagnosticDto>,
+) -> Option<BridgeDiskInspectionDto> {
+    if node.definition.package_id.as_str() != photara_disk_node::PACKAGE_ID {
+        return None;
+    }
+    let state = node
+        .authored_state
+        .as_ref()
+        .ok_or_else(|| "Disk authored state is missing".to_owned())
+        .and_then(DiskFolderState::from_schema_value);
+    match state {
+        Ok(state) => Some(BridgeDiskInspectionDto {
+            folder_binding_id: state.folder_binding_id.to_string(),
+            recursive: state.recursive,
+            accepted_asset_count: u64::try_from(state.accepted_assets.assets.len())
+                .unwrap_or(u64::MAX),
+        }),
+        Err(message) => {
+            diagnostics.push(BridgeDiagnosticDto {
+                code: "photara.disk.invalid-authored-state".to_owned(),
+                severity: BridgeDiagnosticSeverity::Error,
+                message,
+                node_id: Some(node.id.to_string()),
+                port_id: None,
+            });
+            None
+        }
     }
 }
 
@@ -2008,9 +2869,15 @@ fn asset_set_visible_at_port(
         _ => None,
     }?;
     let state = source.authored_state.as_ref()?;
-    (state.schema == asset_set_state_schema())
-        .then(|| serde_json::from_value(state.value.clone()).ok())
-        .flatten()
+    if state.schema == asset_set_state_schema() {
+        serde_json::from_value(state.value.clone()).ok()
+    } else if state.schema == photara_disk_node::disk_state_schema() {
+        DiskFolderState::from_schema_value(state)
+            .ok()
+            .map(|state| state.accepted_assets)
+    } else {
+        None
+    }
 }
 
 fn inspection_field(label: &str, value: usize) -> BridgeInspectionFieldDto {
@@ -2038,19 +2905,32 @@ fn layout_inspection(
         );
     };
     match LayoutState::from_schema_value(value) {
-        Ok(layout) => match explicit_layout_assets(graph, node.id)
-            .and_then(|assets| BridgeLayoutInspectionDto::try_from((&layout, &assets)))
-        {
-            Ok(inspection) => (Some(inspection), Vec::new()),
-            Err(error) => (
-                None,
-                vec![simple_diagnostic(
-                    "photara.layout.inspection-failed",
-                    error.to_string(),
-                    Some(node.id),
-                )],
-            ),
-        },
+        Ok(layout) => {
+            let (assets, mut diagnostics) = match explicit_layout_assets(graph, node.id) {
+                Ok(assets) => (assets, Vec::new()),
+                Err(error) => (
+                    AssetSet::default(),
+                    vec![BridgeDiagnosticDto {
+                        code: "photara.layout.asset-input-unavailable".to_owned(),
+                        severity: BridgeDiagnosticSeverity::Warning,
+                        message: error.to_string(),
+                        node_id: Some(node.id.to_string()),
+                        port_id: Some("assets".to_owned()),
+                    }],
+                ),
+            };
+            match BridgeLayoutInspectionDto::try_from((&layout, &assets)) {
+                Ok(inspection) => (Some(inspection), diagnostics),
+                Err(error) => {
+                    diagnostics.push(simple_diagnostic(
+                        "photara.layout.inspection-failed",
+                        error.to_string(),
+                        Some(node.id),
+                    ));
+                    (None, diagnostics)
+                }
+            }
+        }
         Err(error) => (
             None,
             vec![simple_diagnostic(
@@ -2090,13 +2970,20 @@ fn explicit_layout_assets(
         .ok_or_else(|| BridgeError::State {
             message: format!("AssetSet source {source_id} has no authored state"),
         })?;
-    if authored_state.schema != asset_set_state_schema() {
-        return Err(BridgeError::State {
-            message: format!("AssetSet source {source_id} has the wrong schema"),
+    if authored_state.schema == asset_set_state_schema() {
+        return serde_json::from_value(authored_state.value.clone()).map_err(|error| {
+            BridgeError::State {
+                message: error.to_string(),
+            }
         });
     }
-    serde_json::from_value(authored_state.value.clone()).map_err(|error| BridgeError::State {
-        message: error.to_string(),
+    if authored_state.schema == photara_disk_node::disk_state_schema() {
+        return DiskFolderState::from_schema_value(authored_state)
+            .map(|state| state.accepted_assets)
+            .map_err(|message| BridgeError::State { message });
+    }
+    Err(BridgeError::State {
+        message: format!("AssetSet source {source_id} has an unsupported authored-state schema"),
     })
 }
 
@@ -2544,6 +3431,124 @@ mod tests {
                 .wait_while(state, |state| state.finished.is_none())
                 .unwrap()
         }
+    }
+
+    fn definition_ref(definition: &BridgeAvailableNodeDefinitionDto) -> BridgeNodeDefinitionRefDto {
+        BridgeNodeDefinitionRefDto {
+            package_id: definition.package_id.clone(),
+            package_version: definition.package_version.clone(),
+            definition_id: definition.definition_id.clone(),
+            definition_version: definition.definition_version,
+        }
+    }
+
+    #[test]
+    fn branded_catalog_drives_disk_scan_connection_and_portable_reopen() {
+        let root = TestRoot::new();
+        let app = PhotaraApplication::open(
+            root.0.join("store").to_string_lossy().into_owned(),
+            root.0.join("cache").to_string_lossy().into_owned(),
+            root.0.join("proxy-helper").to_string_lossy().into_owned(),
+        )
+        .unwrap();
+        let catalog = app.available_node_definitions();
+        assert_eq!(catalog.len(), 2);
+        let disk_definition = catalog
+            .iter()
+            .find(|definition| definition.definition_id == photara_disk_node::DEFINITION_ID)
+            .unwrap();
+        assert_eq!(disk_definition.catalog_path, ["Input", "Filesystem"]);
+        assert_eq!(disk_definition.icon_resource_id, "photara.disk.folder");
+        assert!(disk_definition.workspace_contribution_id.is_none());
+        let layout_definition = catalog
+            .iter()
+            .find(|definition| definition.definition_id == photara_layout_node::DEFINITION_ID)
+            .unwrap();
+        assert_eq!(layout_definition.catalog_path, ["Create", "Layout"]);
+        assert!(layout_definition.workspace_contribution_id.is_some());
+
+        let project = app.create_project("Live folder".to_owned()).unwrap();
+        let initial = project.snapshot().unwrap();
+        let added_disk = project.add_node(initial.graph.revision, definition_ref(disk_definition));
+        assert!(added_disk.applied);
+        let added_disk = added_disk.snapshot.unwrap();
+        let disk = added_disk
+            .nodes
+            .iter()
+            .find(|node| node.disk.is_some())
+            .unwrap();
+        assert_eq!(disk.icon_resource_id, "photara.disk.folder");
+        assert!(!disk.has_workspace);
+        let disk_id = disk.node_id.clone();
+        let semantic_digest_before_attach = added_disk.graph.digest.clone();
+
+        let folder = root.0.join("authorized-folder");
+        fs::create_dir_all(&folder).unwrap();
+        fs::write(folder.join("portrait.tiff"), b"first TIFF revision").unwrap();
+        let binding = project
+            .attach_disk_folder(disk_id.clone(), folder.to_string_lossy().into_owned())
+            .unwrap();
+        assert_eq!(binding.node_id, disk_id);
+        assert_eq!(
+            project.snapshot().unwrap().graph.digest,
+            semantic_digest_before_attach
+        );
+
+        let scanned = project.scan_disk_folder(added_disk.graph.revision, disk_id.clone());
+        assert!(scanned.applied, "{:?}", scanned.error);
+        let scanned = scanned.snapshot.unwrap();
+        assert_eq!(scanned.assets.len(), 1);
+        assert_eq!(
+            scanned
+                .nodes
+                .iter()
+                .find(|node| node.node_id == disk_id)
+                .unwrap()
+                .disk
+                .as_ref()
+                .unwrap()
+                .accepted_asset_count,
+            1
+        );
+
+        let added_layout =
+            project.add_node(scanned.graph.revision, definition_ref(layout_definition));
+        assert!(added_layout.applied);
+        let added_layout = added_layout.snapshot.unwrap();
+        let layout = added_layout
+            .nodes
+            .iter()
+            .find(|node| node.definition_id == photara_layout_node::DEFINITION_ID)
+            .unwrap();
+        assert!(layout.layout.is_some());
+        let connected = project.connect_nodes(
+            added_layout.graph.revision,
+            disk_id,
+            "assets".to_owned(),
+            layout.node_id.clone(),
+            "assets".to_owned(),
+        );
+        assert!(connected.applied, "{:?}", connected.error);
+        let connected = connected.snapshot.unwrap();
+        assert_eq!(
+            connected
+                .nodes
+                .iter()
+                .find(|node| node.node_id == layout.node_id)
+                .unwrap()
+                .ports[0]
+                .summary[0]
+                .value,
+            "1"
+        );
+
+        let saved = project.save().unwrap();
+        let reopened = app.open_project(saved.project_id.clone()).unwrap();
+        assert_eq!(reopened.snapshot().unwrap(), saved);
+        assert!(matches!(
+            reopened.scan_disk_folder(saved.graph.revision, binding.node_id).error,
+            Some(error) if error.code == "photara.disk.binding-unavailable"
+        ));
     }
 
     #[test]

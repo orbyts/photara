@@ -1,0 +1,17 @@
+[package]
+name = "photara-disk-node"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Built-in authorized-folder AssetSet source for Photara."
+
+[dependencies]
+photara-core = { path = "../../crates/photara-core" }
+photara-node-sdk = { path = "../../crates/photara-node-sdk" }
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

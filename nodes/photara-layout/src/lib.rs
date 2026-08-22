@@ -21,7 +21,10 @@ use photara_core::{
     PortCardinality, PortDefinition, PortDirection, PortId, SchemaId, SchemaRef, SchemaVersion,
     ValueTypeId, ValueTypeRef, ValueTypeVersion, asset_set_value_type_ref,
 };
-use photara_node_sdk::{NodePackage, NodePackageManifest};
+use photara_node_sdk::{
+    NodeBrandMetadata, NodeCatalogVisibility, NodePackage, NodePackageManifest,
+    NodePresentationMetadata, set_node_presentation,
+};
 
 pub const PACKAGE_ID: &str = "photara.layout";
 pub const DEFINITION_ID: &str = "photara.layout.compose";
@@ -50,7 +53,7 @@ fn value_type(id: &str) -> ValueTypeRef {
 
 impl NodePackage for LayoutNodePackage {
     fn manifest(&self) -> NodePackageManifest {
-        let definition = NodeDefinition {
+        let mut definition = NodeDefinition {
             id: NodeDefinitionId::parse(DEFINITION_ID).expect("built-in definition ID is valid"),
             version: NodeDefinitionVersion::new(1).expect("built-in version is valid"),
             display_name: "Layout".to_owned(),
@@ -71,7 +74,28 @@ impl NodePackage for LayoutNodePackage {
             config_schema: schema("photara.layout.config"),
             authored_state_schema: Some(layout_state_schema()),
             capabilities: BTreeSet::new(),
+            extensions: BTreeMap::new(),
         };
+        set_node_presentation(
+            &mut definition,
+            NodePresentationMetadata {
+                brand: NodeBrandMetadata {
+                    name: "Layout".to_owned(),
+                    icon_resource_id: "photara.layout.compose".to_owned(),
+                    accent_srgb_hex: Some("#9A68E8".to_owned()),
+                },
+                catalog_path: vec!["Create".to_owned(), "Layout".to_owned()],
+                search_terms: vec![
+                    "layout".to_owned(),
+                    "frames".to_owned(),
+                    "contact sheet".to_owned(),
+                ],
+                catalog_visibility: NodeCatalogVisibility::Visible,
+                inspector_contribution_id: Some("photara.layout.inspector".to_owned()),
+                workspace_contribution_id: Some("photara.layout.workspace".to_owned()),
+            },
+        )
+        .expect("built-in presentation metadata is valid");
         definition.validate().expect("built-in definition is valid");
 
         NodePackageManifest {
@@ -117,6 +141,7 @@ mod tests {
             config_schema: schema("example.text.uppercase.config"),
             authored_state_schema: None,
             capabilities: BTreeSet::new(),
+            extensions: BTreeMap::new(),
         }
     }
 

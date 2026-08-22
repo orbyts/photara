@@ -114,3 +114,18 @@
 - Replace the engineering node list with a primitive spatial graph canvas and
   explicit optional Layout Workspace activation, while preserving movable
   project panels and adding Restore Default Workspace.
+- Move node brand identity, neutral package icon resources, hierarchical
+  catalog paths, search terms, Inspector contributions, and optional Workspace
+  contributions onto exact versioned node definitions; expose the visible
+  catalog through immutable UniFFI DTOs instead of Swift node-type switches.
+- Add the ordinary independently branded `photara.disk.folder` package. Its
+  portable state retains only a stable folder-binding identity, scan policy,
+  and accepted `AssetSet`; macOS paths and security-scoped bookmarks remain
+  device-only runtime bindings.
+- Add explicit Disk scan/reconciliation, stable file-derived asset and
+  representation identities, runtime-resolved proxy materialization, and typed
+  Disk Inspector controls for folder grant/rebind, scan, and explicit Layout
+  connection. Reopen preserves semantics even when the device grant is absent.
+- Refine future persistence into explicit portable-project,
+  user-plus-definition sync, project-plus-instance runtime, and device-only
+  scopes behind one Core-owned state service rather than per-node databases.

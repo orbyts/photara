@@ -79,8 +79,10 @@ The recognizable native product distinguishes four concepts:
 4. Project panels such as Assets and Diagnostics expose shared project context
    independently of any node.
 
-Every exact node-definition version may advertise presentation capabilities in
-addition to its typed semantic contract. The generic Inspector shell always
+Every exact node-definition version owns presentation metadata in addition to
+its typed semantic contract: its independent brand identity, package-owned
+neutral icon resource, hierarchical catalog path and search terms, generic
+Inspector contribution, and optional rich Workspace contribution. The generic Inspector shell always
 remains available; a definition may augment it with a node-specific control
 surface for semantic parameters and commands. A rich canvas Workspace is a
 separate, optional capability rather than something every node must implement.
@@ -89,15 +91,17 @@ node may need only menus, script choices, and status controls. Platform control
 implementations are replaceable skins keyed by versioned definition identity;
 they cannot become authoritative node state or bypass Core commands. Package
 purchase, download, and installation are future distribution concerns and do
-not change this boundary.
+not change this boundary. Swift resolves neutral package icon resources into
+the macOS skin; it does not assign node identity with definition-specific
+conditionals or persist an SF Symbol name as portable semantics.
 
 The bridge supplies generic immutable port inspection records with direction,
 value-type identity/version, connected-node identity, and node/runtime-produced
 summary fields. Swift renders the standard shell without assuming photography
 or Layout. A built-in may add parameter controls inside that shell, but opaque
-authored state remains interpreted by Rust. Workspace availability and icon
-hints are UI-facing definition metadata; their current built-in mapping is the
-small incremental contract, not a new Core node kind.
+authored state remains interpreted by Rust. Workspace availability and
+brand/icon information are immutable UI-facing definition metadata returned by
+the facade, not a new Core node kind.
 
 The compiled shell uses three resizable regions and independently identified
 Assets, Graph, Layout Workspace, Inspector, and Diagnostics surfaces. Panels can
