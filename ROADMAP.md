@@ -443,6 +443,14 @@ without macOS 27 APIs.
   state into immutable presentation DTOs.
 - Request thumbnails and authoring previews from the shared project proxy
   service, preserving HDR/SDR/color descriptions through preview selection.
+- Keep local-file presentation responsive with a runtime-only native thumbnail
+  fast path. Layout replaces its placeholder with a small verified
+  HDR-preserving interaction proxy; preview resolution never limits normalized
+  authored crop geometry.
+- Publish provider assets after cheap discovery, progressively retain/show the
+  best available preview, and verify source bytes in the background. Revision
+  evidence must distinguish provider/file observations from verified content;
+  preview freshness and progress remain runtime presentation state.
 - Support multiple independent Layout nodes.
 - Harden unavailable storage, source replacement, stale revisions, cancellation,
   corrupted cache, and interrupted save recovery.
@@ -455,6 +463,9 @@ without macOS 27 APIs.
   identities. Graph's
   `Tab` interaction renders this catalog rather than hard-coding node cases in
   Swift.
+- Let each exact definition advertise a neutral default activation. The first
+  macOS mappings open Disk's granted folder in Finder and focus Layout's
+  existing authoring Workspace without changing project semantics.
 - Add `photara.disk.folder` as the second ordinary bundled node and first
   live-data source. It emits explicit `photara.asset-set`, uses a stable portable
   folder-binding identity, and keeps macOS security-scoped bookmarks, absolute
@@ -486,10 +497,48 @@ and rotation undoable. The macOS shell now has a separate movable Layout
 authoring surface, explicit frame/cell selection, shared per-cell proxies,
 frame/cell controls, nine-point alignment/focal controls, rotation, crop sizing,
 and transient crop dragging that commits once on gesture end. Stage 9 remains
-open for real-fixture workflow hardening against the complete gate. The
-generated Swift gate now exercises assignment undo/redo, resolved geometry,
+open for real-fixture workflow hardening against the complete gate. Disk scans
+now run outside the main actor, Gallery uses Quick Look for immediate local
+thumbnails, and Layout upgrades its immediate native image to a 1K-default F16
+HDR-preserving verified proxy. Definition-owned double-click activation opens
+Disk in Finder or focuses Layout's Workspace. `Tab` is captured at window level
+while Graph is visible and opens the catalog at the current graph pointer (or
+center before the pointer enters). Gallery opens a runtime representation in
+the user's default native viewer on double-click. Disk rebind clears its old
+membership immediately, and completed scans atomically replace only that
+provider's assets while retaining unrelated project context. The generated
+Disk path now publishes a metadata-only observation pass before streaming file
+bytes at utility priority. Gallery retains any stale image while progressing
+through the cheapest measured provider/native/profile path. The generated
+Swift gate now exercises assignment undo/redo, resolved geometry,
 cell insertion/arrangement, focal Fill, rotation undo/redo, and two independent
 Layout nodes through the production facade on Quasar.
+
+Real 60 MP Photoshop TIFF testing supersedes part of that first attempt:
+Quick Look exceeded 60 seconds for one 761 MiB 32-bit float LZW TIFF, while the
+bounded 384 px F16 ImageIO helper returned in 2.91 seconds. TIFF Gallery requests
+now use that tiny HDR profile directly from revalidated file-observation
+evidence. Initially requested previews finish before whole-byte verification,
+so hashing cannot block first pixels; verified revisions promote existing
+previews without redundant generation.
+
+A follow-up four-process sample on the same Quasar workload returned each
+384 px job in 2.60–2.66 seconds at about 733 MiB peak process footprint. The
+native client therefore chooses an explicit memory-tiered project generation
+limit: four on machines with at least 64 GiB physical memory, two with at least
+24 GiB, and one below that, with a device override constrained to 1–4. Core
+Image's default context is GPU-capable, but the measurements indicate that
+ImageIO/LZW decode and source-memory traffic dominate this source class;
+parallelism improves Gallery fill rate rather than one file's decode latency.
+
+Gallery now reserves fixed preview geometry before pixels arrive and offers a
+compact photo-first crop grid plus an aspect-preserving detail grid with small
+filenames. This prevents progressive metadata/image arrival from changing row
+height or overlapping neighboring cells. Disk discovery accepts a broad still
+image extension set; actual preview decoding remains a platform/provider
+capability, and unsupported encodings surface a failed preview instead of being
+silently omitted. The folder permission panel intentionally dims individual
+files because the Disk node grants a folder, not a single file.
 
 The native first-look refinement now separates Graph, standard Inspector,
 optional node Workspace, and project panels. Launch presents Create/Open/Recent

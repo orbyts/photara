@@ -126,6 +126,45 @@
   representation identities, runtime-resolved proxy materialization, and typed
   Disk Inspector controls for folder grant/rebind, scan, and explicit Layout
   connection. Reopen preserves semantics even when the device grant is absent.
+- Add a native Quick Look fast path for responsive local Gallery/Layout images,
+  move Disk fingerprinting and verified proxy generation off the main actor,
+  and use a 1K-default F16 HDR-preserving Layout authoring profile with
+  constrained HDR presentation.
+- Add definition-owned default activation metadata: double-clicking Disk opens
+  its granted Finder folder, while Layout focuses its existing Workspace.
+- Make bare `Tab` reliably open the node catalog at the graph pointer, with the
+  graph center as its initial fallback; retain the toolbar add button.
+- Open Gallery assets in the user's macOS default application on double-click,
+  while keeping cell assignment explicit.
+- Reconcile provider membership atomically and clear a Disk node's old assets
+  immediately after a successful folder rebind, retaining unrelated project
+  assets while the new scan runs.
 - Refine future persistence into explicit portable-project,
   user-plus-definition sync, project-plus-instance runtime, and device-only
   scopes behind one Core-owned state service rather than per-node databases.
+- Publish Disk assets after a cheap metadata-only discovery pass, distinguish
+  observed from content-verified representation revisions, and verify bytes at
+  utility priority without blocking first Gallery visibility.
+- Progress Gallery through Quick Look's low-quality and full native thumbnails,
+  retain an older image while refreshing, expose loading/updating state, and
+  allow the shared production proxy fallback only after byte verification.
+- Formalize a 256–512 px Gallery-first tiny tier and a 1K-default,
+  device-configurable color-described HDR-capable Layout authoring tier, with
+  the tiny/stale image retained until the bounded authoring request completes.
+- Route giant TIFF Gallery previews through the bounded 384 px F16
+  `ImageIO`/Core Image path after Quick Look exceeded 60 seconds on a
+  representative 761 MiB source; the same source measured 2.91 seconds through
+  the selected helper.
+- Revalidate cheap file observations for disposable preview generation and
+  postpone whole-folder SHA-256 work until initially requested previews finish,
+  preventing verification from blocking first pixels.
+- Stabilize Gallery geometry with fixed preview slots so progressive images do
+  not resize or overlap neighboring rows, and add separate photo-first and
+  filename-bearing detail grids with smaller metadata typography.
+- Expand Disk still-image discovery across common camera RAW, TIFF, JPEG, PNG,
+  HEIF, AVIF, JPEG XL, PSD/PSB, EXR, WebP, GIF, and BMP extensions while
+  keeping decoder availability a runtime capability rather than a Core rule.
+- Measure four simultaneous 384 px HDR TIFF jobs on Quasar at about 2.6 seconds
+  and 733 MiB peak footprint each, then select an explicit memory-tiered
+  generation limit of 4 jobs on 64 GiB-plus machines, 2 on 24 GiB-plus, and 1
+  below 24 GiB. The limit remains device-configurable and capped at four.

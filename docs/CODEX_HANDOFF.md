@@ -277,6 +277,65 @@ folder does not change the graph digest and that save/reopen preserves semantics
 when the grant is unavailable. Keep the graph plain and do not begin Stage 4B
 lifecycle work, graph polish, advanced docking, Photoshop/UXP, or macros.
 
+The current performance refinement keeps Disk Finder-like: every file remains
+an independent asset and no HDR/SDR pairing is inferred. Disk fingerprinting
+and production proxy calls run outside Swift's main actor. Gallery requests a
+runtime-only Quick Look thumbnail first; Layout shows the same immediate tiny
+path and then upgrades to a shared verified 1K-default F16 HDR-preserving proxy.
+Swift uses constrained HDR presentation so highlights remain controlled on HDR
+displays and system-mapped on SDR displays. Native thumbnail paths and images
+remain non-authoritative. Exact definitions also advertise a neutral default
+activation: Disk opens its granted Finder folder and Layout focuses/reveals its
+authoring Workspace. Bare `Tab` is captured while Graph is visible and opens
+the catalog at the current graph pointer, falling back to center before the
+pointer has entered.
+
+The next performance invariant is now encoded directly: publish assets after
+cheap discovery, progressively show the best available preview, and verify
+bytes in the background. Disk first reconciles stable file identities using a
+size/mtime observation fingerprint, then streams SHA-256 verification at
+utility priority. Representation descriptors state whether their revision is a
+content digest, provider revision, or file observation. Gallery keeps an older
+preview visible while requesting Quick Look's low-quality and full thumbnail
+tiers and shows transient loading/updating state. Content-verified shared proxy
+fallback is not scheduled for an observation-only revision. Preserve this
+provider-neutral evidence/preview separation for future Lightroom, cloud, and
+other nodes.
+
+The live `_SUH5024…HDR.TIF` fixture is 6336×9504, 32-bit float, LZW, 761 MiB.
+An uncontended Quick Look 384 px request exceeded 60 seconds; the bundled
+ImageIO/Core Image helper produced a 384 px F16 HDR preview in 2.91 seconds.
+Disk TIFF Gallery requests therefore route immediately to the bounded helper
+using revalidated file-observation evidence. Other formats retain the bounded
+Quick Look ladder. Whole-byte hashing waits until currently requested previews
+finish, and the resulting digest promotes already displayed previews rather
+than regenerating them. Re-test `/Users/suhail/Desktop/flattened`; first image
+is expected in roughly three seconds on Quasar. Four simultaneous samples then
+completed individually in 2.60–2.66 seconds at about 733 MiB peak process
+footprint each. The app now chooses four project generation slots on machines
+with at least 64 GiB physical memory, two with at least 24 GiB, and one below
+that; `photara.proxy-generation-concurrency.v1` may explicitly select 1–4.
+Request deduplication still occurs before this limiter. The helper's default
+Core Image context can use the GPU, but these giant LZW float TIFFs are
+decode/memory dominated, so this primarily improves fill rate.
+
+Gallery uses fixed-height cells from the first placeholder onward, preventing
+late dimensions from producing thin strips, row reflow, or overlap. Its two
+initial presentation modes are a filename-free photo grid using a consistent
+crop and a detail grid using aspect fit plus a small filename. Disk discovery
+now recognizes common camera RAW extensions plus TIFF, JPEG, PNG, HEIF/HEIC,
+AVIF, JPEG XL, PSD/PSB, EXR, WebP, GIF, and BMP. Recognition means the asset is
+published; Quick Look or the ImageIO helper must still be able to decode its
+particular encoding. Video remains future work. The macOS folder chooser dims
+files by design because the grant targets a directory; its prompt now explains
+that supported contents will be discovered.
+
+Gallery double-click resolves a runtime representation and opens it through
+the macOS default application; it does not assign the asset or issue a graph
+command. Disk rebind now publishes an explicit empty membership immediately,
+then atomically reconciles only that node's prior assets when scanning finishes.
+Unrelated imported/provider assets remain in project Asset Context.
+
 The first recognizable-product refinement is implemented in this working
 slice. Startup has no implicit project: it presents Create/Open/Recent, with
 recent locations in native `UserDefaults`. `open_project_document` validates

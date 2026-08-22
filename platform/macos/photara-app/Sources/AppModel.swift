@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
+import QuickLookThumbnailing
 
 struct RecentProject: Codable, Identifiable, Sendable {
     var projectID: String
@@ -12,15 +13,55 @@ struct RecentProject: Codable, Identifiable, Sendable {
     var id: String { projectID }
 }
 
+enum GalleryPreviewActivity: Equatable, Sendable {
+    case loading
+    case updating
+    case ready
+    case failed
+}
+
+private actor NativeThumbnailScheduler {
+    private let limit: Int
+    private var active = 0
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    init(limit: Int) {
+        self.limit = limit
+    }
+
+    func acquire() async {
+        if active < limit {
+            active += 1
+            return
+        }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    func release() {
+        if waiters.isEmpty {
+            active -= 1
+        } else {
+            waiters.removeFirst().resume()
+        }
+    }
+}
+
 @MainActor
 final class AppModel: ObservableObject {
     @Published private(set) var snapshot: BridgeProjectSnapshotDto?
     @Published private(set) var progressLabel = "Idle"
     @Published private(set) var isEvaluating = false
     @Published private(set) var galleryProxies: [String: BridgeProxyReference] = [:]
+    @Published private(set) var galleryNativeThumbnails: [String: NSImage] = [:]
+    @Published private(set) var galleryDisplayedRevisions: [String: String] = [:]
+    @Published private(set) var galleryPreviewActivities: [String: GalleryPreviewActivity] = [:]
     @Published private(set) var layoutCellProxies: [String: BridgeProxyReference] = [:]
+    @Published private(set) var layoutNativeThumbnails: [String: NSImage] = [:]
     @Published private(set) var recentProjects: [RecentProject]
     @Published private(set) var nodeDefinitions: [BridgeAvailableNodeDefinitionDto] = []
+    @Published private(set) var scanningDiskNodeIDs: Set<String> = []
     @Published var presentedError: String?
 
     private var application: PhotaraApplication?
@@ -30,11 +71,22 @@ final class AppModel: ObservableObject {
     private let defaults: UserDefaults
     private var projectsDirectory: URL?
     private var activeFolderGrants: [String: URL] = [:]
+    private var pendingGalleryProxyRevisions: [String: String] = [:]
+    private var pendingNativeThumbnailRevisions: [String: String] = [:]
+    private var pendingLayoutProxyCellIDs: Set<String> = []
+    private var pendingLayoutNativeCellIDs: Set<String> = []
+    private let layoutAuthoringPreviewLongEdge: UInt32
+    private let nativeThumbnailScheduler = NativeThumbnailScheduler(limit: 2)
 
     private static let recentProjectsKey = "photara.recent-projects.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        let configuredLongEdge = defaults.integer(
+            forKey: "photara.layout-authoring-preview-long-edge.v1"
+        )
+        layoutAuthoringPreviewLongEdge = [512, 1_024, 2_048].contains(configuredLongEdge)
+            ? UInt32(configuredLongEdge) : 1_024
         let legacyDefaults = UserDefaults(suiteName: "Photara")
         recentProjects = (defaults.data(forKey: Self.recentProjectsKey)
             ?? legacyDefaults?.data(forKey: Self.recentProjectsKey))
@@ -59,7 +111,10 @@ final class AppModel: ObservableObject {
             let application = try PhotaraApplication.open(
                 storeRoot: storeRoot.path,
                 proxyCacheRoot: proxyCacheRoot.path,
-                proxyHelperExecutable: helper
+                proxyHelperExecutable: helper,
+                proxyGenerationConcurrency: Self.recommendedProxyGenerationConcurrency(
+                    defaults: defaults
+                )
             )
             self.application = application
             nodeDefinitions = application.availableNodeDefinitions()
@@ -80,6 +135,21 @@ final class AppModel: ObservableObject {
 
     var hasOpenProject: Bool { project != nil }
 
+    private static func recommendedProxyGenerationConcurrency(
+        defaults: UserDefaults
+    ) -> UInt32 {
+        let configured = defaults.integer(
+            forKey: "photara.proxy-generation-concurrency.v1"
+        )
+        if (1...4).contains(configured) {
+            return UInt32(configured)
+        }
+        let gibibytes = ProcessInfo.processInfo.physicalMemory / (1_024 * 1_024 * 1_024)
+        if gibibytes >= 64 { return 4 }
+        if gibibytes >= 24 { return 2 }
+        return 1
+    }
+
     func newProject() {
         guard let application else { return }
         do {
@@ -87,7 +157,15 @@ final class AppModel: ObservableObject {
             self.project = project
             snapshot = try project.snapshot()
             galleryProxies.removeAll()
+            galleryNativeThumbnails.removeAll()
+            galleryDisplayedRevisions.removeAll()
+            galleryPreviewActivities.removeAll()
+            pendingGalleryProxyRevisions.removeAll()
+            pendingNativeThumbnailRevisions.removeAll()
+            pendingLayoutProxyCellIDs.removeAll()
+            pendingLayoutNativeCellIDs.removeAll()
             layoutCellProxies.removeAll()
+            layoutNativeThumbnails.removeAll()
             rememberCurrentProject()
         } catch {
             presentedError = error.localizedDescription
@@ -101,7 +179,16 @@ final class AppModel: ObservableObject {
         project = nil
         snapshot = nil
         galleryProxies.removeAll()
+        galleryNativeThumbnails.removeAll()
+        galleryDisplayedRevisions.removeAll()
+        galleryPreviewActivities.removeAll()
+        pendingGalleryProxyRevisions.removeAll()
+        pendingNativeThumbnailRevisions.removeAll()
+        pendingLayoutProxyCellIDs.removeAll()
+        pendingLayoutNativeCellIDs.removeAll()
+        scanningDiskNodeIDs.removeAll()
         layoutCellProxies.removeAll()
+        layoutNativeThumbnails.removeAll()
         stopFolderGrants()
     }
 
@@ -125,7 +212,15 @@ final class AppModel: ObservableObject {
             snapshot = try project.snapshot()
             restoreDiskFolderGrants()
             galleryProxies.removeAll()
+            galleryNativeThumbnails.removeAll()
+            galleryDisplayedRevisions.removeAll()
+            galleryPreviewActivities.removeAll()
+            pendingGalleryProxyRevisions.removeAll()
+            pendingNativeThumbnailRevisions.removeAll()
+            pendingLayoutProxyCellIDs.removeAll()
+            pendingLayoutNativeCellIDs.removeAll()
             layoutCellProxies.removeAll()
+            layoutNativeThumbnails.removeAll()
             rememberCurrentProject(documentPath: recent.documentPath)
         } catch {
             presentedError = error.localizedDescription
@@ -148,7 +243,15 @@ final class AppModel: ObservableObject {
             snapshot = try project.snapshot()
             restoreDiskFolderGrants()
             galleryProxies.removeAll()
+            galleryNativeThumbnails.removeAll()
+            galleryDisplayedRevisions.removeAll()
+            galleryPreviewActivities.removeAll()
+            pendingGalleryProxyRevisions.removeAll()
+            pendingNativeThumbnailRevisions.removeAll()
+            pendingLayoutProxyCellIDs.removeAll()
+            pendingLayoutNativeCellIDs.removeAll()
             layoutCellProxies.removeAll()
+            layoutNativeThumbnails.removeAll()
             rememberCurrentProject(documentPath: url.path)
         } catch {
             presentedError = error.localizedDescription
@@ -179,7 +282,7 @@ final class AppModel: ObservableObject {
         guard let project, let disk = node.disk else { return }
         let panel = NSOpenPanel()
         panel.title = "Choose Folder for \(node.brandName)"
-        panel.message = "Photara will remember this device's permission separately from the project."
+        panel.message = "Choose a folder. Individual files are dimmed because Disk grants folder-level access; supported media inside will be discovered."
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
@@ -197,6 +300,22 @@ final class AppModel: ObservableObject {
             )
             defaults.set(bookmark, forKey: folderBookmarkKey(disk.folderBindingId))
             _ = try project.attachDiskFolder(nodeId: node.nodeId, folderPath: url.path)
+            let cleared = project.clearDiskAssets(
+                expectedGraphRevision: snapshot?.graph.revision ?? 0,
+                nodeId: node.nodeId
+            )
+            accept(cleared)
+            guard cleared.applied else { return }
+            galleryProxies.removeAll()
+            galleryNativeThumbnails.removeAll()
+            galleryDisplayedRevisions.removeAll()
+            galleryPreviewActivities.removeAll()
+            layoutCellProxies.removeAll()
+            layoutNativeThumbnails.removeAll()
+            pendingGalleryProxyRevisions.removeAll()
+            pendingNativeThumbnailRevisions.removeAll()
+            pendingLayoutProxyCellIDs.removeAll()
+            pendingLayoutNativeCellIDs.removeAll()
             scanDisk(node)
         } catch {
             presentedError = error.localizedDescription
@@ -204,11 +323,81 @@ final class AppModel: ObservableObject {
     }
 
     func scanDisk(_ node: BridgeNodeDto) {
-        guard let project, let snapshot else { return }
-        accept(project.scanDiskFolder(
-            expectedGraphRevision: snapshot.graph.revision,
-            nodeId: node.nodeId
-        ))
+        guard let project, let snapshot,
+              scanningDiskNodeIDs.insert(node.nodeId).inserted
+        else { return }
+        let revision = snapshot.graph.revision
+        progressLabel = "Discovering \(node.brandName)…"
+        Task { [weak self] in
+            let discovery = await Task.detached(priority: .userInitiated) {
+                project.discoverDiskFolder(
+                    expectedGraphRevision: revision,
+                    nodeId: node.nodeId
+                )
+            }.value
+            guard let self else { return }
+            guard self.project === project else { return }
+            accept(discovery)
+            guard discovery.applied, let discovered = discovery.snapshot else {
+                scanningDiskNodeIDs.remove(node.nodeId)
+                progressLabel = "Disk discovery failed"
+                return
+            }
+            progressLabel = "\(discovered.assets.count) assets found · loading previews…"
+            let discoveredAssetIDs = Set(discovered.assets.map(\.assetId))
+            guard await waitForInitialPreviews(
+                assetIDs: discoveredAssetIDs,
+                project: project
+            ) else {
+                scanningDiskNodeIDs.remove(node.nodeId)
+                return
+            }
+            progressLabel = "Previews visible · verifying bytes…"
+            let verificationRevision = self.snapshot?.graph.revision
+                ?? discovered.graph.revision
+            let verification = await Task.detached(priority: .utility) {
+                project.scanDiskFolder(
+                    expectedGraphRevision: verificationRevision,
+                    nodeId: node.nodeId
+                )
+            }.value
+            guard self.project === project else { return }
+            scanningDiskNodeIDs.remove(node.nodeId)
+            accept(verification)
+            if verification.applied {
+                for asset in self.snapshot?.assets ?? []
+                    where discoveredAssetIDs.contains(asset.assetId)
+                {
+                    guard galleryProxies[asset.assetId] != nil
+                            || galleryNativeThumbnails[asset.assetId] != nil,
+                          let revision = asset.visualRevision
+                    else { continue }
+                    galleryDisplayedRevisions[asset.assetId] = revision
+                    galleryPreviewActivities[asset.assetId] = .ready
+                }
+                progressLabel = "\(verification.snapshot?.assets.count ?? 0) assets verified"
+                refreshLayoutProxies()
+            } else {
+                progressLabel = "Assets visible · verification deferred"
+            }
+        }
+    }
+
+    func performDefaultActivation(for node: BridgeNodeDto) {
+        switch node.defaultActivationId {
+        case "photara.disk.open-folder":
+            guard let disk = node.disk else { return }
+            if activeFolderGrants[disk.folderBindingId] == nil {
+                restoreDiskFolderGrants()
+            }
+            if let url = activeFolderGrants[disk.folderBindingId] {
+                NSWorkspace.shared.open(url)
+            } else {
+                chooseFolder(for: node)
+            }
+        default:
+            break
+        }
     }
 
     func connectDiskToAvailableLayout(_ node: BridgeNodeDto) {
@@ -272,12 +461,208 @@ final class AppModel: ObservableObject {
     }
 
     func requestGalleryThumbnail(assetID: String) {
-        guard galleryProxies[assetID] == nil, let project else { return }
+        guard let project,
+              let asset = snapshot?.assets.first(where: { $0.assetId == assetID }),
+              let revision = asset.visualRevision
+        else { return }
+        requestNativeThumbnail(
+            assetID: assetID,
+            desiredRevision: revision,
+            project: project
+        )
+    }
+
+    func openGalleryAsset(assetID: String) {
+        guard let project else { return }
         do {
-            galleryProxies[assetID] = try project.requestGalleryThumbnail(assetId: assetID)
+            let source = try project.nativeThumbnailSource(assetId: assetID)
+            guard NSWorkspace.shared.open(URL(fileURLWithPath: source.localPath)) else {
+                presentedError = "macOS could not open this asset in its default application."
+                return
+            }
         } catch {
             presentedError = error.localizedDescription
         }
+    }
+
+    private func requestNativeThumbnail(
+        assetID: String,
+        desiredRevision: String,
+        project: PhotaraProject
+    ) {
+        if galleryDisplayedRevisions[assetID] == desiredRevision {
+            galleryPreviewActivities[assetID] = .ready
+            return
+        }
+        guard pendingNativeThumbnailRevisions[assetID] != desiredRevision else { return }
+        pendingNativeThumbnailRevisions[assetID] = desiredRevision
+        galleryPreviewActivities[assetID] = galleryDisplayedRevisions[assetID] == nil
+            ? .loading : .updating
+        let source: BridgeNativeThumbnailSourceDto
+        do {
+            source = try project.nativeThumbnailSource(assetId: assetID)
+        } catch {
+            pendingNativeThumbnailRevisions.removeValue(forKey: assetID)
+            requestGalleryProxy(
+                assetID: assetID,
+                desiredRevision: desiredRevision,
+                project: project
+            )
+            if galleryDisplayedRevisions[assetID] == nil {
+                galleryPreviewActivities[assetID] = .failed
+            }
+            return
+        }
+        let sourceExtension = URL(fileURLWithPath: source.localPath)
+            .pathExtension.lowercased()
+        if sourceExtension == "tif" || sourceExtension == "tiff" {
+            pendingNativeThumbnailRevisions.removeValue(forKey: assetID)
+            requestGalleryProxy(
+                assetID: assetID,
+                desiredRevision: desiredRevision,
+                project: project
+            )
+            return
+        }
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let lowQualityRequest = QLThumbnailGenerator.Request(
+            fileAt: URL(fileURLWithPath: source.localPath),
+            size: CGSize(width: 384, height: 288),
+            scale: scale,
+            representationTypes: .lowQualityThumbnail
+        )
+        let fullRequest = QLThumbnailGenerator.Request(
+            fileAt: URL(fileURLWithPath: source.localPath),
+            size: CGSize(width: 384, height: 288),
+            scale: scale,
+            representationTypes: .thumbnail
+        )
+        Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if pendingNativeThumbnailRevisions[assetID] == desiredRevision {
+                    pendingNativeThumbnailRevisions.removeValue(forKey: assetID)
+                }
+            }
+            await nativeThumbnailScheduler.acquire()
+            let lowQualityRepresentation = try? await QLThumbnailGenerator.shared
+                .generateBestRepresentation(for: lowQualityRequest)
+            await nativeThumbnailScheduler.release()
+            if let representation = lowQualityRepresentation,
+               previewIsStillDesired(
+                   assetID: assetID,
+                   revision: desiredRevision,
+                   project: project
+               )
+            {
+                galleryNativeThumbnails[assetID] = NSImage(
+                    cgImage: representation.cgImage,
+                    size: representation.contentRect.size
+                )
+                galleryProxies.removeValue(forKey: assetID)
+                galleryDisplayedRevisions[assetID] = source.sourceFingerprint
+                galleryPreviewActivities[assetID] = .updating
+            }
+            do {
+                await nativeThumbnailScheduler.acquire()
+                defer { Task { await self.nativeThumbnailScheduler.release() } }
+                let representation = try await QLThumbnailGenerator.shared
+                    .generateBestRepresentation(for: fullRequest)
+                guard previewIsStillDesired(
+                    assetID: assetID,
+                    revision: desiredRevision,
+                    project: project
+                )
+                else { return }
+                galleryNativeThumbnails[assetID] = NSImage(
+                    cgImage: representation.cgImage,
+                    size: representation.contentRect.size
+                )
+                galleryProxies.removeValue(forKey: assetID)
+                galleryDisplayedRevisions[assetID] = source.sourceFingerprint
+                galleryPreviewActivities[assetID] = .ready
+            } catch {
+                requestGalleryProxy(
+                    assetID: assetID,
+                    desiredRevision: desiredRevision,
+                    project: project
+                )
+                if galleryDisplayedRevisions[assetID] == nil {
+                    galleryPreviewActivities[assetID] = .failed
+                }
+            }
+        }
+    }
+
+    private func requestGalleryProxy(
+        assetID: String,
+        desiredRevision: String,
+        project: PhotaraProject
+    ) {
+        guard pendingGalleryProxyRevisions[assetID] != desiredRevision else { return }
+        pendingGalleryProxyRevisions[assetID] = desiredRevision
+        Task { [weak self] in
+            let result = await Task.detached(priority: .utility) {
+                Result { try project.requestGalleryThumbnail(assetId: assetID) }
+            }.value
+            guard let self else { return }
+            if pendingGalleryProxyRevisions[assetID] == desiredRevision {
+                pendingGalleryProxyRevisions.removeValue(forKey: assetID)
+            }
+            if case let .success(reference) = result,
+               previewIsStillDesired(
+                   assetID: assetID,
+                   revision: desiredRevision,
+                   project: project
+               )
+            {
+                galleryProxies[assetID] = reference
+                galleryDisplayedRevisions[assetID] = desiredRevision
+                galleryPreviewActivities[assetID] = .ready
+            } else if galleryDisplayedRevisions[assetID] == nil {
+                galleryPreviewActivities[assetID] = .failed
+            }
+        }
+    }
+
+    private func previewIsStillDesired(
+        assetID: String,
+        revision: String,
+        project: PhotaraProject
+    ) -> Bool {
+        !Task.isCancelled
+            && self.project === project
+            && snapshot?.assets.first(where: { $0.assetId == assetID })?.visualRevision
+                == revision
+    }
+
+    private func waitForInitialPreviews(
+        assetIDs: Set<String>,
+        project: PhotaraProject
+    ) async -> Bool {
+        while self.project === project, !Task.isCancelled {
+            let currentAssets = snapshot?.assets.filter {
+                assetIDs.contains($0.assetId)
+            } ?? []
+            let requestedAssets = currentAssets.filter {
+                galleryPreviewActivities[$0.assetId] != nil
+            }
+            let requestedAreTerminal = !requestedAssets.isEmpty
+                && requestedAssets.allSatisfy { asset in
+                guard let desiredRevision = asset.visualRevision else { return true }
+                return galleryDisplayedRevisions[asset.assetId] == desiredRevision
+                    || galleryPreviewActivities[asset.assetId] == .failed
+            }
+            let requestedIDs = Set(requestedAssets.map(\.assetId))
+            let hasPendingRequest = pendingGalleryProxyRevisions.keys.contains {
+                requestedIDs.contains($0)
+            } || pendingNativeThumbnailRevisions.keys.contains {
+                requestedIDs.contains($0)
+            }
+            if requestedAreTerminal && !hasPendingRequest { return true }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        return false
     }
 
     func bind(assetID: String, to node: BridgeNodeDto, frameID: String, cellID: String) {
@@ -300,16 +685,80 @@ final class AppModel: ObservableObject {
         else { return }
         for frame in node.layout?.frames ?? [] {
             for cell in frame.cells where cell.assetId != nil {
-                do {
-                    layoutCellProxies[cell.cellId] = try project.requestLayoutCellPreview(
-                        layoutNodeId: node.nodeId,
-                        frameId: frame.frameId,
-                        cellId: cell.cellId
-                    )
-                } catch {
-                    presentedError = error.localizedDescription
+                guard let asset = snapshot?.assets.first(where: {
+                    $0.assetId == cell.assetId
+                }) else { continue }
+                requestLayoutNativeThumbnail(
+                    assetID: cell.assetId!,
+                    cellID: cell.cellId,
+                    project: project
+                )
+                // Runtime materialization verifies bytes against the representation
+                // fingerprint. Cheaply observed Disk revisions intentionally cannot
+                // enter that path until background verification has completed.
+                guard asset.visualRevisionVerified else { continue }
+                guard layoutCellProxies[cell.cellId] == nil,
+                      pendingLayoutProxyCellIDs.insert(cell.cellId).inserted
+                else { continue }
+                let cellID = cell.cellId
+                let frameID = frame.frameId
+                let authoringPreviewLongEdge = layoutAuthoringPreviewLongEdge
+                Task { [weak self] in
+                    let result = await Task.detached(priority: .userInitiated) {
+                        Result {
+                            try project.requestLayoutCellPreview(
+                                layoutNodeId: node.nodeId,
+                                frameId: frameID,
+                                cellId: cellID,
+                                maxLongEdge: authoringPreviewLongEdge
+                            )
+                        }
+                    }.value
+                    guard let self else { return }
+                    pendingLayoutProxyCellIDs.remove(cellID)
+                    guard self.project === project, !Task.isCancelled else { return }
+                    switch result {
+                    case let .success(reference):
+                        layoutCellProxies[cellID] = reference
+                    case let .failure(error):
+                        presentedError = error.localizedDescription
+                    }
                 }
             }
+        }
+    }
+
+    private func requestLayoutNativeThumbnail(
+        assetID: String,
+        cellID: String,
+        project: PhotaraProject
+    ) {
+        guard layoutNativeThumbnails[cellID] == nil,
+              pendingLayoutNativeCellIDs.insert(cellID).inserted
+        else { return }
+        guard let source = try? project.nativeThumbnailSource(assetId: assetID) else {
+            pendingLayoutNativeCellIDs.remove(cellID)
+            return
+        }
+        let request = QLThumbnailGenerator.Request(
+            fileAt: URL(fileURLWithPath: source.localPath),
+            size: CGSize(width: 512, height: 512),
+            scale: 1,
+            representationTypes: .thumbnail
+        )
+        Task { [weak self] in
+            guard let self else { return }
+            defer { pendingLayoutNativeCellIDs.remove(cellID) }
+            guard let representation = try? await QLThumbnailGenerator.shared
+                .generateBestRepresentation(for: request),
+                  !Task.isCancelled,
+                  self.project === project,
+                  snapshot?.assets.contains(where: { $0.assetId == assetID }) == true
+            else { return }
+            layoutNativeThumbnails[cellID] = NSImage(
+                cgImage: representation.cgImage,
+                size: representation.contentRect.size
+            )
         }
     }
 
@@ -400,6 +849,9 @@ final class AppModel: ObservableObject {
                 }
             )
             layoutCellProxies = layoutCellProxies.filter { liveCellIDs.contains($0.key) }
+            layoutNativeThumbnails = layoutNativeThumbnails.filter {
+                liveCellIDs.contains($0.key)
+            }
         } else {
             presentedError = response.error?.message ?? "Semantic command was rejected"
         }
@@ -454,6 +906,7 @@ final class AppModel: ObservableObject {
 
     private func refreshLayoutProxies() {
         layoutCellProxies.removeAll()
+        layoutNativeThumbnails.removeAll()
         for node in snapshot?.nodes ?? [] where node.layout != nil {
             requestLayoutProxies(for: node.nodeId)
         }

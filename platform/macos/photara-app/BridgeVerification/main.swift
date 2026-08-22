@@ -93,7 +93,8 @@ private enum PhotaraBridgeVerification {
         let app = try PhotaraApplication.open(
             storeRoot: storeRoot.appending(path: "store").path,
             proxyCacheRoot: storeRoot.appending(path: "proxy-cache").path,
-            proxyHelperExecutable: proxyHelper
+            proxyHelperExecutable: proxyHelper,
+            proxyGenerationConcurrency: 1
         )
         let project = try app.createProject(title: "Quasar UniFFI verification")
         let initial = try project.snapshot()
@@ -303,15 +304,16 @@ private enum PhotaraBridgeVerification {
             FileManager.default.fileExists(atPath: thumbnailDescriptor.localPath),
             "Gallery proxy reference did not point to a verified file"
         )
-        try require(thumbnailDescriptor.dynamicRange == .sdr, "Gallery proxy was not SDR-safe")
+        try require(thumbnailDescriptor.dynamicRange == .hdr, "Gallery proxy lost HDR")
         try require(
-            thumbnailDescriptor.colorSpaceId == "photara.color.srgb",
+            !thumbnailDescriptor.colorSpaceId.isEmpty,
             "Gallery proxy lost its color description"
         )
         let preview = try project.requestLayoutCellPreview(
             layoutNodeId: node.nodeId,
             frameId: frameID,
-            cellId: cellID
+            cellId: cellID,
+            maxLongEdge: 1_024
         )
         let previewDescriptor = preview.descriptor()
         try require(

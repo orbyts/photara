@@ -54,6 +54,23 @@ impl RepresentationFingerprint {
     }
 }
 
+/// Strength and authority behind a representation revision fingerprint.
+///
+/// A provider/file observation can publish an asset without reading all source
+/// bytes. Correctness-sensitive execution may require `ContentDigest`, which a
+/// runtime verifier can publish later as a new representation revision.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RepresentationRevisionEvidence {
+    /// Cryptographic digest of the representation bytes.
+    #[default]
+    ContentDigest,
+    /// Version token guaranteed by the representation's owning provider.
+    ProviderRevision,
+    /// Cheap local observation such as size and modification time.
+    FileObservation,
+}
+
 /// Portable binding from a semantic representation to either project-owned
 /// storage or a stable handle whose machine/provider locator is runtime-only.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -73,6 +90,10 @@ pub struct RepresentationDescriptor {
     pub id: AssetRepresentationId,
     pub role: RepresentationRoleId,
     pub fingerprint: RepresentationFingerprint,
+    /// Describes what the fingerprint proves. Defaults to the historical
+    /// content-digest meaning for backward-compatible Project Documents.
+    #[serde(default)]
+    pub revision_evidence: RepresentationRevisionEvidence,
     pub capabilities: BTreeSet<RepresentationCapabilityId>,
     pub binding: RepresentationBinding,
     #[serde(default, flatten)]
@@ -410,6 +431,7 @@ mod tests {
                 id: AssetRepresentationId::new(),
                 role: RepresentationRoleId::parse("example.rendition.original").unwrap(),
                 fingerprint: RepresentationFingerprint::sha256([7; 32]),
+                revision_evidence: RepresentationRevisionEvidence::ContentDigest,
                 capabilities: BTreeSet::new(),
                 binding: RepresentationBinding::ProjectResource { resource_id },
                 extensions: BTreeMap::new(),
@@ -463,6 +485,7 @@ mod tests {
                     id: AssetRepresentationId::new(),
                     role: RepresentationRoleId::parse(ORIGINAL_REPRESENTATION_ROLE_ID).unwrap(),
                     fingerprint: RepresentationFingerprint::sha256([11; 32]),
+                    revision_evidence: RepresentationRevisionEvidence::ContentDigest,
                     capabilities: BTreeSet::new(),
                     binding: RepresentationBinding::RuntimeResolved {
                         binding_id: RepresentationStorageBindingId::new(),
@@ -481,6 +504,29 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<ProjectAssetContext>(&json).unwrap(),
             context
+        );
+    }
+
+    #[test]
+    fn revision_evidence_is_explicit_and_old_documents_default_to_content_digest() {
+        let mut descriptor = asset(AssetId::new(), ProjectResourceId::new())
+            .representations
+            .remove(0);
+        descriptor.revision_evidence = RepresentationRevisionEvidence::FileObservation;
+        let json = serde_json::to_value(&descriptor).unwrap();
+        assert_eq!(json["revision_evidence"], "file-observation");
+        assert_eq!(
+            serde_json::from_value::<RepresentationDescriptor>(json).unwrap(),
+            descriptor
+        );
+
+        let mut legacy = serde_json::to_value(&descriptor).unwrap();
+        legacy.as_object_mut().unwrap().remove("revision_evidence");
+        assert_eq!(
+            serde_json::from_value::<RepresentationDescriptor>(legacy)
+                .unwrap()
+                .revision_evidence,
+            RepresentationRevisionEvidence::ContentDigest
         );
     }
 }

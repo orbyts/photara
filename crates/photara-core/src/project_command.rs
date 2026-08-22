@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    CommandId, ProjectAsset, ProjectDocument, ProjectId, ProjectResourceRef, ProjectRevision,
+    AssetId, CommandId, ProjectAsset, ProjectDocument, ProjectId, ProjectResourceRef,
+    ProjectRevision,
 };
 
 /// Revision-checked semantic command over the portable project aggregate.
@@ -24,6 +25,12 @@ pub enum ProjectCommand {
     /// Inserts or replaces semantic assets by identity without interpreting
     /// provider-specific node state or runtime locators.
     UpsertAssets { assets: Vec<ProjectAsset> },
+    /// Atomically removes a provider's prior membership and publishes its new
+    /// semantic assets. Provider ownership remains outside Core.
+    ReconcileAssets {
+        remove_asset_ids: Vec<AssetId>,
+        upsert_assets: Vec<ProjectAsset>,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -64,6 +71,27 @@ pub fn apply_project_command(
         }
         ProjectCommand::UpsertAssets { assets } => {
             for asset in assets {
+                if let Some(existing) = updated
+                    .asset_context
+                    .assets
+                    .iter_mut()
+                    .find(|existing| existing.id == asset.id)
+                {
+                    existing.clone_from(asset);
+                } else {
+                    updated.asset_context.assets.push(asset.clone());
+                }
+            }
+        }
+        ProjectCommand::ReconcileAssets {
+            remove_asset_ids,
+            upsert_assets,
+        } => {
+            updated
+                .asset_context
+                .assets
+                .retain(|asset| !remove_asset_ids.contains(&asset.id));
+            for asset in upsert_assets {
                 if let Some(existing) = updated
                     .asset_context
                     .assets
@@ -150,5 +178,53 @@ mod tests {
         assert_eq!(project.asset_context, ProjectAssetContext::default());
         assert_eq!(result.project.asset_context.assets, vec![asset]);
         assert_eq!(result.project.revision, project.revision);
+    }
+
+    #[test]
+    fn source_reconciliation_removes_only_prior_membership() {
+        let mut project = ProjectDocument::new(
+            ProjectId::new(),
+            "Reconciliation",
+            GraphDocument::new(GraphId::new()),
+        )
+        .unwrap();
+        let removed = ProjectAsset {
+            id: AssetId::new(),
+            display_name: "Old provider asset".to_owned(),
+            representations: Vec::new(),
+            extensions: BTreeMap::new(),
+        };
+        let retained = ProjectAsset {
+            id: AssetId::new(),
+            display_name: "Unrelated imported asset".to_owned(),
+            representations: Vec::new(),
+            extensions: BTreeMap::new(),
+        };
+        let replacement = ProjectAsset {
+            id: AssetId::new(),
+            display_name: "New provider asset".to_owned(),
+            representations: Vec::new(),
+            extensions: BTreeMap::new(),
+        };
+        project.asset_context.assets = vec![removed.clone(), retained.clone()];
+
+        let result = apply_project_command(
+            &project,
+            &ProjectCommandEnvelope {
+                command_id: CommandId::new(),
+                project_id: project.project_id,
+                expected_revision: project.revision,
+                command: ProjectCommand::ReconcileAssets {
+                    remove_asset_ids: vec![removed.id],
+                    upsert_assets: vec![replacement.clone()],
+                },
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            result.project.asset_context.assets,
+            vec![retained, replacement]
+        );
     }
 }

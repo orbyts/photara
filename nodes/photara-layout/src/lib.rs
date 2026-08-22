@@ -93,6 +93,7 @@ impl NodePackage for LayoutNodePackage {
                 catalog_visibility: NodeCatalogVisibility::Visible,
                 inspector_contribution_id: Some("photara.layout.inspector".to_owned()),
                 workspace_contribution_id: Some("photara.layout.workspace".to_owned()),
+                default_activation_id: Some("photara.layout.open-workspace".to_owned()),
             },
         )
         .expect("built-in presentation metadata is valid");

@@ -108,12 +108,22 @@ Assets, Graph, Layout Workspace, Inspector, and Diagnostics surfaces. Panels can
 move or hide, and the native Workspace menu restores the default without
 altering project semantics. Graph is now a deliberately primitive spatial
 canvas with dots, node cards, typed port indicators, connections, selection,
-pan, and zoom. Single-click drives the standard Inspector; double-clicking a
-node that advertises a Workspace activates it. Graph owns the node-creation
+pan, and zoom. Single-click drives the standard Inspector. Every exact node
+definition may advertise a neutral default-activation contribution, invoked by
+double-click on desktop clients. Layout's activation focuses or reveals its
+existing authoring Workspace; Disk's opens its granted folder in Finder. Future
+host nodes may activate their native application without making that platform
+action a Core semantic command. Graph owns the node-creation
 interaction: `Tab` (and the equivalent add control) opens a definition menu in
 the conventional node-editor style. Layout is currently the only offered
 definition, but the menu and shell are not modeled as Layout-specific. Final
 graph editing and visual language remain deferred.
+
+Gallery double-click is native activation, not graph execution: the macOS
+client resolves an available runtime representation and asks `NSWorkspace` to
+open it with the user's system default application. A later synchronized
+preferred-viewer setting may override that default without entering the
+portable asset or graph model.
 
 The visual Layout surface and conventional Inspector are distinct consumers of
 the same immutable Rust DTOs. Rust resolves explicit `AssetSet` input into

@@ -54,6 +54,7 @@ xcrun swiftc \
   -lphotara_bridge \
   -framework SwiftUI \
   -framework AppKit \
+  -framework QuickLookThumbnailing \
   -Xlinker -rpath \
   -Xlinker "@executable_path/../Frameworks" \
   -o "$EXECUTABLE"

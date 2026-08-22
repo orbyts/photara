@@ -3,13 +3,14 @@ use std::{
     fmt::Write as _,
     fs::{self, File},
     io::{BufReader, Read},
-    num::NonZeroU32,
+    num::{NonZeroU32, NonZeroUsize},
     path::PathBuf,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
     thread,
+    time::UNIX_EPOCH,
 };
 
 use photara_asset_set_node::{AssetSetNodePackage, AssetSetNodeRuntime, asset_set_state_schema};
@@ -23,9 +24,9 @@ use photara_core::{
     ProjectRelativePath, RepresentationAvailability, RepresentationBinding,
     RepresentationCapabilityId, RepresentationDescriptor, RepresentationFingerprint,
     RepresentationMaterializationError, RepresentationMaterializationRequest,
-    RepresentationMaterializer, RepresentationRoleId, RepresentationStorageBindingId, RequestId,
-    SchemaValue, ValueTypeRegistry, apply_graph_command, apply_project_command,
-    asset_set_value_type_descriptor, canonical_digest, evaluate_graph,
+    RepresentationMaterializer, RepresentationRevisionEvidence, RepresentationRoleId,
+    RepresentationStorageBindingId, RequestId, SchemaValue, ValueTypeRegistry, apply_graph_command,
+    apply_project_command, asset_set_value_type_descriptor, canonical_digest, evaluate_graph,
 };
 use photara_disk_node::{DiskFolderState, DiskNodePackage, DiskNodeRuntime};
 use photara_layout_node::{
@@ -41,7 +42,7 @@ use photara_node_sdk::{
 use photara_proxy::{
     AssetContextProjectProxyService, ImageIoCoreImageGenerator, ImageIoGeneratorConfig,
     ProjectProxyService, ProjectVisualProxyRequest, ProjectVisualProxyService, ProxyServiceConfig,
-    standard_hdr_authoring_preview_profile, standard_sdr_thumbnail_profile,
+    layout_interaction_preview_profile, standard_gallery_preview_profile,
 };
 use photara_proxy::{ProxyArtifact, ProxyArtifactDisposition};
 use photara_store::{
@@ -132,6 +133,7 @@ pub struct BridgeNodeDto {
     pub accent_srgb_hex: Option<String>,
     pub inspector_contribution_id: Option<String>,
     pub workspace_contribution_id: Option<String>,
+    pub default_activation_id: Option<String>,
     pub has_workspace: bool,
     pub status: String,
     pub ports: Vec<BridgePortInspectionDto>,
@@ -155,6 +157,16 @@ pub struct BridgeDiskBindingDto {
     pub folder_display_name: String,
 }
 
+/// Runtime-only local source reference suitable for a native placeholder
+/// thumbnail service such as macOS Quick Look. It is never project state.
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct BridgeNativeThumbnailSourceDto {
+    pub asset_id: String,
+    pub local_path: String,
+    pub source_fingerprint: String,
+    pub source_verified: bool,
+}
+
 /// Immutable catalog entry for one exact installed node definition.
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
 pub struct BridgeAvailableNodeDefinitionDto {
@@ -170,6 +182,7 @@ pub struct BridgeAvailableNodeDefinitionDto {
     pub search_terms: Vec<String>,
     pub inspector_contribution_id: Option<String>,
     pub workspace_contribution_id: Option<String>,
+    pub default_activation_id: Option<String>,
 }
 
 /// Exact definition coordinate selected from the immutable application catalog.
@@ -330,6 +343,8 @@ pub struct BridgeAssetDto {
     pub asset_id: String,
     pub display_name: String,
     pub representation_count: u64,
+    pub visual_revision: Option<String>,
+    pub visual_revision_verified: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
@@ -499,6 +514,7 @@ pub struct PhotaraApplication {
     value_types: Arc<ValueTypeRegistry>,
     proxy_cache_root: PathBuf,
     proxy_helper_executable: PathBuf,
+    proxy_generation_concurrency: NonZeroUsize,
 }
 
 #[uniffi::export]
@@ -513,7 +529,15 @@ impl PhotaraApplication {
         store_root: String,
         proxy_cache_root: String,
         proxy_helper_executable: String,
+        proxy_generation_concurrency: u32,
     ) -> Result<Arc<Self>, BridgeError> {
+        let proxy_generation_concurrency = usize::try_from(proxy_generation_concurrency)
+            .ok()
+            .and_then(NonZeroUsize::new)
+            .filter(|value| value.get() <= 4)
+            .ok_or_else(|| BridgeError::InvalidArgument {
+                message: "proxy generation concurrency must be between 1 and 4".to_owned(),
+            })?;
         let store = FileSystemStateStore::open(PathBuf::from(store_root)).map_err(|error| {
             BridgeError::Store {
                 message: error.to_string(),
@@ -552,6 +576,7 @@ impl PhotaraApplication {
             value_types: Arc::new(value_types),
             proxy_cache_root: PathBuf::from(proxy_cache_root),
             proxy_helper_executable: PathBuf::from(proxy_helper_executable),
+            proxy_generation_concurrency,
         }))
     }
 
@@ -580,6 +605,7 @@ impl PhotaraApplication {
                         search_terms: presentation.search_terms,
                         inspector_contribution_id: presentation.inspector_contribution_id,
                         workspace_contribution_id: presentation.workspace_contribution_id,
+                        default_activation_id: presentation.default_activation_id,
                     })
                 })
             })
@@ -617,6 +643,7 @@ impl PhotaraApplication {
             project,
             self.proxy_cache_root.clone(),
             self.proxy_helper_executable.clone(),
+            self.proxy_generation_concurrency,
         )
     }
 
@@ -645,6 +672,7 @@ impl PhotaraApplication {
             project,
             self.proxy_cache_root.clone(),
             self.proxy_helper_executable.clone(),
+            self.proxy_generation_concurrency,
         )
     }
 
@@ -711,6 +739,7 @@ impl PhotaraApplication {
             project,
             self.proxy_cache_root.clone(),
             self.proxy_helper_executable.clone(),
+            self.proxy_generation_concurrency,
         )
     }
 }
@@ -754,6 +783,7 @@ impl PhotaraProject {
         project: ProjectDocument,
         proxy_cache_root: PathBuf,
         proxy_helper_executable: PathBuf,
+        proxy_generation_concurrency: NonZeroUsize,
     ) -> Result<Arc<Self>, BridgeError> {
         let project_root = store
             .root()
@@ -763,9 +793,16 @@ impl PhotaraProject {
             message: format!("could not create project resource directory: {error}"),
         })?;
         #[cfg(target_os = "macos")]
+        let mut proxy_config =
+            ProxyServiceConfig::conservative(proxy_cache_root, 20 * 1024 * 1024 * 1024);
+        #[cfg(target_os = "macos")]
+        {
+            proxy_config.max_concurrent_generations = proxy_generation_concurrency;
+        }
+        #[cfg(target_os = "macos")]
         let proxy_service = ProjectProxyService::open(
             project.project_id,
-            ProxyServiceConfig::conservative(proxy_cache_root, 20 * 1024 * 1024 * 1024),
+            proxy_config,
             ImageIoCoreImageGenerator::new(ImageIoGeneratorConfig {
                 helper_executable: proxy_helper_executable,
             }),
@@ -774,7 +811,11 @@ impl PhotaraProject {
             message: error.to_string(),
         })?;
         #[cfg(not(target_os = "macos"))]
-        let _ = (proxy_cache_root, proxy_helper_executable);
+        let _ = (
+            proxy_cache_root,
+            proxy_helper_executable,
+            proxy_generation_concurrency,
+        );
         Ok(Arc::new(Self {
             store,
             definitions,
@@ -1298,13 +1339,234 @@ impl PhotaraProject {
         })
     }
 
-    /// Explicitly scans an attached Disk folder and atomically publishes the
-    /// resulting assets plus accepted `AssetSet` through Core commands.
+    /// Explicitly clears one Disk node's previously accepted source
+    /// membership before a newly granted folder is scanned. Other project
+    /// assets are retained.
     #[allow(clippy::needless_pass_by_value, clippy::too_many_lines)]
+    pub fn clear_disk_assets(
+        &self,
+        expected_graph_revision: u64,
+        node_id: String,
+    ) -> BridgeCommandResponseDto {
+        let command_id = CommandId::new();
+        let node_id: NodeInstanceId = match parse_uuid_id(&node_id, "Disk node ID") {
+            Ok(value) => value,
+            Err(error) => {
+                return rejected_command(
+                    command_id,
+                    expected_graph_revision,
+                    "photara.disk.invalid-node",
+                    error.to_string(),
+                );
+            }
+        };
+        let Ok(mut state) = self.lock_state() else {
+            return rejected_command(
+                command_id,
+                expected_graph_revision,
+                "photara.bridge.lock-poisoned",
+                "project session lock was poisoned".to_owned(),
+            );
+        };
+        let actual = state.project.graph.revision;
+        if actual.get() != expected_graph_revision {
+            return rejected_command(
+                command_id,
+                actual.get(),
+                "revision-conflict",
+                format!(
+                    "expected graph revision {expected_graph_revision}, actual {}",
+                    actual.get()
+                ),
+            );
+        }
+        let Some(node) = state
+            .project
+            .graph
+            .nodes
+            .iter()
+            .find(|node| node.id == node_id)
+        else {
+            return rejected_command(
+                command_id,
+                actual.get(),
+                "photara.disk.unknown-node",
+                format!("unknown Disk node {node_id}"),
+            );
+        };
+        let mut disk = match node
+            .authored_state
+            .as_ref()
+            .map(DiskFolderState::from_schema_value)
+        {
+            Some(Ok(value)) => value,
+            Some(Err(message)) => {
+                return rejected_command(
+                    command_id,
+                    actual.get(),
+                    "photara.disk.invalid-state",
+                    message,
+                );
+            }
+            None => {
+                return rejected_command(
+                    command_id,
+                    actual.get(),
+                    "photara.disk.missing-state",
+                    format!("Disk {node_id} has no authored state"),
+                );
+            }
+        };
+        if disk.accepted_assets.assets.is_empty() {
+            return match project_snapshot(&state, &self.definitions) {
+                Ok(snapshot) => BridgeCommandResponseDto {
+                    command_id: command_id.to_string(),
+                    applied: true,
+                    previous_graph_revision: actual.get(),
+                    snapshot: Some(snapshot),
+                    error: None,
+                },
+                Err(error) => rejected_command(
+                    command_id,
+                    actual.get(),
+                    "photara.bridge.snapshot-failed",
+                    error.to_string(),
+                ),
+            };
+        }
+        let removed_asset_ids = std::mem::take(&mut disk.accepted_assets.assets);
+        let removed_binding_ids = state
+            .project
+            .asset_context
+            .assets
+            .iter()
+            .filter(|asset| removed_asset_ids.contains(&asset.id))
+            .flat_map(|asset| &asset.representations)
+            .filter_map(|representation| match representation.binding {
+                RepresentationBinding::RuntimeResolved { binding_id } => Some(binding_id),
+                RepresentationBinding::ProjectResource { .. } => None,
+            })
+            .collect::<Vec<_>>();
+        let project_result = match apply_project_command(
+            &state.project,
+            &ProjectCommandEnvelope {
+                command_id,
+                project_id: state.project.project_id,
+                expected_revision: state.project.revision,
+                command: ProjectCommand::ReconcileAssets {
+                    remove_asset_ids: removed_asset_ids,
+                    upsert_assets: Vec::new(),
+                },
+            },
+        ) {
+            Ok(value) => value,
+            Err(error) => {
+                return rejected_command(
+                    command_id,
+                    actual.get(),
+                    "photara.disk.asset-reconciliation-failed",
+                    error.to_string(),
+                );
+            }
+        };
+        let authored_state = match disk.to_schema_value() {
+            Ok(value) => value,
+            Err(error) => {
+                return rejected_command(
+                    command_id,
+                    actual.get(),
+                    "photara.disk.invalid-scan-state",
+                    error.to_string(),
+                );
+            }
+        };
+        let graph_result = match apply_graph_command(
+            &project_result.project.graph,
+            &GraphCommandEnvelope {
+                command_id,
+                graph_id: state.project.graph.id,
+                expected_revision: actual,
+                command: GraphCommand::SetAuthoredState {
+                    node_id,
+                    authored_state: Some(authored_state),
+                },
+            },
+            self.definitions.as_ref(),
+            self.value_types.as_ref(),
+        ) {
+            Ok(value) => value,
+            Err(error) => {
+                return rejected_command(
+                    command_id,
+                    actual.get(),
+                    "photara.disk.membership-reconciliation-failed",
+                    error.to_string(),
+                );
+            }
+        };
+        let mut project = project_result.project;
+        project.graph = graph_result.graph;
+        sync_requirements(&mut project);
+        if let Ok(mut bindings) = self.representation_bindings.lock() {
+            bindings.retain(|binding_id, _| !removed_binding_ids.contains(binding_id));
+        }
+        state.project = project;
+        state.dirty = true;
+        match project_snapshot(&state, &self.definitions) {
+            Ok(snapshot) => BridgeCommandResponseDto {
+                command_id: command_id.to_string(),
+                applied: true,
+                previous_graph_revision: actual.get(),
+                snapshot: Some(snapshot),
+                error: None,
+            },
+            Err(error) => rejected_command(
+                command_id,
+                actual.get(),
+                "photara.bridge.snapshot-failed",
+                error.to_string(),
+            ),
+        }
+    }
+
+    /// Quickly discovers an attached Disk folder from metadata observations
+    /// without reading complete source files.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn discover_disk_folder(
+        &self,
+        expected_graph_revision: u64,
+        node_id: String,
+    ) -> BridgeCommandResponseDto {
+        self.reconcile_disk_folder(
+            expected_graph_revision,
+            node_id,
+            DiskFingerprintMode::Observation,
+        )
+    }
+
+    /// Verifies an attached Disk folder with complete content digests and
+    /// atomically publishes the resulting revisions.
+    #[allow(clippy::needless_pass_by_value)]
     pub fn scan_disk_folder(
         &self,
         expected_graph_revision: u64,
         node_id: String,
+    ) -> BridgeCommandResponseDto {
+        self.reconcile_disk_folder(
+            expected_graph_revision,
+            node_id,
+            DiskFingerprintMode::Content,
+        )
+    }
+}
+
+impl PhotaraProject {
+    #[allow(clippy::needless_pass_by_value, clippy::too_many_lines)]
+    fn reconcile_disk_folder(
+        &self,
+        expected_graph_revision: u64,
+        node_id: String,
+        fingerprint_mode: DiskFingerprintMode,
     ) -> BridgeCommandResponseDto {
         let command_id = CommandId::new();
         let node_id: NodeInstanceId = match parse_uuid_id(&node_id, "Disk node ID") {
@@ -1389,7 +1651,12 @@ impl PhotaraProject {
                 "Choose or restore this Disk node's folder before scanning".to_owned(),
             );
         };
-        let prepared = match prepare_disk_scan(&folder, disk.folder_binding_id, disk.recursive) {
+        let prepared = match prepare_disk_scan(
+            &folder,
+            disk.folder_binding_id,
+            disk.recursive,
+            fingerprint_mode,
+        ) {
             Ok(value) => value,
             Err(message) => {
                 return rejected_command(
@@ -1400,6 +1667,7 @@ impl PhotaraProject {
                 );
             }
         };
+        let previous_asset_ids = disk.accepted_assets.assets.clone();
         let mut accepted = disk;
         accepted.accepted_assets = AssetSet {
             assets: prepared.assets.iter().map(|asset| asset.id).collect(),
@@ -1439,8 +1707,9 @@ impl PhotaraProject {
                 command_id,
                 project_id: state.project.project_id,
                 expected_revision: state.project.revision,
-                command: ProjectCommand::UpsertAssets {
-                    assets: prepared.assets,
+                command: ProjectCommand::ReconcileAssets {
+                    remove_asset_ids: previous_asset_ids,
+                    upsert_assets: prepared.assets,
                 },
             },
         ) {
@@ -1510,7 +1779,10 @@ impl PhotaraProject {
             ),
         }
     }
+}
 
+#[uniffi::export]
+impl PhotaraProject {
     /// Explicitly connects two typed ports through one revision-checked Core command.
     #[allow(clippy::needless_pass_by_value)]
     pub fn connect_nodes(
@@ -1568,7 +1840,69 @@ impl PhotaraProject {
         asset_id: String,
     ) -> Result<Arc<BridgeProxyReference>, BridgeError> {
         let asset_id = parse_uuid_id(&asset_id, "asset ID")?;
-        self.request_asset_proxy(asset_id, false)
+        self.request_asset_proxy(asset_id, None)
+    }
+
+    /// Returns a runtime-only local visual source for an opportunistic native
+    /// HDR is preferred when available so the native client can map it to the
+    /// actual display. This runtime presentation path is never authoritative.
+    ///
+    /// # Errors
+    ///
+    /// Returns an identity, binding, or availability error when no local visual
+    /// representation can currently be resolved.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn native_thumbnail_source(
+        &self,
+        asset_id: String,
+    ) -> Result<BridgeNativeThumbnailSourceDto, BridgeError> {
+        let asset_id: AssetId = parse_uuid_id(&asset_id, "asset ID")?;
+        let state = self.lock_state()?;
+        let asset = state.project.asset_context.asset(asset_id).ok_or_else(|| {
+            BridgeError::InvalidArgument {
+                message: format!("unknown project asset {asset_id}"),
+            }
+        })?;
+        let representation =
+            preferred_visual_representation(asset).ok_or_else(|| BridgeError::State {
+                message: format!("asset {asset_id} has no local visual representation"),
+            })?;
+        let path = match representation.binding {
+            RepresentationBinding::ProjectResource { resource_id } => {
+                let resource = state
+                    .project
+                    .resources
+                    .iter()
+                    .find(|resource| resource.id == resource_id)
+                    .ok_or_else(|| BridgeError::State {
+                        message: format!("project resource {resource_id} is missing"),
+                    })?;
+                self.project_root.join(resource.relative_path.as_str())
+            }
+            RepresentationBinding::RuntimeResolved { binding_id } => self
+                .representation_bindings
+                .lock()
+                .map_err(|_| BridgeError::State {
+                    message: "representation-binding lock was poisoned".to_owned(),
+                })?
+                .get(&binding_id)
+                .cloned()
+                .ok_or_else(|| BridgeError::State {
+                    message: format!("runtime representation {binding_id} is unavailable"),
+                })?,
+        };
+        if !path.is_file() {
+            return Err(BridgeError::State {
+                message: format!("visual source {} is unavailable", path.display()),
+            });
+        }
+        Ok(BridgeNativeThumbnailSourceDto {
+            asset_id: asset_id.to_string(),
+            local_path: path.to_string_lossy().into_owned(),
+            source_fingerprint: fingerprint_hex(representation.fingerprint),
+            source_verified: representation.revision_evidence
+                == RepresentationRevisionEvidence::ContentDigest,
+        })
     }
 
     /// Returns a leased, verified shared HDR-aware proxy for a placed Layout
@@ -1583,7 +1917,13 @@ impl PhotaraProject {
         layout_node_id: String,
         frame_id: String,
         cell_id: String,
+        max_long_edge: u32,
     ) -> Result<Arc<BridgeProxyReference>, BridgeError> {
+        let max_long_edge = NonZeroU32::new(max_long_edge)
+            .filter(|pixels| (512..=2_048).contains(&pixels.get()))
+            .ok_or_else(|| BridgeError::InvalidArgument {
+                message: "Layout authoring preview long edge must be 512–2048 pixels".to_owned(),
+            })?;
         let layout_node_id: NodeInstanceId = parse_uuid_id(&layout_node_id, "Layout node ID")?;
         let frame_id = parse_uuid_id(&frame_id, "frame ID")?;
         let cell_id = parse_uuid_id(&cell_id, "cell ID")?;
@@ -1620,7 +1960,7 @@ impl PhotaraProject {
                     message: format!("Layout cell {cell_id} has no bound asset"),
                 })?
         };
-        self.request_asset_proxy(asset_id, true)
+        self.request_asset_proxy(asset_id, Some(max_long_edge))
     }
 
     /// Creates a one-shot evaluation handle over an immutable graph snapshot.
@@ -1651,7 +1991,7 @@ impl PhotaraProject {
     fn request_asset_proxy(
         &self,
         asset_id: AssetId,
-        authoring_preview: bool,
+        authoring_preview_long_edge: Option<NonZeroU32>,
     ) -> Result<Arc<BridgeProxyReference>, BridgeError> {
         let project = self.lock_state()?.project.clone();
         if project.asset_context.asset(asset_id).is_none() {
@@ -1676,10 +2016,10 @@ impl PhotaraProject {
             &project.asset_context,
             &materializer,
         );
-        let profile = if authoring_preview {
-            standard_hdr_authoring_preview_profile()
+        let profile = if let Some(long_edge) = authoring_preview_long_edge {
+            layout_interaction_preview_profile(long_edge)
         } else {
-            standard_sdr_thumbnail_profile()
+            standard_gallery_preview_profile()
         };
         let artifact = services
             .request_visual_proxy(&ProjectVisualProxyRequest {
@@ -1698,7 +2038,7 @@ impl PhotaraProject {
     fn request_asset_proxy(
         &self,
         _asset_id: AssetId,
-        _authoring_preview: bool,
+        _authoring_preview_long_edge: Option<NonZeroU32>,
     ) -> Result<Arc<BridgeProxyReference>, BridgeError> {
         Err(BridgeError::State {
             message: "no proxy generator is configured for this platform".to_owned(),
@@ -2214,10 +2554,17 @@ struct PreparedDiskScan {
     bindings: BTreeMap<RepresentationStorageBindingId, PathBuf>,
 }
 
+#[derive(Clone, Copy)]
+enum DiskFingerprintMode {
+    Observation,
+    Content,
+}
+
 fn prepare_disk_scan(
     root: &std::path::Path,
     folder_binding_id: Uuid,
     recursive: bool,
+    fingerprint_mode: DiskFingerprintMode,
 ) -> Result<PreparedDiskScan, String> {
     let mut files = Vec::new();
     collect_supported_files(root, root, recursive, &mut files)?;
@@ -2247,12 +2594,19 @@ fn prepare_disk_scan(
             folder_binding_id,
             &identity_key,
         ));
-        let fingerprint = fingerprint_runtime_file(&path)?;
+        let (fingerprint, revision_evidence) = match fingerprint_mode {
+            DiskFingerprintMode::Observation => (
+                fingerprint_file_observation(&path)?,
+                RepresentationRevisionEvidence::FileObservation,
+            ),
+            DiskFingerprintMode::Content => (
+                fingerprint_runtime_file(&path)?,
+                RepresentationRevisionEvidence::ContentDigest,
+            ),
+        };
         let mut capabilities = [
             photara_core::IMAGE_CAPABILITY_ID,
             photara_core::FLATTENED_IMAGE_CAPABILITY_ID,
-            photara_core::HDR_CAPABILITY_ID,
-            photara_core::SDR_CAPABILITY_ID,
         ]
         .into_iter()
         .map(|value| {
@@ -2277,6 +2631,7 @@ fn prepare_disk_scan(
                 role: RepresentationRoleId::parse(photara_core::ORIGINAL_REPRESENTATION_ROLE_ID)
                     .expect("built-in representation role is valid"),
                 fingerprint,
+                revision_evidence,
                 capabilities,
                 binding: RepresentationBinding::RuntimeResolved { binding_id },
                 extensions: BTreeMap::new(),
@@ -2286,6 +2641,29 @@ fn prepare_disk_scan(
         bindings.insert(binding_id, path);
     }
     Ok(PreparedDiskScan { assets, bindings })
+}
+
+fn fingerprint_file_observation(
+    path: &std::path::Path,
+) -> Result<RepresentationFingerprint, String> {
+    let metadata = fs::metadata(path)
+        .map_err(|error| format!("could not inspect {}: {error}", path.display()))?;
+    let modified = metadata
+        .modified()
+        .map_err(|error| {
+            format!(
+                "could not read modification time for {}: {error}",
+                path.display()
+            )
+        })?
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| format!("invalid modification time for {}: {error}", path.display()))?;
+    let mut digest = Sha256::new();
+    digest.update(b"photara.file-observation.v1");
+    digest.update(metadata.len().to_be_bytes());
+    digest.update(modified.as_secs().to_be_bytes());
+    digest.update(modified.subsec_nanos().to_be_bytes());
+    Ok(RepresentationFingerprint::sha256(digest.finalize().into()))
 }
 
 fn collect_supported_files(
@@ -2316,10 +2694,15 @@ fn collect_supported_files(
 }
 
 fn is_supported_visual_file(path: &std::path::Path) -> bool {
+    const STILL_IMAGE_EXTENSIONS: &[&str] = &[
+        "3fr", "arw", "avif", "bmp", "cr2", "cr3", "dng", "erf", "exr", "fff", "gif", "heic",
+        "heif", "iiq", "jpe", "jpeg", "jpg", "jxl", "mos", "nef", "nrw", "orf", "pef", "png",
+        "psb", "psd", "raf", "raw", "rw2", "rwl", "sr2", "srf", "tif", "tiff", "webp",
+    ];
     path.extension()
         .and_then(|value| value.to_str())
         .is_some_and(|extension| {
-            ["tif", "tiff", "jpg", "jpeg", "png", "heic", "heif", "avif"]
+            STILL_IMAGE_EXTENSIONS
                 .iter()
                 .any(|supported| extension.eq_ignore_ascii_case(supported))
         })
@@ -2448,8 +2831,12 @@ impl RepresentationMaterializer for RuntimeAwareMaterializer<'_> {
         let Some(path) = self.runtime_path(request)? else {
             return self.local.materialize(request);
         };
-        let actual = fingerprint_runtime_file(path)
-            .map_err(|message| RepresentationMaterializationError::Backend { message })?;
+        let actual = match self.descriptor(request)?.revision_evidence {
+            RepresentationRevisionEvidence::ContentDigest => fingerprint_runtime_file(path),
+            RepresentationRevisionEvidence::FileObservation => fingerprint_file_observation(path),
+            RepresentationRevisionEvidence::ProviderRevision => Ok(request.expected_fingerprint),
+        }
+        .map_err(|message| RepresentationMaterializationError::Backend { message })?;
         if actual != request.expected_fingerprint {
             return Err(RepresentationMaterializationError::SourceChanged {
                 expected: request.expected_fingerprint,
@@ -2635,12 +3022,40 @@ fn project_snapshot(
                 display_name: asset.display_name.clone(),
                 representation_count: u64::try_from(asset.representations.len())
                     .unwrap_or(u64::MAX),
+                visual_revision: preferred_visual_representation(asset)
+                    .map(|representation| fingerprint_hex(representation.fingerprint)),
+                visual_revision_verified: preferred_visual_representation(asset).is_some_and(
+                    |representation| {
+                        representation.revision_evidence
+                            == RepresentationRevisionEvidence::ContentDigest
+                    },
+                ),
             })
             .collect(),
         nodes,
         diagnostics,
         dirty: state.dirty,
     })
+}
+
+fn preferred_visual_representation(asset: &ProjectAsset) -> Option<&RepresentationDescriptor> {
+    asset
+        .representations
+        .iter()
+        .find(|representation| {
+            representation
+                .capabilities
+                .iter()
+                .any(|capability| capability.as_str() == photara_core::HDR_CAPABILITY_ID)
+        })
+        .or_else(|| {
+            asset.representations.iter().find(|representation| {
+                representation
+                    .capabilities
+                    .iter()
+                    .any(|capability| capability.as_str() == photara_core::IMAGE_CAPABILITY_ID)
+            })
+        })
 }
 
 fn node_snapshot(
@@ -2700,6 +3115,9 @@ fn node_snapshot(
         workspace_contribution_id: presentation
             .as_ref()
             .and_then(|value| value.workspace_contribution_id.clone()),
+        default_activation_id: presentation
+            .as_ref()
+            .and_then(|value| value.default_activation_id.clone()),
         has_workspace: presentation
             .as_ref()
             .is_some_and(|value| value.workspace_contribution_id.is_some()),
@@ -3443,12 +3861,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn branded_catalog_drives_disk_scan_connection_and_portable_reopen() {
         let root = TestRoot::new();
         let app = PhotaraApplication::open(
             root.0.join("store").to_string_lossy().into_owned(),
             root.0.join("cache").to_string_lossy().into_owned(),
             root.0.join("proxy-helper").to_string_lossy().into_owned(),
+            1,
         )
         .unwrap();
         let catalog = app.available_node_definitions();
@@ -3460,12 +3880,20 @@ mod tests {
         assert_eq!(disk_definition.catalog_path, ["Input", "Filesystem"]);
         assert_eq!(disk_definition.icon_resource_id, "photara.disk.folder");
         assert!(disk_definition.workspace_contribution_id.is_none());
+        assert_eq!(
+            disk_definition.default_activation_id.as_deref(),
+            Some("photara.disk.open-folder")
+        );
         let layout_definition = catalog
             .iter()
             .find(|definition| definition.definition_id == photara_layout_node::DEFINITION_ID)
             .unwrap();
         assert_eq!(layout_definition.catalog_path, ["Create", "Layout"]);
         assert!(layout_definition.workspace_contribution_id.is_some());
+        assert_eq!(
+            layout_definition.default_activation_id.as_deref(),
+            Some("photara.layout.open-workspace")
+        );
 
         let project = app.create_project("Live folder".to_owned()).unwrap();
         let initial = project.snapshot().unwrap();
@@ -3494,10 +3922,35 @@ mod tests {
             semantic_digest_before_attach
         );
 
-        let scanned = project.scan_disk_folder(added_disk.graph.revision, disk_id.clone());
+        let discovered = project.discover_disk_folder(added_disk.graph.revision, disk_id.clone());
+        assert!(discovered.applied, "{:?}", discovered.error);
+        let discovered = discovered.snapshot.unwrap();
+        assert_eq!(discovered.assets.len(), 1);
+        assert!(!discovered.assets[0].visual_revision_verified);
+        let observed_source = project
+            .native_thumbnail_source(discovered.assets[0].asset_id.clone())
+            .unwrap();
+        assert!(!observed_source.source_verified);
+
+        let scanned = project.scan_disk_folder(discovered.graph.revision, disk_id.clone());
         assert!(scanned.applied, "{:?}", scanned.error);
         let scanned = scanned.snapshot.unwrap();
         assert_eq!(scanned.assets.len(), 1);
+        assert!(scanned.assets[0].visual_revision_verified);
+        let thumbnail_source = project
+            .native_thumbnail_source(scanned.assets[0].asset_id.clone())
+            .unwrap();
+        assert!(thumbnail_source.source_verified);
+        assert_eq!(thumbnail_source.asset_id, scanned.assets[0].asset_id);
+        assert_eq!(
+            PathBuf::from(thumbnail_source.local_path),
+            folder.join("portrait.tiff")
+        );
+        assert_eq!(thumbnail_source.source_fingerprint.len(), 64);
+        assert_eq!(
+            project.snapshot().unwrap().graph.digest,
+            scanned.graph.digest
+        );
         assert_eq!(
             scanned
                 .nodes
@@ -3543,6 +3996,22 @@ mod tests {
         );
 
         let saved = project.save().unwrap();
+        let cleared = project.clear_disk_assets(saved.graph.revision, binding.node_id.clone());
+        assert!(cleared.applied, "{:?}", cleared.error);
+        let cleared = cleared.snapshot.unwrap();
+        assert!(cleared.assets.is_empty());
+        assert_eq!(
+            cleared
+                .nodes
+                .iter()
+                .find(|node| node.node_id == binding.node_id)
+                .unwrap()
+                .disk
+                .as_ref()
+                .unwrap()
+                .accepted_asset_count,
+            0
+        );
         let reopened = app.open_project(saved.project_id.clone()).unwrap();
         assert_eq!(reopened.snapshot().unwrap(), saved);
         assert!(matches!(
@@ -3559,6 +4028,7 @@ mod tests {
             root.0.join("store").to_string_lossy().into_owned(),
             root.0.join("cache").to_string_lossy().into_owned(),
             root.0.join("proxy-helper").to_string_lossy().into_owned(),
+            1,
         )
         .unwrap();
         let project = app.create_project("Bridge project".to_owned()).unwrap();
@@ -3613,6 +4083,17 @@ mod tests {
             )
             .unwrap();
         assert_eq!(imported.snapshot.graph.digest, added.graph.digest);
+        let native_hdr_path = PathBuf::from(
+            project
+                .native_thumbnail_source(imported.asset_id.clone())
+                .unwrap()
+                .local_path,
+        );
+        assert_eq!(
+            native_hdr_path.file_name().and_then(|name| name.to_str()),
+            Some("flattened-hdr.tiff")
+        );
+        assert_eq!(fs::read(native_hdr_path).unwrap(), b"hdr fixture");
         let bound = project.bind_asset_to_layout(
             imported.snapshot.graph.revision,
             node_id.clone(),
@@ -3717,6 +4198,7 @@ mod tests {
             root.0.join("store").to_string_lossy().into_owned(),
             root.0.join("cache").to_string_lossy().into_owned(),
             root.0.join("proxy-helper").to_string_lossy().into_owned(),
+            1,
         )
         .unwrap();
         let project_id = ProjectId::new();
@@ -3757,6 +4239,7 @@ mod tests {
             root.0.join("store").to_string_lossy().into_owned(),
             root.0.join("cache").to_string_lossy().into_owned(),
             root.0.join("proxy-helper").to_string_lossy().into_owned(),
+            1,
         )
         .unwrap();
         let project = app.create_project("Authoring".to_owned()).unwrap();
@@ -3890,6 +4373,7 @@ mod tests {
             root.0.join("store").to_string_lossy().into_owned(),
             root.0.join("cache").to_string_lossy().into_owned(),
             root.0.join("proxy-helper").to_string_lossy().into_owned(),
+            1,
         )
         .unwrap();
         let project = app.create_project("Evaluation".to_owned()).unwrap();

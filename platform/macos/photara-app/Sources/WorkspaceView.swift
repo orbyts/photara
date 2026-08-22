@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct WorkspaceView: View {
@@ -405,7 +406,7 @@ private struct PanelHeader: View {
 private struct AssetGalleryView: View {
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var workspace: WorkspaceModel
-    @State private var gridScale: GalleryGridScale = .comfortable
+    @State private var viewStyle: GalleryViewStyle = .photoGrid
 
     private var assets: [BridgeAssetDto] {
         let all = app.snapshot?.assets ?? []
@@ -422,6 +423,13 @@ private struct AssetGalleryView: View {
         return layouts.first
     }
 
+    private var currentPreviewCount: Int {
+        assets.count { asset in
+            guard let revision = asset.visualRevision else { return false }
+            return app.galleryDisplayedRevisions[asset.assetId] == revision
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: 8) {
@@ -431,10 +439,21 @@ private struct AssetGalleryView: View {
                     Text("\(assets.count) asset\(assets.count == 1 ? "" : "s")")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if !assets.isEmpty, currentPreviewCount < assets.count {
+                        ProgressView(
+                            value: Double(currentPreviewCount),
+                            total: Double(assets.count)
+                        )
+                        .progressViewStyle(.linear)
+                        .frame(maxWidth: 88)
+                        .help("Showing the best available previews while fresher ones load")
+                    }
                     Spacer()
-                    Picker("View", selection: $gridScale) {
-                        Image(systemName: "square.grid.2x2").tag(GalleryGridScale.comfortable)
-                        Image(systemName: "square.grid.3x3").tag(GalleryGridScale.compact)
+                    Picker("View", selection: $viewStyle) {
+                        Image(systemName: "rectangle.grid.2x2")
+                            .tag(GalleryViewStyle.photoGrid)
+                        Image(systemName: "list.bullet.rectangle")
+                            .tag(GalleryViewStyle.detailGrid)
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
@@ -445,18 +464,31 @@ private struct AssetGalleryView: View {
             Divider()
             if !assets.isEmpty {
                 ScrollView {
-                    LazyVGrid(columns: columns, spacing: 10) {
+                    LazyVGrid(
+                        columns: columns,
+                        spacing: viewStyle == .photoGrid ? 4 : 10
+                    ) {
                         ForEach(assets, id: \.assetId) { asset in
                             AssetCard(
                                 asset: asset,
                                 reference: app.galleryProxies[asset.assetId],
+                                nativeThumbnail: app.galleryNativeThumbnails[asset.assetId],
+                                activity: app.galleryPreviewActivities[asset.assetId],
+                                isStale: asset.visualRevision.map {
+                                    app.galleryDisplayedRevisions[asset.assetId] != $0
+                                } ?? false,
+                                style: viewStyle,
                                 selected: workspace.selectedAssetID == asset.assetId
                             ) {
                                 workspace.selectedAssetID = asset.assetId
+                            } open: {
+                                app.openGalleryAsset(assetID: asset.assetId)
                             } assign: {
                                 assign(asset.assetId)
                             }
-                            .task { app.requestGalleryThumbnail(assetID: asset.assetId) }
+                            .task(id: asset.visualRevision) {
+                                app.requestGalleryThumbnail(assetID: asset.assetId)
+                            }
                         }
                     }
                     .padding(10)
@@ -486,11 +518,19 @@ private struct AssetGalleryView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onChange(of: assets.map(\.assetId)) {
+            if let selected = workspace.selectedAssetID,
+               !assets.contains(where: { $0.assetId == selected })
+            {
+                workspace.selectedAssetID = nil
+            }
+        }
     }
 
     private var columns: [GridItem] {
-        let width: CGFloat = gridScale == .comfortable ? 112 : 86
-        return [GridItem(.adaptive(minimum: width, maximum: width * 1.35), spacing: 10)]
+        let width: CGFloat = viewStyle == .photoGrid ? 108 : 124
+        let spacing: CGFloat = viewStyle == .photoGrid ? 4 : 10
+        return [GridItem(.adaptive(minimum: width, maximum: width * 1.2), spacing: spacing)]
     }
 
     private func assign(_ assetID: String) {
@@ -518,34 +558,50 @@ private struct AssetGalleryView: View {
     }
 }
 
-private enum GalleryGridScale: Hashable {
-    case comfortable
-    case compact
+private enum GalleryViewStyle: Hashable {
+    case photoGrid
+    case detailGrid
 }
 
 private struct AssetCard: View {
     let asset: BridgeAssetDto
     let reference: BridgeProxyReference?
+    let nativeThumbnail: NSImage?
+    let activity: GalleryPreviewActivity?
+    let isStale: Bool
+    let style: GalleryViewStyle
     let selected: Bool
     let select: () -> Void
+    let open: () -> Void
     let assign: () -> Void
 
     var body: some View {
         Button(action: select) {
             VStack(alignment: .leading, spacing: 5) {
                 ZStack(alignment: .topLeading) {
-                    GalleryThumbnail(reference: reference)
-                    Text("\(asset.representationCount) reps")
-                        .font(.system(size: 9, weight: .semibold))
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 3)
-                        .background(.ultraThinMaterial, in: Capsule())
+                    GalleryThumbnail(
+                        reference: reference,
+                        nativeThumbnail: nativeThumbnail,
+                        fillsFrame: style == .photoGrid
+                    )
+                    if asset.representationCount > 1 {
+                        Text("\(asset.representationCount) reps")
+                            .font(.system(size: 8, weight: .semibold))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 3)
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .padding(5)
+                    }
+                    PreviewActivityBadge(activity: activity, isStale: isStale)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                         .padding(5)
                 }
-                Text(asset.displayName)
-                    .font(.caption)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                if style == .detailGrid {
+                    Text(asset.displayName)
+                        .font(.caption2)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
             }
             .contentShape(Rectangle())
         }
@@ -559,33 +615,94 @@ private struct AssetCard: View {
             RoundedRectangle(cornerRadius: 7)
                 .stroke(selected ? Color.accentColor : .clear, lineWidth: 1.5)
         }
-        .simultaneousGesture(TapGesture(count: 2).onEnded(assign))
+        .simultaneousGesture(TapGesture(count: 2).onEnded(open))
         .contextMenu {
+            Button("Open in Default Application", action: open)
             Button("Assign to Selected Cell", action: assign)
+        }
+    }
+}
+
+private struct PreviewActivityBadge: View {
+    let activity: GalleryPreviewActivity?
+    let isStale: Bool
+
+    var body: some View {
+        if activity == .loading {
+            ProgressView()
+                .controlSize(.mini)
+                .padding(5)
+                .background(.ultraThinMaterial, in: Circle())
+                .help("Loading preview")
+        } else if activity == .updating || isStale {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.system(size: 10, weight: .semibold))
+                .padding(5)
+                .background(.ultraThinMaterial, in: Circle())
+                .help("Showing an older preview while the current preview loads")
+        } else if activity == .failed {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.yellow)
+                .padding(5)
+                .background(.ultraThinMaterial, in: Circle())
+                .help("Preview unavailable")
         }
     }
 }
 
 private struct GalleryThumbnail: View {
     let reference: BridgeProxyReference?
+    let nativeThumbnail: NSImage?
+    let fillsFrame: Bool
 
     var body: some View {
-        Group {
-            if let path = reference?.descriptor().localPath,
-               let image = NSImage(contentsOfFile: path) {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Image(systemName: "photo")
-                    .foregroundStyle(.secondary)
-            }
+        GeometryReader { geometry in
+            previewContent
+                .allowedDynamicRange(.constrainedHigh)
+                .frame(
+                    width: geometry.size.width,
+                    height: geometry.size.height,
+                    alignment: .center
+                )
+                .clipped()
         }
-        .aspectRatio(4 / 3, contentMode: .fit)
-        .frame(maxWidth: .infinity)
+        .aspectRatio(1, contentMode: .fit)
         .clipped()
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
         .clipShape(RoundedRectangle(cornerRadius: 5))
+    }
+
+    @ViewBuilder
+    private var previewContent: some View {
+        if let path = reference?.descriptor().localPath,
+           let image = NSImage(contentsOfFile: path) {
+            renderedImage(image)
+        } else if let nativeThumbnail {
+            renderedImage(nativeThumbnail)
+        } else {
+            Image(systemName: "photo.on.rectangle")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    @ViewBuilder
+    private func renderedImage(_ image: NSImage) -> some View {
+        if fillsFrame {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+        } else {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+        }
     }
 }
 
@@ -595,7 +712,10 @@ private struct SpatialGraphView: View {
     @State private var pan: CGSize = .zero
     @State private var zoom: CGFloat = 1
     @State private var showsNodeMenu = false
+    @State private var showsPointerNodeMenu = false
     @State private var nodeFilter = ""
+    @State private var graphPointerLocation: CGPoint?
+    @State private var tabKeyMonitor: Any?
     @FocusState private var graphHasFocus: Bool
     @GestureState private var dragPan: CGSize = .zero
     @GestureState private var magnification: CGFloat = 1
@@ -607,48 +727,7 @@ private struct SpatialGraphView: View {
                     showsNodeMenu.toggle()
                 }
                 .popover(isPresented: $showsNodeMenu, arrowEdge: .bottom) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Add Node")
-                            .font(.headline)
-                        TextField("Search nodes", text: $nodeFilter)
-                            .textFieldStyle(.roundedBorder)
-                        let definitions = filteredDefinitions
-                        let categories = Dictionary(grouping: definitions) {
-                            $0.catalogPath.first ?? "Other"
-                        }
-                        ForEach(categories.keys.sorted(), id: \.self) { category in
-                            Text(category.uppercased())
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            ForEach(categories[category] ?? [], id: \.definitionId) { definition in
-                                Button {
-                                    app.addNode(definition)
-                                    showsNodeMenu = false
-                                    nodeFilter = ""
-                                } label: {
-                                    HStack(spacing: 10) {
-                                        NodeBrandIcon(
-                                            resourceID: definition.iconResourceId,
-                                            accentHex: definition.accentSrgbHex,
-                                            size: 28
-                                        )
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(definition.brandName)
-                                                .font(.subheadline.weight(.semibold))
-                                            Text(definition.catalogPath.dropFirst().joined(separator: " › "))
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                        Spacer(minLength: 8)
-                                    }
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    .padding(12)
-                    .frame(width: 310, alignment: .leading)
+                    nodeCatalog
                 }
                 Button("Lock", systemImage: "lock.open") {}
                     .disabled(true)
@@ -684,6 +763,12 @@ private struct SpatialGraphView: View {
                 let positions = graphPositions(nodes: nodes, size: geometry.size)
                 ZStack {
                     GraphBackground()
+                    Color.clear
+                        .frame(width: 2, height: 2)
+                        .position(nodeMenuAnchor(in: geometry.size))
+                        .popover(isPresented: $showsPointerNodeMenu, arrowEdge: .top) {
+                            nodeCatalog
+                        }
                     Canvas { context, _ in
                         for connection in app.snapshot?.graph.connections ?? [] {
                             guard let source = positions[connection.outputNodeId],
@@ -713,8 +798,10 @@ private struct SpatialGraphView: View {
                         .position(positions[node.nodeId] ?? .zero)
                         .onTapGesture(count: 2) {
                             workspace.selectedNodeID = node.nodeId
-                            if node.hasWorkspace {
+                            if node.defaultActivationId == "photara.layout.open-workspace" {
                                 workspace.activateWorkspace(for: node.nodeId)
+                            } else {
+                                app.performDefaultActivation(for: node)
                             }
                         }
                         .onTapGesture {
@@ -728,6 +815,11 @@ private struct SpatialGraphView: View {
                     y: pan.height + dragPan.height
                 )
                 .contentShape(Rectangle())
+                .onContinuousHover(coordinateSpace: .local) { phase in
+                    if case let .active(location) = phase {
+                        graphPointerLocation = location
+                    }
+                }
                 .gesture(
                     DragGesture()
                         .updating($dragPan) { value, state, _ in state = value.translation }
@@ -762,11 +854,11 @@ private struct SpatialGraphView: View {
             .focusable()
             .focused($graphHasFocus)
             .onKeyPress(.tab) {
-                showsNodeMenu = true
+                showsPointerNodeMenu = true
                 return .handled
             }
             .onChange(of: workspace.nodeMenuRequest) {
-                showsNodeMenu = true
+                showsPointerNodeMenu = true
                 graphHasFocus = true
             }
             .onTapGesture {
@@ -774,6 +866,78 @@ private struct SpatialGraphView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            tabKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                guard event.keyCode == 48,
+                      modifiers.isEmpty,
+                      !showsNodeMenu,
+                      !showsPointerNodeMenu
+                else { return event }
+                showsPointerNodeMenu = true
+                return nil
+            }
+        }
+        .onDisappear {
+            if let tabKeyMonitor {
+                NSEvent.removeMonitor(tabKeyMonitor)
+                self.tabKeyMonitor = nil
+            }
+        }
+    }
+
+    private var nodeCatalog: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Add Node")
+                .font(.headline)
+            TextField("Search nodes", text: $nodeFilter)
+                .textFieldStyle(.roundedBorder)
+            let definitions = filteredDefinitions
+            let categories = Dictionary(grouping: definitions) {
+                $0.catalogPath.first ?? "Other"
+            }
+            ForEach(categories.keys.sorted(), id: \.self) { category in
+                Text(category.uppercased())
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                ForEach(categories[category] ?? [], id: \.definitionId) { definition in
+                    Button {
+                        app.addNode(definition)
+                        showsNodeMenu = false
+                        showsPointerNodeMenu = false
+                        nodeFilter = ""
+                    } label: {
+                        HStack(spacing: 10) {
+                            NodeBrandIcon(
+                                resourceID: definition.iconResourceId,
+                                accentHex: definition.accentSrgbHex,
+                                size: 28
+                            )
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(definition.brandName)
+                                    .font(.subheadline.weight(.semibold))
+                                Text(definition.catalogPath.dropFirst().joined(separator: " › "))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 8)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(12)
+        .frame(width: 310, alignment: .leading)
+    }
+
+    private func nodeMenuAnchor(in size: CGSize) -> CGPoint {
+        let location = graphPointerLocation ?? CGPoint(x: size.width / 2, y: size.height / 2)
+        return CGPoint(
+            x: min(max(24, location.x), max(24, size.width - 24)),
+            y: min(max(24, location.y), max(24, size.height - 24))
+        )
     }
 
     private var filteredDefinitions: [BridgeAvailableNodeDefinitionDto] {
@@ -999,6 +1163,16 @@ private struct LayoutInspectorView: View {
                         }
                         Button("Scan Folder", systemImage: "arrow.clockwise") {
                             app.scanDisk(node)
+                        }
+                        .disabled(app.scanningDiskNodeIDs.contains(node.nodeId))
+                        if app.scanningDiskNodeIDs.contains(node.nodeId) {
+                            HStack {
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text("Fingerprinting changed files…")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         Button("Connect to Available Layout", systemImage: "point.3.connected.trianglepath.dotted") {
                             app.connectDiskToAvailableLayout(node)
@@ -1531,6 +1705,10 @@ private struct LayoutCanvasCell: View {
                     }
                 }
                 .padding(5)
+            } else if let image = app.layoutNativeThumbnails[cell.cellId] {
+                proxyImage(image)
+                    .rotationEffect(rotation(cell.quarterTurn))
+                    .offset(draftTranslation)
             } else {
                 Image(systemName: cell.assetId == nil ? "plus" : "photo")
                     .font(.title2)
@@ -1560,9 +1738,15 @@ private struct LayoutCanvasCell: View {
     private func proxyImage(_ image: NSImage) -> some View {
         switch cell.contentMode {
         case .fit:
-            Image(nsImage: image).resizable().scaledToFit()
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+                .allowedDynamicRange(.constrainedHigh)
         case .fill, .crop:
-            Image(nsImage: image).resizable().scaledToFill()
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFill()
+                .allowedDynamicRange(.constrainedHigh)
         }
     }
 

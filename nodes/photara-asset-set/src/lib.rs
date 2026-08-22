@@ -73,6 +73,7 @@ impl NodePackage for AssetSetNodePackage {
                 catalog_visibility: NodeCatalogVisibility::Hidden,
                 inspector_contribution_id: Some("photara.asset-set.inspector".to_owned()),
                 workspace_contribution_id: None,
+                default_activation_id: None,
             },
         )
         .expect("built-in presentation metadata is valid");

@@ -283,6 +283,7 @@ fn representation(
         id: AssetRepresentationId::new(),
         role: RepresentationRoleId::parse(role).expect("built-in representation role is valid"),
         fingerprint,
+        revision_evidence: photara_core::RepresentationRevisionEvidence::ContentDigest,
         capabilities: [
             IMAGE_CAPABILITY_ID,
             TIFF_CAPABILITY_ID,

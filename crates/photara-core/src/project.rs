@@ -708,6 +708,7 @@ mod tests {
                 id: AssetRepresentationId::new(),
                 role: RepresentationRoleId::parse("example.rendition.original").unwrap(),
                 fingerprint: RepresentationFingerprint::sha256([9; 32]),
+                revision_evidence: crate::RepresentationRevisionEvidence::ContentDigest,
                 capabilities: BTreeSet::new(),
                 binding: RepresentationBinding::ProjectResource { resource_id },
                 extensions: BTreeMap::from([(

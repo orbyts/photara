@@ -20,9 +20,9 @@ pub use asset::{
     MaterializedRepresentation, ORIGINAL_REPRESENTATION_ROLE_ID, ProjectAsset, ProjectAssetContext,
     RAW_PREVIEW_REPRESENTATION_ROLE_ID, RepresentationAvailability, RepresentationBinding,
     RepresentationDescriptor, RepresentationFingerprint, RepresentationMaterializationError,
-    RepresentationMaterializationRequest, RepresentationMaterializer, SDR_CAPABILITY_ID,
-    SDR_REPRESENTATION_ROLE_ID, TIFF_CAPABILITY_ID, asset_set_value_type_descriptor,
-    asset_set_value_type_ref,
+    RepresentationMaterializationRequest, RepresentationMaterializer,
+    RepresentationRevisionEvidence, SDR_CAPABILITY_ID, SDR_REPRESENTATION_ROLE_ID,
+    TIFF_CAPABILITY_ID, asset_set_value_type_descriptor, asset_set_value_type_ref,
 };
 pub use canonical::{CanonicalDigest, canonical_digest, canonical_json};
 pub use command::{

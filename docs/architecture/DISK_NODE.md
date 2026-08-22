@@ -59,16 +59,45 @@ asset membership, or downstream authored state.
 ## Live-data reconciliation
 
 Scanning is an explicit user or evaluation request, not an undeclared project
-side effect. The host fingerprints supported representations and prepares a
-reconciliation proposal. One revision-checked Core command atomically publishes
-accepted asset/representation changes and the Disk node's ordered AssetSet.
-Changed bytes update representation fingerprints; stable files retain semantic
-identity; disappeared or inaccessible files are diagnosed according to scan
-policy rather than silently destroying identity.
+side effect. The first pass enumerates supported files and derives cheap
+filesystem observation fingerprints without reading their contents. One
+revision-checked Core command immediately publishes those assets and the Disk
+node's ordered AssetSet. A utility-priority pass then streams and hashes bytes
+and publishes content-verified fingerprints through a second revision-checked
+reconciliation. Changed bytes update representation fingerprints; stable files
+retain semantic identity; disappeared or inaccessible files are diagnosed
+according to scan policy rather than silently destroying identity.
 
-The first Stage 9 adapter may support a deliberately narrow visual-file subset
-needed by real Layout projects. Format/container metadata remains separate from
-consumer capabilities, and the node contract is not TIFF-specific.
+This two-phase scan deliberately favors first visibility for NAS, Wi-Fi, and
+File Provider folders. Native clients may request low-cost OS thumbnails as
+soon as the observation pass lands, retain stale thumbnails while refreshing,
+and expose progress. Authoritative processing may require content-verified
+evidence; disposable previews may use a just-revalidated observation.
+
+For giant Photoshop TIFFs, the observation is revalidated immediately before a
+disposable tiny proxy is generated; a full content digest is not a prerequisite
+for first pixels. Initially requested previews drain before the whole-byte
+verification pass begins, preventing verification from monopolizing storage and
+CPU during Gallery presentation. The verified digest can then promote the
+already displayed preview without regenerating identical pixels.
+
+Reconciliation replaces only the Disk node's previously accepted membership:
+old source assets are removed, new or changed assets are upserted, and unrelated
+project/import/provider assets are retained. A successful user rebind first
+publishes an explicit empty membership so Gallery cannot continue presenting
+the prior folder while the new folder is fingerprinted in the background.
+
+The Stage 9 adapter discovers common camera RAW formats plus TIFF, JPEG, PNG,
+HEIF/HEIC, AVIF, JPEG XL, PSD/PSB, EXR, WebP, GIF, and BMP. This extension list
+is permissive discovery, not a promise that every installed platform decoder
+can render every encoding. A discovered asset whose preview cannot be decoded
+remains visible with an explicit runtime failure. Format/container metadata
+remains separate from consumer capabilities, and the node contract is neither
+TIFF-specific nor limited to still images in its future shape. Video is deferred.
+
+The macOS grant flow selects a directory. Individual files are therefore
+intentionally disabled in the open panel; supported contents are enumerated
+after the user grants the containing folder.
 
 ## Catalog and presentation
 
@@ -80,7 +109,14 @@ presentation metadata; they are not Core evaluator variants.
 Disk uses the generic Inspector plus a compact definition-specific control
 surface for choosing/rebinding the folder, scan policy, refresh, availability,
 and diagnostics. It does not advertise a rich canvas Workspace. Layout remains
-the first node that does.
+the first node that does. Disk's definition-owned default activation opens its
+currently granted folder in Finder on macOS; if no device grant is available,
+the client presents the ordinary folder picker. This activation is native
+presentation behavior and cannot mutate graph semantics.
+
+Disk deliberately enumerates each supported file as its own asset, like a
+Finder view. It does not infer HDR/SDR pairs from names or neighboring files;
+pairing or grouping is an explicit future workflow operation.
 
 ## Persistence boundary
 

@@ -192,6 +192,22 @@ one active generation. The bound is explicit and configurable; it is not based
 on core count. The service tests separately prove that deduplicated followers
 do not consume this single slot.
 
+The later tiny-preview live-data measurement adds a separate native-client
+policy without weakening that conservative library default. Four independent
+384 px F16 generations from representative 60 MP, 32-bit float LZW TIFFs each
+completed in 2.60–2.66 seconds on Quasar with about 733 MiB peak process
+footprint. The macOS application consequently requests four project generation
+slots on hosts with at least 64 GiB physical memory, two on hosts with at least
+24 GiB, and one below 24 GiB. A device preference may select 1–4 explicitly.
+This is a measured memory tier, not `activeProcessorCount`; the service still
+deduplicates before scheduling.
+
+The helper creates a default Core Image context with intermediate caching
+disabled, allowing Core Image to choose GPU execution where useful. For these
+sources, concurrent timings and prior CPU/GPU comparisons show the compressed
+ImageIO/LZW decode and memory traffic dominate. GPU availability is therefore
+not treated as permission for unbounded scheduling.
+
 Raw concurrency samples are in
 [`benchmarks/proxy-concurrency/results/quasar-2026-08-21.csv`](../../benchmarks/proxy-concurrency/results/quasar-2026-08-21.csv).
 
@@ -209,3 +225,80 @@ the returned `LayoutProxySet` ephemerally. The set is not serializable; cache
 keys, descriptors, leases, and local paths cannot enter Layout state or plan.
 Consequently proxy failure or complete cache deletion cannot invalidate a
 project's authored Layout.
+
+## Native fast presentation path
+
+On macOS, a locally materialized representation may be shown immediately with
+Quick Look Thumbnailing while a verified project proxy is unavailable. The
+facade exposes only a runtime local source and fingerprint for this purpose;
+the native thumbnail, request state, and path are presentation data and never
+enter the Project Document, graph digest, Layout state, or shared proxy cache.
+Gallery uses this as its cheap Finder-like path and does not infer that separate
+HDR and SDR files form a semantic pair. When one semantic asset explicitly has
+paired renditions, the native selector prefers HDR and lets the display pipeline
+constrain or tone-map it; SDR remains the failure fallback.
+
+The initial consumer tiers are deliberately simple:
+
+- `gallery/tiny`: approximately 256–512 px, cheapest available native,
+  embedded, provider, or cached preview, HDR-presenting where the platform and
+  source support it;
+- `authoring`: approximately 1K by default, optionally up to 2K as device/user
+  runtime policy, verified, color-described, and HDR-preserving where
+  appropriate for Layout and detailed inspection.
+
+Layout first shows the cheapest available tiny tier for responsive composition, then
+replaces it with the shared verified F16, embedded-color authoring preview. The
+authoring tier is for crop and layout judgment, not high-resolution editing or
+export. The macOS client initially requests 1024 px and may choose 512 or 2048
+through device/runtime preference without changing Layout or project semantics.
+The requested size is part of the exact proxy profile and cache key. Normalized
+Core crop geometry remains independent of preview resolution. Generation
+remains explicitly memory-bounded because the measured 2K path for a 42.7 MP
+source reached roughly 954 MiB peak RSS. The service default is one; the native
+client may request the documented 1/2/4 memory-tiered limit.
+
+Swift constrains HDR headroom for mixed thumbnail strips and Layout canvases
+with `allowedDynamicRange(.constrainedHigh)`. HDR-capable displays therefore
+retain controlled highlight separation; SDR displays use the system's display
+mapping. Quick Look's behavior for each source format remains a platform fast
+path to validate visually, not a portable color guarantee. The verified proxy
+is the color-described fallback for Layout. Representation selection first
+honors an explicit requested HDR/SDR capability and may fall back to a generic
+visual representation when a Finder-like provider has not yet classified its
+dynamic range.
+
+The governing presentation order is: publish assets after cheap discovery,
+progressively show the best available preview, and verify bytes in the
+background. On macOS Gallery first asks Quick Look for its cheapest available
+representation, then its full thumbnail. A previously displayed revision stays
+visible while either step refreshes and carries an updating marker. Only after
+byte verification may the request fall back to or upgrade through the shared
+content-verified proxy service. Discovery therefore never blocks on hashing or
+high-quality generation, while observed fingerprints can never accidentally be
+treated as content digests by the materializer.
+
+This is a provider-neutral ladder, not a Quick Look requirement: a future node
+may supply an embedded preview or provider thumbnail first, then a local native
+preview, stale shared proxy, current shared proxy, or another explicitly
+described tier. The asset/representation remains authoritative; preview tier,
+freshness, progress, failure, and local display image remain runtime
+observations.
+
+Real-project measurement refined the macOS first tier. On Quasar, Quick Look
+did not return a 384 px thumbnail from the representative 6336×9504, 32-bit
+float, LZW Photoshop TIFF within 60 seconds. The existing measured
+`ImageIO`/Core Image helper produced a 384 px F16 HDR preview from that exact
+761 MiB file in 2.91 seconds. Disk TIFFs therefore bypass Quick Look and enter a
+bounded one-job `gallery-hdr` profile immediately. Other formats retain the
+bounded progressive Quick Look path until measured evidence selects a better
+provider. This is backend routing behind the same tiny-preview contract, not a
+TIFF rule in Core.
+
+Observation fingerprints are sufficient for this disposable preview tier when
+the materializer rechecks the same size/modification-time evidence immediately
+before generation. Full SHA-256 verification remains a later background phase
+and begins only after initially requested previews are terminal. Provider
+revision evidence follows the same model through its provider adapter. Any
+authoritative export/evidence workflow may demand stronger content evidence;
+presentation must not force that cost across every discovered asset.

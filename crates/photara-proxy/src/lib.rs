@@ -23,12 +23,12 @@ use std::{
 };
 
 use photara_core::{
-    AssetId, ColorSpaceId, HDR_CAPABILITY_ID, MaterializedRepresentation, ProjectAssetContext,
-    ProjectId, ProxyAlphaPolicy, ProxyCacheKey, ProxyChannelDepth, ProxyColorPolicy,
-    ProxyDescriptor, ProxyDynamicRangeDescription, ProxyDynamicRangePolicy, ProxyEncodingId,
-    ProxyEncodingRef, ProxyEncodingVersion, ProxyGeneratorRef, ProxyOrientationPolicy,
-    ProxyProfile, ProxyProfileId, ProxyProfileVersion, ProxyPurpose, ProxyRenderingIntent,
-    ProxyRequest, ProxyResamplingFilter, ProxySizing, ProxyStoredOrientation,
+    AssetId, ColorSpaceId, HDR_CAPABILITY_ID, IMAGE_CAPABILITY_ID, MaterializedRepresentation,
+    ProjectAssetContext, ProjectId, ProxyAlphaPolicy, ProxyCacheKey, ProxyChannelDepth,
+    ProxyColorPolicy, ProxyDescriptor, ProxyDynamicRangeDescription, ProxyDynamicRangePolicy,
+    ProxyEncodingId, ProxyEncodingRef, ProxyEncodingVersion, ProxyGeneratorRef,
+    ProxyOrientationPolicy, ProxyProfile, ProxyProfileId, ProxyProfileVersion, ProxyPurpose,
+    ProxyRenderingIntent, ProxyRequest, ProxyResamplingFilter, ProxySizing, ProxyStoredOrientation,
     RepresentationFingerprint, RepresentationMaterializationError,
     RepresentationMaterializationRequest, RepresentationMaterializer, RequestId, SDR_CAPABILITY_ID,
     ToneMapOperatorId, ToneMapPolicy, ToneMapVersion,
@@ -108,6 +108,14 @@ impl<G: ProxyGenerator> ProjectVisualProxyService for AssetContextProjectProxySe
                     .iter()
                     .any(|capability| capability.as_str() == desired_capability)
             })
+            .or_else(|| {
+                asset.representations.iter().find(|representation| {
+                    representation
+                        .capabilities
+                        .iter()
+                        .any(|capability| capability.as_str() == IMAGE_CAPABILITY_ID)
+                })
+            })
             .ok_or(ProxyServiceError::NoCompatibleRepresentation {
                 asset_id: request.asset_id,
                 required_capability: desired_capability,
@@ -166,6 +174,62 @@ pub fn standard_sdr_thumbnail_profile() -> ProxyProfile {
             version: ProxyEncodingVersion::first(),
         },
     }
+}
+
+/// Small HDR-preserving Gallery preview for sources whose native thumbnail
+/// provider is not responsive or color-correct.
+///
+/// The 384 px default sits inside the 256–512 px tiny-preview tier. It uses the
+/// same measured float `ImageIO` path as authoring previews while keeping output
+/// and cache cost substantially smaller.
+///
+/// # Panics
+///
+/// Panics only if Photara's compile-time built-in IDs or size are invalid.
+#[must_use]
+pub fn standard_gallery_preview_profile() -> ProxyProfile {
+    let mut profile = standard_hdr_authoring_preview_profile();
+    profile.id =
+        ProxyProfileId::parse("photara.proxy.gallery-hdr").expect("built-in profile ID is valid");
+    profile.purpose = ProxyPurpose::Thumbnail;
+    profile.sizing = ProxySizing::LongEdge {
+        pixels: NonZeroU32::new(384).expect("built-in size is nonzero"),
+    };
+    profile
+}
+
+/// HDR-preserving authoring image for Layout composition and crop UI.
+///
+/// This is intentionally not a high-quality editing or export representation.
+/// Final authored geometry remains normalized Core state applied to originals
+/// by downstream provider/render nodes. Native clients constrain its displayed
+/// headroom for mixed thumbnail/workspace presentation and let the OS tone-map
+/// it on SDR displays.
+///
+/// # Panics
+///
+/// Panics only if Photara's compile-time built-in profile ID or size is invalid.
+#[must_use]
+pub fn standard_layout_interaction_preview_profile() -> ProxyProfile {
+    layout_interaction_preview_profile(NonZeroU32::new(1_024).expect("built-in size is nonzero"))
+}
+
+/// Builds the Layout authoring profile for a device-selected preview size.
+///
+/// The size is runtime presentation policy and remains outside authored Layout
+/// state. It is part of the complete proxy profile, so different choices have
+/// distinct cache identities and may safely coexist.
+///
+/// # Panics
+///
+/// Panics only if Photara's compile-time built-in profile ID is invalid.
+#[must_use]
+pub fn layout_interaction_preview_profile(long_edge: NonZeroU32) -> ProxyProfile {
+    let mut profile = standard_hdr_authoring_preview_profile();
+    profile.id = ProxyProfileId::parse("photara.proxy.layout-interaction-hdr")
+        .expect("built-in profile ID is valid");
+    profile.sizing = ProxySizing::LongEdge { pixels: long_edge };
+    profile
 }
 
 /// Initial reusable HDR authoring-preview profile measured in Stage 6A.

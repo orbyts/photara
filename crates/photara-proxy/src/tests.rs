@@ -388,3 +388,43 @@ fn conservative_policy_is_one_job_and_not_cpu_derived() {
     let config = ProxyServiceConfig::conservative("cache", 1024);
     assert_eq!(config.max_concurrent_generations, NonZeroUsize::MIN);
 }
+
+#[test]
+fn layout_interaction_profile_defaults_to_1k_and_is_hdr_preserving() {
+    let profile = standard_layout_interaction_preview_profile();
+    assert_eq!(profile.purpose, ProxyPurpose::AuthoringPreview);
+    assert_eq!(
+        profile.sizing,
+        ProxySizing::LongEdge {
+            pixels: NonZeroU32::new(1_024).unwrap()
+        }
+    );
+    assert_eq!(profile.channel_depth, ProxyChannelDepth::F16);
+    assert_eq!(
+        profile.dynamic_range,
+        ProxyDynamicRangePolicy::PreserveSource
+    );
+
+    let larger = crate::layout_interaction_preview_profile(NonZeroU32::new(2_048).unwrap());
+    assert_ne!(
+        profile.exact_ref().unwrap().digest,
+        larger.exact_ref().unwrap().digest
+    );
+}
+
+#[test]
+fn gallery_profile_is_a_tiny_hdr_preserving_tier() {
+    let profile = crate::standard_gallery_preview_profile();
+    assert_eq!(profile.purpose, ProxyPurpose::Thumbnail);
+    assert_eq!(
+        profile.sizing,
+        ProxySizing::LongEdge {
+            pixels: NonZeroU32::new(384).unwrap()
+        }
+    );
+    assert_eq!(profile.channel_depth, ProxyChannelDepth::F16);
+    assert_eq!(
+        profile.dynamic_range,
+        ProxyDynamicRangePolicy::PreserveSource
+    );
+}

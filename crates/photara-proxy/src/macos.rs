@@ -166,7 +166,7 @@ fn supported_mode(
             Ok(("thumbnail-sdr", pixels))
         }
         (
-            ProxyPurpose::AuthoringPreview,
+            ProxyPurpose::AuthoringPreview | ProxyPurpose::Thumbnail,
             ProxyChannelDepth::F16,
             ProxyDynamicRangePolicy::PreserveSource,
             TIFF_ENCODING_ID,
@@ -192,8 +192,12 @@ mod tests {
     #[test]
     fn adapter_accepts_only_the_measured_exact_profile_policies() {
         let thumbnail = crate::standard_sdr_thumbnail_profile();
+        let gallery = crate::standard_gallery_preview_profile();
+        let layout = crate::standard_layout_interaction_preview_profile();
         let hdr = crate::standard_hdr_authoring_preview_profile();
         assert_eq!(supported_mode(&thumbnail).unwrap().0, "thumbnail-sdr");
+        assert_eq!(supported_mode(&gallery).unwrap().0, "authoring-hdr");
+        assert_eq!(supported_mode(&layout).unwrap().0, "authoring-hdr");
         assert_eq!(supported_mode(&hdr).unwrap().0, "authoring-hdr");
 
         let mut changed_intent = thumbnail;

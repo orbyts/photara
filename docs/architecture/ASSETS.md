@@ -12,7 +12,7 @@ records. A representation is one concrete rendition of the asset and carries:
 
 - `AssetRepresentationId`;
 - a namespaced semantic role;
-- an immutable SHA-256 content fingerprint;
+- a revision fingerprint plus explicit evidence kind;
 - namespaced capabilities;
 - a portable project-resource or stable runtime-resolution binding;
 - forward-compatible portable extensions.
@@ -38,6 +38,16 @@ resource binding points to a `ProjectResourceId`, whose path may change without
 changing either semantic identity or the content fingerprint. When upstream
 content changes, the representation keeps its identity but receives a new
 fingerprint. Future proxy keys therefore change naturally.
+
+The fingerprint is the representation's current cache/revision identity, but
+`revision_evidence` states how that identity was obtained. `content-digest`
+means Photara verified the source bytes; `provider-revision` is a provider's
+stable revision/version contract; and `file-observation` is cheap filesystem
+evidence such as size plus modification time. Cheap evidence lets a provider
+publish an asset immediately without pretending that it already read a large
+remote file. A verified materializer or production proxy accepts only evidence
+strong enough for its contract. Older project documents omit this field and
+therefore default to the historical `content-digest` meaning.
 
 ## Bindings and configurable placement
 
@@ -79,6 +89,11 @@ names the asset, representation, and expected fingerprint. A materializer
 reports available, missing, or inaccessible and returns a verified local path
 only at runtime. It rejects stale requests and files whose current SHA-256 no
 longer matches the portable descriptor.
+
+Preview readiness is not one authoritative asset status. Native clients observe
+the best currently displayed revision and its transient loading, updating,
+ready, or failed activity per preview profile. Those observations may differ
+between devices and consumers and never enter the project or graph digest.
 
 The portable schema rejects availability, materialization, proxy, thumbnail,
 preview, cache, credential, workspace, and Gallery-selection extension fields.
