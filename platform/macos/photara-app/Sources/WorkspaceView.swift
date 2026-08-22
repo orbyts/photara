@@ -408,6 +408,7 @@ private struct AssetGalleryView: View {
     @EnvironmentObject private var workspace: WorkspaceModel
     @State private var viewStyle: GalleryViewStyle = .photoGrid
     @State private var fullImageAssetID: String?
+    @State private var thumbnailSize: Double = 112
 
     private var assets: [BridgeAssetDto] {
         let all = app.snapshot?.assets ?? []
@@ -468,7 +469,10 @@ private struct AssetGalleryView: View {
             if !assets.isEmpty {
                 ScrollView {
                     if viewStyle == .photoGrid {
-                        PhotoGridLayout(spacing: 2, targetRowHeight: 112) {
+                        PhotoGridLayout(
+                            spacing: 2,
+                            targetRowHeight: CGFloat(thumbnailSize)
+                        ) {
                             ForEach(assets, id: \.assetId) { asset in
                                 card(for: asset)
                                     .layoutValue(
@@ -493,19 +497,28 @@ private struct AssetGalleryView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
+                    Image(systemName: "photo")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Slider(value: $thumbnailSize, in: 76...220)
+                        .frame(width: 92)
+                        .help("Thumbnail size")
+                    Image(systemName: "photo.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Button("View", systemImage: "arrow.up.left.and.arrow.down.right") {
                         fullImageAssetID = workspace.selectedAssetID
                     }
                     .controlSize(.small)
-                    .disabled(selectedProxy == nil)
+                    .disabled(!selectedProxyIsReady)
                     Button("Assign to Cell", systemImage: "arrow.left.circle") {
                         guard let assetID = workspace.selectedAssetID else { return }
                         assign(assetID)
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
+                    .disabled(workspace.selectedAssetID == nil || selectedLayout == nil)
                 }
-                .disabled(workspace.selectedAssetID == nil || selectedLayout == nil)
                 .padding(8)
             } else {
                 ContentUnavailableView(
@@ -526,33 +539,39 @@ private struct AssetGalleryView: View {
         }
         .sheet(
             isPresented: Binding(
-                get: { fullImageAssetID.flatMap(proxyForAsset) != nil },
+                get: {
+                    guard let assetID = fullImageAssetID else { return false }
+                    return app.galleryProxies[assetID] != nil
+                        && app.galleryProxyDescriptors[assetID] != nil
+                        && app.galleryProxyImages[assetID] != nil
+                },
                 set: { if !$0 { fullImageAssetID = nil } }
             )
         ) {
             if let assetID = fullImageAssetID,
                let asset = assets.first(where: { $0.assetId == assetID }),
-               let reference = proxyForAsset(assetID)
+               let descriptor = app.galleryProxyDescriptors[assetID],
+               let image = app.galleryProxyImages[assetID]
             {
-                GalleryFullImageView(asset: asset, reference: reference)
+                GalleryFullImageView(asset: asset, descriptor: descriptor, image: image)
             }
         }
     }
 
     private var squareColumns: [GridItem] {
-        [GridItem(.adaptive(minimum: 116, maximum: 144), spacing: 10)]
+        let size = CGFloat(thumbnailSize)
+        return [GridItem(.adaptive(minimum: size, maximum: size * 1.18), spacing: 8)]
     }
 
-    private var selectedProxy: BridgeProxyReference? {
-        workspace.selectedAssetID.flatMap(proxyForAsset)
-    }
-
-    private func proxyForAsset(_ assetID: String) -> BridgeProxyReference? {
-        app.galleryProxies[assetID]
+    private var selectedProxyIsReady: Bool {
+        guard let assetID = workspace.selectedAssetID else { return false }
+        return app.galleryProxies[assetID] != nil
+            && app.galleryProxyDescriptors[assetID] != nil
+            && app.galleryProxyImages[assetID] != nil
     }
 
     private func aspectRatio(for asset: BridgeAssetDto) -> CGFloat {
-        if let descriptor = app.galleryProxies[asset.assetId]?.descriptor(),
+        if let descriptor = app.galleryProxyDescriptors[asset.assetId],
            descriptor.pixelHeight > 0
         {
             return CGFloat(descriptor.pixelWidth) / CGFloat(descriptor.pixelHeight)
@@ -567,8 +586,10 @@ private struct AssetGalleryView: View {
         AssetCard(
             asset: asset,
             reference: app.galleryProxies[asset.assetId],
+            proxyImage: app.galleryProxyImages[asset.assetId],
             nativeThumbnail: app.galleryNativeThumbnails[asset.assetId],
             activity: app.galleryPreviewActivities[asset.assetId],
+            previewError: app.galleryPreviewErrors[asset.assetId],
             isStale: asset.visualRevision.map {
                 app.galleryDisplayedRevisions[asset.assetId] != $0
             } ?? false,
@@ -580,7 +601,10 @@ private struct AssetGalleryView: View {
         } open: {
             app.openGalleryAsset(assetID: asset.assetId)
         } viewFull: {
-            guard app.galleryProxies[asset.assetId] != nil else { return }
+            guard app.galleryProxies[asset.assetId] != nil,
+                  app.galleryProxyDescriptors[asset.assetId] != nil,
+                  app.galleryProxyImages[asset.assetId] != nil
+            else { return }
             fullImageAssetID = asset.assetId
         } assign: {
             assign(asset.assetId)
@@ -623,8 +647,10 @@ private enum GalleryViewStyle: Hashable {
 private struct AssetCard: View {
     let asset: BridgeAssetDto
     let reference: BridgeProxyReference?
+    let proxyImage: NSImage?
     let nativeThumbnail: NSImage?
     let activity: GalleryPreviewActivity?
+    let previewError: String?
     let isStale: Bool
     let aspectRatio: CGFloat
     let style: GalleryViewStyle
@@ -639,20 +665,12 @@ private struct AssetCard: View {
             VStack(alignment: .leading, spacing: 5) {
                 ZStack(alignment: .topLeading) {
                     GalleryThumbnail(
-                        reference: reference,
+                        proxyImage: proxyImage,
                         nativeThumbnail: nativeThumbnail,
                         aspectRatio: style == .photoGrid ? aspectRatio : 1,
                         fillsFrame: style == .photoGrid,
                         cornerRadius: style == .photoGrid ? 2 : 5
                     )
-                    if style == .squareGrid, let format = asset.formatLabel {
-                        Text(format)
-                            .font(.system(size: 8, weight: .semibold))
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 3)
-                            .background(.ultraThinMaterial, in: Capsule())
-                            .padding(5)
-                    }
                     if asset.representationCount > 1 {
                         Text("\(asset.representationCount) reps")
                             .font(.system(size: 8, weight: .semibold))
@@ -662,15 +680,33 @@ private struct AssetCard: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                             .padding(5)
                     }
-                    PreviewActivityBadge(activity: activity, isStale: isStale)
+                    PreviewActivityBadge(
+                        activity: activity,
+                        isStale: isStale,
+                        errorMessage: previewError
+                    )
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                         .padding(5)
                 }
                 if style == .squareGrid {
-                    Text(asset.displayName)
-                        .font(.caption2)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                    HStack(spacing: 5) {
+                        Text(asset.displayName)
+                            .font(.caption2)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer(minLength: 2)
+                        if let format = asset.formatLabel {
+                            Text(format)
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Color.primary.opacity(0.08),
+                                    in: RoundedRectangle(cornerRadius: 2)
+                                )
+                        }
+                    }
                 }
             }
             .contentShape(Rectangle())
@@ -688,7 +724,7 @@ private struct AssetCard: View {
         .simultaneousGesture(TapGesture(count: 2).onEnded(open))
         .contextMenu {
             Button("View Full Image", action: viewFull)
-                .disabled(reference == nil)
+                .disabled(reference == nil || proxyImage == nil)
             Button("Open in Default Application", action: open)
             Button("Assign to Selected Cell", action: assign)
         }
@@ -698,6 +734,7 @@ private struct AssetCard: View {
 private struct PreviewActivityBadge: View {
     let activity: GalleryPreviewActivity?
     let isStale: Bool
+    let errorMessage: String?
 
     var body: some View {
         if activity == .loading {
@@ -718,13 +755,13 @@ private struct PreviewActivityBadge: View {
                 .foregroundStyle(.yellow)
                 .padding(5)
                 .background(.ultraThinMaterial, in: Circle())
-                .help("Preview unavailable")
+                .help(errorMessage ?? "Preview unavailable")
         }
     }
 }
 
 private struct GalleryThumbnail: View {
-    let reference: BridgeProxyReference?
+    let proxyImage: NSImage?
     let nativeThumbnail: NSImage?
     let aspectRatio: CGFloat
     let fillsFrame: Bool
@@ -749,9 +786,8 @@ private struct GalleryThumbnail: View {
 
     @ViewBuilder
     private var previewContent: some View {
-        if let path = reference?.descriptor().localPath,
-           let image = NSImage(contentsOfFile: path) {
-            renderedImage(image)
+        if let proxyImage {
+            renderedImage(proxyImage)
         } else if let nativeThumbnail {
             renderedImage(nativeThumbnail)
         } else {
@@ -867,9 +903,8 @@ private struct PhotoGridLayout: Layout {
 private struct GalleryFullImageView: View {
     @Environment(\.dismiss) private var dismiss
     let asset: BridgeAssetDto
-    let reference: BridgeProxyReference
-
-    private var descriptor: BridgeProxyDescriptorDto { reference.descriptor() }
+    let descriptor: BridgeProxyDescriptorDto
+    let image: NSImage
 
     var body: some View {
         VStack(spacing: 0) {
@@ -894,20 +929,11 @@ private struct GalleryFullImageView: View {
             .padding(12)
             Divider()
             GeometryReader { geometry in
-                if let image = NSImage(contentsOfFile: descriptor.localPath) {
-                    Image(nsImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .allowedDynamicRange(.constrainedHigh)
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                } else {
-                    ContentUnavailableView(
-                        "Preview Unavailable",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text("The cached proxy could not be opened.")
-                    )
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .allowedDynamicRange(.constrainedHigh)
                     .frame(width: geometry.size.width, height: geometry.size.height)
-                }
             }
             .background(Color(nsColor: .controlBackgroundColor))
         }
@@ -1061,6 +1087,7 @@ private struct SpatialGraphView: View {
                 }
             }
             .focusable()
+            .focusEffectDisabled()
             .focused($graphHasFocus)
             .onKeyPress(.tab) {
                 showsPointerNodeMenu = true

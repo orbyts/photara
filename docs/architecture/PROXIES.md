@@ -285,6 +285,14 @@ profile, color/HDR, encoding, and generator identity produce the same key. The
 service verifies descriptor and payload before returning `CacheHit`. Tests
 prove this path invokes neither materialization nor generation after reopen.
 
+The Apple generator identity is versioned whenever its color-output behavior
+changes. Version 2 adds an explicit route for Photoshop P3-D65/PQ sources into
+an extended-linear Display P3 F16 proxy. The source remains interpreted through
+its embedded ICC profile; the output descriptor names the actual linear proxy
+space. Other unrecognized but valid ICC spaces may be preserved only when the
+encoder can embed them, with the ICC payload fingerprint recorded. A format
+name match must never silently relabel PQ samples as ordinary Display P3.
+
 This is a provider-neutral ladder, not a Quick Look requirement: a future node
 may supply an embedded preview or provider thumbnail first, then a local native
 preview, stale shared proxy, current shared proxy, or another explicitly
@@ -301,6 +309,15 @@ bounded one-job `gallery-hdr` profile immediately. Other formats retain the
 bounded progressive Quick Look path until measured evidence selects a better
 provider. This is backend routing behind the same tiny-preview contract, not a
 TIFF rule in Core.
+
+A later local-SSD comparison controls for NAS latency and OS thumbnail state.
+Photara and Quick Look's full-thumbnail path were effectively equal on the two
+samples: 2.64 versus 2.63 seconds at 60.2 MP and 6.56 versus 6.52 seconds at
+152.7 MP. Quick Look's nominal low-quality tier returned no image after 2.77
+and 6.69 seconds. Consequently there is still no measured reason to schedule
+that failed TIFF rung ahead of the reusable Photara proxy. Mapping and eagerly
+decoding 40 existing project proxies took 22.5 ms total; a generator-version
+change causes a deliberate one-time cache miss, not a persistent slowdown.
 
 Observation fingerprints are sufficient for this disposable preview tier when
 the materializer rechecks the same size/modification-time evidence immediately

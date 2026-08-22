@@ -557,6 +557,39 @@ Cache files, aspect ratios derived from them, Gallery mode, selection, and the
 full-image presentation remain disposable/client state and never enter the
 project document or graph digest.
 
+Live Red Meridian testing found two 8599×5733, 32-bit float TIFFs whose embedded
+profile is `P3D65 PQ Display Full 12-16-0-1`, while neighboring files use
+Display P3 Linear. The initial helper correctly refused to label that unknown
+profile as ordinary Display P3. Generator version 2 adds an explicit
+color-managed conversion into Apple's extended-linear Display P3 HDR proxy
+space and retains fingerprinted embedded-ICC handling for other safe cases.
+After the `whisk` NAS remounted, both exact sources produced verified 384×256
+F16 proxies tagged Display P3 Linear; the SDR-named source completed in 5.20
+seconds on Quasar. Both files carry the same P3/PQ profile, reinforcing that a
+Disk node must not infer dynamic range or pair membership from filenames.
+
+Gallery live resize no longer calls UniFFI descriptors or opens proxy files from
+Swift view bodies. Descriptor, decoded `NSImage`, and aspect ratio are populated
+once when the proxy request completes; ImageIO now eagerly decodes cached proxy
+pixels off the main actor before Swift publishes the small `NSImage`. A 76–220
+point slider controls Photo Grid row height and Square Grid cell width and stays
+enabled without an asset or Layout selection. The Graph retains keyboard focus
+for `Tab` without drawing SwiftUI's lagging canvas-wide focus effect. Square Grid
+now follows the reference more closely with filename and a two-point-radius
+format label beneath the thumbnail. Proxy failures expose their actual
+structured message through the cell status help instead of leaving an
+unexplained placeholder.
+
+A local-SSD follow-up separates backend time from network latency. The 60.2 MP
+`_SUH5024…HDR.TIF` measured 2.64 seconds through Photara versus 2.63 seconds
+through Quick Look's full thumbnail. The 152.7 MP `_SUH5076…HDR.TIF` measured
+6.56 versus 6.52 seconds. Quick Look's low-quality request failed after 2.77
+and 6.69 seconds respectively, so TIFF continues to bypass that nonproductive
+rung. Eagerly mapping and decoding all 40 existing proxies for the active
+project measured 22.5 ms total and 5.3 ms to the first image. Generator version
+2 intentionally changed cache identity once; subsequent project reopens reuse
+the fast cache path.
+
 The native first-look refinement now separates Graph, standard Inspector,
 optional node Workspace, and project panels. Launch presents Create/Open/Recent
 with native-only recent state and no database. The facade provides generic

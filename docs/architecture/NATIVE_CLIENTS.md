@@ -133,6 +133,20 @@ view, resizing it, or opening the proxy-only full-image viewer cannot issue a
 Core command. The toolbar controls are the 0.2.0 interaction; a `G` shortcut
 that cycles the two modes is reserved for the later shortcut system.
 
+Decoded proxy images, proxy descriptors, and aspect ratios are client runtime
+cache values populated when an asynchronous request completes. Gallery view
+bodies must not reopen proxy files or call across UniFFI during continuous
+window resizing. Cached proxy pixel decoding also runs off the main actor before
+the completed image is published. The thumbnail-size slider changes only
+presentation geometry and is not gated by asset or Layout selection.
+Square Grid's filename and format label live in a compact row below the image;
+the format label uses a small rounded rectangle rather than a capsule.
+
+Graph keyboard focus is required for its pointer-local node catalog, but the
+default canvas-wide SwiftUI focus effect is not. Suppress that effect so its
+asynchronous outline cannot masquerade as stale panel geometry during live
+window resize; selected node styling remains inside the Graph surface.
+
 The visual Layout surface and conventional Inspector are distinct consumers of
 the same immutable Rust DTOs. Rust resolves explicit `AssetSet` input into
 normalized and pixel cell geometry; Swift composes leased proxy files into that

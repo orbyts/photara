@@ -341,6 +341,39 @@ full proxy only after it exists. Double-click retains the established external
 default-application behavior. The proposed `G` mode-cycling shortcut is deferred
 to the post-0.2.0 shortcut pass.
 
+Two Red Meridian files, `DSC05419…HDR.TIF` and `DSC05419…SDR.TIF`, were the only
+blank cells in a 24-file folder. Direct inspection showed both are readable
+8599×5733, 32-bit float TIFFs but both carry the Photoshop profile `P3D65 PQ
+Display Full 12-16-0-1`; adjacent working files carry Display P3 Linear. The
+original helper reproduced the failure with the explicit diagnostic that it
+could not safely re-emit that profile. Apple generator version 2 recognizes the
+P3/PQ source and requests a color-managed extended-linear Display P3 F16 proxy,
+rather than relabeling it as ordinary P3. After `/Volumes/whisk` remounted, both
+exact sources produced verified 384×256 F16 proxies tagged Display P3 Linear;
+the SDR-named source completed in 5.20 seconds on Quasar. Both files carry the
+same P3/PQ profile, so Disk continues to treat them as independent assets and
+does not infer dynamic range from the filename.
+
+Resize performance no longer depends on repeated FFI descriptor reads and
+`NSImage(contentsOfFile:)` calls from every thumbnail body. AppModel retains one
+descriptor and decoded image per completed project proxy; ImageIO eagerly
+decodes the small proxy off the main actor and Swift layout reads only those
+in-memory values. Gallery's thumbnail-size slider remains enabled independently
+of asset/Layout selection. The Graph keeps keyboard focus for `Tab` but disables
+SwiftUI's canvas-wide focus effect, whose delayed redraw looked like an obsolete
+panel border during live resize. Square Grid puts filename and a lightly rounded
+format label beneath the image, and failed cells expose the backend message in
+their status tooltip.
+
+Local-SSD measurement against the Desktop copies removed NAS latency. The 60.2
+MP and 152.7 MP float TIFFs took 2.64 and 6.56 seconds through Photara; Quick
+Look full thumbnails took 2.63 and 6.52 seconds, while its low-quality requests
+failed after 2.77 and 6.69 seconds. TIFF therefore continues to bypass the
+failed low-quality rung. Mapping and eagerly decoding all 40 current project
+cache objects took 22.5 ms total with the first image at 5.3 ms. A generator
+version change invalidates the old key once; it does not make subsequent cache
+hits slower.
+
 Gallery double-click resolves a runtime representation and opens it through
 the macOS default application; it does not assign the asset or issue a graph
 command. Disk rebind now publishes an explicit empty membership immediately,

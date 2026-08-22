@@ -5,7 +5,7 @@ use photara_core::{
     ProxyColorPolicy, ProxyDynamicRangeDescription, ProxyDynamicRangePolicy, ProxyGeneratorId,
     ProxyGeneratorRef, ProxyGeneratorVersion, ProxyOrientationPolicy, ProxyProfile, ProxyPurpose,
     ProxyRenderingIntent, ProxyRequest, ProxyResamplingFilter, ProxySizing, ProxyStoredOrientation,
-    ToneMapVersion,
+    RepresentationFingerprint, ToneMapVersion,
 };
 use serde::Deserialize;
 
@@ -42,7 +42,7 @@ impl ProxyGenerator for ImageIoCoreImageGenerator {
     fn exact_ref(&self) -> ProxyGeneratorRef {
         ProxyGeneratorRef {
             id: ProxyGeneratorId::parse(GENERATOR_ID).expect("built-in generator ID is valid"),
-            version: ProxyGeneratorVersion::first(),
+            version: ProxyGeneratorVersion::new(2).expect("built-in generator version is valid"),
         }
     }
 
@@ -85,6 +85,11 @@ impl ProxyGenerator for ImageIoCoreImageGenerator {
         let color_space = ColorSpaceId::parse(metadata.color_space_id).map_err(|error| {
             ProxyGenerationError::new(format!("invalid helper color-space identity: {error}"))
         })?;
+        let embedded_icc_fingerprint = metadata
+            .embedded_icc_fingerprint
+            .as_deref()
+            .map(parse_sha256_fingerprint)
+            .transpose()?;
         let dynamic_range = match mode {
             "thumbnail-sdr" => ProxyDynamicRangeDescription::Sdr {
                 reference_white_nits: None,
@@ -102,7 +107,7 @@ impl ProxyGenerator for ImageIoCoreImageGenerator {
             alpha: request.profile.alpha,
             encoding: request.profile.encoding.clone(),
             color_space,
-            embedded_icc_fingerprint: None,
+            embedded_icc_fingerprint,
             dynamic_range,
             orientation: ProxyStoredOrientation::PixelsNormalized,
         })
@@ -114,7 +119,25 @@ struct HelperMetadata {
     pixel_width: NonZeroU32,
     pixel_height: NonZeroU32,
     color_space_id: String,
+    embedded_icc_fingerprint: Option<String>,
     headroom_millistops: Option<u32>,
+}
+
+fn parse_sha256_fingerprint(
+    value: &str,
+) -> Result<RepresentationFingerprint, ProxyGenerationError> {
+    if value.len() != 64 {
+        return Err(ProxyGenerationError::new(
+            "helper ICC fingerprint must contain 64 hexadecimal characters",
+        ));
+    }
+    let mut bytes = [0_u8; 32];
+    for (index, byte) in bytes.iter_mut().enumerate() {
+        let start = index * 2;
+        *byte = u8::from_str_radix(&value[start..start + 2], 16)
+            .map_err(|_| ProxyGenerationError::new("helper ICC fingerprint is not hexadecimal"))?;
+    }
+    Ok(RepresentationFingerprint::sha256(bytes))
 }
 
 fn supported_mode(
@@ -191,6 +214,10 @@ mod tests {
 
     #[test]
     fn adapter_accepts_only_the_measured_exact_profile_policies() {
+        let generator = ImageIoCoreImageGenerator::new(ImageIoGeneratorConfig {
+            helper_executable: PathBuf::from("unused-test-helper"),
+        });
+        assert_eq!(generator.exact_ref().version.get(), 2);
         let thumbnail = crate::standard_sdr_thumbnail_profile();
         let gallery = crate::standard_gallery_preview_profile();
         let layout = crate::standard_layout_interaction_preview_profile();
@@ -209,5 +236,16 @@ mod tests {
         };
         *rendering_intent = ProxyRenderingIntent::Perceptual;
         assert!(supported_mode(&changed_intent).is_err());
+    }
+
+    #[test]
+    fn helper_icc_fingerprints_are_strict_sha256_hex() {
+        let value = "42".repeat(32);
+        assert_eq!(
+            parse_sha256_fingerprint(&value).unwrap(),
+            RepresentationFingerprint::sha256([0x42; 32])
+        );
+        assert!(parse_sha256_fingerprint("42").is_err());
+        assert!(parse_sha256_fingerprint(&"zz".repeat(32)).is_err());
     }
 }

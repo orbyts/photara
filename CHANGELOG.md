@@ -177,3 +177,18 @@
   generator calls.
 - Add a proxy-only full-image Gallery viewer while preserving double-click as
   activation in the user's default external application.
+- Diagnose two otherwise valid 32-bit TIFF failures as a previously unsupported
+  Photoshop `P3D65 PQ Display Full` ICC profile; add an explicit color-managed
+  P3/PQ-to-extended-linear-P3 HDR proxy path and version the Apple generator so
+  failed/older cache identities cannot mask the change.
+- Cache decoded proxy images and descriptors once outside Swift's resize render
+  path, add per-asset proxy error help, add a Gallery thumbnail-size slider, and
+  move Square Grid filename/format metadata into a compact bottom row.
+- Move cached-proxy pixel decoding off the main actor, keep the thumbnail slider
+  enabled independently of asset/Layout selection, and suppress the Graph
+  canvas focus ring whose delayed redraw looked like stale panel geometry.
+- Re-measure local-SSD float TIFF first previews: 60.2 MP and 152.7 MP sources
+  took 2.64 and 6.56 seconds through Photara, while Quick Look's full path took
+  2.63 and 6.52 seconds and its low-quality path failed. Forty project-cache
+  objects decoded in 22.5 ms total, confirming regeneration—not cache reuse—as
+  the one-time cost after the generator version changed.

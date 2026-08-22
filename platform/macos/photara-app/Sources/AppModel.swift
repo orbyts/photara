@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import ImageIO
 import SwiftUI
 import UniformTypeIdentifiers
 import QuickLookThumbnailing
@@ -54,9 +55,12 @@ final class AppModel: ObservableObject {
     @Published private(set) var progressLabel = "Idle"
     @Published private(set) var isEvaluating = false
     @Published private(set) var galleryProxies: [String: BridgeProxyReference] = [:]
+    @Published private(set) var galleryProxyDescriptors: [String: BridgeProxyDescriptorDto] = [:]
+    @Published private(set) var galleryProxyImages: [String: NSImage] = [:]
     @Published private(set) var galleryNativeThumbnails: [String: NSImage] = [:]
     @Published private(set) var galleryDisplayedRevisions: [String: String] = [:]
     @Published private(set) var galleryPreviewActivities: [String: GalleryPreviewActivity] = [:]
+    @Published private(set) var galleryPreviewErrors: [String: String] = [:]
     @Published private(set) var layoutCellProxies: [String: BridgeProxyReference] = [:]
     @Published private(set) var layoutNativeThumbnails: [String: NSImage] = [:]
     @Published private(set) var recentProjects: [RecentProject]
@@ -157,9 +161,12 @@ final class AppModel: ObservableObject {
             self.project = project
             snapshot = try project.snapshot()
             galleryProxies.removeAll()
+            galleryProxyDescriptors.removeAll()
+            galleryProxyImages.removeAll()
             galleryNativeThumbnails.removeAll()
             galleryDisplayedRevisions.removeAll()
             galleryPreviewActivities.removeAll()
+            galleryPreviewErrors.removeAll()
             pendingGalleryProxyRevisions.removeAll()
             pendingNativeThumbnailRevisions.removeAll()
             pendingLayoutProxyCellIDs.removeAll()
@@ -179,9 +186,12 @@ final class AppModel: ObservableObject {
         project = nil
         snapshot = nil
         galleryProxies.removeAll()
+        galleryProxyDescriptors.removeAll()
+        galleryProxyImages.removeAll()
         galleryNativeThumbnails.removeAll()
         galleryDisplayedRevisions.removeAll()
         galleryPreviewActivities.removeAll()
+        galleryPreviewErrors.removeAll()
         pendingGalleryProxyRevisions.removeAll()
         pendingNativeThumbnailRevisions.removeAll()
         pendingLayoutProxyCellIDs.removeAll()
@@ -212,9 +222,12 @@ final class AppModel: ObservableObject {
             snapshot = try project.snapshot()
             restoreDiskFolderGrants()
             galleryProxies.removeAll()
+            galleryProxyDescriptors.removeAll()
+            galleryProxyImages.removeAll()
             galleryNativeThumbnails.removeAll()
             galleryDisplayedRevisions.removeAll()
             galleryPreviewActivities.removeAll()
+            galleryPreviewErrors.removeAll()
             pendingGalleryProxyRevisions.removeAll()
             pendingNativeThumbnailRevisions.removeAll()
             pendingLayoutProxyCellIDs.removeAll()
@@ -243,9 +256,12 @@ final class AppModel: ObservableObject {
             snapshot = try project.snapshot()
             restoreDiskFolderGrants()
             galleryProxies.removeAll()
+            galleryProxyDescriptors.removeAll()
+            galleryProxyImages.removeAll()
             galleryNativeThumbnails.removeAll()
             galleryDisplayedRevisions.removeAll()
             galleryPreviewActivities.removeAll()
+            galleryPreviewErrors.removeAll()
             pendingGalleryProxyRevisions.removeAll()
             pendingNativeThumbnailRevisions.removeAll()
             pendingLayoutProxyCellIDs.removeAll()
@@ -307,9 +323,12 @@ final class AppModel: ObservableObject {
             accept(cleared)
             guard cleared.applied else { return }
             galleryProxies.removeAll()
+            galleryProxyDescriptors.removeAll()
+            galleryProxyImages.removeAll()
             galleryNativeThumbnails.removeAll()
             galleryDisplayedRevisions.removeAll()
             galleryPreviewActivities.removeAll()
+            galleryPreviewErrors.removeAll()
             layoutCellProxies.removeAll()
             layoutNativeThumbnails.removeAll()
             pendingGalleryProxyRevisions.removeAll()
@@ -611,24 +630,57 @@ final class AppModel: ObservableObject {
         pendingGalleryProxyRevisions[assetID] = desiredRevision
         Task { [weak self] in
             let result = await Task.detached(priority: .utility) {
-                Result { try project.requestGalleryThumbnail(assetId: assetID) }
+                Result {
+                    let reference = try project.requestGalleryThumbnail(assetId: assetID)
+                    let descriptor = reference.descriptor()
+                    let proxyData = try? Data(
+                        contentsOf: URL(fileURLWithPath: descriptor.localPath),
+                        options: .mappedIfSafe
+                    )
+                    let decodedImage: CGImage? = proxyData.flatMap { data in
+                        guard let source = CGImageSourceCreateWithData(
+                            data as CFData,
+                            [kCGImageSourceShouldCache: false] as CFDictionary
+                        ) else { return nil }
+                        return CGImageSourceCreateImageAtIndex(
+                            source,
+                            0,
+                            [kCGImageSourceShouldCacheImmediately: true] as CFDictionary
+                        )
+                    }
+                    return (reference, descriptor, decodedImage)
+                }
             }.value
             guard let self else { return }
             if pendingGalleryProxyRevisions[assetID] == desiredRevision {
                 pendingGalleryProxyRevisions.removeValue(forKey: assetID)
             }
-            if case let .success(reference) = result,
-               previewIsStillDesired(
-                   assetID: assetID,
-                   revision: desiredRevision,
-                   project: project
-               )
-            {
+            guard previewIsStillDesired(
+                assetID: assetID,
+                revision: desiredRevision,
+                project: project
+            ) else { return }
+            switch result {
+            case let .success((reference, descriptor, decodedImage)):
                 galleryProxies[assetID] = reference
+                galleryProxyDescriptors[assetID] = descriptor
+                if let decodedImage {
+                    galleryProxyImages[assetID] = NSImage(
+                        cgImage: decodedImage,
+                        size: NSSize(
+                            width: decodedImage.width,
+                            height: decodedImage.height
+                        )
+                    )
+                }
                 galleryDisplayedRevisions[assetID] = desiredRevision
                 galleryPreviewActivities[assetID] = .ready
-            } else if galleryDisplayedRevisions[assetID] == nil {
-                galleryPreviewActivities[assetID] = .failed
+                galleryPreviewErrors.removeValue(forKey: assetID)
+            case let .failure(error):
+                galleryPreviewErrors[assetID] = error.localizedDescription
+                if galleryDisplayedRevisions[assetID] == nil {
+                    galleryPreviewActivities[assetID] = .failed
+                }
             }
         }
     }

@@ -1,5 +1,6 @@
 import CoreGraphics
 import CoreImage
+import CryptoKit
 import Foundation
 import ImageIO
 
@@ -12,12 +13,14 @@ struct HelperMetadata: Encodable {
     let pixelWidth: Int
     let pixelHeight: Int
     let colorSpaceID: String
+    let embeddedICCFingerprint: String?
     let headroomMillistops: UInt32?
 
     enum CodingKeys: String, CodingKey {
         case pixelWidth = "pixel_width"
         case pixelHeight = "pixel_height"
         case colorSpaceID = "color_space_id"
+        case embeddedICCFingerprint = "embedded_icc_fingerprint"
         case headroomMillistops = "headroom_millistops"
     }
 }
@@ -93,6 +96,8 @@ image = image.composited(over: opaqueBackground)
 
 let outputColorSpace: CGColorSpace
 let colorSpaceID: String
+let embeddedICCFingerprint: String?
+let sourceColorDescription: String
 switch mode {
 case .thumbnailSDR:
     guard let sRGB = CGColorSpace(name: CGColorSpace.sRGB) else {
@@ -100,28 +105,51 @@ case .thumbnailSDR:
     }
     outputColorSpace = sRGB
     colorSpaceID = "photara.color.srgb"
+    embeddedICCFingerprint = nil
+    sourceColorDescription = sourceProfileName.isEmpty ? "unlabeled" : sourceProfileName
 case .authoringHDR:
     guard let embedded = sourceImage.colorSpace else {
         fail("HDR source has no embedded ICC color space")
     }
-    let embeddedName = embedded.name as String? ?? sourceProfileName
+    let embeddedName = sourceProfileName.isEmpty
+        ? (embedded.name as String? ?? "unnamed embedded profile")
+        : sourceProfileName
+    sourceColorDescription = embeddedName
     if embeddedName.localizedCaseInsensitiveContains("aces") {
         outputColorSpace = loadSystemProfile(
             "/System/Library/ColorSync/Profiles/ACESCG Linear.icc"
         )
         colorSpaceID = "photara.color.acescg-linear"
+        embeddedICCFingerprint = nil
+    } else if embeddedName.localizedCaseInsensitiveContains("p3")
+        && embeddedName.localizedCaseInsensitiveContains("pq") {
+        guard let linearDisplayP3 = CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3) else {
+            fail("could not create extended-linear Display P3 color space")
+        }
+        outputColorSpace = linearDisplayP3
+        colorSpaceID = "photara.color.display-p3-linear"
+        embeddedICCFingerprint = nil
     } else if embeddedName.localizedCaseInsensitiveContains("display p3") {
         outputColorSpace = loadSystemProfile(
             "/System/Library/ColorSync/Profiles/Display P3.icc"
         )
         colorSpaceID = "photara.color.display-p3"
+        embeddedICCFingerprint = nil
     } else if embeddedName.localizedCaseInsensitiveContains("srgb") {
         outputColorSpace = loadSystemProfile(
             "/System/Library/ColorSync/Profiles/sRGB Profile.icc"
         )
         colorSpaceID = "photara.color.srgb"
+        embeddedICCFingerprint = nil
     } else {
-        fail("initial HDR adapter cannot safely re-emit embedded profile \(embeddedName)")
+        guard let iccData = embedded.copyICCData() as Data? else {
+            fail("HDR source profile \(embeddedName) has no reusable ICC payload")
+        }
+        outputColorSpace = embedded
+        colorSpaceID = "photara.color.embedded-icc"
+        embeddedICCFingerprint = SHA256.hash(data: iccData)
+            .map { String(format: "%02x", $0) }
+            .joined()
     }
 }
 
@@ -157,10 +185,16 @@ do {
         pixelWidth: width,
         pixelHeight: height,
         colorSpaceID: colorSpaceID,
+        embeddedICCFingerprint: embeddedICCFingerprint,
         headroomMillistops: nil
     )
     let data = try JSONEncoder().encode(metadata)
     try data.write(to: metadataURL, options: .atomic)
 } catch {
-    fail("proxy generation failed: \(error)")
+    let outputName = outputColorSpace.name as String? ?? "unnamed output color space"
+    fail(
+        "proxy generation failed for source profile \(sourceColorDescription) "
+            + "using \(colorSpaceID) [\(outputName)] at "
+            + "\(Int(image.extent.width))x\(Int(image.extent.height)): \(error)"
+    )
 }
