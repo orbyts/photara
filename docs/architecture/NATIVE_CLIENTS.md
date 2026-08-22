@@ -125,6 +125,14 @@ open it with the user's system default application. A later synchronized
 preferred-viewer setting may override that default without entering the
 portable asset or graph model.
 
+Gallery offers two client-only views over the same Project Asset Context.
+Photo Grid starts unknown assets as squares, then forms compact justified rows
+from runtime proxy/native dimensions. Square Grid preserves fixed square cells
+and presents filename plus representation-format metadata. Changing either
+view, resizing it, or opening the proxy-only full-image viewer cannot issue a
+Core command. The toolbar controls are the 0.2.0 interaction; a `G` shortcut
+that cycles the two modes is reserved for the later shortcut system.
+
 The visual Layout surface and conventional Inspector are distinct consumers of
 the same immutable Rust DTOs. Rust resolves explicit `AssetSet` input into
 normalized and pixel cell geometry; Swift composes leased proxy files into that

@@ -540,6 +540,23 @@ capability, and unsupported encodings surface a failed preview instead of being
 silently omitted. The folder permission panel intentionally dims individual
 files because the Disk node grants a folder, not a single file.
 
+The usable Gallery refinement now provides two explicit presentations. Photo
+Grid begins with square placeholders, then uses known proxy/native dimensions
+to form tightly justified rows with two-point gutters and minimal corner radii.
+Square Grid retains stable square cells, compact filenames, and portable
+representation-format pills such as TIFF or DNG. A full-image viewer is enabled
+only when the project proxy exists; double-click continues to open the runtime
+source in the system default application. The toolbar toggle is implemented;
+the proposed `G` cycling shortcut is reserved for the later shortcut pass.
+
+All supported still-image requests now converge on the shared project cache.
+Quick Look may win the initial display race, but generation continues through
+the bounded project service so a close/reopen can validate and return the same
+cache object. A service-reopen test proves `CacheHit` with zero backend calls.
+Cache files, aspect ratios derived from them, Gallery mode, selection, and the
+full-image presentation remain disposable/client state and never enter the
+project document or graph digest.
+
 The native first-look refinement now separates Graph, standard Inspector,
 optional node Workspace, and project panels. Launch presents Create/Open/Recent
 with native-only recent state and no database. The facade provides generic

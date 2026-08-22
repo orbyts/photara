@@ -314,6 +314,48 @@ fn cache_hits_are_verified_and_corruption_regenerates() {
 }
 
 #[test]
+fn project_cache_survives_service_reopen_without_regeneration() {
+    let root = TestRoot::new();
+    let source = root.0.join("source.tiff");
+    fs::write(&source, b"source").unwrap();
+    let project_id = ProjectId::new();
+    let materializer = TestMaterializer::new(source, true);
+    let proxy_request = request(project_id, 7, "photara.test.reopen-thumbnail");
+
+    let initial_service = service(
+        &root,
+        project_id,
+        TestGenerator::new(128, Duration::ZERO),
+        1,
+        1_000_000,
+    );
+    assert_eq!(
+        initial_service
+            .request(&proxy_request, &materializer)
+            .unwrap()
+            .disposition,
+        ProxyArtifactDisposition::Generated
+    );
+    drop(initial_service);
+
+    let reopened = service(
+        &root,
+        project_id,
+        TestGenerator::new(128, Duration::ZERO),
+        1,
+        1_000_000,
+    );
+    assert_eq!(
+        reopened
+            .request(&proxy_request, &materializer)
+            .unwrap()
+            .disposition,
+        ProxyArtifactDisposition::CacheHit
+    );
+    assert_eq!(reopened.generator.calls.load(Ordering::SeqCst), 0);
+}
+
+#[test]
 fn unavailable_sources_are_not_cached_and_can_be_retried_after_remount() {
     let root = TestRoot::new();
     let source = root.0.join("source.tiff");

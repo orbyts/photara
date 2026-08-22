@@ -465,6 +465,14 @@ final class AppModel: ObservableObject {
               let asset = snapshot?.assets.first(where: { $0.assetId == assetID }),
               let revision = asset.visualRevision
         else { return }
+        // Every Gallery item ultimately enters the project-scoped proxy cache.
+        // Quick Look may still win the first-pixel race for formats where it is
+        // cheaper, but reopening the project can reuse the verified proxy.
+        requestGalleryProxy(
+            assetID: assetID,
+            desiredRevision: revision,
+            project: project
+        )
         requestNativeThumbnail(
             assetID: assetID,
             desiredRevision: revision,
@@ -553,7 +561,7 @@ final class AppModel: ObservableObject {
                    assetID: assetID,
                    revision: desiredRevision,
                    project: project
-               )
+               ), galleryProxies[assetID] == nil
             {
                 galleryNativeThumbnails[assetID] = NSImage(
                     cgImage: representation.cgImage,
@@ -572,7 +580,7 @@ final class AppModel: ObservableObject {
                     assetID: assetID,
                     revision: desiredRevision,
                     project: project
-                )
+                ), galleryProxies[assetID] == nil
                 else { return }
                 galleryNativeThumbnails[assetID] = NSImage(
                     cgImage: representation.cgImage,

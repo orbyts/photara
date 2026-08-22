@@ -168,3 +168,12 @@
   and 733 MiB peak footprint each, then select an explicit memory-tiered
   generation limit of 4 jobs on 64 GiB-plus machines, 2 on 24 GiB-plus, and 1
   below 24 GiB. The limit remains device-configurable and capped at four.
+- Replace the provisional Gallery grids with a tightly justified Photo Grid
+  that begins with square placeholders and adopts proxy/native aspect ratios,
+  plus a stable Square Grid with filename and representation-format pills.
+- Make every still-image Gallery request converge on the persistent
+  project-scoped proxy cache while retaining Quick Look as an opportunistic
+  first-pixel path; prove a reopened service returns a cache hit with zero
+  generator calls.
+- Add a proxy-only full-image Gallery viewer while preserving double-click as
+  activation in the user's default external application.

@@ -407,6 +407,7 @@ private struct AssetGalleryView: View {
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var workspace: WorkspaceModel
     @State private var viewStyle: GalleryViewStyle = .photoGrid
+    @State private var fullImageAssetID: String?
 
     private var assets: [BridgeAssetDto] {
         let all = app.snapshot?.assets ?? []
@@ -450,10 +451,12 @@ private struct AssetGalleryView: View {
                     }
                     Spacer()
                     Picker("View", selection: $viewStyle) {
-                        Image(systemName: "rectangle.grid.2x2")
+                        Image(systemName: "rectangle.grid.1x2")
                             .tag(GalleryViewStyle.photoGrid)
-                        Image(systemName: "list.bullet.rectangle")
-                            .tag(GalleryViewStyle.detailGrid)
+                            .help("Photo Grid")
+                        Image(systemName: "square.grid.2x2")
+                            .tag(GalleryViewStyle.squareGrid)
+                            .help("Square Grid")
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
@@ -464,34 +467,25 @@ private struct AssetGalleryView: View {
             Divider()
             if !assets.isEmpty {
                 ScrollView {
-                    LazyVGrid(
-                        columns: columns,
-                        spacing: viewStyle == .photoGrid ? 4 : 10
-                    ) {
-                        ForEach(assets, id: \.assetId) { asset in
-                            AssetCard(
-                                asset: asset,
-                                reference: app.galleryProxies[asset.assetId],
-                                nativeThumbnail: app.galleryNativeThumbnails[asset.assetId],
-                                activity: app.galleryPreviewActivities[asset.assetId],
-                                isStale: asset.visualRevision.map {
-                                    app.galleryDisplayedRevisions[asset.assetId] != $0
-                                } ?? false,
-                                style: viewStyle,
-                                selected: workspace.selectedAssetID == asset.assetId
-                            ) {
-                                workspace.selectedAssetID = asset.assetId
-                            } open: {
-                                app.openGalleryAsset(assetID: asset.assetId)
-                            } assign: {
-                                assign(asset.assetId)
-                            }
-                            .task(id: asset.visualRevision) {
-                                app.requestGalleryThumbnail(assetID: asset.assetId)
+                    if viewStyle == .photoGrid {
+                        PhotoGridLayout(spacing: 2, targetRowHeight: 112) {
+                            ForEach(assets, id: \.assetId) { asset in
+                                card(for: asset)
+                                    .layoutValue(
+                                        key: GalleryAspectRatioKey.self,
+                                        value: aspectRatio(for: asset)
+                                    )
                             }
                         }
+                        .padding(4)
+                    } else {
+                        LazyVGrid(columns: squareColumns, spacing: 10) {
+                            ForEach(assets, id: \.assetId) { asset in
+                                card(for: asset)
+                            }
+                        }
+                        .padding(10)
                     }
-                    .padding(10)
                 }
                 Divider()
                 HStack {
@@ -499,6 +493,11 @@ private struct AssetGalleryView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
+                    Button("View", systemImage: "arrow.up.left.and.arrow.down.right") {
+                        fullImageAssetID = workspace.selectedAssetID
+                    }
+                    .controlSize(.small)
+                    .disabled(selectedProxy == nil)
                     Button("Assign to Cell", systemImage: "arrow.left.circle") {
                         guard let assetID = workspace.selectedAssetID else { return }
                         assign(assetID)
@@ -525,12 +524,70 @@ private struct AssetGalleryView: View {
                 workspace.selectedAssetID = nil
             }
         }
+        .sheet(
+            isPresented: Binding(
+                get: { fullImageAssetID.flatMap(proxyForAsset) != nil },
+                set: { if !$0 { fullImageAssetID = nil } }
+            )
+        ) {
+            if let assetID = fullImageAssetID,
+               let asset = assets.first(where: { $0.assetId == assetID }),
+               let reference = proxyForAsset(assetID)
+            {
+                GalleryFullImageView(asset: asset, reference: reference)
+            }
+        }
     }
 
-    private var columns: [GridItem] {
-        let width: CGFloat = viewStyle == .photoGrid ? 108 : 124
-        let spacing: CGFloat = viewStyle == .photoGrid ? 4 : 10
-        return [GridItem(.adaptive(minimum: width, maximum: width * 1.2), spacing: spacing)]
+    private var squareColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 116, maximum: 144), spacing: 10)]
+    }
+
+    private var selectedProxy: BridgeProxyReference? {
+        workspace.selectedAssetID.flatMap(proxyForAsset)
+    }
+
+    private func proxyForAsset(_ assetID: String) -> BridgeProxyReference? {
+        app.galleryProxies[assetID]
+    }
+
+    private func aspectRatio(for asset: BridgeAssetDto) -> CGFloat {
+        if let descriptor = app.galleryProxies[asset.assetId]?.descriptor(),
+           descriptor.pixelHeight > 0
+        {
+            return CGFloat(descriptor.pixelWidth) / CGFloat(descriptor.pixelHeight)
+        }
+        if let image = app.galleryNativeThumbnails[asset.assetId], image.size.height > 0 {
+            return image.size.width / image.size.height
+        }
+        return 1
+    }
+
+    private func card(for asset: BridgeAssetDto) -> some View {
+        AssetCard(
+            asset: asset,
+            reference: app.galleryProxies[asset.assetId],
+            nativeThumbnail: app.galleryNativeThumbnails[asset.assetId],
+            activity: app.galleryPreviewActivities[asset.assetId],
+            isStale: asset.visualRevision.map {
+                app.galleryDisplayedRevisions[asset.assetId] != $0
+            } ?? false,
+            aspectRatio: aspectRatio(for: asset),
+            style: viewStyle,
+            selected: workspace.selectedAssetID == asset.assetId
+        ) {
+            workspace.selectedAssetID = asset.assetId
+        } open: {
+            app.openGalleryAsset(assetID: asset.assetId)
+        } viewFull: {
+            guard app.galleryProxies[asset.assetId] != nil else { return }
+            fullImageAssetID = asset.assetId
+        } assign: {
+            assign(asset.assetId)
+        }
+        .task(id: asset.visualRevision) {
+            app.requestGalleryThumbnail(assetID: asset.assetId)
+        }
     }
 
     private func assign(_ assetID: String) {
@@ -560,7 +617,7 @@ private struct AssetGalleryView: View {
 
 private enum GalleryViewStyle: Hashable {
     case photoGrid
-    case detailGrid
+    case squareGrid
 }
 
 private struct AssetCard: View {
@@ -569,10 +626,12 @@ private struct AssetCard: View {
     let nativeThumbnail: NSImage?
     let activity: GalleryPreviewActivity?
     let isStale: Bool
+    let aspectRatio: CGFloat
     let style: GalleryViewStyle
     let selected: Bool
     let select: () -> Void
     let open: () -> Void
+    let viewFull: () -> Void
     let assign: () -> Void
 
     var body: some View {
@@ -582,21 +641,32 @@ private struct AssetCard: View {
                     GalleryThumbnail(
                         reference: reference,
                         nativeThumbnail: nativeThumbnail,
-                        fillsFrame: style == .photoGrid
+                        aspectRatio: style == .photoGrid ? aspectRatio : 1,
+                        fillsFrame: style == .photoGrid,
+                        cornerRadius: style == .photoGrid ? 2 : 5
                     )
-                    if asset.representationCount > 1 {
-                        Text("\(asset.representationCount) reps")
+                    if style == .squareGrid, let format = asset.formatLabel {
+                        Text(format)
                             .font(.system(size: 8, weight: .semibold))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 3)
                             .background(.ultraThinMaterial, in: Capsule())
                             .padding(5)
                     }
+                    if asset.representationCount > 1 {
+                        Text("\(asset.representationCount) reps")
+                            .font(.system(size: 8, weight: .semibold))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 3)
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                            .padding(5)
+                    }
                     PreviewActivityBadge(activity: activity, isStale: isStale)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                         .padding(5)
                 }
-                if style == .detailGrid {
+                if style == .squareGrid {
                     Text(asset.displayName)
                         .font(.caption2)
                         .lineLimit(1)
@@ -606,17 +676,19 @@ private struct AssetCard: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(4)
+        .padding(style == .photoGrid ? 0 : 4)
         .background(
             selected ? Color.accentColor.opacity(0.18) : Color.clear,
-            in: RoundedRectangle(cornerRadius: 7)
+            in: RoundedRectangle(cornerRadius: style == .photoGrid ? 2 : 7)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 7)
+            RoundedRectangle(cornerRadius: style == .photoGrid ? 2 : 7)
                 .stroke(selected ? Color.accentColor : .clear, lineWidth: 1.5)
         }
         .simultaneousGesture(TapGesture(count: 2).onEnded(open))
         .contextMenu {
+            Button("View Full Image", action: viewFull)
+                .disabled(reference == nil)
             Button("Open in Default Application", action: open)
             Button("Assign to Selected Cell", action: assign)
         }
@@ -654,7 +726,9 @@ private struct PreviewActivityBadge: View {
 private struct GalleryThumbnail: View {
     let reference: BridgeProxyReference?
     let nativeThumbnail: NSImage?
+    let aspectRatio: CGFloat
     let fillsFrame: Bool
+    let cornerRadius: CGFloat
 
     var body: some View {
         GeometryReader { geometry in
@@ -667,10 +741,10 @@ private struct GalleryThumbnail: View {
                 )
                 .clipped()
         }
-        .aspectRatio(1, contentMode: .fit)
+        .aspectRatio(aspectRatio, contentMode: .fit)
         .clipped()
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
-        .clipShape(RoundedRectangle(cornerRadius: 5))
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: cornerRadius))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
     }
 
     @ViewBuilder
@@ -703,6 +777,141 @@ private struct GalleryThumbnail: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
         }
+    }
+}
+
+private struct GalleryAspectRatioKey: LayoutValueKey {
+    static let defaultValue: CGFloat = 1
+}
+
+/// A compact justified photo layout. Unknown items begin square; when a native
+/// or project proxy supplies dimensions, the affected rows adopt their actual
+/// aspect ratios without ever drawing outside their assigned frames.
+private struct PhotoGridLayout: Layout {
+    let spacing: CGFloat
+    let targetRowHeight: CGFloat
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        let width = max(proposal.width ?? 480, 1)
+        let result = layout(width: width, subviews: subviews)
+        return CGSize(width: width, height: result.height)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        let result = layout(width: max(bounds.width, 1), subviews: subviews)
+        for (index, frame) in result.frames.enumerated() {
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: frame.width, height: frame.height)
+            )
+        }
+    }
+
+    private func layout(width: CGFloat, subviews: Subviews) -> (frames: [CGRect], height: CGFloat) {
+        guard !subviews.isEmpty else { return ([], 0) }
+        var rows: [[Int]] = []
+        var row: [Int] = []
+        var ratioSum: CGFloat = 0
+
+        for index in subviews.indices {
+            let ratio = normalized(subviews[index][GalleryAspectRatioKey.self])
+            row.append(index)
+            ratioSum += ratio
+            let occupied = ratioSum * targetRowHeight
+                + spacing * CGFloat(max(row.count - 1, 0))
+            if occupied >= width {
+                rows.append(row)
+                row = []
+                ratioSum = 0
+            }
+        }
+        if !row.isEmpty { rows.append(row) }
+
+        var frames = Array(repeating: CGRect.zero, count: subviews.count)
+        var y: CGFloat = 0
+        for (rowIndex, indices) in rows.enumerated() {
+            let sum = indices.reduce(CGFloat.zero) {
+                $0 + normalized(subviews[$1][GalleryAspectRatioKey.self])
+            }
+            let available = max(width - spacing * CGFloat(max(indices.count - 1, 0)), 1)
+            let isLastIncompleteRow = rowIndex == rows.count - 1
+                && sum * targetRowHeight < available
+            let height = isLastIncompleteRow ? targetRowHeight : available / max(sum, 0.01)
+            var x: CGFloat = 0
+            for index in indices {
+                let itemWidth = height * normalized(subviews[index][GalleryAspectRatioKey.self])
+                frames[index] = CGRect(x: x, y: y, width: itemWidth, height: height)
+                x += itemWidth + spacing
+            }
+            y += height + spacing
+        }
+        return (frames, max(y - spacing, 0))
+    }
+
+    private func normalized(_ ratio: CGFloat) -> CGFloat {
+        guard ratio.isFinite else { return 1 }
+        return min(max(ratio, 0.35), 4)
+    }
+}
+
+private struct GalleryFullImageView: View {
+    @Environment(\.dismiss) private var dismiss
+    let asset: BridgeAssetDto
+    let reference: BridgeProxyReference
+
+    private var descriptor: BridgeProxyDescriptorDto { reference.descriptor() }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Text(asset.displayName)
+                    .font(.headline)
+                    .lineLimit(1)
+                if let format = asset.formatLabel {
+                    Text(format)
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(.quaternary, in: Capsule())
+                }
+                Spacer()
+                Text("\(descriptor.pixelWidth) × \(descriptor.pixelHeight)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Button("Close", action: dismiss.callAsFunction)
+                    .keyboardShortcut(.cancelAction)
+            }
+            .padding(12)
+            Divider()
+            GeometryReader { geometry in
+                if let image = NSImage(contentsOfFile: descriptor.localPath) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .allowedDynamicRange(.constrainedHigh)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                } else {
+                    ContentUnavailableView(
+                        "Preview Unavailable",
+                        systemImage: "exclamationmark.triangle",
+                        description: Text("The cached proxy could not be opened.")
+                    )
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                }
+            }
+            .background(Color(nsColor: .controlBackgroundColor))
+        }
+        .frame(minWidth: 720, minHeight: 520)
     }
 }
 

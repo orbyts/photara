@@ -25,6 +25,9 @@ pub const TIFF_CAPABILITY_ID: &str = "photara.format.tiff";
 pub const FLATTENED_IMAGE_CAPABILITY_ID: &str = "photara.image.flattened";
 pub const HDR_CAPABILITY_ID: &str = "photara.dynamic-range.hdr";
 pub const SDR_CAPABILITY_ID: &str = "photara.dynamic-range.sdr";
+/// Portable representation/container metadata used for presentation and routing.
+/// Consumer capabilities remain independent from this file extension label.
+pub const REPRESENTATION_FORMAT_EXTENSION_KEY: &str = "photara.format.extension";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "kebab-case")]

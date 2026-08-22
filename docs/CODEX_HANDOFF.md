@@ -296,11 +296,11 @@ bytes in the background. Disk first reconciles stable file identities using a
 size/mtime observation fingerprint, then streams SHA-256 verification at
 utility priority. Representation descriptors state whether their revision is a
 content digest, provider revision, or file observation. Gallery keeps an older
-preview visible while requesting Quick Look's low-quality and full thumbnail
-tiers and shows transient loading/updating state. Content-verified shared proxy
-fallback is not scheduled for an observation-only revision. Preserve this
-provider-neutral evidence/preview separation for future Lightroom, cloud, and
-other nodes.
+preview visible while requesting progressively better display data and shows
+transient loading/updating state. Disposable shared proxy generation may use an
+observation-only revision only after the runtime materializer immediately
+revalidates the same file evidence. Preserve this provider-neutral
+evidence/preview separation for future Lightroom, cloud, and other nodes.
 
 The live `_SUH5024…HDR.TIF` fixture is 6336×9504, 32-bit float, LZW, 761 MiB.
 An uncontended Quick Look 384 px request exceeded 60 seconds; the bundled
@@ -319,16 +319,27 @@ Request deduplication still occurs before this limiter. The helper's default
 Core Image context can use the GPU, but these giant LZW float TIFFs are
 decode/memory dominated, so this primarily improves fill rate.
 
-Gallery uses fixed-height cells from the first placeholder onward, preventing
-late dimensions from producing thin strips, row reflow, or overlap. Its two
-initial presentation modes are a filename-free photo grid using a consistent
-crop and a detail grid using aspect fit plus a small filename. Disk discovery
+Gallery constrains every cell from the first square placeholder onward,
+preventing late dimensions from drawing across a neighbor. Photo Grid adopts
+known proxy/native aspect ratios into justified rows with two-point gutters;
+Square Grid stays square and adds a compact filename plus a portable format
+pill. Disk discovery
 now recognizes common camera RAW extensions plus TIFF, JPEG, PNG, HEIF/HEIC,
 AVIF, JPEG XL, PSD/PSB, EXR, WebP, GIF, and BMP. Recognition means the asset is
 published; Quick Look or the ImageIO helper must still be able to decode its
 particular encoding. Video remains future work. The macOS folder chooser dims
 files by design because the grant targets a directory; its prompt now explains
 that supported contents will be discovered.
+
+Every Gallery request also enters the project-scoped shared proxy service.
+Quick Look can still provide the earliest native pixels, but it cannot leave an
+asset permanently outside Photara's cache. Reopening the same project validates
+the exact cache-key directory and returns the existing proxy without invoking
+the generator; `project_cache_survives_service_reopen_without_regeneration`
+proves this boundary. The Gallery's View button and context action present a
+full proxy only after it exists. Double-click retains the established external
+default-application behavior. The proposed `G` mode-cycling shortcut is deferred
+to the post-0.2.0 shortcut pass.
 
 Gallery double-click resolves a runtime representation and opens it through
 the macOS default application; it does not assign the asset or issue a graph

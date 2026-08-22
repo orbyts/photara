@@ -21,12 +21,13 @@ use photara_core::{
     GraphDocument, GraphId, NodeDefinitionRef, NodeEvaluationOutput, NodeEvaluationRequest,
     NodeInstance, NodeInstanceId, NodeRuntime, PackageRequirement, PortDirection, PortEndpoint,
     PortId, ProjectAsset, ProjectCommand, ProjectCommandEnvelope, ProjectDocument, ProjectId,
-    ProjectRelativePath, RepresentationAvailability, RepresentationBinding,
-    RepresentationCapabilityId, RepresentationDescriptor, RepresentationFingerprint,
-    RepresentationMaterializationError, RepresentationMaterializationRequest,
-    RepresentationMaterializer, RepresentationRevisionEvidence, RepresentationRoleId,
-    RepresentationStorageBindingId, RequestId, SchemaValue, ValueTypeRegistry, apply_graph_command,
-    apply_project_command, asset_set_value_type_descriptor, canonical_digest, evaluate_graph,
+    ProjectRelativePath, REPRESENTATION_FORMAT_EXTENSION_KEY, RepresentationAvailability,
+    RepresentationBinding, RepresentationCapabilityId, RepresentationDescriptor,
+    RepresentationFingerprint, RepresentationMaterializationError,
+    RepresentationMaterializationRequest, RepresentationMaterializer,
+    RepresentationRevisionEvidence, RepresentationRoleId, RepresentationStorageBindingId,
+    RequestId, SchemaValue, ValueTypeRegistry, apply_graph_command, apply_project_command,
+    asset_set_value_type_descriptor, canonical_digest, evaluate_graph,
 };
 use photara_disk_node::{DiskFolderState, DiskNodePackage, DiskNodeRuntime};
 use photara_layout_node::{
@@ -342,6 +343,7 @@ pub enum BridgeLayoutStructureEdit {
 pub struct BridgeAssetDto {
     pub asset_id: String,
     pub display_name: String,
+    pub format_label: Option<String>,
     pub representation_count: u64,
     pub visual_revision: Option<String>,
     pub visual_revision_verified: bool,
@@ -2620,6 +2622,13 @@ fn prepare_disk_scan(
                     .expect("built-in TIFF capability is valid"),
             );
         }
+        let representation_extensions =
+            normalized_format_label(&path).map_or_else(BTreeMap::new, |label| {
+                BTreeMap::from([(
+                    REPRESENTATION_FORMAT_EXTENSION_KEY.to_owned(),
+                    serde_json::Value::String(label),
+                )])
+            });
         assets.push(ProjectAsset {
             id: asset_id,
             display_name: path.file_stem().map_or_else(
@@ -2634,7 +2643,7 @@ fn prepare_disk_scan(
                 revision_evidence,
                 capabilities,
                 binding: RepresentationBinding::RuntimeResolved { binding_id },
-                extensions: BTreeMap::new(),
+                extensions: representation_extensions,
             }],
             extensions: BTreeMap::new(),
         });
@@ -2714,6 +2723,18 @@ fn is_tiff(path: &std::path::Path) -> bool {
         .is_some_and(|extension| {
             extension.eq_ignore_ascii_case("tif") || extension.eq_ignore_ascii_case("tiff")
         })
+}
+
+fn normalized_format_label(path: &std::path::Path) -> Option<String> {
+    let extension = path.extension()?.to_str()?.to_ascii_lowercase();
+    Some(
+        match extension.as_str() {
+            "tif" | "tiff" => "TIFF",
+            "jpg" | "jpeg" | "jpe" => "JPEG",
+            value => value,
+        }
+        .to_ascii_uppercase(),
+    )
 }
 
 fn stable_disk_uuid(domain: &str, folder_binding_id: Uuid, identity_key: &str) -> Uuid {
@@ -3020,6 +3041,8 @@ fn project_snapshot(
             .map(|asset| BridgeAssetDto {
                 asset_id: asset.id.to_string(),
                 display_name: asset.display_name.clone(),
+                format_label: preferred_visual_representation(asset)
+                    .and_then(representation_format_label),
                 representation_count: u64::try_from(asset.representations.len())
                     .unwrap_or(u64::MAX),
                 visual_revision: preferred_visual_representation(asset)
@@ -3055,6 +3078,21 @@ fn preferred_visual_representation(asset: &ProjectAsset) -> Option<&Representati
                     .iter()
                     .any(|capability| capability.as_str() == photara_core::IMAGE_CAPABILITY_ID)
             })
+        })
+}
+
+fn representation_format_label(representation: &RepresentationDescriptor) -> Option<String> {
+    representation
+        .extensions
+        .get(REPRESENTATION_FORMAT_EXTENSION_KEY)
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+        .or_else(|| {
+            representation
+                .capabilities
+                .iter()
+                .any(|capability| capability.as_str() == photara_core::TIFF_CAPABILITY_ID)
+                .then(|| "TIFF".to_owned())
         })
 }
 

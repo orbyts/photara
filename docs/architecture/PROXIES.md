@@ -270,13 +270,20 @@ dynamic range.
 
 The governing presentation order is: publish assets after cheap discovery,
 progressively show the best available preview, and verify bytes in the
-background. On macOS Gallery first asks Quick Look for its cheapest available
-representation, then its full thumbnail. A previously displayed revision stays
-visible while either step refreshes and carries an updating marker. Only after
-byte verification may the request fall back to or upgrade through the shared
-content-verified proxy service. Discovery therefore never blocks on hashing or
-high-quality generation, while observed fingerprints can never accidentally be
-treated as content digests by the materializer.
+background. On macOS Gallery may ask Quick Look for its cheapest available
+representation while it requests the exact shared project proxy. A previously
+displayed revision stays visible while either path refreshes and carries an
+updating marker. Observation evidence may enter this disposable proxy path only
+when the materializer immediately revalidates it; it is never reclassified as a
+content digest. Discovery therefore never blocks on hashing or high-quality
+generation, and every supported still image eventually gains a reusable
+project-cache entry.
+
+The cache is persistent and partitioned by project identity. Reopening a
+project reconstructs the service over the same directory; exact source,
+profile, color/HDR, encoding, and generator identity produce the same key. The
+service verifies descriptor and payload before returning `CacheHit`. Tests
+prove this path invokes neither materialization nor generation after reopen.
 
 This is a provider-neutral ladder, not a Quick Look requirement: a future node
 may supply an embedded preview or provider thumbnail first, then a local native

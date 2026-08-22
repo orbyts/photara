@@ -9,11 +9,11 @@ use photara_core::{
     AssetId, AssetRepresentationId, FLATTENED_IMAGE_CAPABILITY_ID, HDR_CAPABILITY_ID,
     HDR_REPRESENTATION_ROLE_ID, IMAGE_CAPABILITY_ID, MaterializedRepresentation, ProjectAsset,
     ProjectDocument, ProjectRelativePath, ProjectResourceId, ProjectResourceRef,
-    RepresentationAvailability, RepresentationBinding, RepresentationCapabilityId,
-    RepresentationDescriptor, RepresentationFingerprint, RepresentationMaterializationError,
-    RepresentationMaterializationRequest, RepresentationMaterializer, RepresentationRoleId,
-    RepresentationStorageBindingId, SDR_CAPABILITY_ID, SDR_REPRESENTATION_ROLE_ID,
-    TIFF_CAPABILITY_ID,
+    REPRESENTATION_FORMAT_EXTENSION_KEY, RepresentationAvailability, RepresentationBinding,
+    RepresentationCapabilityId, RepresentationDescriptor, RepresentationFingerprint,
+    RepresentationMaterializationError, RepresentationMaterializationRequest,
+    RepresentationMaterializer, RepresentationRoleId, RepresentationStorageBindingId,
+    SDR_CAPABILITY_ID, SDR_REPRESENTATION_ROLE_ID, TIFF_CAPABILITY_ID,
 };
 use sha2::{Digest as _, Sha256};
 use thiserror::Error;
@@ -297,7 +297,10 @@ fn representation(
         })
         .collect::<BTreeSet<_>>(),
         binding: RepresentationBinding::ProjectResource { resource_id },
-        extensions: BTreeMap::new(),
+        extensions: BTreeMap::from([(
+            REPRESENTATION_FORMAT_EXTENSION_KEY.to_owned(),
+            serde_json::Value::String("TIFF".to_owned()),
+        )]),
     }
 }
 

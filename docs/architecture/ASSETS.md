@@ -99,6 +99,12 @@ The portable schema rejects availability, materialization, proxy, thumbnail,
 preview, cache, credential, workspace, and Gallery-selection extension fields.
 Those values cannot silently become project authority.
 
+Representation format/container metadata is distinct from consumer
+capabilities. The initial portable `photara.format.extension` field supplies a
+normalized presentation label such as TIFF, DNG, JPEG, or AVIF; it does not
+replace capabilities such as visual, raster, HDR, previewable, or
+color-managed, and consumers must not route solely from the filename label.
+
 ## Explicit AssetSet input
 
 `AssetSet` is the version-1 `photara.asset-set` typed value. It carries explicit,
