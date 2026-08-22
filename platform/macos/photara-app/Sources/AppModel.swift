@@ -3,13 +3,23 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+struct RecentProject: Codable, Identifiable, Sendable {
+    var projectID: String
+    var title: String
+    var documentPath: String?
+    var lastOpened: Date
+
+    var id: String { projectID }
+}
+
 @MainActor
 final class AppModel: ObservableObject {
     @Published private(set) var snapshot: BridgeProjectSnapshotDto?
     @Published private(set) var progressLabel = "Idle"
     @Published private(set) var isEvaluating = false
     @Published private(set) var galleryProxies: [String: BridgeProxyReference] = [:]
-    @Published private(set) var layoutPreview: BridgeProxyReference?
+    @Published private(set) var layoutCellProxies: [String: BridgeProxyReference] = [:]
+    @Published private(set) var recentProjects: [RecentProject]
     @Published var presentedError: String?
 
     private var application: PhotaraApplication?
@@ -17,9 +27,16 @@ final class AppModel: ObservableObject {
     private var evaluation: EvaluationHandle?
     private var observer: AppEvaluationObserver?
     private let defaults: UserDefaults
+    private var projectsDirectory: URL?
+
+    private static let recentProjectsKey = "photara.recent-projects.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        let legacyDefaults = UserDefaults(suiteName: "Photara")
+        recentProjects = (defaults.data(forKey: Self.recentProjectsKey)
+            ?? legacyDefaults?.data(forKey: Self.recentProjectsKey))
+            .flatMap { try? JSONDecoder().decode([RecentProject].self, from: $0) } ?? []
         do {
             let support = try FileManager.default.url(
                 for: .applicationSupportDirectory,
@@ -42,18 +59,16 @@ final class AppModel: ObservableObject {
                 proxyCacheRoot: proxyCacheRoot.path,
                 proxyHelperExecutable: helper
             )
-            let project: PhotaraProject
-            if let projectID = defaults.string(forKey: "photara.last-project-id"),
-               let reopened = try? application.openProject(projectId: projectID)
-            {
-                project = reopened
-            } else {
-                project = try application.createProject(title: "Untitled Project")
-            }
             self.application = application
-            self.project = project
-            snapshot = try project.snapshot()
-            defaults.set(snapshot?.projectId, forKey: "photara.last-project-id")
+            projectsDirectory = storeRoot.appending(path: "projects")
+            if let documentPath = CommandLine.arguments.dropFirst().first(where: {
+                $0.hasSuffix(".photara-project.json")
+            }) {
+                let project = try application.openProjectDocument(documentPath: documentPath)
+                self.project = project
+                snapshot = try project.snapshot()
+                rememberCurrentProject(documentPath: documentPath)
+            }
         } catch {
             presentedError = error.localizedDescription
         }
@@ -68,8 +83,8 @@ final class AppModel: ObservableObject {
             self.project = project
             snapshot = try project.snapshot()
             galleryProxies.removeAll()
-            layoutPreview = nil
-            defaults.set(snapshot?.projectId, forKey: "photara.last-project-id")
+            layoutCellProxies.removeAll()
+            rememberCurrentProject()
         } catch {
             presentedError = error.localizedDescription
         }
@@ -82,19 +97,52 @@ final class AppModel: ObservableObject {
         project = nil
         snapshot = nil
         galleryProxies.removeAll()
-        layoutPreview = nil
+        layoutCellProxies.removeAll()
     }
 
     func reopenLastProject() {
-        guard let application,
-              let projectID = defaults.string(forKey: "photara.last-project-id")
-        else { return }
+        guard let recent = recentProjects.first else { return }
+        openRecent(recent)
+    }
+
+    func openRecent(_ recent: RecentProject) {
+        guard let application else { return }
         do {
-            let project = try application.openProject(projectId: projectID)
+            let project: PhotaraProject
+            if let path = recent.documentPath,
+               FileManager.default.fileExists(atPath: path)
+            {
+                project = try application.openProjectDocument(documentPath: path)
+            } else {
+                project = try application.openProject(projectId: recent.projectID)
+            }
             self.project = project
             snapshot = try project.snapshot()
             galleryProxies.removeAll()
-            layoutPreview = nil
+            layoutCellProxies.removeAll()
+            rememberCurrentProject(documentPath: recent.documentPath)
+        } catch {
+            presentedError = error.localizedDescription
+        }
+    }
+
+    func chooseAndOpenProject() {
+        guard let application else { return }
+        let panel = NSOpenPanel()
+        panel.title = "Open Photara Project"
+        panel.message = "Choose a portable .photara-project.json document."
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.directoryURL = projectsDirectory
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let project = try application.openProjectDocument(documentPath: url.path)
+            self.project = project
+            snapshot = try project.snapshot()
+            galleryProxies.removeAll()
+            layoutCellProxies.removeAll()
+            rememberCurrentProject(documentPath: url.path)
         } catch {
             presentedError = error.localizedDescription
         }
@@ -114,6 +162,7 @@ final class AppModel: ObservableObject {
         guard let project else { return }
         do {
             snapshot = try project.save()
+            rememberCurrentProject()
         } catch {
             presentedError = error.localizedDescription
         }
@@ -158,74 +207,80 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func bind(assetID: String, to node: BridgeNodeDto) {
-        guard let project, let snapshot,
-              let frame = node.layout?.frames.first,
-              let cell = frame.cells.first
-        else { return }
+    func bind(assetID: String, to node: BridgeNodeDto, frameID: String, cellID: String) {
+        guard let project, let snapshot else { return }
         accept(
             project.bindAssetToLayout(
                 expectedGraphRevision: snapshot.graph.revision,
                 layoutNodeId: node.nodeId,
-                frameId: frame.frameId,
-                cellId: cell.cellId,
+                frameId: frameID,
+                cellId: cellID,
                 assetId: assetID
             )
         )
-        requestLayoutPreview(for: node.nodeId)
+        requestLayoutProxies(for: node.nodeId)
     }
 
-    func requestLayoutPreview(for nodeID: String) {
+    func requestLayoutProxies(for nodeID: String) {
         guard let project,
-              let node = snapshot?.nodes.first(where: { $0.nodeId == nodeID }),
-              let frame = node.layout?.frames.first,
-              let cell = frame.cells.first,
-              cell.assetId != nil
-        else {
-            layoutPreview = nil
-            return
-        }
-        do {
-            layoutPreview = try project.requestLayoutCellPreview(
-                layoutNodeId: node.nodeId,
-                frameId: frame.frameId,
-                cellId: cell.cellId
-            )
-        } catch {
-            presentedError = error.localizedDescription
+              let node = snapshot?.nodes.first(where: { $0.nodeId == nodeID })
+        else { return }
+        for frame in node.layout?.frames ?? [] {
+            for cell in frame.cells where cell.assetId != nil {
+                do {
+                    layoutCellProxies[cell.cellId] = try project.requestLayoutCellPreview(
+                        layoutNodeId: node.nodeId,
+                        frameId: frame.frameId,
+                        cellId: cell.cellId
+                    )
+                } catch {
+                    presentedError = error.localizedDescription
+                }
+            }
         }
     }
 
-    func applyCenteredCrop(to node: BridgeNodeDto) {
+    func editCell(
+        node: BridgeNodeDto,
+        frameID: String,
+        cellID: String,
+        edit: BridgeLayoutCellEdit
+    ) {
         guard let project, let snapshot else { return }
-        guard let frame = node.layout?.frames.first,
-              let cell = frame.cells.first
-        else {
-            presentedError = "The selected node has no inspectable Layout cell"
-            return
-        }
         accept(
-            project.setLayoutCellCrop(
+            project.editLayoutCell(
                 expectedGraphRevision: snapshot.graph.revision,
                 nodeId: node.nodeId,
-                frameId: frame.frameId,
-                cellId: cell.cellId,
-                x: 100_000,
-                y: 100_000,
-                width: 800_000,
-                height: 800_000
+                frameId: frameID,
+                cellId: cellID,
+                edit: edit
             )
         )
+        requestLayoutProxies(for: node.nodeId)
+    }
+
+    func editStructure(node: BridgeNodeDto, edit: BridgeLayoutStructureEdit) {
+        guard let project, let snapshot else { return }
+        accept(
+            project.editLayoutStructure(
+                expectedGraphRevision: snapshot.graph.revision,
+                nodeId: node.nodeId,
+                edit: edit
+            )
+        )
+        requestLayoutProxies(for: node.nodeId)
     }
 
     func undoLayout() {
         guard let project, let snapshot else { return }
         accept(project.undoLayout(expectedGraphRevision: snapshot.graph.revision))
+        refreshLayoutProxies()
     }
 
     func redoLayout() {
         guard let project, let snapshot else { return }
         accept(project.redoLayout(expectedGraphRevision: snapshot.graph.revision))
+        refreshLayoutProxies()
     }
 
     func evaluate() {
@@ -266,8 +321,42 @@ final class AppModel: ObservableObject {
     private func accept(_ response: BridgeCommandResponseDto) {
         if let snapshot = response.snapshot, response.applied {
             self.snapshot = snapshot
+            let liveCellIDs = Set(
+                snapshot.nodes.flatMap { node in
+                    node.layout?.frames.flatMap(\.cells).map(\.cellId) ?? []
+                }
+            )
+            layoutCellProxies = layoutCellProxies.filter { liveCellIDs.contains($0.key) }
         } else {
             presentedError = response.error?.message ?? "Semantic command was rejected"
+        }
+    }
+
+    private func refreshLayoutProxies() {
+        layoutCellProxies.removeAll()
+        for node in snapshot?.nodes ?? [] where node.layout != nil {
+            requestLayoutProxies(for: node.nodeId)
+        }
+    }
+
+    private func rememberCurrentProject(documentPath: String? = nil) {
+        guard let snapshot else { return }
+        let retainedPath = documentPath ?? recentProjects
+            .first { $0.projectID == snapshot.projectId }?
+            .documentPath
+        recentProjects.removeAll { $0.projectID == snapshot.projectId }
+        recentProjects.insert(
+            RecentProject(
+                projectID: snapshot.projectId,
+                title: snapshot.title,
+                documentPath: retainedPath,
+                lastOpened: Date()
+            ),
+            at: 0
+        )
+        recentProjects = Array(recentProjects.prefix(10))
+        if let data = try? JSONEncoder().encode(recentProjects) {
+            defaults.set(data, forKey: Self.recentProjectsKey)
         }
     }
 }

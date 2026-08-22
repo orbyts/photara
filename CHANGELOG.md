@@ -98,3 +98,19 @@
 - Prove from generated Swift 6 bindings on Quasar that Gallery filter,
   selection, visibility, and Inspector placement do not change graph semantics,
   while explicit binding does and survives save/reopen and evaluation.
+- Begin Stage 9 with resolved normalized/pixel Layout inspection geometry,
+  semantic frame/cell and Fit/Fill/Crop/focal/rotation bridge commands, and
+  exact transaction-based undo/redo that includes explicit asset reassignment.
+- Add a separate movable visual Layout authoring surface with independent
+  frame/cell selection, shared per-cell HDR/SDR proxy references, structure and
+  conventional Inspector controls, and transient crop dragging that commits a
+  single Core command at the gesture boundary.
+- Replace implicit launch/reopen behavior with a native Create/Open/Recent
+  project launcher backed by portable project documents, filesystem storage,
+  and client-only recent state—without adding a cloud database.
+- Add generic node inspection DTOs for typed ports, connections, status,
+  workspace/icon hints, and node-produced summaries; render Project Assets and
+  Layout through one standard Inspector shell.
+- Replace the engineering node list with a primitive spatial graph canvas and
+  explicit optional Layout Workspace activation, while preserving movable
+  project panels and adding Restore Default Workspace.

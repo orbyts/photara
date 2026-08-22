@@ -426,20 +426,52 @@ save/reopen, typed inspection, Inspector movement, Gallery hide/filter/select
 digest invariance, and explicit-command-only semantic change using Xcode 26.6
 without macOS 27 APIs.
 
-### 9. Production Layout inspector
+### 9. Production visual Layout authoring — in progress
 
-- Add frame sequence editing, cell/template selection, proxy assignment,
-  direct Fit/Fill/Crop controls, rotation, crop authoring, validation, and
-  resolved preview. The Inspector may occupy most of a workspace or become a
-  focused/detached authoring surface without changing Core commands.
+- Keep conventional Inspector controls and the visual Layout authoring surface
+  as separate presentation concepts. The authoring surface may occupy most of
+  a workspace or later become focused/detached; placement and size never enter
+  Core semantics.
+- Make asset assignment/reassignment, frame/cell structure changes,
+  Fit/Fill/Crop, focal alignment, quarter-turn rotation, and crop commits
+  revision-checked semantic Core commands with coherent undo/redo. A native
+  gesture may keep transient presentation state while active, but commits one
+  intentional command at its boundary rather than sending pointer movement.
+- Build on the existing Layout semantics and explicit `AssetSet` input before
+  expanding templates. Keep resolved geometry deterministic, authoritative
+  state proxy-free, and Rust solely responsible for interpreting authored
+  state into immutable presentation DTOs.
 - Request thumbnails and authoring previews from the shared project proxy
   service, preserving HDR/SDR/color descriptions through preview selection.
 - Support multiple independent Layout nodes.
 - Harden unavailable storage, source replacement, stale revisions, cancellation,
   corrupted cache, and interrupted save recovery.
 
-**Gate:** the application replaces manual layout worksheets for a real project
-and is useful enough for daily authoring.
+**Gate:** a real project can be authored visually without the old manual Layout
+worksheet/crop-authoring process, including multiple independent Layout nodes,
+explicit asset placement, frame/cell editing, Fit/Fill/Crop, rotation, crop
+authoring, validation, resolved proxy-backed preview, save/reopen, and coherent
+undo/redo.
+
+**Current slice:** the facade exposes resolved normalized/pixel cell geometry
+and semantic cell/structure edit enums. Exact forward/reverse Core graph
+transactions make assignment, structure, content mode, focal/alignment, crop,
+and rotation undoable. The macOS shell now has a separate movable Layout
+authoring surface, explicit frame/cell selection, shared per-cell proxies,
+frame/cell controls, nine-point alignment/focal controls, rotation, crop sizing,
+and transient crop dragging that commits once on gesture end. Stage 9 remains
+open for real-fixture workflow hardening against the complete gate. The
+generated Swift gate now exercises assignment undo/redo, resolved geometry,
+cell insertion/arrangement, focal Fill, rotation undo/redo, and two independent
+Layout nodes through the production facade on Quasar.
+
+The native first-look refinement now separates Graph, standard Inspector,
+optional node Workspace, and project panels. Launch presents Create/Open/Recent
+with native-only recent state and no database. The facade provides generic
+typed port/connection/status/summary DTOs; Swift renders Project Assets and
+Layout through one Inspector shell. A primitive spatial graph replaces the
+engineering list, Layout Workspace opens explicitly, and Workspace → Restore
+Default Workspace recovers presentation state without semantic mutation.
 
 ### 10. 0.2.0 stabilization
 

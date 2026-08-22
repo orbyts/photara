@@ -70,17 +70,63 @@ commands, so the real Layout Inspector works wherever its panel is placed. The
 first native milestone implements only the docking/restoration depth required
 for daily Layout authoring and keeps the graph rendering intentionally plain.
 
-The first compiled shell uses three resizable regions and independently
-identified Assets, Graph, Inspector, and Diagnostics panels. Panels can move or
-hide and restore to a Layout Authoring preset. The graph is intentionally a
-selectable node list. The shell creates, closes, and reopens projects; imports
-paired TIFFs into project-relative resources; lists only Project Asset Context
-in Gallery; binds an asset explicitly through a connected `Project Assets`
-node; and inspects a typed Layout plus proxy-backed preview. Gallery and Layout
-receive leased, verified proxy file references and portable color/HDR
-descriptors, not pixel buffers or platform image objects. This is scaffolding
-for the Stage 9 authoring surface, not final visual design or comprehensive
-docking.
+The recognizable native product distinguishes four concepts:
+
+1. Graph contains nodes and explicit typed data flow.
+2. A standard Inspector explains every selected node through identity, typed
+   ports, parameters, output summaries, evaluation state, and diagnostics.
+3. A node may optionally advertise a rich Workspace; Layout is the first.
+4. Project panels such as Assets and Diagnostics expose shared project context
+   independently of any node.
+
+Every exact node-definition version may advertise presentation capabilities in
+addition to its typed semantic contract. The generic Inspector shell always
+remains available; a definition may augment it with a node-specific control
+surface for semantic parameters and commands. A rich canvas Workspace is a
+separate, optional capability rather than something every node must implement.
+Layout needs one for visual frame and crop authoring, while a future automation
+node may need only menus, script choices, and status controls. Platform control
+implementations are replaceable skins keyed by versioned definition identity;
+they cannot become authoritative node state or bypass Core commands. Package
+purchase, download, and installation are future distribution concerns and do
+not change this boundary.
+
+The bridge supplies generic immutable port inspection records with direction,
+value-type identity/version, connected-node identity, and node/runtime-produced
+summary fields. Swift renders the standard shell without assuming photography
+or Layout. A built-in may add parameter controls inside that shell, but opaque
+authored state remains interpreted by Rust. Workspace availability and icon
+hints are UI-facing definition metadata; their current built-in mapping is the
+small incremental contract, not a new Core node kind.
+
+The compiled shell uses three resizable regions and independently identified
+Assets, Graph, Layout Workspace, Inspector, and Diagnostics surfaces. Panels can
+move or hide, and the native Workspace menu restores the default without
+altering project semantics. Graph is now a deliberately primitive spatial
+canvas with dots, node cards, typed port indicators, connections, selection,
+pan, and zoom. Single-click drives the standard Inspector; double-clicking a
+node that advertises a Workspace activates it. Graph owns the node-creation
+interaction: `Tab` (and the equivalent add control) opens a definition menu in
+the conventional node-editor style. Layout is currently the only offered
+definition, but the menu and shell are not modeled as Layout-specific. Final
+graph editing and visual language remain deferred.
+
+The visual Layout surface and conventional Inspector are distinct consumers of
+the same immutable Rust DTOs. Rust resolves explicit `AssetSet` input into
+normalized and pixel cell geometry; Swift composes leased proxy files into that
+geometry. Fit/Fill/Crop, focal/alignment, rotation, structure, and assignment
+cross the facade only as semantic commands. Crop dragging keeps an ephemeral
+Swift translation while the pointer is down and commits one crop command when
+the gesture ends.
+
+With no active project, the client presents Create, Open, and Recent instead of
+silently manufacturing or reopening a session. Recent locations are native
+`UserDefaults` state. Opening a portable project document validates it and
+imports it into the filesystem repository while refusing divergent content
+with an existing semantic identity. This launcher adds no database dependency:
+portable project JSON remains independently openable, and database-backed
+capabilities wait for a concrete synchronization, provider, publication,
+collaboration, or evidence requirement.
 
 ## Future Windows
 

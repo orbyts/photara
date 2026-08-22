@@ -53,9 +53,13 @@ nodes/
 └── photara-layout/     built-in Layout node package
 ```
 
-Stage 8 has completed the minimal SwiftUI/AppKit vertical slice over these Rust
-contracts. Swift remains focused on presentation and interaction; Stage 9 adds
-the production Layout authoring surface without moving semantics into the UI.
+Stage 8 completed the minimal SwiftUI/AppKit vertical slice over these Rust
+contracts. Stage 9 is now building a separate visual Layout authoring surface
+over immutable resolved DTOs and shared proxies. Swift owns transient gesture
+presentation only; intentional edits and undo/redo remain Core commands.
+The native first-look shell launches through Create/Open/Recent and separates a
+spatial Graph, generic standard Inspector, optional Layout Workspace, and
+project-level Assets without introducing a database dependency.
 
 ## Development
 

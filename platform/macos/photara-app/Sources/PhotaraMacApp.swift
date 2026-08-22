@@ -15,7 +15,7 @@ struct PhotaraMacApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("New Project") { app.newProject() }
                     .keyboardShortcut("n")
-                Button("Reopen Last Project") { app.reopenLastProject() }
+                Button("Open Project…") { app.chooseAndOpenProject() }
                     .keyboardShortcut("o")
                 Button("Close Project") { app.closeProject() }
                     .keyboardShortcut("w")
@@ -23,6 +23,32 @@ struct PhotaraMacApp: App {
             CommandGroup(replacing: .saveItem) {
                 Button("Save") { app.save() }
                     .keyboardShortcut("s")
+            }
+            CommandGroup(replacing: .undoRedo) {
+                Button("Undo Layout Edit") { app.undoLayout() }
+                    .keyboardShortcut("z")
+                Button("Redo Layout Edit") { app.redoLayout() }
+                    .keyboardShortcut("z", modifiers: [.command, .shift])
+            }
+            CommandMenu("Workspace") {
+                Button("Restore Default Workspace") {
+                    workspace.restoreLayoutAuthoringPreset()
+                }
+                .keyboardShortcut("0", modifiers: [.command, .option])
+                Divider()
+                ForEach(WorkspacePanelID.allCases) { panel in
+                    Toggle(panel.title, isOn: Binding(
+                        get: { workspace.isVisible(panel) },
+                        set: { _ in workspace.toggle(panel) }
+                    ))
+                }
+            }
+            CommandMenu("Graph") {
+                Button("Add Node…") {
+                    workspace.requestNodeMenu()
+                }
+                .keyboardShortcut(KeyEquivalent("\t"), modifiers: [])
+                .disabled(!app.hasOpenProject || !workspace.isVisible(.graph))
             }
         }
     }

@@ -17,15 +17,16 @@ use photara_core::{
     Diagnostic, DiagnosticSeverity, EvaluationError, EvaluationId, EvaluationPhase,
     EvaluationRequest, GraphCommand, GraphCommandEnvelope, GraphDocument, GraphId,
     NodeDefinitionRef, NodeEvaluationOutput, NodeEvaluationRequest, NodeInstance, NodeInstanceId,
-    NodeRuntime, PackageRequirement, PortEndpoint, PortId, ProjectCommand, ProjectCommandEnvelope,
-    ProjectDocument, ProjectId, ProjectRelativePath, RequestId, SchemaValue, ValueTypeRegistry,
-    apply_graph_command, apply_project_command, asset_set_value_type_descriptor, canonical_digest,
-    evaluate_graph,
+    NodeRuntime, PackageRequirement, PortDirection, PortEndpoint, PortId, ProjectCommand,
+    ProjectCommandEnvelope, ProjectDocument, ProjectId, ProjectRelativePath, RequestId,
+    SchemaValue, ValueTypeRegistry, apply_graph_command, apply_project_command,
+    asset_set_value_type_descriptor, canonical_digest, evaluate_graph,
 };
 use photara_layout_node::{
-    BundledCanvasProfile, CellArrangement, CellContentMode, LayoutCanvas, LayoutCommand,
-    LayoutCommandError, LayoutNodePackage, LayoutNodeRuntime, LayoutState, NormalizedRect,
-    NormalizedUnit, QuarterTurn, apply_layout_command, layout_plan_value_type_descriptor,
+    BundledCanvasProfile, CellArrangement, CellContentMode, LayoutCanvas, LayoutCell,
+    LayoutCommand, LayoutCommandError, LayoutFrame, LayoutNodePackage, LayoutNodeRuntime,
+    LayoutState, NormalizedPoint, NormalizedRect, NormalizedUnit, QuarterTurn,
+    apply_layout_command, layout_plan_value_type_descriptor, resolve_layout,
 };
 use photara_node_sdk::{NodePackage, NodePackageRegistry};
 #[cfg(target_os = "macos")]
@@ -72,6 +73,40 @@ pub struct BridgeGraphSnapshotDto {
     pub graph_id: String,
     pub revision: u64,
     pub digest: String,
+    pub connections: Vec<BridgeConnectionDto>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+#[allow(clippy::struct_field_names)]
+pub struct BridgeConnectionDto {
+    pub connection_id: String,
+    pub output_node_id: String,
+    pub output_port_id: String,
+    pub input_node_id: String,
+    pub input_port_id: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, uniffi::Enum)]
+pub enum BridgePortDirection {
+    Input,
+    Output,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct BridgeInspectionFieldDto {
+    pub label: String,
+    pub value: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct BridgePortInspectionDto {
+    pub port_id: String,
+    pub direction: BridgePortDirection,
+    pub value_type_id: String,
+    pub value_type_version: u32,
+    pub connected_node_id: Option<String>,
+    pub connected_node_name: Option<String>,
+    pub summary: Vec<BridgeInspectionFieldDto>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
@@ -82,6 +117,11 @@ pub struct BridgeNodeDto {
     pub package_version: String,
     pub definition_id: String,
     pub definition_version: u32,
+    pub icon_symbol: String,
+    pub has_workspace: bool,
+    pub status: String,
+    pub ports: Vec<BridgePortInspectionDto>,
+    pub output_summary: Vec<BridgeInspectionFieldDto>,
     pub layout: Option<BridgeLayoutInspectionDto>,
     pub diagnostics: Vec<BridgeDiagnosticDto>,
 }
@@ -138,7 +178,17 @@ pub struct BridgeLayoutCellInspectionDto {
     pub focal_y: Option<u32>,
     pub crop_rect: Option<BridgeNormalizedRectDto>,
     pub custom_rect: Option<BridgeNormalizedRectDto>,
+    pub resolved_rect: BridgeNormalizedRectDto,
+    pub resolved_pixel_rect: BridgePixelRectDto,
     pub quarter_turn: BridgeQuarterTurn,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct BridgePixelRectDto {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, uniffi::Enum)]
@@ -162,6 +212,62 @@ pub enum BridgeQuarterTurn {
     Clockwise90,
     Clockwise180,
     Clockwise270,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, uniffi::Enum)]
+pub enum BridgeLayoutArrangementEdit {
+    One,
+    HorizontalStack,
+    VerticalStack,
+    UniformGrid { columns: u32 },
+    Custom,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, uniffi::Enum)]
+pub enum BridgeLayoutCellEdit {
+    Fit {
+        alignment_x: u32,
+        alignment_y: u32,
+    },
+    Fill {
+        focal_x: u32,
+        focal_y: u32,
+    },
+    Crop {
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    },
+    SetQuarterTurn {
+        quarter_turn: BridgeQuarterTurn,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Enum)]
+pub enum BridgeLayoutStructureEdit {
+    InsertFrame {
+        index: u64,
+    },
+    RemoveFrame {
+        frame_id: String,
+    },
+    MoveFrame {
+        frame_id: String,
+        to_index: u64,
+    },
+    SetFrameArrangement {
+        frame_id: String,
+        arrangement: BridgeLayoutArrangementEdit,
+    },
+    InsertCell {
+        frame_id: String,
+        index: u64,
+    },
+    RemoveCell {
+        frame_id: String,
+        cell_id: String,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
@@ -443,12 +549,83 @@ impl PhotaraApplication {
             self.proxy_helper_executable.clone(),
         )
     }
+
+    /// Imports and opens one validated portable project document.
+    ///
+    /// If the same semantic project already exists in the application store,
+    /// the documents must be identical; this never silently overwrites a
+    /// divergent project with the same identity.
+    ///
+    /// # Errors
+    ///
+    /// Returns a file, validation, identity-conflict, or store error.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn open_project_document(
+        &self,
+        document_path: String,
+    ) -> Result<Arc<PhotaraProject>, BridgeError> {
+        let path = PathBuf::from(document_path);
+        let json = fs::read_to_string(&path).map_err(|error| BridgeError::Store {
+            message: format!(
+                "could not read project document {}: {error}",
+                path.display()
+            ),
+        })?;
+        let imported = ProjectDocument::from_json(&json).map_err(|error| BridgeError::State {
+            message: format!("invalid portable project document: {error}"),
+        })?;
+        let mut store = self.store.clone();
+        let project = if let Some(existing) =
+            store
+                .load_project(imported.project_id)
+                .map_err(|error| BridgeError::Store {
+                    message: error.to_string(),
+                })? {
+            let existing_digest =
+                canonical_digest(&existing).map_err(|error| BridgeError::State {
+                    message: error.to_string(),
+                })?;
+            let imported_digest =
+                canonical_digest(&imported).map_err(|error| BridgeError::State {
+                    message: error.to_string(),
+                })?;
+            if existing_digest != imported_digest {
+                return Err(BridgeError::State {
+                    message: format!(
+                        "project {} already exists with different content",
+                        imported.project_id
+                    ),
+                });
+            }
+            existing
+        } else {
+            store
+                .create_project(imported.clone())
+                .map_err(|error| BridgeError::Store {
+                    message: error.to_string(),
+                })?;
+            imported
+        };
+        PhotaraProject::new(
+            store,
+            Arc::clone(&self.definitions),
+            Arc::clone(&self.value_types),
+            project,
+            self.proxy_cache_root.clone(),
+            self.proxy_helper_executable.clone(),
+        )
+    }
 }
 
 #[derive(Clone)]
 struct LayoutUndoEntry {
-    node_id: NodeInstanceId,
-    command: LayoutCommand,
+    undo: GraphCommand,
+    redo: GraphCommand,
+}
+
+struct PreparedLayoutEdit {
+    forward: GraphCommand,
+    reverse: GraphCommand,
 }
 
 struct ProjectSessionState {
@@ -671,37 +848,56 @@ impl PhotaraProject {
         width: u32,
         height: u32,
     ) -> BridgeCommandResponseDto {
+        self.edit_layout_cell(
+            expected_graph_revision,
+            node_id,
+            frame_id,
+            cell_id,
+            BridgeLayoutCellEdit::Crop {
+                x,
+                y,
+                width,
+                height,
+            },
+        )
+    }
+
+    /// Applies one intentional cell edit as one revision-checked Core command.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn edit_layout_cell(
+        &self,
+        expected_graph_revision: u64,
+        node_id: String,
+        frame_id: String,
+        cell_id: String,
+        edit: BridgeLayoutCellEdit,
+    ) -> BridgeCommandResponseDto {
         let command_id = CommandId::new();
-        let result = self.prepare_crop_command(&node_id, &frame_id, &cell_id, x, y, width, height);
-        let (node_id, inverse, authored_state) = match result {
-            Ok(value) => value,
-            Err(error) => {
-                return rejected_command(
-                    command_id,
-                    expected_graph_revision,
-                    "photara.layout.invalid-command",
-                    error,
-                );
-            }
-        };
-        let response = self.apply_core_command(
+        let prepared = self.prepare_cell_edit(&node_id, &frame_id, &cell_id, edit);
+        self.apply_prepared_layout_edit(
             command_id,
             expected_graph_revision,
-            GraphCommand::SetAuthoredState {
-                node_id,
-                authored_state: Some(authored_state),
-            },
-        );
-        if response.applied
-            && let Ok(mut state) = self.lock_state()
-        {
-            state.undo.push(LayoutUndoEntry {
-                node_id,
-                command: inverse,
-            });
-            state.redo.clear();
-        }
-        response
+            prepared,
+            "photara.layout.invalid-cell-edit",
+        )
+    }
+
+    /// Applies one intentional frame/cell structure edit through Core.
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn edit_layout_structure(
+        &self,
+        expected_graph_revision: u64,
+        node_id: String,
+        edit: BridgeLayoutStructureEdit,
+    ) -> BridgeCommandResponseDto {
+        let command_id = CommandId::new();
+        let prepared = self.prepare_structure_edit(&node_id, edit);
+        self.apply_prepared_layout_edit(
+            command_id,
+            expected_graph_revision,
+            prepared,
+            "photara.layout.invalid-structure-edit",
+        )
     }
 
     pub fn undo_layout(&self, expected_graph_revision: u64) -> BridgeCommandResponseDto {
@@ -807,8 +1003,8 @@ impl PhotaraProject {
     ) -> BridgeCommandResponseDto {
         let command_id = CommandId::new();
         let prepared = self.prepare_asset_binding(&layout_node_id, &frame_id, &cell_id, &asset_id);
-        let command = match prepared {
-            Ok(command) => command,
+        let prepared = match prepared {
+            Ok(prepared) => prepared,
             Err(error) => {
                 return rejected_command(
                     command_id,
@@ -818,14 +1014,12 @@ impl PhotaraProject {
                 );
             }
         };
-        let response = self.apply_core_command(command_id, expected_graph_revision, command);
-        if response.applied
-            && let Ok(mut state) = self.lock_state()
-        {
-            state.undo.clear();
-            state.redo.clear();
-        }
-        response
+        self.apply_prepared_layout_edit(
+            command_id,
+            expected_graph_revision,
+            Ok(prepared),
+            "photara.bridge.invalid-asset-binding",
+        )
     }
 
     /// Returns a leased, verified shared SDR thumbnail for one project asset.
@@ -1039,13 +1233,14 @@ impl PhotaraProject {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn prepare_asset_binding(
         &self,
         layout_node_id: &str,
         frame_id: &str,
         cell_id: &str,
         asset_id: &str,
-    ) -> Result<GraphCommand, String> {
+    ) -> Result<PreparedLayoutEdit, String> {
         let layout_node_id: NodeInstanceId =
             parse_uuid_id(layout_node_id, "Layout node ID").map_err(|error| error.to_string())?;
         let frame_id = parse_uuid_id(frame_id, "frame ID").map_err(|error| error.to_string())?;
@@ -1123,63 +1318,61 @@ impl PhotaraProject {
             },
         )
         .map_err(|error| error.to_string())?;
-        Ok(GraphCommand::Batch {
-            commands: vec![
-                GraphCommand::SetAuthoredState {
-                    node_id: source_id,
-                    authored_state: Some(SchemaValue {
-                        schema: asset_set_state_schema(),
-                        value: serde_json::to_value(assets).map_err(|error| error.to_string())?,
-                    }),
-                },
-                GraphCommand::SetAuthoredState {
-                    node_id: layout_node_id,
-                    authored_state: Some(
-                        applied
-                            .state
-                            .to_schema_value()
-                            .map_err(|error| error.to_string())?,
-                    ),
-                },
-            ],
+        let new_source_state = SchemaValue {
+            schema: asset_set_state_schema(),
+            value: serde_json::to_value(assets).map_err(|error| error.to_string())?,
+        };
+        let new_layout_state = applied
+            .state
+            .to_schema_value()
+            .map_err(|error| error.to_string())?;
+        let old_source_state = source_state.clone();
+        let old_layout_state = layout_node
+            .authored_state
+            .clone()
+            .ok_or_else(|| format!("Layout {layout_node_id} has no authored state"))?;
+        Ok(PreparedLayoutEdit {
+            forward: GraphCommand::Batch {
+                commands: vec![
+                    GraphCommand::SetAuthoredState {
+                        node_id: source_id,
+                        authored_state: Some(new_source_state),
+                    },
+                    GraphCommand::SetAuthoredState {
+                        node_id: layout_node_id,
+                        authored_state: Some(new_layout_state),
+                    },
+                ],
+            },
+            reverse: GraphCommand::Batch {
+                commands: vec![
+                    GraphCommand::SetAuthoredState {
+                        node_id: source_id,
+                        authored_state: Some(old_source_state),
+                    },
+                    GraphCommand::SetAuthoredState {
+                        node_id: layout_node_id,
+                        authored_state: Some(old_layout_state),
+                    },
+                ],
+            },
         })
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn prepare_crop_command(
+    fn prepare_cell_edit(
         &self,
         node_id: &str,
         frame_id: &str,
         cell_id: &str,
-        x: u32,
-        y: u32,
-        width: u32,
-        height: u32,
-    ) -> Result<(NodeInstanceId, LayoutCommand, SchemaValue), String> {
+        edit: BridgeLayoutCellEdit,
+    ) -> Result<PreparedLayoutEdit, String> {
         let node_id: NodeInstanceId =
-            parse_uuid_id(node_id, "node ID").map_err(|e| e.to_string())?;
-        let frame_id = parse_uuid_id(frame_id, "Layout frame ID").map_err(|e| e.to_string())?;
-        let cell_id = parse_uuid_id(cell_id, "Layout cell ID").map_err(|e| e.to_string())?;
-        let source_rect = NormalizedRect {
-            x: NormalizedUnit::new(x).map_err(|error| error.to_string())?,
-            y: NormalizedUnit::new(y).map_err(|error| error.to_string())?,
-            width: NormalizedUnit::new(width).map_err(|error| error.to_string())?,
-            height: NormalizedUnit::new(height).map_err(|error| error.to_string())?,
-        };
-        let state = self.lock_state().map_err(|error| error.to_string())?;
-        let node = state
-            .project
-            .graph
-            .nodes
-            .iter()
-            .find(|node| node.id == node_id)
-            .ok_or_else(|| format!("unknown node {node_id}"))?;
-        let layout = LayoutState::from_schema_value(
-            node.authored_state
-                .as_ref()
-                .ok_or_else(|| format!("node {node_id} has no authored state"))?,
-        )
-        .map_err(|error| error.to_string())?;
+            parse_uuid_id(node_id, "node ID").map_err(|error| error.to_string())?;
+        let frame_id =
+            parse_uuid_id(frame_id, "Layout frame ID").map_err(|error| error.to_string())?;
+        let cell_id =
+            parse_uuid_id(cell_id, "Layout cell ID").map_err(|error| error.to_string())?;
+        let (layout, old_authored_state) = self.layout_state(node_id)?;
         let frame = layout
             .frames
             .iter()
@@ -1191,19 +1384,170 @@ impl PhotaraProject {
             .find(|cell| cell.id == cell_id)
             .cloned()
             .ok_or_else(|| format!("unknown Layout cell {cell_id}"))?;
-        cell.content_mode = CellContentMode::Crop { source_rect };
-        let command = LayoutCommand::ReplaceCell {
-            frame_id,
-            cell_id,
-            cell,
+        match edit {
+            BridgeLayoutCellEdit::Fit {
+                alignment_x,
+                alignment_y,
+            } => {
+                cell.content_mode = CellContentMode::Fit {
+                    alignment: bridge_point(alignment_x, alignment_y)?,
+                };
+            }
+            BridgeLayoutCellEdit::Fill { focal_x, focal_y } => {
+                cell.content_mode = CellContentMode::Fill {
+                    focal_point: bridge_point(focal_x, focal_y)?,
+                };
+            }
+            BridgeLayoutCellEdit::Crop {
+                x,
+                y,
+                width,
+                height,
+            } => {
+                cell.content_mode = CellContentMode::Crop {
+                    source_rect: bridge_rect(x, y, width, height)?,
+                };
+            }
+            BridgeLayoutCellEdit::SetQuarterTurn { quarter_turn } => {
+                cell.quarter_turn = quarter_turn.into();
+            }
+        }
+        Self::prepare_layout_command(
+            node_id,
+            old_authored_state,
+            &layout,
+            LayoutCommand::ReplaceCell {
+                frame_id,
+                cell_id,
+                cell,
+            },
+        )
+    }
+
+    fn prepare_structure_edit(
+        &self,
+        node_id: &str,
+        edit: BridgeLayoutStructureEdit,
+    ) -> Result<PreparedLayoutEdit, String> {
+        let node_id: NodeInstanceId =
+            parse_uuid_id(node_id, "node ID").map_err(|error| error.to_string())?;
+        let (layout, old_authored_state) = self.layout_state(node_id)?;
+        let command = match edit {
+            BridgeLayoutStructureEdit::InsertFrame { index } => LayoutCommand::InsertFrame {
+                index: usize::try_from(index).map_err(|_| "frame index is too large")?,
+                frame: LayoutFrame::one_cell(),
+            },
+            BridgeLayoutStructureEdit::RemoveFrame { frame_id } => LayoutCommand::RemoveFrame {
+                frame_id: parse_uuid_id(&frame_id, "Layout frame ID")
+                    .map_err(|error| error.to_string())?,
+            },
+            BridgeLayoutStructureEdit::MoveFrame { frame_id, to_index } => {
+                LayoutCommand::MoveFrame {
+                    frame_id: parse_uuid_id(&frame_id, "Layout frame ID")
+                        .map_err(|error| error.to_string())?,
+                    to_index: usize::try_from(to_index).map_err(|_| "frame index is too large")?,
+                }
+            }
+            BridgeLayoutStructureEdit::SetFrameArrangement {
+                frame_id,
+                arrangement,
+            } => LayoutCommand::SetFrameArrangement {
+                frame_id: parse_uuid_id(&frame_id, "Layout frame ID")
+                    .map_err(|error| error.to_string())?,
+                arrangement: arrangement.try_into()?,
+            },
+            BridgeLayoutStructureEdit::InsertCell { frame_id, index } => {
+                LayoutCommand::InsertCell {
+                    frame_id: parse_uuid_id(&frame_id, "Layout frame ID")
+                        .map_err(|error| error.to_string())?,
+                    index: usize::try_from(index).map_err(|_| "cell index is too large")?,
+                    cell: LayoutCell::new(),
+                }
+            }
+            BridgeLayoutStructureEdit::RemoveCell { frame_id, cell_id } => {
+                LayoutCommand::RemoveCell {
+                    frame_id: parse_uuid_id(&frame_id, "Layout frame ID")
+                        .map_err(|error| error.to_string())?,
+                    cell_id: parse_uuid_id(&cell_id, "Layout cell ID")
+                        .map_err(|error| error.to_string())?,
+                }
+            }
         };
-        let applied =
-            apply_layout_command(&layout, command.clone()).map_err(|error| error.to_string())?;
-        let authored_state = applied
+        Self::prepare_layout_command(node_id, old_authored_state, &layout, command)
+    }
+
+    fn layout_state(&self, node_id: NodeInstanceId) -> Result<(LayoutState, SchemaValue), String> {
+        let state = self.lock_state().map_err(|error| error.to_string())?;
+        let node = state
+            .project
+            .graph
+            .nodes
+            .iter()
+            .find(|node| node.id == node_id)
+            .ok_or_else(|| format!("unknown node {node_id}"))?;
+        if node.definition.package_id.as_str() != photara_layout_node::PACKAGE_ID {
+            return Err(format!("node {node_id} is not a Layout"));
+        }
+        let authored_state = node
+            .authored_state
+            .clone()
+            .ok_or_else(|| format!("node {node_id} has no authored state"))?;
+        let layout =
+            LayoutState::from_schema_value(&authored_state).map_err(|error| error.to_string())?;
+        Ok((layout, authored_state))
+    }
+
+    fn prepare_layout_command(
+        node_id: NodeInstanceId,
+        old_authored_state: SchemaValue,
+        layout: &LayoutState,
+        command: LayoutCommand,
+    ) -> Result<PreparedLayoutEdit, String> {
+        let applied = apply_layout_command(layout, command).map_err(|error| error.to_string())?;
+        let new_authored_state = applied
             .state
             .to_schema_value()
             .map_err(|error| error.to_string())?;
-        Ok((node_id, applied.inverse, authored_state))
+        Ok(PreparedLayoutEdit {
+            forward: GraphCommand::SetAuthoredState {
+                node_id,
+                authored_state: Some(new_authored_state),
+            },
+            reverse: GraphCommand::SetAuthoredState {
+                node_id,
+                authored_state: Some(old_authored_state),
+            },
+        })
+    }
+
+    fn apply_prepared_layout_edit(
+        &self,
+        command_id: CommandId,
+        expected_graph_revision: u64,
+        prepared: Result<PreparedLayoutEdit, String>,
+        error_code: &str,
+    ) -> BridgeCommandResponseDto {
+        let prepared = match prepared {
+            Ok(prepared) => prepared,
+            Err(error) => {
+                return rejected_command(command_id, expected_graph_revision, error_code, error);
+            }
+        };
+        let response = self.apply_core_command(
+            command_id,
+            expected_graph_revision,
+            prepared.forward.clone(),
+        );
+        if response.applied
+            && let Ok(mut state) = self.lock_state()
+        {
+            state.undo.push(LayoutUndoEntry {
+                undo: prepared.reverse,
+                redo: prepared.forward,
+            });
+            state.redo.clear();
+        }
+        response
     }
 
     fn apply_history_command(
@@ -1246,82 +1590,27 @@ impl PhotaraProject {
                 }
             }
         };
-        let prepared = self.prepare_history_authored_state(&entry);
-        let (inverse, authored_state) = match prepared {
-            Ok(value) => value,
-            Err(error) => {
-                if let Ok(mut state) = self.lock_state() {
-                    let stack = if undo {
-                        &mut state.undo
-                    } else {
-                        &mut state.redo
-                    };
-                    stack.push(entry);
-                }
-                return rejected_command(
-                    command_id,
-                    expected_graph_revision,
-                    "photara.layout.history-invalid",
-                    error,
-                );
-            }
+        let command = if undo {
+            entry.undo.clone()
+        } else {
+            entry.redo.clone()
         };
-        let response = self.apply_core_command(
-            command_id,
-            expected_graph_revision,
-            GraphCommand::SetAuthoredState {
-                node_id: entry.node_id,
-                authored_state: Some(authored_state),
-            },
-        );
+        let response = self.apply_core_command(command_id, expected_graph_revision, command);
         if let Ok(mut state) = self.lock_state() {
-            if response.applied {
-                let destination = if undo {
+            let stack = if response.applied {
+                if undo {
                     &mut state.redo
                 } else {
                     &mut state.undo
-                };
-                destination.push(LayoutUndoEntry {
-                    node_id: entry.node_id,
-                    command: inverse,
-                });
+                }
+            } else if undo {
+                &mut state.undo
             } else {
-                let source = if undo {
-                    &mut state.undo
-                } else {
-                    &mut state.redo
-                };
-                source.push(entry);
-            }
+                &mut state.redo
+            };
+            stack.push(entry);
         }
         response
-    }
-
-    fn prepare_history_authored_state(
-        &self,
-        entry: &LayoutUndoEntry,
-    ) -> Result<(LayoutCommand, SchemaValue), String> {
-        let state = self.lock_state().map_err(|error| error.to_string())?;
-        let node = state
-            .project
-            .graph
-            .nodes
-            .iter()
-            .find(|node| node.id == entry.node_id)
-            .ok_or_else(|| format!("unknown node {}", entry.node_id))?;
-        let layout = LayoutState::from_schema_value(
-            node.authored_state
-                .as_ref()
-                .ok_or_else(|| format!("node {} has no authored state", entry.node_id))?,
-        )
-        .map_err(|error| error.to_string())?;
-        let applied = apply_layout_command(&layout, entry.command.clone())
-            .map_err(|error| error.to_string())?;
-        let authored_state = applied
-            .state
-            .to_schema_value()
-            .map_err(|error| error.to_string())?;
-        Ok((applied.inverse, authored_state))
     }
 }
 
@@ -1497,7 +1786,7 @@ fn project_snapshot(
         .graph
         .nodes
         .iter()
-        .map(|node| node_snapshot(node, definitions, &mut diagnostics))
+        .map(|node| node_snapshot(node, &state.project, definitions, &mut diagnostics))
         .collect();
     Ok(BridgeProjectSnapshotDto {
         project_id: state.project.project_id.to_string(),
@@ -1507,6 +1796,19 @@ fn project_snapshot(
             graph_id: state.project.graph.id.to_string(),
             revision: state.project.graph.revision.get(),
             digest: graph_digest.to_string(),
+            connections: state
+                .project
+                .graph
+                .connections
+                .iter()
+                .map(|connection| BridgeConnectionDto {
+                    connection_id: connection.id.to_string(),
+                    output_node_id: connection.output.node_id.to_string(),
+                    output_port_id: connection.output.port_id.to_string(),
+                    input_node_id: connection.input.node_id.to_string(),
+                    input_port_id: connection.input.port_id.to_string(),
+                })
+                .collect(),
         },
         assets: state
             .project
@@ -1528,6 +1830,7 @@ fn project_snapshot(
 
 fn node_snapshot(
     node: &NodeInstance,
+    project: &ProjectDocument,
     definitions: &NodePackageRegistry,
     project_diagnostics: &mut Vec<BridgeDiagnosticDto>,
 ) -> BridgeNodeDto {
@@ -1535,7 +1838,23 @@ fn node_snapshot(
         || node.definition.definition_id.to_string(),
         |value| value.display_name.clone(),
     );
-    let (layout, mut diagnostics) = layout_inspection(node);
+    let (layout, mut diagnostics) = layout_inspection(node, &project.graph);
+    let ports = node_port_inspections(node, project, definitions, layout.as_ref());
+    let output_summary = ports
+        .iter()
+        .filter(|port| port.direction == BridgePortDirection::Output)
+        .flat_map(|port| port.summary.iter().cloned())
+        .collect();
+    let status = if diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.severity == BridgeDiagnosticSeverity::Error)
+    {
+        "Error"
+    } else if diagnostics.is_empty() {
+        "Ready"
+    } else {
+        "Warning"
+    };
     project_diagnostics.extend(diagnostics.iter().cloned());
     BridgeNodeDto {
         node_id: node.id.to_string(),
@@ -1544,13 +1863,166 @@ fn node_snapshot(
         package_version: node.definition.package_version.to_string(),
         definition_id: node.definition.definition_id.to_string(),
         definition_version: node.definition.definition_version.get(),
+        icon_symbol: node_icon_symbol(node),
+        has_workspace: node.definition.package_id.as_str() == photara_layout_node::PACKAGE_ID,
+        status: status.to_owned(),
+        ports,
+        output_summary,
         layout,
         diagnostics: std::mem::take(&mut diagnostics),
     }
 }
 
+fn node_icon_symbol(node: &NodeInstance) -> String {
+    if node.definition.package_id.as_str() == photara_layout_node::PACKAGE_ID {
+        "rectangle.3.group".to_owned()
+    } else if node.definition.package_id.as_str() == photara_asset_set_node::PACKAGE_ID {
+        "photo.stack".to_owned()
+    } else {
+        "square.dashed".to_owned()
+    }
+}
+
+fn node_port_inspections(
+    node: &NodeInstance,
+    project: &ProjectDocument,
+    definitions: &NodePackageRegistry,
+    layout: Option<&BridgeLayoutInspectionDto>,
+) -> Vec<BridgePortInspectionDto> {
+    let Some(definition) = definitions.resolve(&node.definition) else {
+        return Vec::new();
+    };
+    definition
+        .ports
+        .iter()
+        .map(|port| {
+            let connection =
+                project
+                    .graph
+                    .connections
+                    .iter()
+                    .find(|connection| match port.direction {
+                        PortDirection::Input => {
+                            connection.input.node_id == node.id
+                                && connection.input.port_id == port.id
+                        }
+                        PortDirection::Output => {
+                            connection.output.node_id == node.id
+                                && connection.output.port_id == port.id
+                        }
+                    });
+            let connected_node_id = connection.map(|connection| match port.direction {
+                PortDirection::Input => connection.output.node_id,
+                PortDirection::Output => connection.input.node_id,
+            });
+            let connected_node_name = connected_node_id.and_then(|connected_id| {
+                project
+                    .graph
+                    .nodes
+                    .iter()
+                    .find(|candidate| candidate.id == connected_id)
+                    .map(|candidate| {
+                        definitions.resolve(&candidate.definition).map_or_else(
+                            || candidate.definition.definition_id.to_string(),
+                            |definition| definition.display_name.clone(),
+                        )
+                    })
+            });
+            BridgePortInspectionDto {
+                port_id: port.id.to_string(),
+                direction: match port.direction {
+                    PortDirection::Input => BridgePortDirection::Input,
+                    PortDirection::Output => BridgePortDirection::Output,
+                },
+                value_type_id: port.value_type.id.to_string(),
+                value_type_version: port.value_type.version.get(),
+                connected_node_id: connected_node_id.map(|id| id.to_string()),
+                connected_node_name,
+                summary: port_summary(node, port.direction, port.id.as_str(), project, layout),
+            }
+        })
+        .collect()
+}
+
+fn port_summary(
+    node: &NodeInstance,
+    direction: PortDirection,
+    port_id: &str,
+    project: &ProjectDocument,
+    layout: Option<&BridgeLayoutInspectionDto>,
+) -> Vec<BridgeInspectionFieldDto> {
+    if let Some(assets) = asset_set_visible_at_port(node, direction, port_id, &project.graph) {
+        let representations = assets
+            .assets
+            .iter()
+            .filter_map(|asset_id| project.asset_context.asset(*asset_id))
+            .map(|asset| asset.representations.len())
+            .sum::<usize>();
+        return vec![
+            inspection_field("Assets", assets.assets.len()),
+            inspection_field("Representations", representations),
+        ];
+    }
+    if direction == PortDirection::Output
+        && port_id == "layout"
+        && let Some(layout) = layout
+    {
+        return vec![
+            inspection_field("Frames", layout.frames.len()),
+            BridgeInspectionFieldDto {
+                label: "Canvas".to_owned(),
+                value: format!(
+                    "{} × {}",
+                    layout.canvas.width_pixels, layout.canvas.height_pixels
+                ),
+            },
+            BridgeInspectionFieldDto {
+                label: "Status".to_owned(),
+                value: "Resolved".to_owned(),
+            },
+        ];
+    }
+    Vec::new()
+}
+
+fn asset_set_visible_at_port(
+    node: &NodeInstance,
+    direction: PortDirection,
+    port_id: &str,
+    graph: &GraphDocument,
+) -> Option<AssetSet> {
+    let source = match direction {
+        PortDirection::Output if port_id == "assets" => Some(node),
+        PortDirection::Input if port_id == "assets" => graph
+            .connections
+            .iter()
+            .find(|connection| {
+                connection.input.node_id == node.id && connection.input.port_id.as_str() == port_id
+            })
+            .and_then(|connection| {
+                graph
+                    .nodes
+                    .iter()
+                    .find(|candidate| candidate.id == connection.output.node_id)
+            }),
+        _ => None,
+    }?;
+    let state = source.authored_state.as_ref()?;
+    (state.schema == asset_set_state_schema())
+        .then(|| serde_json::from_value(state.value.clone()).ok())
+        .flatten()
+}
+
+fn inspection_field(label: &str, value: usize) -> BridgeInspectionFieldDto {
+    BridgeInspectionFieldDto {
+        label: label.to_owned(),
+        value: value.to_string(),
+    }
+}
+
 fn layout_inspection(
     node: &NodeInstance,
+    graph: &GraphDocument,
 ) -> (Option<BridgeLayoutInspectionDto>, Vec<BridgeDiagnosticDto>) {
     if node.definition.package_id.as_str() != photara_layout_node::PACKAGE_ID {
         return (None, Vec::new());
@@ -1566,7 +2038,9 @@ fn layout_inspection(
         );
     };
     match LayoutState::from_schema_value(value) {
-        Ok(layout) => match BridgeLayoutInspectionDto::try_from(&layout) {
+        Ok(layout) => match explicit_layout_assets(graph, node.id)
+            .and_then(|assets| BridgeLayoutInspectionDto::try_from((&layout, &assets)))
+        {
             Ok(inspection) => (Some(inspection), Vec::new()),
             Err(error) => (
                 None,
@@ -1588,11 +2062,49 @@ fn layout_inspection(
     }
 }
 
-impl TryFrom<&LayoutState> for BridgeLayoutInspectionDto {
+fn explicit_layout_assets(
+    graph: &GraphDocument,
+    layout_node_id: NodeInstanceId,
+) -> Result<AssetSet, BridgeError> {
+    let source_id = graph
+        .connections
+        .iter()
+        .find(|connection| {
+            connection.input.node_id == layout_node_id
+                && connection.input.port_id.as_str() == "assets"
+        })
+        .map(|connection| connection.output.node_id)
+        .ok_or_else(|| BridgeError::State {
+            message: format!("Layout {layout_node_id} has no explicit AssetSet input"),
+        })?;
+    let source = graph
+        .nodes
+        .iter()
+        .find(|node| node.id == source_id)
+        .ok_or_else(|| BridgeError::State {
+            message: format!("AssetSet source {source_id} is missing"),
+        })?;
+    let authored_state = source
+        .authored_state
+        .as_ref()
+        .ok_or_else(|| BridgeError::State {
+            message: format!("AssetSet source {source_id} has no authored state"),
+        })?;
+    if authored_state.schema != asset_set_state_schema() {
+        return Err(BridgeError::State {
+            message: format!("AssetSet source {source_id} has the wrong schema"),
+        });
+    }
+    serde_json::from_value(authored_state.value.clone()).map_err(|error| BridgeError::State {
+        message: error.to_string(),
+    })
+}
+
+impl TryFrom<(&LayoutState, &AssetSet)> for BridgeLayoutInspectionDto {
     type Error = BridgeError;
 
     #[allow(clippy::too_many_lines)]
-    fn try_from(layout: &LayoutState) -> Result<Self, Self::Error> {
+    fn try_from((layout, assets): (&LayoutState, &AssetSet)) -> Result<Self, Self::Error> {
         let size = layout
             .canvas
             .pixel_size()
@@ -1627,59 +2139,76 @@ impl TryFrom<&LayoutState> for BridgeLayoutInspectionDto {
                 Some(long_edge_pixels.get()),
             ),
         };
+        let plan = resolve_layout(layout, assets).map_err(|error| BridgeError::State {
+            message: error.to_string(),
+        })?;
         let frames = layout
             .frames
             .iter()
+            .zip(&plan.frames)
             .enumerate()
-            .map(|(index, frame)| BridgeLayoutFrameInspectionDto {
-                frame_id: frame.id.to_string(),
-                index: u64::try_from(index).unwrap_or(u64::MAX),
-                arrangement: match frame.arrangement {
-                    CellArrangement::One => BridgeLayoutArrangement::One,
-                    CellArrangement::HorizontalStack => BridgeLayoutArrangement::HorizontalStack,
-                    CellArrangement::VerticalStack => BridgeLayoutArrangement::VerticalStack,
-                    CellArrangement::UniformGrid { .. } => BridgeLayoutArrangement::UniformGrid,
-                    CellArrangement::Custom => BridgeLayoutArrangement::Custom,
-                },
-                cells: frame
-                    .cells
-                    .iter()
-                    .enumerate()
-                    .map(|(index, cell)| {
-                        let (content_mode, focal_x, focal_y, crop_rect) = match cell.content_mode {
-                            CellContentMode::Fit { alignment } => (
-                                BridgeLayoutContentMode::Fit,
-                                Some(alignment.x.get()),
-                                Some(alignment.y.get()),
-                                None,
-                            ),
-                            CellContentMode::Fill { focal_point } => (
-                                BridgeLayoutContentMode::Fill,
-                                Some(focal_point.x.get()),
-                                Some(focal_point.y.get()),
-                                None,
-                            ),
-                            CellContentMode::Crop { source_rect } => (
-                                BridgeLayoutContentMode::Crop,
-                                None,
-                                None,
-                                Some(source_rect.into()),
-                            ),
-                        };
-                        BridgeLayoutCellInspectionDto {
-                            cell_id: cell.id.to_string(),
-                            index: u64::try_from(index).unwrap_or(u64::MAX),
-                            asset_id: cell.asset_id.map(|id| id.to_string()),
-                            content_mode,
-                            focal_x,
-                            focal_y,
-                            crop_rect,
-                            custom_rect: cell.custom_rect.map(Into::into),
-                            quarter_turn: cell.quarter_turn.into(),
+            .map(
+                |(index, (frame, resolved_frame))| BridgeLayoutFrameInspectionDto {
+                    frame_id: frame.id.to_string(),
+                    index: u64::try_from(index).unwrap_or(u64::MAX),
+                    arrangement: match frame.arrangement {
+                        CellArrangement::One => BridgeLayoutArrangement::One,
+                        CellArrangement::HorizontalStack => {
+                            BridgeLayoutArrangement::HorizontalStack
                         }
-                    })
-                    .collect(),
-            })
+                        CellArrangement::VerticalStack => BridgeLayoutArrangement::VerticalStack,
+                        CellArrangement::UniformGrid { .. } => BridgeLayoutArrangement::UniformGrid,
+                        CellArrangement::Custom => BridgeLayoutArrangement::Custom,
+                    },
+                    cells: frame
+                        .cells
+                        .iter()
+                        .zip(&resolved_frame.cells)
+                        .enumerate()
+                        .map(|(index, (cell, resolved_cell))| {
+                            let (content_mode, focal_x, focal_y, crop_rect) =
+                                match cell.content_mode {
+                                    CellContentMode::Fit { alignment } => (
+                                        BridgeLayoutContentMode::Fit,
+                                        Some(alignment.x.get()),
+                                        Some(alignment.y.get()),
+                                        None,
+                                    ),
+                                    CellContentMode::Fill { focal_point } => (
+                                        BridgeLayoutContentMode::Fill,
+                                        Some(focal_point.x.get()),
+                                        Some(focal_point.y.get()),
+                                        None,
+                                    ),
+                                    CellContentMode::Crop { source_rect } => (
+                                        BridgeLayoutContentMode::Crop,
+                                        None,
+                                        None,
+                                        Some(source_rect.into()),
+                                    ),
+                                };
+                            BridgeLayoutCellInspectionDto {
+                                cell_id: cell.id.to_string(),
+                                index: u64::try_from(index).unwrap_or(u64::MAX),
+                                asset_id: cell.asset_id.map(|id| id.to_string()),
+                                content_mode,
+                                focal_x,
+                                focal_y,
+                                crop_rect,
+                                custom_rect: cell.custom_rect.map(Into::into),
+                                resolved_rect: resolved_cell.normalized_rect.into(),
+                                resolved_pixel_rect: BridgePixelRectDto {
+                                    x: resolved_cell.pixel_rect.x,
+                                    y: resolved_cell.pixel_rect.y,
+                                    width: resolved_cell.pixel_rect.width.get(),
+                                    height: resolved_cell.pixel_rect.height.get(),
+                                },
+                                quarter_turn: cell.quarter_turn.into(),
+                            }
+                        })
+                        .collect(),
+                },
+            )
             .collect();
         Ok(Self {
             authored_state_digest: layout
@@ -1721,6 +2250,50 @@ impl From<QuarterTurn> for BridgeQuarterTurn {
             QuarterTurn::Clockwise270 => Self::Clockwise270,
         }
     }
+}
+
+impl From<BridgeQuarterTurn> for QuarterTurn {
+    fn from(value: BridgeQuarterTurn) -> Self {
+        match value {
+            BridgeQuarterTurn::Zero => Self::Zero,
+            BridgeQuarterTurn::Clockwise90 => Self::Clockwise90,
+            BridgeQuarterTurn::Clockwise180 => Self::Clockwise180,
+            BridgeQuarterTurn::Clockwise270 => Self::Clockwise270,
+        }
+    }
+}
+
+impl TryFrom<BridgeLayoutArrangementEdit> for CellArrangement {
+    type Error = String;
+
+    fn try_from(value: BridgeLayoutArrangementEdit) -> Result<Self, Self::Error> {
+        match value {
+            BridgeLayoutArrangementEdit::One => Ok(Self::One),
+            BridgeLayoutArrangementEdit::HorizontalStack => Ok(Self::HorizontalStack),
+            BridgeLayoutArrangementEdit::VerticalStack => Ok(Self::VerticalStack),
+            BridgeLayoutArrangementEdit::UniformGrid { columns } => Ok(Self::UniformGrid {
+                columns: NonZeroU32::new(columns)
+                    .ok_or_else(|| "grid columns must be greater than zero".to_owned())?,
+            }),
+            BridgeLayoutArrangementEdit::Custom => Ok(Self::Custom),
+        }
+    }
+}
+
+fn bridge_point(x: u32, y: u32) -> Result<NormalizedPoint, String> {
+    Ok(NormalizedPoint {
+        x: NormalizedUnit::new(x).map_err(|error| error.to_string())?,
+        y: NormalizedUnit::new(y).map_err(|error| error.to_string())?,
+    })
+}
+
+fn bridge_rect(x: u32, y: u32, width: u32, height: u32) -> Result<NormalizedRect, String> {
+    Ok(NormalizedRect {
+        x: NormalizedUnit::new(x).map_err(|error| error.to_string())?,
+        y: NormalizedUnit::new(y).map_err(|error| error.to_string())?,
+        width: NormalizedUnit::new(width).map_err(|error| error.to_string())?,
+        height: NormalizedUnit::new(height).map_err(|error| error.to_string())?,
+    })
 }
 
 impl From<Diagnostic> for BridgeDiagnosticDto {
@@ -1974,6 +2547,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn production_facade_saves_reopens_commands_and_undoes_layout() {
         let root = TestRoot::new();
         let app = PhotaraApplication::open(
@@ -2002,6 +2576,22 @@ mod tests {
             .find(|node| node.layout.is_some())
             .unwrap();
         let layout = node.layout.as_ref().unwrap();
+        assert!(node.has_workspace);
+        assert_eq!(node.status, "Ready");
+        assert_eq!(node.ports.len(), 2);
+        assert_eq!(node.ports[0].direction, BridgePortDirection::Input);
+        assert_eq!(
+            node.ports[0].connected_node_name.as_deref(),
+            Some("Project Assets")
+        );
+        assert_eq!(node.ports[0].summary[0].value, "0");
+        let source = added
+            .nodes
+            .iter()
+            .find(|node| node.layout.is_none())
+            .unwrap();
+        assert!(!source.has_workspace);
+        assert_eq!(source.ports[0].direction, BridgePortDirection::Output);
         let frame_id = layout.frames[0].frame_id.clone();
         let cell_id = layout.frames[0].cells[0].cell_id.clone();
         let node_id = node.node_id.clone();
@@ -2042,6 +2632,57 @@ mod tests {
                 .asset_id,
             Some(imported.asset_id)
         );
+        assert_eq!(
+            bound
+                .nodes
+                .iter()
+                .find(|node| node.node_id == node_id)
+                .unwrap()
+                .ports[0]
+                .summary[0]
+                .value,
+            "1"
+        );
+
+        let undone_binding = project.undo_layout(bound.graph.revision);
+        assert!(undone_binding.applied);
+        let undone_binding = undone_binding.snapshot.unwrap();
+        assert_eq!(
+            undone_binding
+                .nodes
+                .iter()
+                .find(|node| node.node_id == node_id)
+                .unwrap()
+                .layout
+                .as_ref()
+                .unwrap()
+                .frames[0]
+                .cells[0]
+                .asset_id,
+            None
+        );
+        let redone_binding = project.redo_layout(undone_binding.graph.revision);
+        assert!(redone_binding.applied);
+        let bound = redone_binding.snapshot.unwrap();
+        assert_eq!(
+            bound
+                .nodes
+                .iter()
+                .find(|node| node.node_id == node_id)
+                .unwrap()
+                .layout
+                .as_ref()
+                .unwrap()
+                .frames[0]
+                .cells[0]
+                .resolved_rect,
+            BridgeNormalizedRectDto {
+                x: 0,
+                y: 0,
+                width: 1_000_000,
+                height: 1_000_000,
+            }
+        );
 
         let cropped = project.set_layout_cell_crop(
             bound.graph.revision,
@@ -2062,6 +2703,179 @@ mod tests {
         assert!(!saved.dirty);
         let reopened = app.open_project(saved.project_id.clone()).unwrap();
         assert_eq!(reopened.snapshot().unwrap(), saved);
+    }
+
+    #[test]
+    fn portable_project_document_can_be_imported_without_a_database() {
+        let root = TestRoot::new();
+        let app = PhotaraApplication::open(
+            root.0.join("store").to_string_lossy().into_owned(),
+            root.0.join("cache").to_string_lossy().into_owned(),
+            root.0.join("proxy-helper").to_string_lossy().into_owned(),
+        )
+        .unwrap();
+        let project_id = ProjectId::new();
+        let document = ProjectDocument::new(
+            project_id,
+            "Imported portable project",
+            GraphDocument::new(GraphId::new()),
+        )
+        .unwrap();
+        let path = root.0.join("shared.photara-project.json");
+        fs::write(&path, document.to_pretty_json().unwrap()).unwrap();
+        let opened = app
+            .open_project_document(path.to_string_lossy().into_owned())
+            .unwrap();
+        assert_eq!(
+            opened.snapshot().unwrap().project_id,
+            project_id.to_string()
+        );
+
+        let conflicting = ProjectDocument::new(
+            project_id,
+            "Conflicting project",
+            GraphDocument::new(GraphId::new()),
+        )
+        .unwrap();
+        fs::write(&path, conflicting.to_pretty_json().unwrap()).unwrap();
+        assert!(matches!(
+            app.open_project_document(path.to_string_lossy().into_owned()),
+            Err(BridgeError::State { message }) if message.contains("different content")
+        ));
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn semantic_structure_and_cell_edits_round_trip_through_exact_history() {
+        let root = TestRoot::new();
+        let app = PhotaraApplication::open(
+            root.0.join("store").to_string_lossy().into_owned(),
+            root.0.join("cache").to_string_lossy().into_owned(),
+            root.0.join("proxy-helper").to_string_lossy().into_owned(),
+        )
+        .unwrap();
+        let project = app.create_project("Authoring".to_owned()).unwrap();
+        let initial = project.snapshot().unwrap();
+        let added = project.add_layout_node(
+            initial.graph.revision,
+            BridgeLayoutCanvas::Portrait3x4 {
+                long_edge_pixels: 4000,
+            },
+        );
+        let base = added.snapshot.unwrap();
+        let node = base
+            .nodes
+            .iter()
+            .find(|node| node.layout.is_some())
+            .unwrap();
+        let node_id = node.node_id.clone();
+        let frame_id = node.layout.as_ref().unwrap().frames[0].frame_id.clone();
+        let base_authored_digest = node.layout.as_ref().unwrap().authored_state_digest.clone();
+
+        let arranged = project.edit_layout_structure(
+            base.graph.revision,
+            node_id.clone(),
+            BridgeLayoutStructureEdit::SetFrameArrangement {
+                frame_id: frame_id.clone(),
+                arrangement: BridgeLayoutArrangementEdit::HorizontalStack,
+            },
+        );
+        assert!(arranged.applied);
+        let arranged = arranged.snapshot.unwrap();
+        let inserted = project.edit_layout_structure(
+            arranged.graph.revision,
+            node_id.clone(),
+            BridgeLayoutStructureEdit::InsertCell {
+                frame_id: frame_id.clone(),
+                index: 1,
+            },
+        );
+        assert!(inserted.applied);
+        let inserted = inserted.snapshot.unwrap();
+        let layout = inserted
+            .nodes
+            .iter()
+            .find(|node| node.node_id == node_id)
+            .unwrap()
+            .layout
+            .as_ref()
+            .unwrap();
+        assert_eq!(layout.frames[0].cells.len(), 2);
+        assert_eq!(layout.frames[0].cells[0].resolved_rect.width, 500_000);
+        let cell_id = layout.frames[0].cells[1].cell_id.clone();
+        let filled = project.edit_layout_cell(
+            inserted.graph.revision,
+            node_id.clone(),
+            frame_id.clone(),
+            cell_id.clone(),
+            BridgeLayoutCellEdit::Fill {
+                focal_x: 250_000,
+                focal_y: 750_000,
+            },
+        );
+        assert!(filled.applied);
+        let filled = filled.snapshot.unwrap();
+        let rotated = project.edit_layout_cell(
+            filled.graph.revision,
+            node_id.clone(),
+            frame_id,
+            cell_id,
+            BridgeLayoutCellEdit::SetQuarterTurn {
+                quarter_turn: BridgeQuarterTurn::Clockwise90,
+            },
+        );
+        assert!(rotated.applied);
+        let authored_digest = rotated
+            .snapshot
+            .as_ref()
+            .unwrap()
+            .nodes
+            .iter()
+            .find(|node| node.node_id == node_id)
+            .unwrap()
+            .layout
+            .as_ref()
+            .unwrap()
+            .authored_state_digest
+            .clone();
+
+        let mut revision = rotated.snapshot.unwrap().graph.revision;
+        for _ in 0..4 {
+            let response = project.undo_layout(revision);
+            assert!(response.applied);
+            revision = response.snapshot.unwrap().graph.revision;
+        }
+        let undone = project.snapshot().unwrap();
+        assert_eq!(
+            undone
+                .nodes
+                .iter()
+                .find(|node| node.node_id == node_id)
+                .unwrap()
+                .layout
+                .as_ref()
+                .unwrap()
+                .authored_state_digest,
+            base_authored_digest
+        );
+        for _ in 0..4 {
+            let response = project.redo_layout(revision);
+            assert!(response.applied);
+            revision = response.snapshot.unwrap().graph.revision;
+        }
+        let redone = project.snapshot().unwrap();
+        assert_eq!(
+            redone
+                .nodes
+                .iter()
+                .find(|node| node.node_id == node_id)
+                .unwrap()
+                .layout
+                .as_ref()
+                .unwrap()
+                .authored_state_digest,
+            authored_digest
+        );
     }
 
     #[test]

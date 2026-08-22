@@ -246,10 +246,34 @@ binding, Gallery thumbnails, and a proxy-backed Layout preview. Proxy payloads
 cross as leased verified file references with color/HDR descriptors, never
 pixel buffers. Gallery placement, visibility, filters, and selection remain
 Swift workspace state and the verification proves they cannot change the graph
-digest. Proceed to Stage 9 authoring controls while keeping the graph a plain
-node list and the platform UI a thin skin over portable Rust contracts. Do not
-begin Stage 4B lifecycle work or introduce Photoshop/UXP and other provider
-nodes.
+digest.
+
+Roadmap Stage 9 is in progress. The facade now exposes deterministic resolved
+normalized and pixel rectangles alongside typed Layout inspection and accepts
+semantic structure, Fit/Fill/Crop, focal/alignment, rotation, crop, and explicit
+assignment commands. History stores exact forward/reverse Core graph
+transactions, so assignment's AssetSet-plus-Layout batch and ordinary Layout
+edits undo and redo coherently under revision checking. The macOS workspace has
+a separately identified Layout Authoring surface that composes shared per-cell
+proxy references, plus conventional Inspector controls. Crop dragging keeps
+only transient Swift translation during pointer movement and commits one Core
+command on gesture completion. Keep Stage 9 open until the complete real-project
+gate in `ROADMAP.md` is exercised and hardened. Keep the graph plain and do not
+begin Stage 4B lifecycle work, graph polish, advanced docking, Photoshop/UXP,
+macros, or other provider/generalized UI work.
+
+The first recognizable-product refinement is implemented in this working
+slice. Startup has no implicit project: it presents Create/Open/Recent, with
+recent locations in native `UserDefaults`. `open_project_document` validates
+portable JSON, imports it into the filesystem store, and rejects divergent
+content with an existing project identity; no cloud database was added. The
+visible node list is now a minimal spatial Graph. Generic bridge DTOs expose
+typed ports, connections, status, icon/workspace hints, and summary fields so
+Project Assets and Layout share one standard Inspector shell. Layout's existing
+Stage 9 surface is an optional Workspace activated by double-click, while
+Assets/Diagnostics remain project panels. A native Workspace menu restores the
+default presentation only. Continue hardening this recognizable shell and real
+Layout projects without building final graph editing or docking.
 
 ## Verification
 

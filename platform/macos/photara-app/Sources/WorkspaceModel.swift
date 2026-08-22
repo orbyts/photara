@@ -4,6 +4,7 @@ import SwiftUI
 enum WorkspacePanelID: String, CaseIterable, Codable, Identifiable, Sendable {
     case assetGallery
     case graph
+    case layoutAuthoring
     case inspector
     case diagnostics
 
@@ -13,6 +14,7 @@ enum WorkspacePanelID: String, CaseIterable, Codable, Identifiable, Sendable {
         switch self {
         case .assetGallery: "Assets"
         case .graph: "Graph"
+        case .layoutAuthoring: "Layout Workspace"
         case .inspector: "Inspector"
         case .diagnostics: "Diagnostics"
         }
@@ -23,6 +25,22 @@ enum WorkspaceRegion: String, CaseIterable, Codable, Sendable {
     case leading
     case content
     case trailing
+}
+
+enum WorkspaceMode: String, CaseIterable, Sendable {
+    case graph
+    case layout
+    case review
+
+    var title: String { rawValue.capitalized }
+
+    var symbol: String {
+        switch self {
+        case .graph: "point.3.connected.trianglepath.dotted"
+        case .layout: "rectangle.3.group"
+        case .review: "checkmark.bubble"
+        }
+    }
 }
 
 struct PanelPlacement: Codable, Equatable, Identifiable, Sendable {
@@ -37,7 +55,12 @@ final class WorkspaceModel: ObservableObject {
     @Published private(set) var placements: [PanelPlacement]
     @Published var selectedNodeID: String?
     @Published var selectedAssetID: String?
+    @Published var selectedFrameID: String?
+    @Published var selectedCellID: String?
+    @Published var activeWorkspaceNodeID: String?
     @Published var galleryFilter = ""
+    @Published private(set) var mode: WorkspaceMode = .graph
+    @Published private(set) var nodeMenuRequest: UInt64 = 0
 
     private static let persistenceKey = "photara.workspace.layout-authoring.v1"
     private let defaults: UserDefaults
@@ -69,6 +92,29 @@ final class WorkspaceModel: ObservableObject {
         update(panel) { $0.isVisible.toggle() }
     }
 
+    func show(_ panel: WorkspacePanelID) {
+        update(panel) { $0.isVisible = true }
+    }
+
+    func activateWorkspace(for nodeID: String) {
+        activeWorkspaceNodeID = nodeID
+        mode = .layout
+        setPrimarySurface(.layoutAuthoring)
+    }
+
+    func activateGraph() {
+        mode = .graph
+        setPrimarySurface(.graph)
+    }
+
+    func activateReview() {
+        mode = .review
+    }
+
+    func requestNodeMenu() {
+        nodeMenuRequest &+= 1
+    }
+
     func move(_ panel: WorkspacePanelID, to region: WorkspaceRegion) {
         let nextOrder = placements
             .filter { $0.region == region }
@@ -84,6 +130,17 @@ final class WorkspaceModel: ObservableObject {
 
     func restoreLayoutAuthoringPreset() {
         placements = Self.layoutAuthoringPreset
+        mode = .graph
+        persist()
+    }
+
+    private func setPrimarySurface(_ activePanel: WorkspacePanelID) {
+        for index in placements.indices where [
+            WorkspacePanelID.graph,
+            WorkspacePanelID.layoutAuthoring,
+        ].contains(placements[index].id) {
+            placements[index].isVisible = placements[index].id == activePanel
+        }
         persist()
     }
 
@@ -99,9 +156,10 @@ final class WorkspaceModel: ObservableObject {
     }
 
     private static let layoutAuthoringPreset: [PanelPlacement] = [
-        PanelPlacement(id: .assetGallery, region: .leading, order: 0, isVisible: true),
+        PanelPlacement(id: .inspector, region: .leading, order: 0, isVisible: true),
         PanelPlacement(id: .graph, region: .content, order: 0, isVisible: true),
-        PanelPlacement(id: .inspector, region: .trailing, order: 0, isVisible: true),
+        PanelPlacement(id: .layoutAuthoring, region: .content, order: 1, isVisible: false),
+        PanelPlacement(id: .assetGallery, region: .trailing, order: 0, isVisible: true),
         PanelPlacement(id: .diagnostics, region: .trailing, order: 1, isVisible: false),
     ]
 }

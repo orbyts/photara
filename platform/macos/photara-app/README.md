@@ -1,6 +1,6 @@
 # Photara macOS application
 
-This directory is the Stage 8 native-client root. The production-shaped Rust
+This directory is the native-client root. The production-shaped Rust
 facade is generated into Swift with workspace-pinned UniFFI and verified before
 the SwiftUI/AppKit workspace grows around it.
 
@@ -28,13 +28,37 @@ Compile the first native shell with:
 platform/macos/photara-app/build-app.sh
 ```
 
-The shell is deliberately small: Assets, Graph, Inspector, and Diagnostics are
-stable panel identities mapped into three resizable regions. They can move,
-hide, and restore independently of project state. Graph is a selectable node
-list. The app performs minimum project lifecycle and paired TIFF import,
-populates Gallery from Project Asset Context, binds selection only through an
-explicit command, and shows typed Layout inspection plus a shared proxy-backed
-preview. Stage 9 owns richer authoring controls.
+The build produces a self-contained, ad-hoc-signed application bundle at
+`platform/macos/photara-app/.build/app/Photara.app`. Launch that bundle through
+Finder or with:
+
+```console
+open platform/macos/photara-app/.build/app/Photara.app
+```
+
+Launching the bundle, rather than its inner Mach-O executable, gives Photara
+its own macOS application identity, activation behavior, and menu bar.
+
+The shell stays deliberately small but now has recognizable product structure.
+With no active project it presents Create/Open/Recent; recent entries remain
+native client state and portable documents open through the filesystem facade,
+without a database. Assets, Graph, Layout Workspace, Inspector, and Diagnostics
+are stable pane identities mapped into three resizable regions. They can move,
+hide, and restore independently of project state.
+
+Graph is a primitive spatial canvas with node cards, typed ports, connections,
+selection, pan, and zoom. Selection drives one generic Inspector shell from
+typed bridge summaries. `Tab` or the graph add control opens the node menu;
+Layout is its sole current entry, without making the graph shell Layout-only.
+Double-click activates Layout's optional Workspace.
+The standard Inspector remains available for every node definition. Versioned
+definitions may later augment it with custom semantic controls independently of
+whether they advertise a full visual Workspace; Layout is simply the first node
+that needs both.
+The app still populates Assets from Project Asset Context, binds only through
+explicit commands, and composes typed resolved Layout cells from shared proxy
+references. Inspector controls issue semantic Core commands; crop dragging is
+transient in Swift and commits once at gesture completion.
 
 Generated bindings, Rust targets, module caches, and executable artifacts stay
 under `.build`. No Xcode 27 or macOS 27 API is used.

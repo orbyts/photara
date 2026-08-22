@@ -130,6 +130,18 @@ private enum PhotaraBridgeVerification {
             layoutNode.layout?.canvas.widthPixels == 3000,
             "Rust did not resolve the typed Layout canvas"
         )
+        try require(layoutNode.hasWorkspace, "Layout did not advertise its optional Workspace")
+        try require(layoutNode.status == "Ready", "standard node status was not available")
+        try require(
+            layoutNode.ports.first { $0.direction == .input }?.connectedNodeName == "Project Assets",
+            "generic input inspection did not identify the connected source"
+        )
+        try require(
+            layoutNode.ports.first { $0.direction == .output }?.summary.contains {
+                $0.label == "Frames" && $0.value == "1"
+            } == true,
+            "generic output inspection did not summarize the Layout plan"
+        )
 
         let stale = project.addLayoutNode(
             expectedGraphRevision: initial.graph.revision,
@@ -160,13 +172,28 @@ private enum PhotaraBridgeVerification {
         let workspace = WorkspaceModel(defaults: workspaceDefaults)
         workspace.selectedNodeID = node.nodeId
         workspace.selectedAssetID = imported.assetId
+        workspace.selectedFrameID = node.layout?.frames.first?.frameId
+        workspace.selectedCellID = node.layout?.frames.first?.cells.first?.cellId
         workspace.galleryFilter = "Verification"
         let semanticDigestBeforeWorkspaceChange = imported.snapshot.graph.digest
-        workspace.move(.inspector, to: .leading)
+        try require(
+            workspace.visiblePanels(in: .content).contains(.graph),
+            "default workspace did not prioritize Graph"
+        )
+        try require(
+            !workspace.isVisible(.layoutAuthoring),
+            "optional Layout Workspace opened without explicit activation"
+        )
+        workspace.move(.inspector, to: .trailing)
         workspace.toggle(.assetGallery)
         try require(
-            workspace.visiblePanels(in: .leading).contains(.inspector),
+            workspace.visiblePanels(in: .trailing).contains(.inspector),
             "Inspector identity was coupled to its original placement"
+        )
+        workspace.activateWorkspace(for: node.nodeId)
+        try require(
+            workspace.visiblePanels(in: .content).contains(.layoutAuthoring),
+            "Layout Workspace did not activate independently of Inspector"
         )
         try require(workspace.selectedNodeID == node.nodeId, "moving Inspector lost node selection")
         try require(workspace.selectedAssetID == imported.assetId, "Gallery selection was lost")
@@ -185,7 +212,7 @@ private enum PhotaraBridgeVerification {
             assetId: imported.assetId
         )
         try require(bound.applied, "explicit AssetSet/Layout binding was rejected")
-        let boundSnapshot = try requireSnapshot(bound)
+        var boundSnapshot = try requireSnapshot(bound)
         try require(
             boundSnapshot.graph.digest != imported.snapshot.graph.digest,
             "explicit Core binding did not change graph semantics"
@@ -195,6 +222,80 @@ private enum PhotaraBridgeVerification {
             boundLayout.layout?.frames.first?.cells.first?.assetId == imported.assetId,
             "typed Layout inspection did not expose the explicit binding"
         )
+        try require(
+            boundLayout.layout?.frames.first?.cells.first?.resolvedRect.width == 1_000_000,
+            "Rust did not expose deterministic resolved cell geometry"
+        )
+
+        let unbound = project.undoLayout(expectedGraphRevision: boundSnapshot.graph.revision)
+        try require(unbound.applied, "asset assignment was not coherently undoable")
+        let unboundSnapshot = try requireSnapshot(unbound)
+        try require(
+            unboundSnapshot.nodes.first { $0.nodeId == node.nodeId }?
+                .layout?.frames.first?.cells.first?.assetId == nil,
+            "assignment undo did not restore Layout state"
+        )
+        let rebound = project.redoLayout(expectedGraphRevision: unboundSnapshot.graph.revision)
+        try require(rebound.applied, "asset assignment was not coherently redoable")
+        boundSnapshot = try requireSnapshot(rebound)
+
+        let arranged = project.editLayoutStructure(
+            expectedGraphRevision: boundSnapshot.graph.revision,
+            nodeId: node.nodeId,
+            edit: .setFrameArrangement(
+                frameId: frameID,
+                arrangement: .horizontalStack
+            )
+        )
+        try require(arranged.applied, "frame arrangement command was rejected")
+        let arrangedSnapshot = try requireSnapshot(arranged)
+        let inserted = project.editLayoutStructure(
+            expectedGraphRevision: arrangedSnapshot.graph.revision,
+            nodeId: node.nodeId,
+            edit: .insertCell(frameId: frameID, index: 1)
+        )
+        try require(inserted.applied, "cell insertion command was rejected")
+        let insertedSnapshot = try requireSnapshot(inserted)
+        let authoredFrame = insertedSnapshot.nodes.first { $0.nodeId == node.nodeId }!
+            .layout!.frames.first!
+        try require(authoredFrame.cells.count == 2, "typed structure did not contain two cells")
+        try require(
+            authoredFrame.cells.allSatisfy { $0.resolvedRect.width == 500_000 },
+            "resolved horizontal geometry was not deterministic"
+        )
+        let secondCellID = authoredFrame.cells[1].cellId
+        let filled = project.editLayoutCell(
+            expectedGraphRevision: insertedSnapshot.graph.revision,
+            nodeId: node.nodeId,
+            frameId: frameID,
+            cellId: secondCellID,
+            edit: .fill(focalX: 250_000, focalY: 750_000)
+        )
+        try require(filled.applied, "focal Fill command was rejected")
+        let filledSnapshot = try requireSnapshot(filled)
+        let rotated = project.editLayoutCell(
+            expectedGraphRevision: filledSnapshot.graph.revision,
+            nodeId: node.nodeId,
+            frameId: frameID,
+            cellId: secondCellID,
+            edit: .setQuarterTurn(quarterTurn: .clockwise90)
+        )
+        try require(rotated.applied, "rotation command was rejected")
+        let rotatedSnapshot = try requireSnapshot(rotated)
+        try require(
+            rotatedSnapshot.nodes.first { $0.nodeId == node.nodeId }?
+                .layout?.frames.first?.cells[1].quarterTurn == .clockwise90,
+            "typed inspection lost authored rotation"
+        )
+        let rotationUndone = project.undoLayout(
+            expectedGraphRevision: rotatedSnapshot.graph.revision
+        )
+        try require(rotationUndone.applied, "rotation undo was rejected")
+        let rotationRedone = project.redoLayout(
+            expectedGraphRevision: try requireSnapshot(rotationUndone).graph.revision
+        )
+        try require(rotationRedone.applied, "rotation redo was rejected")
+        boundSnapshot = try requireSnapshot(rotationRedone)
 
         let thumbnail = try project.requestGalleryThumbnail(assetId: imported.assetId)
         let thumbnailDescriptor = thumbnail.descriptor()
@@ -234,11 +335,30 @@ private enum PhotaraBridgeVerification {
         let undone = project.undoLayout(expectedGraphRevision: croppedSnapshot.graph.revision)
         try require(undone.applied, "Layout undo did not apply through Core")
 
+        let secondAdded = project.addLayoutNode(
+            expectedGraphRevision: try requireSnapshot(undone).graph.revision,
+            canvas: .vertical9x16(longEdgePixels: 3840)
+        )
+        try require(secondAdded.applied, "second independent Layout was rejected")
+        let secondAddedSnapshot = try requireSnapshot(secondAdded)
+        try require(
+            secondAddedSnapshot.nodes.filter { $0.layout != nil }.count == 2,
+            "facade did not preserve multiple independent Layout nodes"
+        )
+
         let saved = try project.save()
         try require(!saved.dirty, "saved project remained dirty")
         let reopened = try app.openProject(projectId: saved.projectId)
         let reopenedSnapshot = try reopened.snapshot()
         try require(reopenedSnapshot == saved, "project open/save DTO round-trip changed")
+        let projectDocumentPath = storeRoot
+            .appending(path: "store/projects/\(saved.projectId).photara-project.json")
+        let openedDocument = try app.openProjectDocument(documentPath: projectDocumentPath.path)
+        let openedDocumentSnapshot = try openedDocument.snapshot()
+        try require(
+            openedDocumentSnapshot == saved,
+            "portable project-document open changed the project"
+        )
 
         let evaluationObserver = RecordingObserver()
         let graphEvaluation = try reopened.prepareEvaluation()
