@@ -195,9 +195,17 @@ do not consume this single slot.
 Raw concurrency samples are in
 [`benchmarks/proxy-concurrency/results/quasar-2026-08-21.csv`](../../benchmarks/proxy-concurrency/results/quasar-2026-08-21.csv).
 
-## Next implementation boundary
+## Layout consumption boundary
 
-Stage 6 is complete. Stage 7 may consume this service through explicit
-representations and `AssetSet` inputs. It must not move proxy generation or
-cache ownership into Layout. Gallery, Inspector, Photoshop/UXP, and production
-UI work remain outside this slice.
+Stage 7 adds `ProjectVisualProxyService`, a deliberately narrow runtime
+interface keyed by project, semantic asset identity, and an exact proxy
+profile. Its initial asset-context binding chooses a representation by HDR/SDR
+capability, materializes it, and delegates to the existing shared service.
+Selection is capability-based rather than TIFF- or provider-based.
+
+Layout resolves its authoritative semantic plan without this interface. A
+preview consumer may then request one proxy per distinct placed asset and hold
+the returned `LayoutProxySet` ephemerally. The set is not serializable; cache
+keys, descriptors, leases, and local paths cannot enter Layout state or plan.
+Consequently proxy failure or complete cache deletion cannot invalidate a
+project's authored Layout.

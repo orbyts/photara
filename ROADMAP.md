@@ -298,7 +298,7 @@ peak remains the more conservative 954 MiB per-job sizing datum. The initial
 production default is therefore one generation at a time, explicitly
 configurable and intentionally not derived from CPU count.
 
-### 7. Built-in Layout node
+### 7. Built-in Layout node — complete
 
 - Consume an explicit ordered `AssetSet` typed input. Layout never reads Gallery
   selection or ambient project UI context.
@@ -325,6 +325,21 @@ configurable and intentionally not derived from CPU count.
 reuse project-scoped proxies for the same representations, retain independent
 crops, survive save/reopen/undo, and resolve exactly without ambient Gallery or
 provider-specific dependencies.
+
+**Measured outcome:** `photara-layout-node` now owns a versioned authored-state
+model for bundled and custom canvases, arbitrary ordered frames, independent
+arrangements/decorations, one-cell/stacks/grids/custom normalized cells,
+explicit repeated asset placement, Fit/Fill/Crop, focal alignment, and
+quarter-turn rotation. Fixed-point normalized geometry resolves deterministically
+to pixels and produces canonical state and plan digests. Semantic commands
+return exact inverses and reject invalid state atomically. The ordinary node
+runtime evaluates only authored state plus its explicit ordered `AssetSet` and
+performs no I/O. A separate runtime-only project-service request obtains one
+proxy per distinct placed asset; neither proxy descriptors nor cache paths enter
+authored state or the semantic plan. The gate test gives independent 3:4 and
+9:16 Layout nodes different crops, observes one generation plus one shared cache
+hit, deletes the complete proxy cache, and reopens both Layouts byte-for-byte
+from the portable project store.
 
 ### 8. Minimal dockable macOS workspace
 

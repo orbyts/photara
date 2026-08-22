@@ -159,8 +159,12 @@ version = "0.2.0-alpha.0"
 dependencies = [
  "photara-core",
  "photara-node-sdk",
+ "photara-proxy",
  "photara-store",
+ "serde",
  "serde_json",
+ "thiserror",
+ "uuid",
 ]
 
 [[package]]

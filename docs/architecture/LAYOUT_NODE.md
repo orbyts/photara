@@ -1,45 +1,112 @@
 # Built-in Layout node
 
-Layout is the first production node and the first rich inspector. It is an
-ordinary package installed by default, not a Core node category.
+Layout is the first production node and the first future rich Inspector. It is
+an ordinary independently versioned package installed by default, not a Core
+node category.
 
-Layout consumes Core's explicit ordered `photara.asset-set` typed input. It
-never reads Gallery selection or ambient project context. It resolves visual
-representations and future proxies through shared project services, owns no
-proxy generator/cache, and is indifferent to whether assets originated from a
-local fixture, Photoshop, Lightroom, Lureva, cloud storage, or another node.
+## Semantic boundary
 
-Its authored hierarchy is:
+The `photara.layout.compose` definition has one required
+`photara.asset-set` input and one `photara.layout-plan` output. The ordered
+`AssetSet` is the complete asset input: Layout never reads Gallery selection,
+ambient project UI context, storage-provider state, or filesystem paths.
+
+The semantic runtime performs no I/O. It decodes and validates authored state,
+validates every placed `AssetId` against the explicit input, resolves exact
+geometry, and emits a deterministic plan. Its output is therefore identical
+whether proxy storage is warm, empty, unavailable, or corrupt.
 
 ```text
-Layout instance
-└── output canvas profile or custom aspect/dimensions
-    └── arbitrary positive ordered frames
-        └── per-frame cells, arrangement, and decoration
-            └── explicit asset placement
-                ├── Fit
-                ├── Fill
-                └── Crop with authored transform
+authored LayoutState + explicit AssetSet
+                  │
+                  ▼
+       deterministic LayoutPlan
+
+LayoutPlan + project proxy profile
+                  │ runtime preview only
+                  ▼
+       ProjectVisualProxyService
+                  │
+                  ▼
+          ephemeral LayoutProxySet
 ```
 
-Frames and cells are separate. A frame may contain one cell, a stack, a uniform
-grid, or custom normalized cells. Destination limits do not constrain the
-Layout node's frame count.
+The lower path is deliberately separate. `LayoutProxySet` is not serializable.
+Proxy cache keys, descriptors, local paths, leases, and availability are absent
+from both `LayoutState` and `LayoutPlan`. A saved project therefore opens and
+retains its Layout when every derived proxy file has been deleted.
 
-Fit contains the source automatically. Fill covers the cell automatically using
-alignment/focal policy. Crop requires an authored normalized transform when
-unresolved. Quarter-turn rotation is applied before crop resolution. Repeated
-assets and independent transforms across Layout instances are valid.
+## Authored state
 
-Every strategy emits the same versioned semantic Layout plan. Later uniform,
-justified, masonry, packed/mosaic, treemap, constraint, and aesthetic algorithms
-are additive definition versions or strategies whose parameters and tie-breaking
-participate in fingerprints.
+The version-one hierarchy is:
 
-The Properties/Inspector is the first major native UI investment. It edits this
-state exclusively through Core commands and may be docked, rearranged, enlarged
-into a focused authoring surface, or eventually detached without changing the
-Layout contract. Its production slice covers frame ordering, canvas and
-template choice, proxy assignment, Fit/Fill/Crop, rotation, visual crop
-authoring, validation, resolved preview, undo, multiple instances, and
-save/reopen before graph rendering or docking receives comparable polish.
+```text
+LayoutState
+├── canvas
+│   ├── bundled 3:4 or 9:16 profile + profile version + long edge
+│   ├── custom positive pixel dimensions
+│   └── custom positive aspect + long edge
+└── arbitrary positive ordered frames
+    ├── decoration: normalized insets, gap, corner radius, background
+    ├── arrangement: one, horizontal stack, vertical stack, grid, custom
+    └── one or more ordered cells
+        ├── optional explicit AssetId (repetition is valid)
+        ├── Fit + alignment
+        ├── Fill + focal point
+        ├── Crop + authored normalized source rectangle
+        ├── quarter-turn rotation
+        └── custom normalized destination rectangle when applicable
+```
+
+Normalized values use unsigned fixed point with one-millionth precision. This
+avoids host floating-point differences in saved state, pixel resolution, and
+digests. Bundled canvas behavior carries an explicit profile version; later
+profile changes require a new version rather than silently changing old
+projects.
+
+Frames, arrangements, decorations, and cells are distinct semantic objects.
+This keeps later justified, masonry, mosaic, treemap, constraint, or aesthetic
+strategies additive behind the same plan instead of coupling state to one UI
+template implementation.
+
+## Resolution and editing
+
+Resolution validates unique frame/cell identities, positive frame and cell
+counts, normalized bounds, arrangement invariants, and explicit asset
+membership. It produces stable ordered frame/cell indices plus normalized and
+pixel rectangles. The authored Fit/Fill/Crop and rotation policy is retained in
+each resolved cell for downstream render or preview consumers.
+
+Semantic commands cover canvas replacement; frame insert, remove, move, and
+replacement; arrangement changes; cell insert, remove, and replacement; and
+decoration replacement. Every successful command validates the complete result
+and returns an exact inverse. Invalid commands leave their input untouched.
+Canonical state and plan digests include every output-affecting semantic field
+and exclude proxy/runtime state.
+
+## Project proxy access
+
+Preview code requests proxies through `ProjectVisualProxyService`. Its first
+binding combines the project's asset context, representation materializer, and
+shared `ProjectProxyService`; Layout receives no provider-specific or backend
+object. Representation selection is based on HDR/SDR capabilities required by
+the profile, not TIFF or any upstream application identity. The existing paired
+local TIFF adapter remains only a development source standing in for future
+Photoshop, Lightroom, Lureva, cloud, or other upstream nodes.
+
+One preview request is made per distinct placed asset. Independent Layout
+instances requesting the same source fingerprint and exact profile naturally
+reuse the same project cache object. Different crops remain Layout semantics
+and do not duplicate the source proxy.
+
+## Stage 7 gate evidence
+
+The integration gate persists independent 3:4 and 9:16 Layout nodes that place
+the same asset with different crops. Both resolve from explicit `AssetSet`
+input, request the same SDR thumbnail through the project interface, and
+observe one generation followed by a shared cache hit. It then releases the
+runtime leases, clears the complete proxy cache, reopens the project from the
+filesystem store, and verifies exact project and authored-state equality.
+
+The native Properties/Inspector arrives later. Docking, rearranging, enlarging,
+or detaching that surface must never alter this contract.

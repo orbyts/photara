@@ -23,19 +23,108 @@ use std::{
 };
 
 use photara_core::{
-    ColorSpaceId, MaterializedRepresentation, ProjectId, ProxyAlphaPolicy, ProxyCacheKey,
-    ProxyChannelDepth, ProxyColorPolicy, ProxyDescriptor, ProxyDynamicRangeDescription,
-    ProxyDynamicRangePolicy, ProxyEncodingId, ProxyEncodingRef, ProxyEncodingVersion,
-    ProxyGeneratorRef, ProxyOrientationPolicy, ProxyProfile, ProxyProfileId, ProxyProfileVersion,
-    ProxyPurpose, ProxyRenderingIntent, ProxyRequest, ProxyResamplingFilter, ProxySizing,
-    ProxyStoredOrientation, RepresentationFingerprint, RepresentationMaterializationError,
-    RepresentationMaterializationRequest, RepresentationMaterializer, ToneMapOperatorId,
-    ToneMapPolicy, ToneMapVersion,
+    AssetId, ColorSpaceId, HDR_CAPABILITY_ID, MaterializedRepresentation, ProjectAssetContext,
+    ProjectId, ProxyAlphaPolicy, ProxyCacheKey, ProxyChannelDepth, ProxyColorPolicy,
+    ProxyDescriptor, ProxyDynamicRangeDescription, ProxyDynamicRangePolicy, ProxyEncodingId,
+    ProxyEncodingRef, ProxyEncodingVersion, ProxyGeneratorRef, ProxyOrientationPolicy,
+    ProxyProfile, ProxyProfileId, ProxyProfileVersion, ProxyPurpose, ProxyRenderingIntent,
+    ProxyRequest, ProxyResamplingFilter, ProxySizing, ProxyStoredOrientation,
+    RepresentationFingerprint, RepresentationMaterializationError,
+    RepresentationMaterializationRequest, RepresentationMaterializer, RequestId, SDR_CAPABILITY_ID,
+    ToneMapOperatorId, ToneMapPolicy, ToneMapVersion,
 };
 use serde::Serialize;
 use sha2::{Digest as _, Sha256};
 use thiserror::Error;
 use uuid::Uuid;
+
+/// Media-general request made by a node or UI consumer to project services.
+/// Representation selection, materialization, and cache location remain hidden.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProjectVisualProxyRequest {
+    pub request_id: RequestId,
+    pub project_id: ProjectId,
+    pub asset_id: AssetId,
+    pub profile: ProxyProfile,
+}
+
+/// Narrow project-service interface consumed by Layout and future visual nodes.
+pub trait ProjectVisualProxyService {
+    /// Resolves a compatible representation and returns a leased derived proxy.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ProxyServiceError`] when the asset or compatible representation
+    /// is unavailable, materialization fails, or proxy generation fails.
+    fn request_visual_proxy(
+        &self,
+        request: &ProjectVisualProxyRequest,
+    ) -> Result<ProxyArtifact, ProxyServiceError>;
+}
+
+/// Runtime binding of asset context and materialization to the shared cache.
+/// Neither binding nor generated artifacts enter portable project state.
+pub struct AssetContextProjectProxyService<'a, G> {
+    proxy_service: &'a ProjectProxyService<G>,
+    asset_context: &'a ProjectAssetContext,
+    materializer: &'a dyn RepresentationMaterializer,
+}
+
+impl<'a, G> AssetContextProjectProxyService<'a, G> {
+    #[must_use]
+    pub const fn new(
+        proxy_service: &'a ProjectProxyService<G>,
+        asset_context: &'a ProjectAssetContext,
+        materializer: &'a dyn RepresentationMaterializer,
+    ) -> Self {
+        Self {
+            proxy_service,
+            asset_context,
+            materializer,
+        }
+    }
+}
+
+impl<G: ProxyGenerator> ProjectVisualProxyService for AssetContextProjectProxyService<'_, G> {
+    fn request_visual_proxy(
+        &self,
+        request: &ProjectVisualProxyRequest,
+    ) -> Result<ProxyArtifact, ProxyServiceError> {
+        let asset = self
+            .asset_context
+            .asset(request.asset_id)
+            .ok_or(ProxyServiceError::UnknownAsset(request.asset_id))?;
+        let desired_capability = match request.profile.dynamic_range {
+            ProxyDynamicRangePolicy::SdrCompatible { .. } => SDR_CAPABILITY_ID,
+            ProxyDynamicRangePolicy::PreserveSource
+            | ProxyDynamicRangePolicy::HdrCapable { .. } => HDR_CAPABILITY_ID,
+        };
+        let representation = asset
+            .representations
+            .iter()
+            .find(|representation| {
+                representation
+                    .capabilities
+                    .iter()
+                    .any(|capability| capability.as_str() == desired_capability)
+            })
+            .ok_or(ProxyServiceError::NoCompatibleRepresentation {
+                asset_id: request.asset_id,
+                required_capability: desired_capability,
+            })?;
+        self.proxy_service.request(
+            &ProxyRequest {
+                request_id: request.request_id,
+                project_id: request.project_id,
+                asset_id: request.asset_id,
+                representation_id: representation.id,
+                source_fingerprint: representation.fingerprint,
+                profile: request.profile.clone(),
+            },
+            self.materializer,
+        )
+    }
+}
 
 /// Initial reusable SDR thumbnail profile measured in Stage 6A.
 ///
@@ -762,6 +851,13 @@ impl Drop for GenerationSlot<'_> {
 
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 pub enum ProxyServiceError {
+    #[error("project asset {0} is unknown")]
+    UnknownAsset(AssetId),
+    #[error("project asset {asset_id} has no representation with capability {required_capability}")]
+    NoCompatibleRepresentation {
+        asset_id: AssetId,
+        required_capability: &'static str,
+    },
     #[error("proxy request belongs to project {actual}, expected {expected}")]
     WrongProject {
         expected: ProjectId,

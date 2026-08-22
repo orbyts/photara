@@ -68,3 +68,13 @@
 - Clarify that asset capabilities should describe consumer abilities across
   still image, video and audio representations, while TIFF, AVIF, EXR, ProRes
   and similar formats or containers remain representation metadata.
+- Add versioned Layout authored state and deterministic plans covering bundled
+  and custom canvases, ordered frames, arrangements, decorations, explicit
+  asset placement, Fit/Fill/Crop, focal alignment, and quarter turns.
+- Add exact inverse-producing Layout commands, structured validation and
+  diagnostics, canonical digests, and an ordinary semantic node runtime driven
+  solely by authored state and explicit ordered `AssetSet` input.
+- Add the narrow project visual-proxy service boundary and prove that two
+  independent Layouts reuse a shared derived proxy while their authored state,
+  plans, crops, save/reopen, and undo remain intact after complete cache
+  deletion.

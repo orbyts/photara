@@ -25,7 +25,8 @@ The repository is building generation two from a clean foundation toward
   including paired HDR/SDR local TIFF development inputs;
 - a project-scoped, deduplicated, bounded and disposable proxy service with the
   measured ImageIO/Core Image macOS backend;
-- built-in Layout node shipped as an ordinary independently namespaced package;
+- built-in Layout node with deterministic geometry, explicit AssetSet input,
+  exact undo, and runtime-only access to shared project proxies;
 - future Windows-native client over the same versioned Core facade;
 - future node marketplace using the same contracts as built-ins.
 
@@ -47,9 +48,8 @@ nodes/
 └── photara-layout/     built-in Layout node package
 ```
 
-The SwiftUI/AppKit application is added after the Rust application facade and
-Layout semantics are ready enough to keep Swift focused on presentation and
-interaction.
+The next slice adds the minimal SwiftUI/AppKit workspace over these Rust
+contracts, keeping Swift focused on presentation and interaction.
 
 ## Development
 

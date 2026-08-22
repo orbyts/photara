@@ -1,5 +1,19 @@
 //! Independently namespaced Layout node package shipped with the application.
 
+mod model;
+mod runtime;
+
+pub use model::{
+    BundledCanvasProfile, CellArrangement, CellContentMode, FrameDecoration, LayoutCanvas,
+    LayoutCell, LayoutCellId, LayoutColor, LayoutCommand, LayoutCommandError, LayoutCommandResult,
+    LayoutFrame, LayoutFrameId, LayoutPlan, LayoutProxySet, LayoutState, LayoutStateCodecError,
+    LayoutValidationError, NormalizedInsets, NormalizedPoint, NormalizedRect, NormalizedUnit,
+    PixelRect, PixelSize, QuarterTurn, ResolvedCell, ResolvedFrame, apply_layout_command,
+    layout_plan_value_type_descriptor, layout_plan_value_type_ref, layout_state_schema,
+    request_layout_proxies, resolve_layout,
+};
+pub use runtime::LayoutNodeRuntime;
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use photara_core::{
@@ -13,6 +27,9 @@ pub const PACKAGE_ID: &str = "photara.layout";
 pub const DEFINITION_ID: &str = "photara.layout.compose";
 pub const ASSET_SET_TYPE_ID: &str = photara_core::ASSET_SET_VALUE_TYPE_ID;
 pub const LAYOUT_PLAN_TYPE_ID: &str = "photara.layout-plan";
+
+#[cfg(test)]
+mod stage7_tests;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LayoutNodePackage;
@@ -52,7 +69,7 @@ impl NodePackage for LayoutNodePackage {
                 },
             ],
             config_schema: schema("photara.layout.config"),
-            authored_state_schema: Some(schema("photara.layout.state")),
+            authored_state_schema: Some(layout_state_schema()),
             capabilities: BTreeSet::new(),
         };
         definition.validate().expect("built-in definition is valid");

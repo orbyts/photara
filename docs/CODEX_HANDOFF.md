@@ -237,12 +237,14 @@ The Roadmap section 3 Swift bridge spike is complete. Its disposable harness is
 under `spikes/swift-bridge`, and the result and transport comparison are in
 `docs/architecture/SWIFT_BRIDGE_SPIKE.md`.
 
-Roadmap Stage 6 is complete. The next bounded slice is Stage 7: implement the
-built-in Layout node semantics over explicit ordered `AssetSet` input and the
-project proxy service. Layout may request proxies but cannot own generation,
-cache policy, asset context, or ambient Gallery selection. Do not start Gallery,
-Inspector or other production UI, Stage 4B lifecycle, legacy import, Photoshop/
-UXP, or other provider nodes.
+Roadmap Stage 7 is complete. The next bounded slice is Stage 8: create the
+minimal dockable macOS workspace and document lifecycle over the existing
+facade, project asset context, semantic Layout runtime, and project proxy
+service. Gallery remains a view of project assets: its placement, visibility,
+filters, and selection are UI state, and only explicit commands or typed
+`AssetSet` bindings change graph semantics. Do not fold Stage 9's production
+Layout Inspector into this slice, begin Stage 4B lifecycle work, or introduce
+Photoshop/UXP and other provider nodes.
 
 ## Verification
 
