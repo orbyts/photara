@@ -40,54 +40,60 @@ struct PhotaraGraphBackground: View {
     let pan: CGSize
     let zoom: CGFloat
     var style: PhotaraGraphBackgroundStyle = .production
+    var backgroundColor: Color?
     var minorColor: Color?
     var majorColor: Color?
 
     var body: some View {
-        Canvas { context, size in
-            guard style.pattern != .none else { return }
-            let spacing = style.spacing * zoom
-            guard spacing >= 2 else { return }
-            let transformedOrigin = CGPoint(
-                x: size.width / 2 * (1 - zoom) + pan.width,
-                y: size.height / 2 * (1 - zoom) + pan.height
-            )
-            let minorStart = CGPoint(
-                x: phase(transformedOrigin.x, spacing: spacing),
-                y: phase(transformedOrigin.y, spacing: spacing)
-            )
-            let minorFade = min(1, max(0, (spacing - 4) / 8))
-            let resolvedMinorColor = minorColor ?? theme?.color(.graphGrid) ?? .secondary
-            let resolvedMajorColor = majorColor ?? theme?.color(.borderStrong) ?? .primary
+        ZStack {
+            (backgroundColor
+                ?? theme?.color(.graphBackground)
+                ?? Color(nsColor: .controlBackgroundColor))
 
-            drawPattern(
-                context: &context,
-                size: size,
-                start: minorStart,
-                spacing: spacing,
-                color: resolvedMinorColor.opacity(style.opacity * minorFade),
-                markSize: style.markSize * zoom,
-                lineWidth: style.lineWidth
-            )
-
-            if style.majorInterval > 1, style.majorOpacity > 0 {
-                let majorSpacing = spacing * CGFloat(style.majorInterval)
-                let majorStart = CGPoint(
-                    x: phase(transformedOrigin.x, spacing: majorSpacing),
-                    y: phase(transformedOrigin.y, spacing: majorSpacing)
+            Canvas { context, size in
+                guard style.pattern != .none else { return }
+                let spacing = style.spacing * zoom
+                guard spacing >= 2 else { return }
+                let transformedOrigin = CGPoint(
+                    x: size.width / 2 * (1 - zoom) + pan.width,
+                    y: size.height / 2 * (1 - zoom) + pan.height
                 )
+                let minorStart = CGPoint(
+                    x: phase(transformedOrigin.x, spacing: spacing),
+                    y: phase(transformedOrigin.y, spacing: spacing)
+                )
+                let minorFade = min(1, max(0, (spacing - 4) / 8))
+                let resolvedMinorColor = minorColor ?? theme?.color(.graphGrid) ?? .secondary
+                let resolvedMajorColor = majorColor ?? theme?.color(.borderStrong) ?? .primary
+
                 drawPattern(
                     context: &context,
                     size: size,
-                    start: majorStart,
-                    spacing: majorSpacing,
-                    color: resolvedMajorColor.opacity(style.majorOpacity),
-                    markSize: style.majorMarkSize * zoom,
-                    lineWidth: style.majorLineWidth
+                    start: minorStart,
+                    spacing: spacing,
+                    color: resolvedMinorColor.opacity(style.opacity * minorFade),
+                    markSize: style.markSize * zoom,
+                    lineWidth: style.lineWidth
                 )
+
+                if style.majorInterval > 1, style.majorOpacity > 0 {
+                    let majorSpacing = spacing * CGFloat(style.majorInterval)
+                    let majorStart = CGPoint(
+                        x: phase(transformedOrigin.x, spacing: majorSpacing),
+                        y: phase(transformedOrigin.y, spacing: majorSpacing)
+                    )
+                    drawPattern(
+                        context: &context,
+                        size: size,
+                        start: majorStart,
+                        spacing: majorSpacing,
+                        color: resolvedMajorColor.opacity(style.majorOpacity),
+                        markSize: style.majorMarkSize * zoom,
+                        lineWidth: style.majorLineWidth
+                    )
+                }
             }
         }
-        .background(theme?.color(.graphBackground) ?? Color(nsColor: .controlBackgroundColor))
         .allowsHitTesting(false)
     }
 
@@ -221,9 +227,6 @@ struct PhotaraGraphNodeSurface<Content: View, Ports: View>: View {
             let glass: Glass = glassTreatment == .clear ? .clear : .regular
             Color.clear
                 .glassEffect(glass.tint(glassTint), in: shape)
-                .overlay {
-                    shape.stroke(Color.white.opacity(0.32), lineWidth: 0.75)
-                }
         } else {
             shape
                 .fill(theme?.color(.graphNode) ?? Color(nsColor: .controlBackgroundColor))
