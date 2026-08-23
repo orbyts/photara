@@ -247,6 +247,7 @@ struct PhotaraGraphPort: View {
     var glassTreatment: PhotaraGraphGlassTreatment?
     var glassTint: Color?
     var coreColor: Color?
+    var coreBrightness: Double = 0
 
     var body: some View {
         Group {
@@ -260,12 +261,14 @@ struct PhotaraGraphPort: View {
                         )
                     portShape
                         .fill(coreColor ?? theme?.color(.borderFocus) ?? .accentColor)
+                        .brightness(coreBrightness)
                         .padding(min(width, height) * 0.32)
                         .allowedDynamicRange(.standard)
                 }
             } else {
                 portShape
                     .fill(coreColor ?? theme?.color(.borderFocus) ?? .accentColor)
+                    .brightness(coreBrightness)
                     .overlay {
                         portShape.stroke(Color.white.opacity(0.65), lineWidth: 0.75)
                     }

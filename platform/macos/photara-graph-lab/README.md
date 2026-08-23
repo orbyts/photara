@@ -6,22 +6,28 @@ bridge. It owns fixture data and temporary authoring controls only.
 
 The current slice compares procedural major/minor background patterns, native
 glass treatments, node corner radius, round versus pill ports, port edge
-offset, and separate Regular/Clear shadow models. There are deliberately no status
-indicators or Graph semantics.
+offset, and resting versus lifted shadow models. There are deliberately no
+status indicators or Graph semantics.
 
 Lines, Dots, and Crosses share aligned minor and major phases while the camera
 pans or zooms. Graph Lab authors their colors, opacity, size or line width, and
 major interval independently. Light and Dark each retain a complete authored
 palette for the Graph canvas, minor and major grid, noodles, node glass tints,
-and port-bead tint. Dense minor marks fade before they alias.
+port-bead tint, and node text. Semantic port hues remain shared concepts while
+each appearance authors a native brightness adjustment. Dense minor marks fade
+before they alias.
 
 The deterministic scene has one-, three-, and six-row specimens plus fixed
 noodles beneath the nodes. Empty-canvas dragging pans the Graph, direct node
 dragging moves only that node, and Center Scene restores the camera and fixture
 positions. Node movement tracks the pointer directly and restores a small
 non-overlap gap on release; this remains Lab behavior rather than Core
-semantics. The selected node uses separately authored native glass treatment,
-tint, and treatment-specific shadow settings. Ports
+semantics. Live drag translation uses a direct view offset so the node follows
+the pointer without relayout. The selected node uses separately authored native
+glass treatment and tint without adding a selection outline. Shadow blur and
+vertical offset are shared between appearances; shadow opacity is authored per
+appearance. Holding or dragging a node switches from the resting to the lifted
+shadow, and release immediately restores the resting shadow. Ports
 are independent native glass beads with their own
 Regular/Clear treatment, tint color, and tint amount controls; Reduce
 Transparency restores the solid semantic port treatment. Unselected and

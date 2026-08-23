@@ -35,12 +35,16 @@ struct GraphLabView: View {
     @State private var portOffset = 0.0
     @State private var portGlassTreatment = PhotaraGraphGlassTreatment.clear
     @State private var portGlassTintOpacity = 0.18
-    @State private var regularShadowBlur = 5.0
-    @State private var regularShadowOpacity = 0.12
-    @State private var regularShadowOffsetY = 3.0
-    @State private var clearShadowBlur = 5.0
-    @State private var clearShadowOpacity = 0.12
-    @State private var clearShadowOffsetY = 3.0
+    @State private var lightPortCoreBrightness = 0.0
+    @State private var darkPortCoreBrightness = 0.18
+    @State private var restingShadowBlur = 5.0
+    @State private var restingShadowOffsetY = 3.0
+    @State private var liftedShadowBlur = 12.0
+    @State private var liftedShadowOffsetY = 7.0
+    @State private var lightRestingShadowOpacity = 0.12
+    @State private var darkRestingShadowOpacity = 0.18
+    @State private var lightLiftedShadowOpacity = 0.18
+    @State private var darkLiftedShadowOpacity = 0.28
     @State private var pan = CGSize.zero
     @State private var zoom = 1.0
     @State private var selectedNode = GraphLabNodeID.transform
@@ -212,6 +216,31 @@ struct GraphLabView: View {
                 valueSlider("Corner radius", value: $cornerRadius, range: 0...32, suffix: " pt")
             }
 
+            Section("Node contrast") {
+                ColorPicker(
+                    appearance == .dark ? "Dark title text" : "Light title text",
+                    selection: colorBinding(
+                        activeColorBinding(\.titleText),
+                        default: defaultTitleTextColor
+                    )
+                )
+                ColorPicker(
+                    appearance == .dark ? "Dark detail text" : "Light detail text",
+                    selection: colorBinding(
+                        activeColorBinding(\.detailText),
+                        default: defaultDetailTextColor
+                    )
+                )
+                valueSlider(
+                    appearance == .dark ? "Dark port brightness" : "Light port brightness",
+                    value: activePortCoreBrightnessBinding,
+                    range: 0...0.35
+                )
+                Text("Port brightness preserves each semantic port hue while raising contrast.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Native glass") {
                 Picker("Unselected", selection: $idleGlassTreatment) {
                     ForEach(PhotaraGraphGlassTreatment.allCases) { treatment in
@@ -276,17 +305,25 @@ struct GraphLabView: View {
                 valueSlider("Glass tint", value: $portGlassTintOpacity, range: 0...0.5)
             }
 
-            Section("Regular shadow") {
-                valueSlider("Blur", value: $regularShadowBlur, range: 0...30, suffix: " pt")
-                valueSlider("Opacity", value: $regularShadowOpacity, range: 0...0.5)
-                valueSlider("Vertical offset", value: $regularShadowOffsetY, range: -4...18, suffix: " pt")
+            Section("Resting shadow") {
+                valueSlider("Blur", value: $restingShadowBlur, range: 0...30, suffix: " pt")
+                valueSlider(
+                    appearance == .dark ? "Dark opacity" : "Light opacity",
+                    value: activeRestingShadowOpacityBinding,
+                    range: 0...0.5
+                )
+                valueSlider("Vertical offset", value: $restingShadowOffsetY, range: -4...18, suffix: " pt")
             }
 
-            Section("Clear shadow") {
-                valueSlider("Blur", value: $clearShadowBlur, range: 0...30, suffix: " pt")
-                valueSlider("Opacity", value: $clearShadowOpacity, range: 0...0.5)
-                valueSlider("Vertical offset", value: $clearShadowOffsetY, range: -4...18, suffix: " pt")
-                Text("Use the Clear shadow to author how far a selected node appears to lift.")
+            Section("Lifted shadow") {
+                valueSlider("Blur", value: $liftedShadowBlur, range: 0...40, suffix: " pt")
+                valueSlider(
+                    appearance == .dark ? "Dark opacity" : "Light opacity",
+                    value: activeLiftedShadowOpacityBinding,
+                    range: 0...0.5
+                )
+                valueSlider("Vertical offset", value: $liftedShadowOffsetY, range: -4...24, suffix: " pt")
+                Text("Applied only while a node is held or dragged; release returns it to the resting shadow.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -337,15 +374,63 @@ struct GraphLabView: View {
         )
     }
 
-    private func nodeStyle(for treatment: PhotaraGraphGlassTreatment) -> PhotaraGraphNodeStyle {
-        let usesClearShadow = treatment == .clear
+    private var defaultTitleTextColor: Color {
+        appearance == .dark ? .white : (theme?.color(.textPrimary) ?? .primary)
+    }
+
+    private var defaultDetailTextColor: Color {
+        appearance == .dark ? Color.white.opacity(0.86) : (theme?.color(.textSecondary) ?? .secondary)
+    }
+
+    private var activePortCoreBrightnessBinding: Binding<Double> {
+        Binding(
+            get: { appearance == .dark ? darkPortCoreBrightness : lightPortCoreBrightness },
+            set: { value in
+                if appearance == .dark {
+                    darkPortCoreBrightness = value
+                } else {
+                    lightPortCoreBrightness = value
+                }
+            }
+        )
+    }
+
+    private var activeRestingShadowOpacityBinding: Binding<Double> {
+        Binding(
+            get: { appearance == .dark ? darkRestingShadowOpacity : lightRestingShadowOpacity },
+            set: { value in
+                if appearance == .dark {
+                    darkRestingShadowOpacity = value
+                } else {
+                    lightRestingShadowOpacity = value
+                }
+            }
+        )
+    }
+
+    private var activeLiftedShadowOpacityBinding: Binding<Double> {
+        Binding(
+            get: { appearance == .dark ? darkLiftedShadowOpacity : lightLiftedShadowOpacity },
+            set: { value in
+                if appearance == .dark {
+                    darkLiftedShadowOpacity = value
+                } else {
+                    lightLiftedShadowOpacity = value
+                }
+            }
+        )
+    }
+
+    private func nodeStyle(isLifted: Bool) -> PhotaraGraphNodeStyle {
         return PhotaraGraphNodeStyle(
             cornerRadius: cornerRadius,
             portShape: portShape,
             portOffset: portOffset,
-            shadowBlur: usesClearShadow ? clearShadowBlur : regularShadowBlur,
-            shadowOpacity: usesClearShadow ? clearShadowOpacity : regularShadowOpacity,
-            shadowOffsetY: usesClearShadow ? clearShadowOffsetY : regularShadowOffsetY
+            shadowBlur: isLifted ? liftedShadowBlur : restingShadowBlur,
+            shadowOpacity: isLifted
+                ? (appearance == .dark ? darkLiftedShadowOpacity : lightLiftedShadowOpacity)
+                : (appearance == .dark ? darkRestingShadowOpacity : lightRestingShadowOpacity),
+            shadowOffsetY: isLifted ? liftedShadowOffsetY : restingShadowOffsetY
         )
     }
 
@@ -360,38 +445,38 @@ struct GraphLabView: View {
     ) -> some View {
         let storedOffset = nodeOffsets[id] ?? .zero
         let liveDrag = activeNode == id ? nodeDrag : .zero
-        let displayedOffset = CGSize(
-            width: storedOffset.width + liveDrag.width / zoom,
-            height: storedOffset.height + liveDrag.height / zoom
-        )
         let worldPosition = baseWorldPosition(for: id)
         let position = screenPosition(
             CGPoint(
-                x: worldPosition.x + displayedOffset.width,
-                y: worldPosition.y + displayedOffset.height
+                x: worldPosition.x + storedOffset.width,
+                y: worldPosition.y + storedOffset.height
             ),
             canvasSize: canvasSize,
             pan: pan
         )
         let glassTreatment = selectedNode == id ? selectedGlassTreatment : idleGlassTreatment
+        let isLifted = activeNode == id
         return GraphLabNodeSpecimen(
             title: title,
             subtitle: subtitle,
             inputs: inputs,
             outputs: outputs,
-            style: nodeStyle(for: glassTreatment),
-            isSelected: selectedNode == id,
+            style: nodeStyle(isLifted: isLifted),
             glassTreatment: glassTreatment,
+            titleColor: activeColor(\.titleText) ?? defaultTitleTextColor,
+            detailColor: activeColor(\.detailText) ?? defaultDetailTextColor,
             glassTintColor: selectedNode == id
                 ? (activeColor(\.selectedGlassTint) ?? theme?.color(.nodeNative) ?? .accentColor)
                 : (activeColor(\.idleGlassTint) ?? theme?.color(.nodeNative) ?? .accentColor),
             glassTintOpacity: selectedNode == id ? selectedGlassTintOpacity : idleGlassTintOpacity,
             portGlassTreatment: portGlassTreatment,
             portGlassTintColor: activeColor(\.portGlassTint) ?? theme?.color(.borderFocus) ?? .accentColor,
-            portGlassTintOpacity: portGlassTintOpacity
+            portGlassTintOpacity: portGlassTintOpacity,
+            portCoreBrightness: appearance == .dark ? darkPortCoreBrightness : lightPortCoreBrightness
         )
         .scaleEffect(zoom)
         .position(position)
+        .offset(liveDrag)
         .transaction { transaction in
             transaction.animation = nil
         }
@@ -551,12 +636,18 @@ struct GraphLabView: View {
             portGlassTreatment: portGlassTreatment.rawValue,
             portGlassTintColor: nil,
             portGlassTintOpacity: portGlassTintOpacity,
-            shadowBlur: regularShadowBlur,
-            shadowOpacity: regularShadowOpacity,
-            shadowOffsetY: regularShadowOffsetY,
-            clearShadowBlur: clearShadowBlur,
-            clearShadowOpacity: clearShadowOpacity,
-            clearShadowOffsetY: clearShadowOffsetY
+            lightPortCoreBrightness: lightPortCoreBrightness,
+            darkPortCoreBrightness: darkPortCoreBrightness,
+            shadowBlur: restingShadowBlur,
+            shadowOpacity: lightRestingShadowOpacity,
+            shadowOffsetY: restingShadowOffsetY,
+            clearShadowBlur: liftedShadowBlur,
+            clearShadowOpacity: lightLiftedShadowOpacity,
+            clearShadowOffsetY: liftedShadowOffsetY,
+            lightRestingShadowOpacity: lightRestingShadowOpacity,
+            darkRestingShadowOpacity: darkRestingShadowOpacity,
+            lightLiftedShadowOpacity: lightLiftedShadowOpacity,
+            darkLiftedShadowOpacity: darkLiftedShadowOpacity
         )
 
         do {
@@ -595,12 +686,20 @@ struct GraphLabView: View {
         portOffset = preferences.portOffset
         portGlassTreatment = PhotaraGraphGlassTreatment(rawValue: preferences.portGlassTreatment) ?? portGlassTreatment
         portGlassTintOpacity = preferences.portGlassTintOpacity
-        regularShadowBlur = preferences.shadowBlur
-        regularShadowOpacity = preferences.shadowOpacity
-        regularShadowOffsetY = preferences.shadowOffsetY
-        clearShadowBlur = preferences.clearShadowBlur ?? preferences.shadowBlur
-        clearShadowOpacity = preferences.clearShadowOpacity ?? preferences.shadowOpacity
-        clearShadowOffsetY = preferences.clearShadowOffsetY ?? preferences.shadowOffsetY
+        lightPortCoreBrightness = preferences.lightPortCoreBrightness ?? lightPortCoreBrightness
+        darkPortCoreBrightness = preferences.darkPortCoreBrightness ?? darkPortCoreBrightness
+        restingShadowBlur = preferences.shadowBlur
+        restingShadowOffsetY = preferences.shadowOffsetY
+        liftedShadowBlur = preferences.clearShadowBlur ?? preferences.shadowBlur
+        liftedShadowOffsetY = preferences.clearShadowOffsetY ?? preferences.shadowOffsetY
+        lightRestingShadowOpacity = preferences.lightRestingShadowOpacity ?? preferences.shadowOpacity
+        darkRestingShadowOpacity = preferences.darkRestingShadowOpacity ?? preferences.shadowOpacity
+        lightLiftedShadowOpacity = preferences.lightLiftedShadowOpacity
+            ?? preferences.clearShadowOpacity
+            ?? preferences.shadowOpacity
+        darkLiftedShadowOpacity = preferences.darkLiftedShadowOpacity
+            ?? preferences.clearShadowOpacity
+            ?? preferences.shadowOpacity
         preferencesStatus = "Loaded saved preferences."
     }
 
@@ -657,12 +756,16 @@ struct GraphLabView: View {
         portOffset = 0
         portGlassTreatment = .clear
         portGlassTintOpacity = 0.18
-        regularShadowBlur = 5
-        regularShadowOpacity = 0.12
-        regularShadowOffsetY = 3
-        clearShadowBlur = 5
-        clearShadowOpacity = 0.12
-        clearShadowOffsetY = 3
+        lightPortCoreBrightness = 0
+        darkPortCoreBrightness = 0.18
+        restingShadowBlur = 5
+        restingShadowOffsetY = 3
+        liftedShadowBlur = 12
+        liftedShadowOffsetY = 7
+        lightRestingShadowOpacity = 0.12
+        darkRestingShadowOpacity = 0.18
+        lightLiftedShadowOpacity = 0.18
+        darkLiftedShadowOpacity = 0.28
         centerScene()
     }
 
@@ -706,12 +809,18 @@ private struct GraphLabSavedPreferences: Codable {
     let portGlassTreatment: String
     let portGlassTintColor: GraphLabSavedColor?
     let portGlassTintOpacity: Double
+    let lightPortCoreBrightness: Double?
+    let darkPortCoreBrightness: Double?
     let shadowBlur: Double
     let shadowOpacity: Double
     let shadowOffsetY: Double
     let clearShadowBlur: Double?
     let clearShadowOpacity: Double?
     let clearShadowOffsetY: Double?
+    let lightRestingShadowOpacity: Double?
+    let darkRestingShadowOpacity: Double?
+    let lightLiftedShadowOpacity: Double?
+    let darkLiftedShadowOpacity: Double?
 }
 
 private struct GraphLabAppearanceColors {
@@ -722,6 +831,8 @@ private struct GraphLabAppearanceColors {
     var idleGlassTint: Color?
     var selectedGlassTint: Color?
     var portGlassTint: Color?
+    var titleText: Color?
+    var detailText: Color?
 }
 
 private struct GraphLabSavedPalette: Codable {
@@ -732,6 +843,8 @@ private struct GraphLabSavedPalette: Codable {
     let idleGlassTint: GraphLabSavedColor?
     let selectedGlassTint: GraphLabSavedColor?
     let portGlassTint: GraphLabSavedColor?
+    let titleText: GraphLabSavedColor?
+    let detailText: GraphLabSavedColor?
 
     init(_ colors: GraphLabAppearanceColors) {
         graphBackground = GraphLabSavedColor(colors.graphBackground)
@@ -741,6 +854,8 @@ private struct GraphLabSavedPalette: Codable {
         idleGlassTint = GraphLabSavedColor(colors.idleGlassTint)
         selectedGlassTint = GraphLabSavedColor(colors.selectedGlassTint)
         portGlassTint = GraphLabSavedColor(colors.portGlassTint)
+        titleText = GraphLabSavedColor(colors.titleText)
+        detailText = GraphLabSavedColor(colors.detailText)
     }
 
     var colors: GraphLabAppearanceColors {
@@ -751,7 +866,9 @@ private struct GraphLabSavedPalette: Codable {
             noodle: noodle?.color,
             idleGlassTint: idleGlassTint?.color,
             selectedGlassTint: selectedGlassTint?.color,
-            portGlassTint: portGlassTint?.color
+            portGlassTint: portGlassTint?.color,
+            titleText: titleText?.color,
+            detailText: detailText?.color
         )
     }
 }
@@ -834,13 +951,15 @@ private struct GraphLabNodeSpecimen: View {
     let inputs: [String]
     let outputs: [String]
     let style: PhotaraGraphNodeStyle
-    let isSelected: Bool
     let glassTreatment: PhotaraGraphGlassTreatment
+    let titleColor: Color
+    let detailColor: Color
     let glassTintColor: Color
     let glassTintOpacity: Double
     let portGlassTreatment: PhotaraGraphGlassTreatment
     let portGlassTintColor: Color
     let portGlassTintOpacity: Double
+    let portCoreBrightness: Double
 
     private let width = 224.0
     private var rowCount: Int { max(1, max(inputs.count, outputs.count)) }
@@ -856,10 +975,10 @@ private struct GraphLabNodeSpecimen: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(theme?.color(.textPrimary) ?? .primary)
+                        .foregroundStyle(titleColor)
                     Text(subtitle)
                         .font(.caption)
-                        .foregroundStyle(theme?.color(.textSecondary) ?? .secondary)
+                        .foregroundStyle(detailColor)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 14)
@@ -888,16 +1007,6 @@ private struct GraphLabNodeSpecimen: View {
             }
         }
         .frame(width: width, height: height)
-        .background {
-            RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous)
-                .stroke(
-                    isSelected
-                        ? (theme?.color(.graphNodeSelected) ?? .accentColor).opacity(0.38)
-                        : Color.clear,
-                    lineWidth: 1.5
-                )
-                .padding(-0.5)
-        }
         .contentShape(RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous))
     }
 
@@ -906,7 +1015,7 @@ private struct GraphLabNodeSpecimen: View {
             ForEach(labels, id: \.self) { label in
                 Text(label)
                     .font(.system(size: 10.5))
-                    .foregroundStyle(theme?.color(.textSecondary) ?? .secondary)
+                    .foregroundStyle(detailColor)
                     .frame(height: 25)
             }
         }
@@ -919,7 +1028,8 @@ private struct GraphLabNodeSpecimen: View {
             height: 14,
             glassTreatment: portGlassTreatment,
             glassTint: portGlassTintColor.opacity(portGlassTintOpacity),
-            coreColor: semanticPortColor(for: label)
+            coreColor: semanticPortColor(for: label),
+            coreBrightness: portCoreBrightness
         )
             .accessibilityLabel("\(label) port \(index + 1)")
     }
