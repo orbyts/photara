@@ -25,16 +25,18 @@ authored LayoutState + explicit AssetSet
 LayoutPlan + project proxy profile
                   │ runtime preview only
                   ▼
-       ProjectVisualProxyService
+      application-host proxy coordinator
                   │
                   ▼
-          ephemeral LayoutProxySet
+       ephemeral leased proxy references
 ```
 
-The lower path is deliberately separate. `LayoutProxySet` is not serializable.
-Proxy cache keys, descriptors, local paths, leases, and availability are absent
-from both `LayoutState` and `LayoutPlan`. A saved project therefore opens and
-retains its Layout when every derived proxy file has been deleted.
+The lower path is deliberately separate and is not part of the Layout package.
+The application host interprets a resolved plan only far enough to request
+project services for the placed asset identities. Proxy cache keys,
+descriptors, local paths, leases, and availability are absent from both
+`LayoutState` and `LayoutPlan`. A saved project therefore opens and retains its
+Layout when every derived proxy file has been deleted.
 
 ## Authored state
 

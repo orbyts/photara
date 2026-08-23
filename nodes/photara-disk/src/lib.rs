@@ -21,6 +21,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
+mod provider;
+
+pub use provider::{DiskFolderProvider, DiskReconciliation, DiskRevisionMode};
+
 pub const PACKAGE_ID: &str = "photara.disk";
 pub const DEFINITION_ID: &str = "photara.disk.folder";
 pub const STATE_SCHEMA_ID: &str = "photara.disk.folder.state";

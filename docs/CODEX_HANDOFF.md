@@ -235,8 +235,8 @@ contracts; never make legacy tables, config, paths, or provider types Core APIs.
 
 ## Immediate next work
 
-The Roadmap section 3 Swift bridge spike is complete. Its disposable harness is
-under `spikes/swift-bridge`, and the result and transport comparison are in
+The Roadmap section 3 Swift bridge spike is complete. Its disposable harness
+has been removed; the historical result and transport comparison remain in
 `docs/architecture/SWIFT_BRIDGE_SPIKE.md`.
 
 Roadmap Stage 8 is complete. The production UniFFI facade and Swift gate live in
@@ -276,6 +276,18 @@ representations to the existing shared proxy service. Tests prove attaching a
 folder does not change the graph digest and that save/reopen preserves semantics
 when the grant is unavailable. Keep the graph plain and do not begin Stage 4B
 lifecycle work, graph polish, advanced docking, Photoshop/UXP, or macros.
+
+The Stage 9 internal architecture checkpoint makes these ownership boundaries
+concrete without changing observable behavior. The application host now
+assembles an exact-definition runtime registry instead of a built-in fallback
+chain. `photara-disk` owns folder enumeration, cheap and verified revisions,
+stable provider identities, and reconciliation preparation; the bridge only
+publishes the prepared result through revision-checked Core transactions.
+`photara-layout` no longer depends on or invokes the proxy service. The
+production facade is split across runtime registration, evaluation, and asset
+materialization modules, while Swift Gallery state, behavior, and views are
+separate product surfaces. The disposable Swift bridge harness was removed;
+its historical findings remain documented.
 
 The current performance refinement keeps Disk Finder-like: every file remains
 an independent asset and no HDR/SDR pairing is inferred. Disk fingerprinting

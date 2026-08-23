@@ -27,10 +27,6 @@ thiserror.workspace = true
 uniffi.workspace = true
 uuid.workspace = true
 
-[[example]]
-name = "swift_bridge_server"
-path = "examples/swift_bridge_server.rs"
-
 [[bin]]
 name = "photara-uniffi-bindgen"
 path = "src/bin/uniffi-bindgen.rs"

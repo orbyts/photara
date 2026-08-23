@@ -428,6 +428,16 @@ without macOS 27 APIs.
 
 ### 9. Production visual Layout authoring — in progress
 
+**Internal architecture checkpoint:** preserve the current Stage 9 behavior
+while making ownership explicit before further substantial UI iteration. The
+application host maps exact installed definition coordinates to runtimes;
+`photara-disk` owns authorized-folder enumeration, revision observation,
+fingerprinting, and reconciliation preparation; `photara-layout` remains
+semantic and proxy-agnostic; and the production bridge/native shell are split
+along evaluation, materialization, Gallery state, Gallery behavior, and Gallery
+view surfaces. Portable schemas, project compatibility, proxy contracts, and
+the production UniFFI facade remain unchanged.
+
 - Keep conventional Inspector controls and the visual Layout authoring surface
   as separate presentation concepts. The authoring surface may occupy most of
   a workspace or later become focused/detached; placement and size never enter

@@ -6,12 +6,8 @@ use std::{
 
 use photara_core::{
     AssetId, AssetSet, CanonicalDigest, ColorSpaceId, Diagnostic, DiagnosticSeverity,
-    NodeInstanceId, ProjectId, ProxyProfile, RequestId, SchemaId, SchemaRef, SchemaValue,
-    SchemaVersion, TypedValue, ValueTypeDescriptor, ValueTypeId, ValueTypeRef, ValueTypeVersion,
-    canonical_digest,
-};
-use photara_proxy::{
-    ProjectVisualProxyRequest, ProjectVisualProxyService, ProxyArtifact, ProxyServiceError,
+    NodeInstanceId, SchemaId, SchemaRef, SchemaValue, SchemaVersion, TypedValue,
+    ValueTypeDescriptor, ValueTypeId, ValueTypeRef, ValueTypeVersion, canonical_digest,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -547,44 +543,6 @@ pub fn resolve_layout(
         canvas,
         frames,
     })
-}
-
-/// Ephemeral preview proxies keyed by semantic asset identity.
-///
-/// This runtime record is deliberately not serializable and cannot enter
-/// `LayoutState` or `LayoutPlan`.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct LayoutProxySet {
-    pub artifacts: BTreeMap<AssetId, ProxyArtifact>,
-}
-
-/// Requests one shared proxy per distinct placed asset through project services.
-///
-/// # Errors
-///
-/// Returns a project proxy service error. Layout state and plan are unchanged.
-pub fn request_layout_proxies(
-    plan: &LayoutPlan,
-    project_id: ProjectId,
-    profile: &ProxyProfile,
-    services: &dyn ProjectVisualProxyService,
-) -> Result<LayoutProxySet, ProxyServiceError> {
-    let asset_ids: BTreeSet<_> = plan
-        .frames
-        .iter()
-        .flat_map(|frame| frame.cells.iter().filter_map(|cell| cell.asset_id))
-        .collect();
-    let mut artifacts = BTreeMap::new();
-    for asset_id in asset_ids {
-        let artifact = services.request_visual_proxy(&ProjectVisualProxyRequest {
-            request_id: RequestId::new(),
-            project_id,
-            asset_id,
-            profile: profile.clone(),
-        })?;
-        artifacts.insert(asset_id, artifact);
-    }
-    Ok(LayoutProxySet { artifacts })
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

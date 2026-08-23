@@ -19,7 +19,8 @@ use photara_core::{
 use photara_node_sdk::{NodePackage, NodePackageManifest};
 use photara_proxy::{
     AssetContextProjectProxyService, GeneratedProxyMetadata, ProjectProxyService,
-    ProxyArtifactDisposition, ProxyGenerationError, ProxyGenerator, ProxyServiceConfig,
+    ProjectVisualProxyRequest, ProjectVisualProxyService, ProxyArtifact, ProxyArtifactDisposition,
+    ProxyGenerationError, ProxyGenerator, ProxyServiceConfig, ProxyServiceError,
     standard_sdr_thumbnail_profile,
 };
 use photara_store::{
@@ -29,8 +30,30 @@ use serde_json::json;
 
 use crate::{
     CellContentMode, LayoutCanvas, LayoutNodePackage, LayoutNodeRuntime, LayoutPlan, LayoutState,
-    NormalizedRect, NormalizedUnit, QuarterTurn, request_layout_proxies, resolve_layout,
+    NormalizedRect, NormalizedUnit, QuarterTurn, resolve_layout,
 };
+
+fn request_plan_proxies(
+    plan: &LayoutPlan,
+    project_id: ProjectId,
+    services: &dyn ProjectVisualProxyService,
+) -> Result<BTreeMap<photara_core::AssetId, ProxyArtifact>, ProxyServiceError> {
+    let profile = standard_sdr_thumbnail_profile();
+    plan.frames
+        .iter()
+        .flat_map(|frame| frame.cells.iter().filter_map(|cell| cell.asset_id))
+        .map(|asset_id| {
+            services
+                .request_visual_proxy(&ProjectVisualProxyRequest {
+                    request_id: RequestId::new(),
+                    project_id,
+                    asset_id,
+                    profile: profile.clone(),
+                })
+                .map(|artifact| (asset_id, artifact))
+        })
+        .collect()
+}
 
 struct TestRoot(PathBuf);
 
@@ -200,18 +223,17 @@ fn independent_layouts_reuse_project_proxies_and_survive_complete_cache_deletion
     let materializer = LocalProjectAssetAdapter::new(&project_root, &project);
     let visual_service =
         AssetContextProjectProxyService::new(&proxy_service, &project.asset_context, &materializer);
-    let profile = standard_sdr_thumbnail_profile();
     let portrait_proxies =
-        request_layout_proxies(&portrait_plan, project_id, &profile, &visual_service).unwrap();
+        request_plan_proxies(&portrait_plan, project_id, &visual_service).unwrap();
     let vertical_proxies =
-        request_layout_proxies(&vertical_plan, project_id, &profile, &visual_service).unwrap();
+        request_plan_proxies(&vertical_plan, project_id, &visual_service).unwrap();
     assert_eq!(calls.load(Ordering::SeqCst), 1);
-    assert_eq!(portrait_proxies.artifacts.len(), 1);
+    assert_eq!(portrait_proxies.len(), 1);
     assert_eq!(
-        vertical_proxies.artifacts[&asset_id].disposition,
+        vertical_proxies[&asset_id].disposition,
         ProxyArtifactDisposition::CacheHit
     );
-    let proxy_path = portrait_proxies.artifacts[&asset_id].local_path.clone();
+    let proxy_path = portrait_proxies[&asset_id].local_path.clone();
     assert!(proxy_path.is_file());
 
     drop(portrait_proxies);

@@ -450,6 +450,7 @@ dependencies = [
  "photara-node-sdk",
  "serde",
  "serde_json",
+ "sha2",
  "uuid",
 ]
 

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add a behavior-preserving Stage 9 architecture checkpoint: remove the
+  completed disposable Swift bridge implementation, dispatch exact node pins
+  through an application-host runtime registry, move authorized-folder
+  discovery/revision/reconciliation preparation into `photara-disk`, remove
+  proxy orchestration from `photara-layout`, and split bridge/native Gallery
+  responsibilities into focused modules without changing portable or UniFFI
+  contracts.
 - Reset the active repository for generation two while retaining the official
   historical release in Git.
 - Establish a `0.2.0-alpha.0` Rust workspace with separate Core, node SDK,

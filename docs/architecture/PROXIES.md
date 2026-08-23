@@ -221,10 +221,11 @@ Selection is capability-based rather than TIFF- or provider-based.
 
 Layout resolves its authoritative semantic plan without this interface. A
 preview consumer may then request one proxy per distinct placed asset and hold
-the returned `LayoutProxySet` ephemerally. The set is not serializable; cache
-keys, descriptors, leases, and local paths cannot enter Layout state or plan.
-Consequently proxy failure or complete cache deletion cannot invalidate a
-project's authored Layout.
+the returned leased references ephemerally. This orchestration belongs to the
+application host, not the Layout package. The references are not serializable;
+cache keys, descriptors, leases, and local paths cannot enter Layout state or
+plan. Consequently proxy failure or complete cache deletion cannot invalidate
+a project's authored Layout.
 
 ## Native fast presentation path
 

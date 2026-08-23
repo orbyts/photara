@@ -67,5 +67,7 @@ separate product decision.
 
 ## Reproduction
 
-See `spikes/swift-bridge/README.md`. The harness is disposable and should not be
-grown into the native application.
+The disposable harness was removed after the production-shaped UniFFI facade
+passed its Stage 8 gate. This document preserves the spike findings; the
+harness itself intentionally no longer ships. Its conclusions informed the
+production native application.

@@ -14,14 +14,7 @@ struct RecentProject: Codable, Identifiable, Sendable {
     var id: String { projectID }
 }
 
-enum GalleryPreviewActivity: Equatable, Sendable {
-    case loading
-    case updating
-    case ready
-    case failed
-}
-
-private actor NativeThumbnailScheduler {
+actor NativeThumbnailScheduler {
     private let limit: Int
     private var active = 0
     private var waiters: [CheckedContinuation<Void, Never>] = []
@@ -54,13 +47,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var snapshot: BridgeProjectSnapshotDto?
     @Published private(set) var progressLabel = "Idle"
     @Published private(set) var isEvaluating = false
-    @Published private(set) var galleryProxies: [String: BridgeProxyReference] = [:]
-    @Published private(set) var galleryProxyDescriptors: [String: BridgeProxyDescriptorDto] = [:]
-    @Published private(set) var galleryProxyImages: [String: NSImage] = [:]
-    @Published private(set) var galleryNativeThumbnails: [String: NSImage] = [:]
-    @Published private(set) var galleryDisplayedRevisions: [String: String] = [:]
-    @Published private(set) var galleryPreviewActivities: [String: GalleryPreviewActivity] = [:]
-    @Published private(set) var galleryPreviewErrors: [String: String] = [:]
+    @Published var gallery = GalleryPresentationState()
     @Published private(set) var layoutCellProxies: [String: BridgeProxyReference] = [:]
     @Published private(set) var layoutNativeThumbnails: [String: NSImage] = [:]
     @Published private(set) var recentProjects: [RecentProject]
@@ -69,18 +56,16 @@ final class AppModel: ObservableObject {
     @Published var presentedError: String?
 
     private var application: PhotaraApplication?
-    private var project: PhotaraProject?
+    var project: PhotaraProject?
     private var evaluation: EvaluationHandle?
     private var observer: AppEvaluationObserver?
     private let defaults: UserDefaults
     private var projectsDirectory: URL?
     private var activeFolderGrants: [String: URL] = [:]
-    private var pendingGalleryProxyRevisions: [String: String] = [:]
-    private var pendingNativeThumbnailRevisions: [String: String] = [:]
     private var pendingLayoutProxyCellIDs: Set<String> = []
     private var pendingLayoutNativeCellIDs: Set<String> = []
     private let layoutAuthoringPreviewLongEdge: UInt32
-    private let nativeThumbnailScheduler = NativeThumbnailScheduler(limit: 2)
+    let nativeThumbnailScheduler = NativeThumbnailScheduler(limit: 2)
 
     private static let recentProjectsKey = "photara.recent-projects.v1"
 
@@ -138,6 +123,13 @@ final class AppModel: ObservableObject {
     }
 
     var hasOpenProject: Bool { project != nil }
+    var galleryProxies: [String: BridgeProxyReference] { gallery.proxies }
+    var galleryProxyDescriptors: [String: BridgeProxyDescriptorDto] { gallery.proxyDescriptors }
+    var galleryProxyImages: [String: NSImage] { gallery.proxyImages }
+    var galleryNativeThumbnails: [String: NSImage] { gallery.nativeThumbnails }
+    var galleryDisplayedRevisions: [String: String] { gallery.displayedRevisions }
+    var galleryPreviewActivities: [String: GalleryPreviewActivity] { gallery.activities }
+    var galleryPreviewErrors: [String: String] { gallery.errors }
 
     private static func recommendedProxyGenerationConcurrency(
         defaults: UserDefaults
@@ -160,15 +152,7 @@ final class AppModel: ObservableObject {
             let project = try application.createProject(title: "Untitled Project")
             self.project = project
             snapshot = try project.snapshot()
-            galleryProxies.removeAll()
-            galleryProxyDescriptors.removeAll()
-            galleryProxyImages.removeAll()
-            galleryNativeThumbnails.removeAll()
-            galleryDisplayedRevisions.removeAll()
-            galleryPreviewActivities.removeAll()
-            galleryPreviewErrors.removeAll()
-            pendingGalleryProxyRevisions.removeAll()
-            pendingNativeThumbnailRevisions.removeAll()
+            gallery.reset()
             pendingLayoutProxyCellIDs.removeAll()
             pendingLayoutNativeCellIDs.removeAll()
             layoutCellProxies.removeAll()
@@ -185,15 +169,7 @@ final class AppModel: ObservableObject {
         observer = nil
         project = nil
         snapshot = nil
-        galleryProxies.removeAll()
-        galleryProxyDescriptors.removeAll()
-        galleryProxyImages.removeAll()
-        galleryNativeThumbnails.removeAll()
-        galleryDisplayedRevisions.removeAll()
-        galleryPreviewActivities.removeAll()
-        galleryPreviewErrors.removeAll()
-        pendingGalleryProxyRevisions.removeAll()
-        pendingNativeThumbnailRevisions.removeAll()
+        gallery.reset()
         pendingLayoutProxyCellIDs.removeAll()
         pendingLayoutNativeCellIDs.removeAll()
         scanningDiskNodeIDs.removeAll()
@@ -221,15 +197,7 @@ final class AppModel: ObservableObject {
             self.project = project
             snapshot = try project.snapshot()
             restoreDiskFolderGrants()
-            galleryProxies.removeAll()
-            galleryProxyDescriptors.removeAll()
-            galleryProxyImages.removeAll()
-            galleryNativeThumbnails.removeAll()
-            galleryDisplayedRevisions.removeAll()
-            galleryPreviewActivities.removeAll()
-            galleryPreviewErrors.removeAll()
-            pendingGalleryProxyRevisions.removeAll()
-            pendingNativeThumbnailRevisions.removeAll()
+            gallery.reset()
             pendingLayoutProxyCellIDs.removeAll()
             pendingLayoutNativeCellIDs.removeAll()
             layoutCellProxies.removeAll()
@@ -255,15 +223,7 @@ final class AppModel: ObservableObject {
             self.project = project
             snapshot = try project.snapshot()
             restoreDiskFolderGrants()
-            galleryProxies.removeAll()
-            galleryProxyDescriptors.removeAll()
-            galleryProxyImages.removeAll()
-            galleryNativeThumbnails.removeAll()
-            galleryDisplayedRevisions.removeAll()
-            galleryPreviewActivities.removeAll()
-            galleryPreviewErrors.removeAll()
-            pendingGalleryProxyRevisions.removeAll()
-            pendingNativeThumbnailRevisions.removeAll()
+            gallery.reset()
             pendingLayoutProxyCellIDs.removeAll()
             pendingLayoutNativeCellIDs.removeAll()
             layoutCellProxies.removeAll()
@@ -322,17 +282,9 @@ final class AppModel: ObservableObject {
             )
             accept(cleared)
             guard cleared.applied else { return }
-            galleryProxies.removeAll()
-            galleryProxyDescriptors.removeAll()
-            galleryProxyImages.removeAll()
-            galleryNativeThumbnails.removeAll()
-            galleryDisplayedRevisions.removeAll()
-            galleryPreviewActivities.removeAll()
-            galleryPreviewErrors.removeAll()
+            gallery.reset()
             layoutCellProxies.removeAll()
             layoutNativeThumbnails.removeAll()
-            pendingGalleryProxyRevisions.removeAll()
-            pendingNativeThumbnailRevisions.removeAll()
             pendingLayoutProxyCellIDs.removeAll()
             pendingLayoutNativeCellIDs.removeAll()
             scanDisk(node)
@@ -387,12 +339,12 @@ final class AppModel: ObservableObject {
                 for asset in self.snapshot?.assets ?? []
                     where discoveredAssetIDs.contains(asset.assetId)
                 {
-                    guard galleryProxies[asset.assetId] != nil
-                            || galleryNativeThumbnails[asset.assetId] != nil,
+                    guard gallery.proxies[asset.assetId] != nil
+                            || gallery.nativeThumbnails[asset.assetId] != nil,
                           let revision = asset.visualRevision
                     else { continue }
-                    galleryDisplayedRevisions[asset.assetId] = revision
-                    galleryPreviewActivities[asset.assetId] = .ready
+                    gallery.displayedRevisions[asset.assetId] = revision
+                    gallery.activities[asset.assetId] = .ready
                 }
                 progressLabel = "\(verification.snapshot?.assets.count ?? 0) assets verified"
                 refreshLayoutProxies()
@@ -477,252 +429,6 @@ final class AppModel: ObservableObject {
         } catch {
             presentedError = error.localizedDescription
         }
-    }
-
-    func requestGalleryThumbnail(assetID: String) {
-        guard let project,
-              let asset = snapshot?.assets.first(where: { $0.assetId == assetID }),
-              let revision = asset.visualRevision
-        else { return }
-        // Every Gallery item ultimately enters the project-scoped proxy cache.
-        // Quick Look may still win the first-pixel race for formats where it is
-        // cheaper, but reopening the project can reuse the verified proxy.
-        requestGalleryProxy(
-            assetID: assetID,
-            desiredRevision: revision,
-            project: project
-        )
-        requestNativeThumbnail(
-            assetID: assetID,
-            desiredRevision: revision,
-            project: project
-        )
-    }
-
-    func openGalleryAsset(assetID: String) {
-        guard let project else { return }
-        do {
-            let source = try project.nativeThumbnailSource(assetId: assetID)
-            guard NSWorkspace.shared.open(URL(fileURLWithPath: source.localPath)) else {
-                presentedError = "macOS could not open this asset in its default application."
-                return
-            }
-        } catch {
-            presentedError = error.localizedDescription
-        }
-    }
-
-    private func requestNativeThumbnail(
-        assetID: String,
-        desiredRevision: String,
-        project: PhotaraProject
-    ) {
-        if galleryDisplayedRevisions[assetID] == desiredRevision {
-            galleryPreviewActivities[assetID] = .ready
-            return
-        }
-        guard pendingNativeThumbnailRevisions[assetID] != desiredRevision else { return }
-        pendingNativeThumbnailRevisions[assetID] = desiredRevision
-        galleryPreviewActivities[assetID] = galleryDisplayedRevisions[assetID] == nil
-            ? .loading : .updating
-        let source: BridgeNativeThumbnailSourceDto
-        do {
-            source = try project.nativeThumbnailSource(assetId: assetID)
-        } catch {
-            pendingNativeThumbnailRevisions.removeValue(forKey: assetID)
-            requestGalleryProxy(
-                assetID: assetID,
-                desiredRevision: desiredRevision,
-                project: project
-            )
-            if galleryDisplayedRevisions[assetID] == nil {
-                galleryPreviewActivities[assetID] = .failed
-            }
-            return
-        }
-        let sourceExtension = URL(fileURLWithPath: source.localPath)
-            .pathExtension.lowercased()
-        if sourceExtension == "tif" || sourceExtension == "tiff" {
-            pendingNativeThumbnailRevisions.removeValue(forKey: assetID)
-            requestGalleryProxy(
-                assetID: assetID,
-                desiredRevision: desiredRevision,
-                project: project
-            )
-            return
-        }
-        let scale = NSScreen.main?.backingScaleFactor ?? 2
-        let lowQualityRequest = QLThumbnailGenerator.Request(
-            fileAt: URL(fileURLWithPath: source.localPath),
-            size: CGSize(width: 384, height: 288),
-            scale: scale,
-            representationTypes: .lowQualityThumbnail
-        )
-        let fullRequest = QLThumbnailGenerator.Request(
-            fileAt: URL(fileURLWithPath: source.localPath),
-            size: CGSize(width: 384, height: 288),
-            scale: scale,
-            representationTypes: .thumbnail
-        )
-        Task { [weak self] in
-            guard let self else { return }
-            defer {
-                if pendingNativeThumbnailRevisions[assetID] == desiredRevision {
-                    pendingNativeThumbnailRevisions.removeValue(forKey: assetID)
-                }
-            }
-            await nativeThumbnailScheduler.acquire()
-            let lowQualityRepresentation = try? await QLThumbnailGenerator.shared
-                .generateBestRepresentation(for: lowQualityRequest)
-            await nativeThumbnailScheduler.release()
-            if let representation = lowQualityRepresentation,
-               previewIsStillDesired(
-                   assetID: assetID,
-                   revision: desiredRevision,
-                   project: project
-               ), galleryProxies[assetID] == nil
-            {
-                galleryNativeThumbnails[assetID] = NSImage(
-                    cgImage: representation.cgImage,
-                    size: representation.contentRect.size
-                )
-                galleryProxies.removeValue(forKey: assetID)
-                galleryDisplayedRevisions[assetID] = source.sourceFingerprint
-                galleryPreviewActivities[assetID] = .updating
-            }
-            do {
-                await nativeThumbnailScheduler.acquire()
-                defer { Task { await self.nativeThumbnailScheduler.release() } }
-                let representation = try await QLThumbnailGenerator.shared
-                    .generateBestRepresentation(for: fullRequest)
-                guard previewIsStillDesired(
-                    assetID: assetID,
-                    revision: desiredRevision,
-                    project: project
-                ), galleryProxies[assetID] == nil
-                else { return }
-                galleryNativeThumbnails[assetID] = NSImage(
-                    cgImage: representation.cgImage,
-                    size: representation.contentRect.size
-                )
-                galleryProxies.removeValue(forKey: assetID)
-                galleryDisplayedRevisions[assetID] = source.sourceFingerprint
-                galleryPreviewActivities[assetID] = .ready
-            } catch {
-                requestGalleryProxy(
-                    assetID: assetID,
-                    desiredRevision: desiredRevision,
-                    project: project
-                )
-                if galleryDisplayedRevisions[assetID] == nil {
-                    galleryPreviewActivities[assetID] = .failed
-                }
-            }
-        }
-    }
-
-    private func requestGalleryProxy(
-        assetID: String,
-        desiredRevision: String,
-        project: PhotaraProject
-    ) {
-        guard pendingGalleryProxyRevisions[assetID] != desiredRevision else { return }
-        pendingGalleryProxyRevisions[assetID] = desiredRevision
-        Task { [weak self] in
-            let result = await Task.detached(priority: .utility) {
-                Result {
-                    let reference = try project.requestGalleryThumbnail(assetId: assetID)
-                    let descriptor = reference.descriptor()
-                    let proxyData = try? Data(
-                        contentsOf: URL(fileURLWithPath: descriptor.localPath),
-                        options: .mappedIfSafe
-                    )
-                    let decodedImage: CGImage? = proxyData.flatMap { data in
-                        guard let source = CGImageSourceCreateWithData(
-                            data as CFData,
-                            [kCGImageSourceShouldCache: false] as CFDictionary
-                        ) else { return nil }
-                        return CGImageSourceCreateImageAtIndex(
-                            source,
-                            0,
-                            [kCGImageSourceShouldCacheImmediately: true] as CFDictionary
-                        )
-                    }
-                    return (reference, descriptor, decodedImage)
-                }
-            }.value
-            guard let self else { return }
-            if pendingGalleryProxyRevisions[assetID] == desiredRevision {
-                pendingGalleryProxyRevisions.removeValue(forKey: assetID)
-            }
-            guard previewIsStillDesired(
-                assetID: assetID,
-                revision: desiredRevision,
-                project: project
-            ) else { return }
-            switch result {
-            case let .success((reference, descriptor, decodedImage)):
-                galleryProxies[assetID] = reference
-                galleryProxyDescriptors[assetID] = descriptor
-                if let decodedImage {
-                    galleryProxyImages[assetID] = NSImage(
-                        cgImage: decodedImage,
-                        size: NSSize(
-                            width: decodedImage.width,
-                            height: decodedImage.height
-                        )
-                    )
-                }
-                galleryDisplayedRevisions[assetID] = desiredRevision
-                galleryPreviewActivities[assetID] = .ready
-                galleryPreviewErrors.removeValue(forKey: assetID)
-            case let .failure(error):
-                galleryPreviewErrors[assetID] = error.localizedDescription
-                if galleryDisplayedRevisions[assetID] == nil {
-                    galleryPreviewActivities[assetID] = .failed
-                }
-            }
-        }
-    }
-
-    private func previewIsStillDesired(
-        assetID: String,
-        revision: String,
-        project: PhotaraProject
-    ) -> Bool {
-        !Task.isCancelled
-            && self.project === project
-            && snapshot?.assets.first(where: { $0.assetId == assetID })?.visualRevision
-                == revision
-    }
-
-    private func waitForInitialPreviews(
-        assetIDs: Set<String>,
-        project: PhotaraProject
-    ) async -> Bool {
-        while self.project === project, !Task.isCancelled {
-            let currentAssets = snapshot?.assets.filter {
-                assetIDs.contains($0.assetId)
-            } ?? []
-            let requestedAssets = currentAssets.filter {
-                galleryPreviewActivities[$0.assetId] != nil
-            }
-            let requestedAreTerminal = !requestedAssets.isEmpty
-                && requestedAssets.allSatisfy { asset in
-                guard let desiredRevision = asset.visualRevision else { return true }
-                return galleryDisplayedRevisions[asset.assetId] == desiredRevision
-                    || galleryPreviewActivities[asset.assetId] == .failed
-            }
-            let requestedIDs = Set(requestedAssets.map(\.assetId))
-            let hasPendingRequest = pendingGalleryProxyRevisions.keys.contains {
-                requestedIDs.contains($0)
-            } || pendingNativeThumbnailRevisions.keys.contains {
-                requestedIDs.contains($0)
-            }
-            if requestedAreTerminal && !hasPendingRequest { return true }
-            try? await Task.sleep(for: .milliseconds(250))
-        }
-        return false
     }
 
     func bind(assetID: String, to node: BridgeNodeDto, frameID: String, cellID: String) {

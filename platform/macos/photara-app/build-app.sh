@@ -45,8 +45,11 @@ xcrun swiftc \
   -parse-as-library \
   -module-cache-path "$MODULE_CACHE" \
   "$GENERATED_ROOT/PhotaraBridge.swift" \
+  "$SCRIPT_ROOT/Sources/GalleryPresentationState.swift" \
   "$SCRIPT_ROOT/Sources/AppModel.swift" \
+  "$SCRIPT_ROOT/Sources/AppModel+Gallery.swift" \
   "$SCRIPT_ROOT/Sources/WorkspaceModel.swift" \
+  "$SCRIPT_ROOT/Sources/GalleryView.swift" \
   "$SCRIPT_ROOT/Sources/WorkspaceView.swift" \
   "$SCRIPT_ROOT/Sources/PhotaraMacApp.swift" \
   -Xcc "-fmodule-map-file=$GENERATED_ROOT/PhotaraBridgeFFI.modulemap" \

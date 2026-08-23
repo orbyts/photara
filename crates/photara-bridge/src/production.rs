@@ -1,35 +1,26 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
-    fs::{self, File},
-    io::{BufReader, Read},
+    fs,
     num::{NonZeroU32, NonZeroUsize},
     path::PathBuf,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
-    thread,
-    time::UNIX_EPOCH,
+    sync::{Arc, Mutex},
 };
 
 use photara_asset_set_node::{AssetSetNodePackage, AssetSetNodeRuntime, asset_set_state_schema};
 use photara_core::{
-    AssetId, AssetRepresentationId, AssetSet, CancellationToken, CommandId, Connection,
-    ConnectionId, DefinitionResolver, Diagnostic, DiagnosticSeverity, EvaluationError,
-    EvaluationId, EvaluationPhase, EvaluationRequest, GraphCommand, GraphCommandEnvelope,
-    GraphDocument, GraphId, NodeDefinitionRef, NodeEvaluationOutput, NodeEvaluationRequest,
-    NodeInstance, NodeInstanceId, NodeRuntime, PackageRequirement, PortDirection, PortEndpoint,
-    PortId, ProjectAsset, ProjectCommand, ProjectCommandEnvelope, ProjectDocument, ProjectId,
-    ProjectRelativePath, REPRESENTATION_FORMAT_EXTENSION_KEY, RepresentationAvailability,
-    RepresentationBinding, RepresentationCapabilityId, RepresentationDescriptor,
-    RepresentationFingerprint, RepresentationMaterializationError,
-    RepresentationMaterializationRequest, RepresentationMaterializer,
-    RepresentationRevisionEvidence, RepresentationRoleId, RepresentationStorageBindingId,
+    AssetId, AssetSet, CommandId, Connection, ConnectionId, DefinitionResolver, Diagnostic,
+    DiagnosticSeverity, GraphCommand, GraphCommandEnvelope, GraphDocument, GraphId,
+    NodeDefinitionRef, NodeInstance, NodeInstanceId, PackageRequirement, PortDirection,
+    PortEndpoint, PortId, ProjectAsset, ProjectCommand, ProjectCommandEnvelope, ProjectDocument,
+    ProjectId, ProjectRelativePath, REPRESENTATION_FORMAT_EXTENSION_KEY, RepresentationBinding,
+    RepresentationDescriptor, RepresentationRevisionEvidence, RepresentationStorageBindingId,
     RequestId, SchemaValue, ValueTypeRegistry, apply_graph_command, apply_project_command,
-    asset_set_value_type_descriptor, canonical_digest, evaluate_graph,
+    asset_set_value_type_descriptor, canonical_digest,
 };
-use photara_disk_node::{DiskFolderState, DiskNodePackage, DiskNodeRuntime};
+use photara_disk_node::{
+    DiskFolderProvider, DiskFolderState, DiskNodePackage, DiskNodeRuntime, DiskRevisionMode,
+};
 use photara_layout_node::{
     BundledCanvasProfile, CellArrangement, CellContentMode, LayoutCanvas, LayoutCell,
     LayoutCommand, LayoutCommandError, LayoutFrame, LayoutNodePackage, LayoutNodeRuntime,
@@ -46,15 +37,16 @@ use photara_proxy::{
     layout_interaction_preview_profile, standard_gallery_preview_profile,
 };
 use photara_proxy::{ProxyArtifact, ProxyArtifactDisposition};
-use photara_store::{
-    FileSystemStateStore, LocalProjectAssetAdapter, ProjectRepository,
-    prepare_local_tiff_pair_import,
-};
+use photara_store::{FileSystemStateStore, ProjectRepository, prepare_local_tiff_pair_import};
 use serde::de::DeserializeOwned;
 use serde_json::json;
-use sha2::{Digest as _, Sha256};
 use thiserror::Error;
 use uuid::Uuid;
+
+use crate::{
+    asset_materializer::RuntimeAwareMaterializer, evaluation::EvaluationHandle,
+    runtime_registry::RuntimeRegistry,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Enum)]
 pub enum BridgeDiagnosticSeverity {
@@ -513,10 +505,28 @@ pub trait EvaluationObserver: Send + Sync {
 pub struct PhotaraApplication {
     store: FileSystemStateStore,
     definitions: Arc<NodePackageRegistry>,
+    runtimes: Arc<RuntimeRegistry>,
     value_types: Arc<ValueTypeRegistry>,
     proxy_cache_root: PathBuf,
     proxy_helper_executable: PathBuf,
     proxy_generation_concurrency: NonZeroUsize,
+}
+
+#[derive(Clone)]
+struct HostRuntimeServices {
+    definitions: Arc<NodePackageRegistry>,
+    runtimes: Arc<RuntimeRegistry>,
+    value_types: Arc<ValueTypeRegistry>,
+}
+
+impl PhotaraApplication {
+    fn runtime_services(&self) -> HostRuntimeServices {
+        HostRuntimeServices {
+            definitions: Arc::clone(&self.definitions),
+            runtimes: Arc::clone(&self.runtimes),
+            value_types: Arc::clone(&self.value_types),
+        }
+    }
 }
 
 #[uniffi::export]
@@ -545,19 +555,30 @@ impl PhotaraApplication {
                 message: error.to_string(),
             }
         })?;
+        let asset_set_manifest = AssetSetNodePackage.manifest();
+        let layout_manifest = LayoutNodePackage.manifest();
+        let disk_manifest = DiskNodePackage.manifest();
         let mut definitions = NodePackageRegistry::default();
         definitions
-            .register_package(&AssetSetNodePackage)
+            .register_manifest(asset_set_manifest.clone())
             .map_err(|error| BridgeError::State {
                 message: error.to_string(),
             })?;
         definitions
-            .register_package(&LayoutNodePackage)
+            .register_manifest(layout_manifest.clone())
             .map_err(|error| BridgeError::State {
                 message: error.to_string(),
             })?;
         definitions
-            .register_package(&DiskNodePackage)
+            .register_manifest(disk_manifest.clone())
+            .map_err(|error| BridgeError::State {
+                message: error.to_string(),
+            })?;
+        let mut runtimes = RuntimeRegistry::default();
+        runtimes
+            .register_manifest(&asset_set_manifest, AssetSetNodeRuntime)
+            .and_then(|()| runtimes.register_manifest(&layout_manifest, LayoutNodeRuntime))
+            .and_then(|()| runtimes.register_manifest(&disk_manifest, DiskNodeRuntime))
             .map_err(|error| BridgeError::State {
                 message: error.to_string(),
             })?;
@@ -575,6 +596,7 @@ impl PhotaraApplication {
         Ok(Arc::new(Self {
             store,
             definitions: Arc::new(definitions),
+            runtimes: Arc::new(runtimes),
             value_types: Arc::new(value_types),
             proxy_cache_root: PathBuf::from(proxy_cache_root),
             proxy_helper_executable: PathBuf::from(proxy_helper_executable),
@@ -640,8 +662,7 @@ impl PhotaraApplication {
             })?;
         PhotaraProject::new(
             store,
-            Arc::clone(&self.definitions),
-            Arc::clone(&self.value_types),
+            self.runtime_services(),
             project,
             self.proxy_cache_root.clone(),
             self.proxy_helper_executable.clone(),
@@ -669,8 +690,7 @@ impl PhotaraApplication {
             })?;
         PhotaraProject::new(
             self.store.clone(),
-            Arc::clone(&self.definitions),
-            Arc::clone(&self.value_types),
+            self.runtime_services(),
             project,
             self.proxy_cache_root.clone(),
             self.proxy_helper_executable.clone(),
@@ -736,8 +756,7 @@ impl PhotaraApplication {
         };
         PhotaraProject::new(
             store,
-            Arc::clone(&self.definitions),
-            Arc::clone(&self.value_types),
+            self.runtime_services(),
             project,
             self.proxy_cache_root.clone(),
             self.proxy_helper_executable.clone(),
@@ -768,6 +787,7 @@ struct ProjectSessionState {
 pub struct PhotaraProject {
     store: FileSystemStateStore,
     definitions: Arc<NodePackageRegistry>,
+    runtimes: Arc<RuntimeRegistry>,
     value_types: Arc<ValueTypeRegistry>,
     project_root: PathBuf,
     #[cfg(target_os = "macos")]
@@ -780,13 +800,17 @@ pub struct PhotaraProject {
 impl PhotaraProject {
     fn new(
         store: FileSystemStateStore,
-        definitions: Arc<NodePackageRegistry>,
-        value_types: Arc<ValueTypeRegistry>,
+        services: HostRuntimeServices,
         project: ProjectDocument,
         proxy_cache_root: PathBuf,
         proxy_helper_executable: PathBuf,
         proxy_generation_concurrency: NonZeroUsize,
     ) -> Result<Arc<Self>, BridgeError> {
+        let HostRuntimeServices {
+            definitions,
+            runtimes,
+            value_types,
+        } = services;
         let project_root = store
             .root()
             .join("project-data")
@@ -821,6 +845,7 @@ impl PhotaraProject {
         Ok(Arc::new(Self {
             store,
             definitions,
+            runtimes,
             value_types,
             project_root,
             #[cfg(target_os = "macos")]
@@ -1542,7 +1567,7 @@ impl PhotaraProject {
         self.reconcile_disk_folder(
             expected_graph_revision,
             node_id,
-            DiskFingerprintMode::Observation,
+            DiskRevisionMode::Observation,
         )
     }
 
@@ -1554,11 +1579,7 @@ impl PhotaraProject {
         expected_graph_revision: u64,
         node_id: String,
     ) -> BridgeCommandResponseDto {
-        self.reconcile_disk_folder(
-            expected_graph_revision,
-            node_id,
-            DiskFingerprintMode::Content,
-        )
+        self.reconcile_disk_folder(expected_graph_revision, node_id, DiskRevisionMode::Content)
     }
 }
 
@@ -1568,7 +1589,7 @@ impl PhotaraProject {
         &self,
         expected_graph_revision: u64,
         node_id: String,
-        fingerprint_mode: DiskFingerprintMode,
+        revision_mode: DiskRevisionMode,
     ) -> BridgeCommandResponseDto {
         let command_id = CommandId::new();
         let node_id: NodeInstanceId = match parse_uuid_id(&node_id, "Disk node ID") {
@@ -1653,12 +1674,7 @@ impl PhotaraProject {
                 "Choose or restore this Disk node's folder before scanning".to_owned(),
             );
         };
-        let prepared = match prepare_disk_scan(
-            &folder,
-            disk.folder_binding_id,
-            disk.recursive,
-            fingerprint_mode,
-        ) {
+        let prepared = match DiskFolderProvider::reconcile(&folder, &disk, revision_mode) {
             Ok(value) => value,
             Err(message) => {
                 return rejected_command(
@@ -1669,12 +1685,7 @@ impl PhotaraProject {
                 );
             }
         };
-        let previous_asset_ids = disk.accepted_assets.assets.clone();
-        let mut accepted = disk;
-        accepted.accepted_assets = AssetSet {
-            assets: prepared.assets.iter().map(|asset| asset.id).collect(),
-        };
-        let authored_state = match accepted.to_schema_value() {
+        let authored_state = match prepared.authored_state.to_schema_value() {
             Ok(value) => value,
             Err(error) => {
                 return rejected_command(
@@ -1710,7 +1721,7 @@ impl PhotaraProject {
                 project_id: state.project.project_id,
                 expected_revision: state.project.revision,
                 command: ProjectCommand::ReconcileAssets {
-                    remove_asset_ids: previous_asset_ids,
+                    remove_asset_ids: prepared.previous_asset_ids,
                     upsert_assets: prepared.assets,
                 },
             },
@@ -1761,7 +1772,7 @@ impl PhotaraProject {
             );
         }
         if let Ok(mut bindings) = self.representation_bindings.lock() {
-            bindings.extend(prepared.bindings);
+            bindings.extend(prepared.runtime_bindings);
         }
         state.project = project;
         state.dirty = true;
@@ -1972,13 +1983,12 @@ impl PhotaraProject {
     /// Returns a state error when the project session cannot be read.
     pub fn prepare_evaluation(&self) -> Result<Arc<EvaluationHandle>, BridgeError> {
         let state = self.lock_state()?;
-        Ok(Arc::new(EvaluationHandle {
-            graph: state.project.graph.clone(),
-            definitions: Arc::clone(&self.definitions),
-            value_types: Arc::clone(&self.value_types),
-            cancellation: CancellationToken::default(),
-            started: AtomicBool::new(false),
-        }))
+        Ok(EvaluationHandle::new(
+            state.project.graph.clone(),
+            Arc::clone(&self.definitions),
+            Arc::clone(&self.runtimes),
+            Arc::clone(&self.value_types),
+        ))
     }
 }
 
@@ -2008,11 +2018,8 @@ impl PhotaraProject {
                 message: "representation-binding lock was poisoned".to_owned(),
             })?
             .clone();
-        let materializer = RuntimeAwareMaterializer {
-            local: LocalProjectAssetAdapter::new(&self.project_root, &project),
-            project: &project,
-            runtime_bindings: &runtime_bindings,
-        };
+        let materializer =
+            RuntimeAwareMaterializer::new(&self.project_root, &project, &runtime_bindings);
         let services = AssetContextProjectProxyService::new(
             self.proxy_service.as_ref(),
             &project.asset_context,
@@ -2499,499 +2506,6 @@ impl PhotaraProject {
             stack.push(entry);
         }
         response
-    }
-}
-
-#[derive(uniffi::Object)]
-pub struct EvaluationHandle {
-    graph: GraphDocument,
-    definitions: Arc<NodePackageRegistry>,
-    value_types: Arc<ValueTypeRegistry>,
-    cancellation: CancellationToken,
-    started: AtomicBool,
-}
-
-#[uniffi::export]
-impl EvaluationHandle {
-    pub fn cancel(&self) {
-        self.cancellation.cancel();
-    }
-
-    /// Starts one evaluation and streams immutable events to Swift.
-    ///
-    /// # Errors
-    ///
-    /// Returns a state error when the handle was already started or its worker
-    /// thread cannot be created.
-    pub fn start(&self, observer: Arc<dyn EvaluationObserver>) -> Result<(), BridgeError> {
-        if self.started.swap(true, Ordering::AcqRel) {
-            return Err(BridgeError::State {
-                message: "evaluation handle has already started".to_owned(),
-            });
-        }
-        let graph = self.graph.clone();
-        let definitions = Arc::clone(&self.definitions);
-        let value_types = Arc::clone(&self.value_types);
-        let cancellation = self.cancellation.clone();
-        thread::Builder::new()
-            .name("photara-evaluation".to_owned())
-            .spawn(move || {
-                run_evaluation(
-                    &graph,
-                    definitions.as_ref(),
-                    value_types.as_ref(),
-                    &cancellation,
-                    observer.as_ref(),
-                );
-            })
-            .map_err(|error| BridgeError::State {
-                message: format!("could not start evaluation thread: {error}"),
-            })?;
-        Ok(())
-    }
-}
-
-struct PreparedDiskScan {
-    assets: Vec<ProjectAsset>,
-    bindings: BTreeMap<RepresentationStorageBindingId, PathBuf>,
-}
-
-#[derive(Clone, Copy)]
-enum DiskFingerprintMode {
-    Observation,
-    Content,
-}
-
-fn prepare_disk_scan(
-    root: &std::path::Path,
-    folder_binding_id: Uuid,
-    recursive: bool,
-    fingerprint_mode: DiskFingerprintMode,
-) -> Result<PreparedDiskScan, String> {
-    let mut files = Vec::new();
-    collect_supported_files(root, root, recursive, &mut files)?;
-    files.sort();
-    let mut assets = Vec::with_capacity(files.len());
-    let mut bindings = BTreeMap::new();
-    for path in files {
-        let relative = path.strip_prefix(root).map_err(|error| {
-            format!(
-                "could not identify {} relative to folder: {error}",
-                path.display()
-            )
-        })?;
-        let identity_key = relative.to_string_lossy();
-        let asset_id = AssetId::from_uuid(stable_disk_uuid(
-            "photara.disk.asset",
-            folder_binding_id,
-            &identity_key,
-        ));
-        let representation_id = AssetRepresentationId::from_uuid(stable_disk_uuid(
-            "photara.disk.representation",
-            folder_binding_id,
-            &identity_key,
-        ));
-        let binding_id = RepresentationStorageBindingId::from_uuid(stable_disk_uuid(
-            "photara.disk.storage-binding",
-            folder_binding_id,
-            &identity_key,
-        ));
-        let (fingerprint, revision_evidence) = match fingerprint_mode {
-            DiskFingerprintMode::Observation => (
-                fingerprint_file_observation(&path)?,
-                RepresentationRevisionEvidence::FileObservation,
-            ),
-            DiskFingerprintMode::Content => (
-                fingerprint_runtime_file(&path)?,
-                RepresentationRevisionEvidence::ContentDigest,
-            ),
-        };
-        let mut capabilities = [
-            photara_core::IMAGE_CAPABILITY_ID,
-            photara_core::FLATTENED_IMAGE_CAPABILITY_ID,
-        ]
-        .into_iter()
-        .map(|value| {
-            RepresentationCapabilityId::parse(value)
-                .expect("built-in representation capability is valid")
-        })
-        .collect::<BTreeSet<_>>();
-        if is_tiff(&path) {
-            capabilities.insert(
-                RepresentationCapabilityId::parse(photara_core::TIFF_CAPABILITY_ID)
-                    .expect("built-in TIFF capability is valid"),
-            );
-        }
-        let representation_extensions =
-            normalized_format_label(&path).map_or_else(BTreeMap::new, |label| {
-                BTreeMap::from([(
-                    REPRESENTATION_FORMAT_EXTENSION_KEY.to_owned(),
-                    serde_json::Value::String(label),
-                )])
-            });
-        assets.push(ProjectAsset {
-            id: asset_id,
-            display_name: path.file_stem().map_or_else(
-                || path.display().to_string(),
-                |name| name.to_string_lossy().into_owned(),
-            ),
-            representations: vec![RepresentationDescriptor {
-                id: representation_id,
-                role: RepresentationRoleId::parse(photara_core::ORIGINAL_REPRESENTATION_ROLE_ID)
-                    .expect("built-in representation role is valid"),
-                fingerprint,
-                revision_evidence,
-                capabilities,
-                binding: RepresentationBinding::RuntimeResolved { binding_id },
-                extensions: representation_extensions,
-            }],
-            extensions: BTreeMap::new(),
-        });
-        bindings.insert(binding_id, path);
-    }
-    Ok(PreparedDiskScan { assets, bindings })
-}
-
-fn fingerprint_file_observation(
-    path: &std::path::Path,
-) -> Result<RepresentationFingerprint, String> {
-    let metadata = fs::metadata(path)
-        .map_err(|error| format!("could not inspect {}: {error}", path.display()))?;
-    let modified = metadata
-        .modified()
-        .map_err(|error| {
-            format!(
-                "could not read modification time for {}: {error}",
-                path.display()
-            )
-        })?
-        .duration_since(UNIX_EPOCH)
-        .map_err(|error| format!("invalid modification time for {}: {error}", path.display()))?;
-    let mut digest = Sha256::new();
-    digest.update(b"photara.file-observation.v1");
-    digest.update(metadata.len().to_be_bytes());
-    digest.update(modified.as_secs().to_be_bytes());
-    digest.update(modified.subsec_nanos().to_be_bytes());
-    Ok(RepresentationFingerprint::sha256(digest.finalize().into()))
-}
-
-fn collect_supported_files(
-    root: &std::path::Path,
-    directory: &std::path::Path,
-    recursive: bool,
-    files: &mut Vec<PathBuf>,
-) -> Result<(), String> {
-    let entries = fs::read_dir(directory)
-        .map_err(|error| format!("could not read folder {}: {error}", directory.display()))?;
-    for entry in entries {
-        let entry = entry.map_err(|error| {
-            format!(
-                "could not read an entry in {}: {error}",
-                directory.display()
-            )
-        })?;
-        let file_type = entry
-            .file_type()
-            .map_err(|error| format!("could not inspect {}: {error}", entry.path().display()))?;
-        if file_type.is_file() && is_supported_visual_file(&entry.path()) {
-            files.push(entry.path());
-        } else if recursive && file_type.is_dir() && entry.path() != root {
-            collect_supported_files(root, &entry.path(), true, files)?;
-        }
-    }
-    Ok(())
-}
-
-fn is_supported_visual_file(path: &std::path::Path) -> bool {
-    const STILL_IMAGE_EXTENSIONS: &[&str] = &[
-        "3fr", "arw", "avif", "bmp", "cr2", "cr3", "dng", "erf", "exr", "fff", "gif", "heic",
-        "heif", "iiq", "jpe", "jpeg", "jpg", "jxl", "mos", "nef", "nrw", "orf", "pef", "png",
-        "psb", "psd", "raf", "raw", "rw2", "rwl", "sr2", "srf", "tif", "tiff", "webp",
-    ];
-    path.extension()
-        .and_then(|value| value.to_str())
-        .is_some_and(|extension| {
-            STILL_IMAGE_EXTENSIONS
-                .iter()
-                .any(|supported| extension.eq_ignore_ascii_case(supported))
-        })
-}
-
-fn is_tiff(path: &std::path::Path) -> bool {
-    path.extension()
-        .and_then(|value| value.to_str())
-        .is_some_and(|extension| {
-            extension.eq_ignore_ascii_case("tif") || extension.eq_ignore_ascii_case("tiff")
-        })
-}
-
-fn normalized_format_label(path: &std::path::Path) -> Option<String> {
-    let extension = path.extension()?.to_str()?.to_ascii_lowercase();
-    Some(
-        match extension.as_str() {
-            "tif" | "tiff" => "TIFF",
-            "jpg" | "jpeg" | "jpe" => "JPEG",
-            value => value,
-        }
-        .to_ascii_uppercase(),
-    )
-}
-
-fn stable_disk_uuid(domain: &str, folder_binding_id: Uuid, identity_key: &str) -> Uuid {
-    let mut digest = Sha256::new();
-    digest.update(domain.as_bytes());
-    digest.update(folder_binding_id.as_bytes());
-    digest.update(identity_key.as_bytes());
-    let hash = digest.finalize();
-    let mut bytes = [0_u8; 16];
-    bytes.copy_from_slice(&hash[..16]);
-    bytes[6] = (bytes[6] & 0x0f) | 0x50;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    Uuid::from_bytes(bytes)
-}
-
-fn fingerprint_runtime_file(path: &std::path::Path) -> Result<RepresentationFingerprint, String> {
-    let file =
-        File::open(path).map_err(|error| format!("could not open {}: {error}", path.display()))?;
-    let mut reader = BufReader::new(file);
-    let mut digest = Sha256::new();
-    let mut buffer = vec![0_u8; 1024 * 1024];
-    loop {
-        let count = reader
-            .read(&mut buffer)
-            .map_err(|error| format!("could not read {}: {error}", path.display()))?;
-        if count == 0 {
-            break;
-        }
-        digest.update(&buffer[..count]);
-    }
-    Ok(RepresentationFingerprint::sha256(digest.finalize().into()))
-}
-
-struct RuntimeAwareMaterializer<'a> {
-    local: LocalProjectAssetAdapter<'a>,
-    project: &'a ProjectDocument,
-    runtime_bindings: &'a BTreeMap<RepresentationStorageBindingId, PathBuf>,
-}
-
-impl RuntimeAwareMaterializer<'_> {
-    fn descriptor(
-        &self,
-        request: &RepresentationMaterializationRequest,
-    ) -> Result<&RepresentationDescriptor, RepresentationMaterializationError> {
-        let descriptor = self
-            .project
-            .asset_context
-            .representation(request.asset_id, request.representation_id)
-            .ok_or(RepresentationMaterializationError::UnknownRepresentation {
-                asset_id: request.asset_id,
-                representation_id: request.representation_id,
-            })?;
-        if descriptor.fingerprint != request.expected_fingerprint {
-            return Err(RepresentationMaterializationError::StaleRequest {
-                expected: request.expected_fingerprint,
-                actual: descriptor.fingerprint,
-            });
-        }
-        Ok(descriptor)
-    }
-
-    fn runtime_path(
-        &self,
-        request: &RepresentationMaterializationRequest,
-    ) -> Result<Option<&PathBuf>, RepresentationMaterializationError> {
-        match self.descriptor(request)?.binding {
-            RepresentationBinding::ProjectResource { .. } => Ok(None),
-            RepresentationBinding::RuntimeResolved { binding_id } => self
-                .runtime_bindings
-                .get(&binding_id)
-                .map(Some)
-                .ok_or_else(|| RepresentationMaterializationError::Backend {
-                    message: format!("runtime storage binding {binding_id} is unavailable"),
-                }),
-        }
-    }
-}
-
-impl RepresentationMaterializer for RuntimeAwareMaterializer<'_> {
-    fn availability(
-        &self,
-        request: &RepresentationMaterializationRequest,
-    ) -> Result<RepresentationAvailability, RepresentationMaterializationError> {
-        let descriptor = self.descriptor(request)?;
-        let path = match descriptor.binding {
-            RepresentationBinding::ProjectResource { .. } => {
-                return self.local.availability(request);
-            }
-            RepresentationBinding::RuntimeResolved { binding_id } => {
-                let Some(path) = self.runtime_bindings.get(&binding_id) else {
-                    return Ok(RepresentationAvailability::Missing);
-                };
-                path
-            }
-        };
-        match path.metadata() {
-            Ok(metadata) if metadata.is_file() => Ok(RepresentationAvailability::Available),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                Ok(RepresentationAvailability::Missing)
-            }
-            Ok(_) | Err(_) => Ok(RepresentationAvailability::Inaccessible),
-        }
-    }
-
-    fn materialize(
-        &self,
-        request: &RepresentationMaterializationRequest,
-    ) -> Result<photara_core::MaterializedRepresentation, RepresentationMaterializationError> {
-        let availability = self.availability(request)?;
-        if availability != RepresentationAvailability::Available {
-            return Err(RepresentationMaterializationError::Unavailable(
-                availability,
-            ));
-        }
-        let Some(path) = self.runtime_path(request)? else {
-            return self.local.materialize(request);
-        };
-        let actual = match self.descriptor(request)?.revision_evidence {
-            RepresentationRevisionEvidence::ContentDigest => fingerprint_runtime_file(path),
-            RepresentationRevisionEvidence::FileObservation => fingerprint_file_observation(path),
-            RepresentationRevisionEvidence::ProviderRevision => Ok(request.expected_fingerprint),
-        }
-        .map_err(|message| RepresentationMaterializationError::Backend { message })?;
-        if actual != request.expected_fingerprint {
-            return Err(RepresentationMaterializationError::SourceChanged {
-                expected: request.expected_fingerprint,
-                actual,
-            });
-        }
-        let byte_length = path
-            .metadata()
-            .map_err(|error| RepresentationMaterializationError::Backend {
-                message: format!("could not inspect {}: {error}", path.display()),
-            })?
-            .len();
-        Ok(photara_core::MaterializedRepresentation {
-            asset_id: request.asset_id,
-            representation_id: request.representation_id,
-            fingerprint: actual,
-            local_path: path.clone(),
-            byte_length,
-        })
-    }
-}
-
-#[derive(Clone, Copy)]
-struct ApplicationRuntime;
-
-impl NodeRuntime for ApplicationRuntime {
-    fn implementation_fingerprint(
-        &self,
-        definition: &NodeDefinitionRef,
-    ) -> Option<photara_core::CanonicalDigest> {
-        AssetSetNodeRuntime
-            .implementation_fingerprint(definition)
-            .or_else(|| DiskNodeRuntime.implementation_fingerprint(definition))
-            .or_else(|| LayoutNodeRuntime.implementation_fingerprint(definition))
-    }
-
-    fn evaluate(
-        &self,
-        request: NodeEvaluationRequest,
-    ) -> Result<NodeEvaluationOutput, photara_core::NodeExecutionError> {
-        if AssetSetNodeRuntime
-            .implementation_fingerprint(&request.node.definition)
-            .is_some()
-        {
-            AssetSetNodeRuntime.evaluate(request)
-        } else if DiskNodeRuntime
-            .implementation_fingerprint(&request.node.definition)
-            .is_some()
-        {
-            DiskNodeRuntime.evaluate(request)
-        } else {
-            LayoutNodeRuntime.evaluate(request)
-        }
-    }
-}
-
-fn run_evaluation(
-    graph: &GraphDocument,
-    definitions: &NodePackageRegistry,
-    value_types: &ValueTypeRegistry,
-    cancellation: &CancellationToken,
-    observer: &dyn EvaluationObserver,
-) {
-    let request = EvaluationRequest {
-        request_id: RequestId::new(),
-        evaluation_id: EvaluationId::new(),
-        graph_id: graph.id,
-        revision: graph.revision,
-        environment: canonical_digest(&"photara-bridge-environment-v1")
-            .expect("static environment descriptor is canonical"),
-    };
-    let result = evaluate_graph(
-        graph,
-        &request,
-        definitions,
-        value_types,
-        &ApplicationRuntime,
-        cancellation,
-        |progress| observer.on_progress(progress.into()),
-    );
-    let finished = match result {
-        Ok(outcome) => BridgeEvaluationFinishedDto {
-            request_id: request.request_id.to_string(),
-            evaluation_id: request.evaluation_id.to_string(),
-            status: BridgeEvaluationStatus::Completed,
-            evaluation_digest: Some(outcome.evaluation_key.to_string()),
-            error: None,
-        },
-        Err(error) => {
-            let status = if matches!(error, EvaluationError::Cancelled { .. }) {
-                BridgeEvaluationStatus::Cancelled
-            } else {
-                BridgeEvaluationStatus::Failed
-            };
-            let details_json = serde_json::to_string(&error).unwrap_or_else(|_| "{}".to_owned());
-            BridgeEvaluationFinishedDto {
-                request_id: request.request_id.to_string(),
-                evaluation_id: request.evaluation_id.to_string(),
-                status,
-                evaluation_digest: None,
-                error: Some(structured_error(
-                    error.code(),
-                    error.to_string(),
-                    error.diagnostic(),
-                    details_json,
-                )),
-            }
-        }
-    };
-    observer.on_finished(finished);
-}
-
-impl From<photara_core::EvaluationProgress> for BridgeEvaluationProgressDto {
-    fn from(progress: photara_core::EvaluationProgress) -> Self {
-        Self {
-            request_id: progress.request_id.to_string(),
-            evaluation_id: progress.evaluation_id.to_string(),
-            phase: progress.phase.into(),
-            completed_nodes: u64::try_from(progress.completed_nodes).unwrap_or(u64::MAX),
-            total_nodes: u64::try_from(progress.total_nodes).unwrap_or(u64::MAX),
-            node_id: progress.node_id.map(|id| id.to_string()),
-        }
-    }
-}
-
-impl From<EvaluationPhase> for BridgeEvaluationPhase {
-    fn from(phase: EvaluationPhase) -> Self {
-        match phase {
-            EvaluationPhase::Validating => Self::Validating,
-            EvaluationPhase::Planning => Self::Planning,
-            EvaluationPhase::Evaluating => Self::Evaluating,
-            EvaluationPhase::Completed => Self::Completed,
-            EvaluationPhase::Cancelled => Self::Cancelled,
-        }
     }
 }
 
@@ -3661,7 +3175,7 @@ impl From<DiagnosticSeverity> for BridgeDiagnosticSeverity {
     }
 }
 
-fn structured_error(
+pub(crate) fn structured_error(
     code: impl Into<String>,
     message: impl Into<String>,
     diagnostic: Diagnostic,

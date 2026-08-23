@@ -6,11 +6,11 @@ mod runtime;
 pub use model::{
     BundledCanvasProfile, CellArrangement, CellContentMode, FrameDecoration, LayoutCanvas,
     LayoutCell, LayoutCellId, LayoutColor, LayoutCommand, LayoutCommandError, LayoutCommandResult,
-    LayoutFrame, LayoutFrameId, LayoutPlan, LayoutProxySet, LayoutState, LayoutStateCodecError,
+    LayoutFrame, LayoutFrameId, LayoutPlan, LayoutState, LayoutStateCodecError,
     LayoutValidationError, NormalizedInsets, NormalizedPoint, NormalizedRect, NormalizedUnit,
     PixelRect, PixelSize, QuarterTurn, ResolvedCell, ResolvedFrame, apply_layout_command,
     layout_plan_value_type_descriptor, layout_plan_value_type_ref, layout_state_schema,
-    request_layout_proxies, resolve_layout,
+    resolve_layout,
 };
 pub use runtime::LayoutNodeRuntime;
 

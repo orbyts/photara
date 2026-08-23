@@ -11,6 +11,7 @@ photara-core = { path = "../../crates/photara-core" }
 photara-node-sdk = { path = "../../crates/photara-node-sdk" }
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 uuid.workspace = true
 
 [lints]

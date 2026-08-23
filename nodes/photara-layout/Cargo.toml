@@ -9,13 +9,13 @@ description = "Built-in Layout node package for Photara."
 [dependencies]
 photara-core = { path = "../../crates/photara-core" }
 photara-node-sdk = { path = "../../crates/photara-node-sdk" }
-photara-proxy = { path = "../../crates/photara-proxy" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+photara-proxy = { path = "../../crates/photara-proxy" }
 photara-store = { path = "../../crates/photara-store" }
 
 [lints]
