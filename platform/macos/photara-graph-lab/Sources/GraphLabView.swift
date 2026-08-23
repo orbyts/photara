@@ -24,25 +24,23 @@ struct GraphLabView: View {
     @State private var majorOpacity = 0.58
     @State private var majorLineWidth = 1.0
     @State private var majorMarkSize = 3.0
-    @State private var minorColorOverride: Color?
-    @State private var majorColorOverride: Color?
-    @State private var graphBackgroundColorOverride: Color?
-    @State private var noodleColorOverride: Color?
+    @State private var lightColors = GraphLabAppearanceColors()
+    @State private var darkColors = GraphLabAppearanceColors()
     @State private var idleGlassTreatment = PhotaraGraphGlassTreatment.regular
     @State private var selectedGlassTreatment = PhotaraGraphGlassTreatment.clear
-    @State private var idleGlassTintColorOverride: Color?
-    @State private var selectedGlassTintColorOverride: Color?
     @State private var idleGlassTintOpacity = 0.05
     @State private var selectedGlassTintOpacity = 0.025
     @State private var cornerRadius = 12.0
     @State private var portShape = PhotaraGraphPortShape.round
     @State private var portOffset = 0.0
     @State private var portGlassTreatment = PhotaraGraphGlassTreatment.clear
-    @State private var portGlassTintColorOverride: Color?
     @State private var portGlassTintOpacity = 0.18
-    @State private var shadowBlur = 5.0
-    @State private var shadowOpacity = 0.12
-    @State private var shadowOffsetY = 3.0
+    @State private var regularShadowBlur = 5.0
+    @State private var regularShadowOpacity = 0.12
+    @State private var regularShadowOffsetY = 3.0
+    @State private var clearShadowBlur = 5.0
+    @State private var clearShadowOpacity = 0.12
+    @State private var clearShadowOffsetY = 3.0
     @State private var pan = CGSize.zero
     @State private var zoom = 1.0
     @State private var selectedNode = GraphLabNodeID.transform
@@ -101,12 +99,12 @@ struct GraphLabView: View {
                         majorMarkSize: majorMarkSize,
                         majorLineWidth: majorLineWidth
                     ),
-                    backgroundColor: graphBackgroundColorOverride,
-                    minorColor: minorColorOverride,
-                    majorColor: majorColorOverride
+                    backgroundColor: activeColor(\.graphBackground),
+                    minorColor: activeColor(\.minor),
+                    majorColor: activeColor(\.major)
                 )
                 GraphLabNoodleLayer(
-                    color: noodleColorOverride ?? theme?.color(.borderFocus) ?? .accentColor,
+                    color: activeColor(\.noodle) ?? theme?.color(.borderFocus) ?? .accentColor,
                     pan: displayedPan,
                     zoom: zoom
                 )
@@ -159,9 +157,9 @@ struct GraphLabView: View {
         Form {
             Section("Background pattern") {
                 ColorPicker(
-                    "Graph color",
+                    appearance == .dark ? "Dark Graph color" : "Light Graph color",
                     selection: colorBinding(
-                        $graphBackgroundColorOverride,
+                        activeColorBinding(\.graphBackground),
                         default: theme?.color(.graphBackground) ?? Color(nsColor: .controlBackgroundColor)
                     )
                 )
@@ -179,9 +177,9 @@ struct GraphLabView: View {
             if pattern != .none {
                 Section("Minor") {
                     ColorPicker(
-                        "Color",
+                        appearance == .dark ? "Dark color" : "Light color",
                         selection: colorBinding(
-                            $minorColorOverride,
+                            activeColorBinding(\.minor),
                             default: theme?.color(.graphGrid) ?? .secondary
                         )
                     )
@@ -195,9 +193,9 @@ struct GraphLabView: View {
 
                 Section("Major") {
                     ColorPicker(
-                        "Color",
+                        appearance == .dark ? "Dark color" : "Light color",
                         selection: colorBinding(
-                            $majorColorOverride,
+                            activeColorBinding(\.major),
                             default: theme?.color(.borderStrong) ?? .primary
                         )
                     )
@@ -222,9 +220,9 @@ struct GraphLabView: View {
                 }
                 .pickerStyle(.segmented)
                 ColorPicker(
-                    "Unselected tint color",
+                    appearance == .dark ? "Dark unselected tint color" : "Light unselected tint color",
                     selection: colorBinding(
-                        $idleGlassTintColorOverride,
+                        activeColorBinding(\.idleGlassTint),
                         default: theme?.color(.nodeNative) ?? .accentColor
                     )
                 )
@@ -237,9 +235,9 @@ struct GraphLabView: View {
                 }
                 .pickerStyle(.segmented)
                 ColorPicker(
-                    "Selected tint color",
+                    appearance == .dark ? "Dark selected tint color" : "Light selected tint color",
                     selection: colorBinding(
-                        $selectedGlassTintColorOverride,
+                        activeColorBinding(\.selectedGlassTint),
                         default: theme?.color(.nodeNative) ?? .accentColor
                     )
                 )
@@ -269,26 +267,35 @@ struct GraphLabView: View {
                 }
                 .pickerStyle(.segmented)
                 ColorPicker(
-                    "Glass tint color",
+                    appearance == .dark ? "Dark glass tint color" : "Light glass tint color",
                     selection: colorBinding(
-                        $portGlassTintColorOverride,
+                        activeColorBinding(\.portGlassTint),
                         default: theme?.color(.borderFocus) ?? .accentColor
                     )
                 )
                 valueSlider("Glass tint", value: $portGlassTintOpacity, range: 0...0.5)
             }
 
-            Section("Shadow") {
-                valueSlider("Blur", value: $shadowBlur, range: 0...30, suffix: " pt")
-                valueSlider("Opacity", value: $shadowOpacity, range: 0...0.5)
-                valueSlider("Vertical offset", value: $shadowOffsetY, range: -4...18, suffix: " pt")
+            Section("Regular shadow") {
+                valueSlider("Blur", value: $regularShadowBlur, range: 0...30, suffix: " pt")
+                valueSlider("Opacity", value: $regularShadowOpacity, range: 0...0.5)
+                valueSlider("Vertical offset", value: $regularShadowOffsetY, range: -4...18, suffix: " pt")
+            }
+
+            Section("Clear shadow") {
+                valueSlider("Blur", value: $clearShadowBlur, range: 0...30, suffix: " pt")
+                valueSlider("Opacity", value: $clearShadowOpacity, range: 0...0.5)
+                valueSlider("Vertical offset", value: $clearShadowOffsetY, range: -4...18, suffix: " pt")
+                Text("Use the Clear shadow to author how far a selected node appears to lift.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Backdrop specimen") {
                 ColorPicker(
-                    "Noodle color",
+                    appearance == .dark ? "Dark noodle color" : "Light noodle color",
                     selection: colorBinding(
-                        $noodleColorOverride,
+                        activeColorBinding(\.noodle),
                         default: theme?.color(.borderFocus) ?? .accentColor
                     )
                 )
@@ -310,14 +317,35 @@ struct GraphLabView: View {
         .formStyle(.grouped)
     }
 
-    private var nodeStyle: PhotaraGraphNodeStyle {
-        PhotaraGraphNodeStyle(
+    private func activeColor(_ keyPath: KeyPath<GraphLabAppearanceColors, Color?>) -> Color? {
+        let colors = appearance == .dark ? darkColors : lightColors
+        return colors[keyPath: keyPath]
+    }
+
+    private func activeColorBinding(
+        _ keyPath: WritableKeyPath<GraphLabAppearanceColors, Color?>
+    ) -> Binding<Color?> {
+        Binding(
+            get: { activeColor(keyPath) },
+            set: { color in
+                if appearance == .dark {
+                    darkColors[keyPath: keyPath] = color
+                } else {
+                    lightColors[keyPath: keyPath] = color
+                }
+            }
+        )
+    }
+
+    private func nodeStyle(for treatment: PhotaraGraphGlassTreatment) -> PhotaraGraphNodeStyle {
+        let usesClearShadow = treatment == .clear
+        return PhotaraGraphNodeStyle(
             cornerRadius: cornerRadius,
             portShape: portShape,
             portOffset: portOffset,
-            shadowBlur: shadowBlur,
-            shadowOpacity: shadowOpacity,
-            shadowOffsetY: shadowOffsetY
+            shadowBlur: usesClearShadow ? clearShadowBlur : regularShadowBlur,
+            shadowOpacity: usesClearShadow ? clearShadowOpacity : regularShadowOpacity,
+            shadowOffsetY: usesClearShadow ? clearShadowOffsetY : regularShadowOffsetY
         )
     }
 
@@ -332,40 +360,41 @@ struct GraphLabView: View {
     ) -> some View {
         let storedOffset = nodeOffsets[id] ?? .zero
         let liveDrag = activeNode == id ? nodeDrag : .zero
-        let resolvedOffset = collisionResolvedOffset(
-            for: id,
-            proposed: CGSize(
-                width: storedOffset.width + liveDrag.width / zoom,
-                height: storedOffset.height + liveDrag.height / zoom
-            )
+        let displayedOffset = CGSize(
+            width: storedOffset.width + liveDrag.width / zoom,
+            height: storedOffset.height + liveDrag.height / zoom
         )
         let worldPosition = baseWorldPosition(for: id)
         let position = screenPosition(
             CGPoint(
-                x: worldPosition.x + resolvedOffset.width,
-                y: worldPosition.y + resolvedOffset.height
+                x: worldPosition.x + displayedOffset.width,
+                y: worldPosition.y + displayedOffset.height
             ),
             canvasSize: canvasSize,
             pan: pan
         )
+        let glassTreatment = selectedNode == id ? selectedGlassTreatment : idleGlassTreatment
         return GraphLabNodeSpecimen(
             title: title,
             subtitle: subtitle,
             inputs: inputs,
             outputs: outputs,
-            style: nodeStyle,
+            style: nodeStyle(for: glassTreatment),
             isSelected: selectedNode == id,
-            glassTreatment: selectedNode == id ? selectedGlassTreatment : idleGlassTreatment,
+            glassTreatment: glassTreatment,
             glassTintColor: selectedNode == id
-                ? (selectedGlassTintColorOverride ?? theme?.color(.nodeNative) ?? .accentColor)
-                : (idleGlassTintColorOverride ?? theme?.color(.nodeNative) ?? .accentColor),
+                ? (activeColor(\.selectedGlassTint) ?? theme?.color(.nodeNative) ?? .accentColor)
+                : (activeColor(\.idleGlassTint) ?? theme?.color(.nodeNative) ?? .accentColor),
             glassTintOpacity: selectedNode == id ? selectedGlassTintOpacity : idleGlassTintOpacity,
             portGlassTreatment: portGlassTreatment,
-            portGlassTintColor: portGlassTintColorOverride ?? theme?.color(.borderFocus) ?? .accentColor,
+            portGlassTintColor: activeColor(\.portGlassTint) ?? theme?.color(.borderFocus) ?? .accentColor,
             portGlassTintOpacity: portGlassTintOpacity
         )
         .scaleEffect(zoom)
         .position(position)
+        .transaction { transaction in
+            transaction.animation = nil
+        }
         .gesture(nodeGesture(for: id))
     }
 
@@ -381,8 +410,8 @@ struct GraphLabView: View {
     private func nodeGesture(for id: GraphLabNodeID) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { _ in
-                selectedNode = id
-                activeNode = id
+                if selectedNode != id { selectedNode = id }
+                if activeNode != id { activeNode = id }
             }
             .updating($nodeDrag) { value, state, _ in state = value.translation }
             .onEnded { value in
@@ -502,25 +531,32 @@ struct GraphLabView: View {
             majorOpacity: majorOpacity,
             majorLineWidth: majorLineWidth,
             majorMarkSize: majorMarkSize,
-            graphBackgroundColor: GraphLabSavedColor(graphBackgroundColorOverride),
-            minorColor: GraphLabSavedColor(minorColorOverride),
-            majorColor: GraphLabSavedColor(majorColorOverride),
-            noodleColor: GraphLabSavedColor(noodleColorOverride),
+            graphBackgroundColor: nil,
+            lightGraphBackgroundColor: nil,
+            darkGraphBackgroundColor: nil,
+            minorColor: nil,
+            majorColor: nil,
+            noodleColor: nil,
+            lightColors: GraphLabSavedPalette(lightColors),
+            darkColors: GraphLabSavedPalette(darkColors),
             idleGlassTreatment: idleGlassTreatment.rawValue,
             selectedGlassTreatment: selectedGlassTreatment.rawValue,
-            idleGlassTintColor: GraphLabSavedColor(idleGlassTintColorOverride),
-            selectedGlassTintColor: GraphLabSavedColor(selectedGlassTintColorOverride),
+            idleGlassTintColor: nil,
+            selectedGlassTintColor: nil,
             idleGlassTintOpacity: idleGlassTintOpacity,
             selectedGlassTintOpacity: selectedGlassTintOpacity,
             cornerRadius: cornerRadius,
             portShape: portShape.rawValue,
             portOffset: portOffset,
             portGlassTreatment: portGlassTreatment.rawValue,
-            portGlassTintColor: GraphLabSavedColor(portGlassTintColorOverride),
+            portGlassTintColor: nil,
             portGlassTintOpacity: portGlassTintOpacity,
-            shadowBlur: shadowBlur,
-            shadowOpacity: shadowOpacity,
-            shadowOffsetY: shadowOffsetY
+            shadowBlur: regularShadowBlur,
+            shadowOpacity: regularShadowOpacity,
+            shadowOffsetY: regularShadowOffsetY,
+            clearShadowBlur: clearShadowBlur,
+            clearShadowOpacity: clearShadowOpacity,
+            clearShadowOffsetY: clearShadowOffsetY
         )
 
         do {
@@ -549,26 +585,55 @@ struct GraphLabView: View {
         majorOpacity = preferences.majorOpacity
         majorLineWidth = preferences.majorLineWidth
         majorMarkSize = preferences.majorMarkSize
-        graphBackgroundColorOverride = preferences.graphBackgroundColor?.color
-        minorColorOverride = preferences.minorColor?.color
-        majorColorOverride = preferences.majorColor?.color
-        noodleColorOverride = preferences.noodleColor?.color
+        loadSavedColors(preferences)
         idleGlassTreatment = PhotaraGraphGlassTreatment(rawValue: preferences.idleGlassTreatment) ?? idleGlassTreatment
         selectedGlassTreatment = PhotaraGraphGlassTreatment(rawValue: preferences.selectedGlassTreatment) ?? selectedGlassTreatment
-        idleGlassTintColorOverride = preferences.idleGlassTintColor?.color
-        selectedGlassTintColorOverride = preferences.selectedGlassTintColor?.color
         idleGlassTintOpacity = preferences.idleGlassTintOpacity
         selectedGlassTintOpacity = preferences.selectedGlassTintOpacity
         cornerRadius = preferences.cornerRadius
         portShape = PhotaraGraphPortShape(rawValue: preferences.portShape) ?? portShape
         portOffset = preferences.portOffset
         portGlassTreatment = PhotaraGraphGlassTreatment(rawValue: preferences.portGlassTreatment) ?? portGlassTreatment
-        portGlassTintColorOverride = preferences.portGlassTintColor?.color
         portGlassTintOpacity = preferences.portGlassTintOpacity
-        shadowBlur = preferences.shadowBlur
-        shadowOpacity = preferences.shadowOpacity
-        shadowOffsetY = preferences.shadowOffsetY
+        regularShadowBlur = preferences.shadowBlur
+        regularShadowOpacity = preferences.shadowOpacity
+        regularShadowOffsetY = preferences.shadowOffsetY
+        clearShadowBlur = preferences.clearShadowBlur ?? preferences.shadowBlur
+        clearShadowOpacity = preferences.clearShadowOpacity ?? preferences.shadowOpacity
+        clearShadowOffsetY = preferences.clearShadowOffsetY ?? preferences.shadowOffsetY
         preferencesStatus = "Loaded saved preferences."
+    }
+
+    private func loadSavedColors(_ preferences: GraphLabSavedPreferences) {
+        if preferences.lightColors != nil || preferences.darkColors != nil {
+            lightColors = preferences.lightColors?.colors ?? GraphLabAppearanceColors()
+            darkColors = preferences.darkColors?.colors ?? GraphLabAppearanceColors()
+            return
+        }
+
+        let legacyColors = GraphLabAppearanceColors(
+            graphBackground: preferences.graphBackgroundColor?.color,
+            minor: preferences.minorColor?.color,
+            major: preferences.majorColor?.color,
+            noodle: preferences.noodleColor?.color,
+            idleGlassTint: preferences.idleGlassTintColor?.color,
+            selectedGlassTint: preferences.selectedGlassTintColor?.color,
+            portGlassTint: preferences.portGlassTintColor?.color
+        )
+
+        if preferences.lightGraphBackgroundColor != nil || preferences.darkGraphBackgroundColor != nil {
+            lightColors = legacyColors
+            darkColors = legacyColors
+            lightColors.graphBackground = preferences.lightGraphBackgroundColor?.color
+            darkColors.graphBackground = preferences.darkGraphBackgroundColor?.color
+            return
+        }
+
+        if appearance == .dark {
+            darkColors = legacyColors
+        } else {
+            lightColors = legacyColors
+        }
     }
 
     private func reset() {
@@ -581,25 +646,23 @@ struct GraphLabView: View {
         majorOpacity = 0.58
         majorLineWidth = 1
         majorMarkSize = 3
-        minorColorOverride = nil
-        majorColorOverride = nil
-        graphBackgroundColorOverride = nil
-        noodleColorOverride = nil
+        lightColors = GraphLabAppearanceColors()
+        darkColors = GraphLabAppearanceColors()
         idleGlassTreatment = .regular
         selectedGlassTreatment = .clear
-        idleGlassTintColorOverride = nil
-        selectedGlassTintColorOverride = nil
         idleGlassTintOpacity = 0.05
         selectedGlassTintOpacity = 0.025
         cornerRadius = 12
         portShape = .round
         portOffset = 0
         portGlassTreatment = .clear
-        portGlassTintColorOverride = nil
         portGlassTintOpacity = 0.18
-        shadowBlur = 5
-        shadowOpacity = 0.12
-        shadowOffsetY = 3
+        regularShadowBlur = 5
+        regularShadowOpacity = 0.12
+        regularShadowOffsetY = 3
+        clearShadowBlur = 5
+        clearShadowOpacity = 0.12
+        clearShadowOffsetY = 3
         centerScene()
     }
 
@@ -624,9 +687,13 @@ private struct GraphLabSavedPreferences: Codable {
     let majorLineWidth: Double
     let majorMarkSize: Double
     let graphBackgroundColor: GraphLabSavedColor?
+    let lightGraphBackgroundColor: GraphLabSavedColor?
+    let darkGraphBackgroundColor: GraphLabSavedColor?
     let minorColor: GraphLabSavedColor?
     let majorColor: GraphLabSavedColor?
     let noodleColor: GraphLabSavedColor?
+    let lightColors: GraphLabSavedPalette?
+    let darkColors: GraphLabSavedPalette?
     let idleGlassTreatment: String
     let selectedGlassTreatment: String
     let idleGlassTintColor: GraphLabSavedColor?
@@ -642,6 +709,51 @@ private struct GraphLabSavedPreferences: Codable {
     let shadowBlur: Double
     let shadowOpacity: Double
     let shadowOffsetY: Double
+    let clearShadowBlur: Double?
+    let clearShadowOpacity: Double?
+    let clearShadowOffsetY: Double?
+}
+
+private struct GraphLabAppearanceColors {
+    var graphBackground: Color?
+    var minor: Color?
+    var major: Color?
+    var noodle: Color?
+    var idleGlassTint: Color?
+    var selectedGlassTint: Color?
+    var portGlassTint: Color?
+}
+
+private struct GraphLabSavedPalette: Codable {
+    let graphBackground: GraphLabSavedColor?
+    let minor: GraphLabSavedColor?
+    let major: GraphLabSavedColor?
+    let noodle: GraphLabSavedColor?
+    let idleGlassTint: GraphLabSavedColor?
+    let selectedGlassTint: GraphLabSavedColor?
+    let portGlassTint: GraphLabSavedColor?
+
+    init(_ colors: GraphLabAppearanceColors) {
+        graphBackground = GraphLabSavedColor(colors.graphBackground)
+        minor = GraphLabSavedColor(colors.minor)
+        major = GraphLabSavedColor(colors.major)
+        noodle = GraphLabSavedColor(colors.noodle)
+        idleGlassTint = GraphLabSavedColor(colors.idleGlassTint)
+        selectedGlassTint = GraphLabSavedColor(colors.selectedGlassTint)
+        portGlassTint = GraphLabSavedColor(colors.portGlassTint)
+    }
+
+    var colors: GraphLabAppearanceColors {
+        GraphLabAppearanceColors(
+            graphBackground: graphBackground?.color,
+            minor: minor?.color,
+            major: major?.color,
+            noodle: noodle?.color,
+            idleGlassTint: idleGlassTint?.color,
+            selectedGlassTint: selectedGlassTint?.color,
+            portGlassTint: portGlassTint?.color
+        )
+    }
 }
 
 private struct GraphLabSavedColor: Codable {
