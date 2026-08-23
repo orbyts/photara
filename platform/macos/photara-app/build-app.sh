@@ -12,12 +12,15 @@ CONTENTS="$APP_BUNDLE/Contents"
 MACOS="$CONTENTS/MacOS"
 FRAMEWORKS="$CONTENTS/Frameworks"
 RESOURCES="$CONTENTS/Resources"
+THEME_ROOT="$REPOSITORY_ROOT/platform/macos/photara-theme"
 EXECUTABLE="$MACOS/Photara"
 PROXY_HELPER_BUILD="$BUILD_ROOT/proxy-helper-build"
 PROXY_HELPER="$MACOS/photara-proxy-imageio"
 
 mkdir -p "$GENERATED_ROOT" "$MODULE_CACHE" "$MACOS" "$FRAMEWORKS" "$RESOURCES"
 cp -p "$SCRIPT_ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
+mkdir -p "$RESOURCES/Themes"
+cp -p "$THEME_ROOT/Resources/photara-default.json" "$RESOURCES/Themes/photara-default.json"
 
 swift build \
   --package-path "$REPOSITORY_ROOT/platform/macos/photara-proxy-imageio" \
@@ -45,7 +48,9 @@ xcrun swiftc \
   -parse-as-library \
   -module-cache-path "$MODULE_CACHE" \
   "$GENERATED_ROOT/PhotaraBridge.swift" \
+  "$THEME_ROOT/Sources/PhotaraTheme.swift" \
   "$SCRIPT_ROOT/Sources/GalleryPresentationState.swift" \
+  "$SCRIPT_ROOT/Sources/ThemeStore.swift" \
   "$SCRIPT_ROOT/Sources/AppModel.swift" \
   "$SCRIPT_ROOT/Sources/AppModel+Gallery.swift" \
   "$SCRIPT_ROOT/Sources/WorkspaceModel.swift" \

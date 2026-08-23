@@ -29,6 +29,11 @@ pub struct NodeBrandMetadata {
     pub name: String,
     /// Neutral package resource identifier resolved by each native client.
     pub icon_resource_id: String,
+    /// Semantic theme role requested by this definition. Native clients resolve
+    /// it through the active theme; it is independent from catalog taxonomy.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme_color_role: Option<String>,
+    /// Compatibility fallback for clients or themes that do not know the role.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accent_srgb_hex: Option<String>,
 }
@@ -67,6 +72,14 @@ impl NodePresentationMetadata {
         }
         if self.brand.icon_resource_id.trim().is_empty() {
             return Err(NodePresentationMetadataError::EmptyIconResource);
+        }
+        if self
+            .brand
+            .theme_color_role
+            .as_ref()
+            .is_some_and(|role| role.trim().is_empty())
+        {
+            return Err(NodePresentationMetadataError::EmptyThemeColorRole);
         }
         if self.catalog_path.iter().any(|part| part.trim().is_empty()) {
             return Err(NodePresentationMetadataError::EmptyCatalogPathComponent);
@@ -131,6 +144,8 @@ pub enum NodePresentationMetadataError {
     EmptyBrandName,
     #[error("node icon resource identifier must not be empty")]
     EmptyIconResource,
+    #[error("node brand theme color role must not be empty")]
+    EmptyThemeColorRole,
     #[error("node catalog path components must not be empty")]
     EmptyCatalogPathComponent,
     #[error("node search terms must not be empty")]

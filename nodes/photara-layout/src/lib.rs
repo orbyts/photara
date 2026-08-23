@@ -82,6 +82,7 @@ impl NodePackage for LayoutNodePackage {
                 brand: NodeBrandMetadata {
                     name: "Layout".to_owned(),
                     icon_resource_id: "photara.layout.compose".to_owned(),
+                    theme_color_role: Some("node.native".to_owned()),
                     accent_srgb_hex: Some("#9A68E8".to_owned()),
                 },
                 catalog_path: vec!["Create".to_owned(), "Layout".to_owned()],

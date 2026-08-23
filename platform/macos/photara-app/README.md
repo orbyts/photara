@@ -62,3 +62,31 @@ transient in Swift and commits once at gesture completion.
 
 Generated bindings, Rust targets, module caches, and executable artifacts stay
 under `.build`. No Xcode 27 or macOS 27 API is used.
+
+## Developer theme authoring
+
+Build the bounded Theme Lab and its validator/selector with:
+
+```console
+platform/macos/photara-theme/build-theme-lab.sh
+```
+
+The Lab and Photara compile the same parser/resolver source. The Lab build also
+compiles the current production Workspace, Layout Inspector, Graph, Gallery,
+controls, and generated bridge facade against an isolated fixture project, so
+it does not maintain a duplicate UI preview. The portable theme contains paired
+Light/Dark sRGB values and never enters project state. Validate and activate an
+exported theme for development with:
+
+```console
+platform/macos/photara-theme/.build/photara-theme validate /path/theme.json
+platform/macos/photara-theme/.build/photara-theme use /path/theme.json
+```
+
+An open development build polls the selected file and retains its last valid
+palette while the file is invalid or midway through an authoring write. Return
+to the bundled theme with:
+
+```console
+platform/macos/photara-theme/.build/photara-theme reset
+```

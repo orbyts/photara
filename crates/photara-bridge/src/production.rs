@@ -123,6 +123,7 @@ pub struct BridgeNodeDto {
     pub definition_version: u32,
     pub brand_name: String,
     pub icon_resource_id: String,
+    pub theme_color_role: Option<String>,
     pub accent_srgb_hex: Option<String>,
     pub inspector_contribution_id: Option<String>,
     pub workspace_contribution_id: Option<String>,
@@ -170,6 +171,7 @@ pub struct BridgeAvailableNodeDefinitionDto {
     pub display_name: String,
     pub brand_name: String,
     pub icon_resource_id: String,
+    pub theme_color_role: Option<String>,
     pub accent_srgb_hex: Option<String>,
     pub catalog_path: Vec<String>,
     pub search_terms: Vec<String>,
@@ -624,6 +626,7 @@ impl PhotaraApplication {
                         display_name: definition.display_name.clone(),
                         brand_name: presentation.brand.name,
                         icon_resource_id: presentation.brand.icon_resource_id,
+                        theme_color_role: presentation.brand.theme_color_role,
                         accent_srgb_hex: presentation.brand.accent_srgb_hex,
                         catalog_path: presentation.catalog_path,
                         search_terms: presentation.search_terms,
@@ -2658,6 +2661,9 @@ fn node_snapshot(
             || "photara.node.generic".to_owned(),
             |value| value.brand.icon_resource_id.clone(),
         ),
+        theme_color_role: presentation
+            .as_ref()
+            .and_then(|value| value.brand.theme_color_role.clone()),
         accent_srgb_hex: presentation
             .as_ref()
             .and_then(|value| value.brand.accent_srgb_hex.clone()),

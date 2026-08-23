@@ -11,7 +11,8 @@
 7. [Layout node](LAYOUT_NODE.md)
 8. [Disk node](DISK_NODE.md)
 9. [Native clients](NATIVE_CLIENTS.md)
-10. [Swift bridge spike](SWIFT_BRIDGE_SPIKE.md)
+10. [Native presentation themes](THEMES.md)
+11. [Swift bridge spike](SWIFT_BRIDGE_SPIKE.md)
 
 `ROADMAP.md` is authoritative for implementation order and release gates.
 

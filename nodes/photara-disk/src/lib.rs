@@ -122,6 +122,7 @@ impl NodePackage for DiskNodePackage {
                 brand: NodeBrandMetadata {
                     name: "Disk".to_owned(),
                     icon_resource_id: "photara.disk.folder".to_owned(),
+                    theme_color_role: Some("node.native".to_owned()),
                     accent_srgb_hex: Some("#5FBF73".to_owned()),
                 },
                 catalog_path: vec!["Input".to_owned(), "Filesystem".to_owned()],

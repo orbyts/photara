@@ -4,6 +4,7 @@ import SwiftUI
 struct AssetGalleryView: View {
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var workspace: WorkspaceModel
+    @Environment(\.photaraTheme) private var theme
     @State private var viewStyle: GalleryViewStyle = .photoGrid
     @State private var fullImageAssetID: String?
     @State private var thumbnailSize: Double = 112
@@ -128,6 +129,7 @@ struct AssetGalleryView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme?.color(.galleryBackground) ?? Color(nsColor: .windowBackgroundColor))
         .onChange(of: assets.map(\.assetId)) {
             if let selected = workspace.selectedAssetID,
                !assets.contains(where: { $0.assetId == selected })
@@ -243,6 +245,8 @@ private enum GalleryViewStyle: Hashable {
 }
 
 private struct AssetCard: View {
+    @Environment(\.photaraTheme) private var theme
+
     let asset: BridgeAssetDto
     let reference: BridgeProxyReference?
     let proxyImage: NSImage?
@@ -257,6 +261,26 @@ private struct AssetCard: View {
     let open: () -> Void
     let viewFull: () -> Void
     let assign: () -> Void
+
+    private var cardBackground: Color {
+        if selected {
+            return theme?.color(.selectionBackground) ?? Color.accentColor.opacity(0.18)
+        }
+        if style == .squareGrid {
+            return theme?.color(.galleryCell) ?? .clear
+        }
+        return .clear
+    }
+
+    private var cardForeground: Color {
+        selected
+            ? (theme?.color(.selectionForeground) ?? .primary)
+            : (theme?.color(.textPrimary) ?? .primary)
+    }
+
+    private var cardBorder: Color {
+        selected ? (theme?.color(.borderFocus) ?? .accentColor) : .clear
+    }
 
     var body: some View {
         Button(action: select) {
@@ -312,12 +336,13 @@ private struct AssetCard: View {
         .buttonStyle(.plain)
         .padding(style == .photoGrid ? 0 : 4)
         .background(
-            selected ? Color.accentColor.opacity(0.18) : Color.clear,
+            cardBackground,
             in: RoundedRectangle(cornerRadius: style == .photoGrid ? 2 : 7)
         )
+        .foregroundStyle(cardForeground)
         .overlay {
             RoundedRectangle(cornerRadius: style == .photoGrid ? 2 : 7)
-                .stroke(selected ? Color.accentColor : .clear, lineWidth: 1.5)
+                .stroke(cardBorder, lineWidth: 1.5)
         }
         .simultaneousGesture(TapGesture(count: 2).onEnded(open))
         .contextMenu {
@@ -359,6 +384,8 @@ private struct PreviewActivityBadge: View {
 }
 
 private struct GalleryThumbnail: View {
+    @Environment(\.photaraTheme) private var theme
+
     let proxyImage: NSImage?
     let nativeThumbnail: NSImage?
     let aspectRatio: CGFloat
@@ -378,7 +405,10 @@ private struct GalleryThumbnail: View {
         }
         .aspectRatio(aspectRatio, contentMode: .fit)
         .clipped()
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: cornerRadius))
+        .background(
+            theme?.color(.galleryCell) ?? Color(nsColor: .controlBackgroundColor),
+            in: RoundedRectangle(cornerRadius: cornerRadius)
+        )
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
     }
 

@@ -37,6 +37,42 @@ Read in order:
 - Legacy data import, provider nodes, final branding, marketplace, macros, and
   Windows are not `0.2.0` blockers.
 
+## Boundary-drift stop rule
+
+Preserve the current stage gate while keeping later nodes additive. A new
+provider, editor, automation, compute, integration, or eventual scripting node
+should normally require only an exact node package, typed ports/values,
+host-registered runtime, scoped capabilities, and optional neutral
+Inspector/Workspace contributions. It must not introduce a Core evaluator
+variant, a definition-ID dispatch branch in the bridge, provider or platform
+semantics in portable documents, ambient database/filesystem/network/secret
+access, or a node-specific rewrite of the native shell.
+
+For every feature and bug fix that pressures an ownership boundary, ask:
+
+> Could an independently versioned package add this through the existing
+> semantic contracts and scoped host services?
+
+If not, stop before adding the special case. Name the missing general contract,
+change the narrowest owning layer compatibly, update the relevant architecture
+document and regression gate, and then resume the active slice. Do not respond
+by implementing an entire speculative subsystem: `ROADMAP.md` remains the
+priority and future machinery is added only when a concrete node needs it.
+
+A future Code/VEX-like node is the reference stress test, not current scope. It
+must remain an ordinary package and runtime using typed values, deterministic
+keys, progress, cancellation, and structured diagnostics. Its eventual host
+must provide explicit language/runtime fingerprints, isolation, resource
+limits, and declared scoped capabilities rather than ambient process authority.
+
+Node-addressed validation and execution diagnostics belong to Core/runtime
+contracts and are rendered by the generic Inspector. Evaluation diagnostic
+history is runtime state keyed by evaluation ID, graph revision, and node; it
+must not dirty or enter the portable project. The current facade delivers
+structured evaluation failures, but durable per-node runtime diagnostic
+snapshots and future source spans/recovery actions remain additive work rather
+than a reason to redesign authored state.
+
 ## Current tree
 
 ```text
@@ -47,6 +83,7 @@ crates/photara-bridge
 nodes/photara-layout
 nodes/photara-asset-set
 nodes/photara-disk
+platform/macos/photara-theme
 ```
 
 The workspace is `0.2.0-alpha.0`. Core now contains canonical namespaced IDs,
@@ -289,6 +326,19 @@ materialization modules, while Swift Gallery state, behavior, and views are
 separate product surfaces. The disposable Swift bridge harness was removed;
 its historical findings remain documented.
 
+The bounded developer Theme Lab now owns palette authoring without becoming a
+product subsystem. `platform/macos/photara-theme` supplies one shared Swift
+parser/resolver compiled into both the Lab and Photara, a paired Light/Dark
+portable sRGB theme, validation/export, and a developer-only live-reload
+override. The Lab compiles the production Workspace, Layout Inspector, Graph,
+Gallery, controls, and generated facade against an isolated fixture instead of
+maintaining duplicate UI previews. Themes are native preference state and
+never enter Core or project semantics. Exact definitions may request a durable
+semantic theme color role independently from their catalog category; literal
+accents remain compatibility fallbacks. Continue migrating literal UI colors
+through the shared roles during deliberate UI polish rather than performing an
+unbounded visual rewrite.
+
 The current performance refinement keeps Disk Finder-like: every file remains
 an independent asset and no HDR/SDR pairing is inferred. Disk fingerprinting
 and production proxy calls run outside Swift's main actor. Gallery requests a
@@ -301,6 +351,13 @@ activation: Disk opens its granted Finder folder and Layout focuses/reveals its
 authoring Workspace. Bare `Tab` is captured while Graph is visible and opens
 the catalog at the current graph pointer, falling back to center before the
 pointer has entered.
+
+The Graph camera now treats the canvas as visually unbounded: its procedural
+grid remains viewport-sized while its origin and spacing follow pan and zoom,
+so camera movement cannot expose a finite background edge. Drag and precise
+trackpad scroll pan, pinch and conventional mouse-wheel input zoom, and an
+optional bottom-left overview shows nodes, connections, and the current
+viewport. All of this remains native workspace presentation state.
 
 The next performance invariant is now encoded directly: publish assets after
 cheap discovery, progressively show the best available preview, and verify

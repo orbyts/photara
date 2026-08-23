@@ -4,12 +4,14 @@ import SwiftUI
 struct PhotaraMacApp: App {
     @StateObject private var app = AppModel()
     @StateObject private var workspace = WorkspaceModel()
+    @StateObject private var theme = PhotaraThemeStore()
 
     var body: some Scene {
         WindowGroup("Photara") {
-            WorkspaceView()
+            ThemedWorkspaceRoot()
                 .environmentObject(app)
                 .environmentObject(workspace)
+                .environmentObject(theme)
         }
         .commands {
             CommandGroup(replacing: .newItem) {
@@ -51,5 +53,18 @@ struct PhotaraMacApp: App {
                 .disabled(!app.hasOpenProject || !workspace.isVisible(.graph))
             }
         }
+    }
+}
+
+private struct ThemedWorkspaceRoot: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var theme: PhotaraThemeStore
+
+    var body: some View {
+        let appearance: PhotaraThemeAppearance = colorScheme == .dark ? .dark : .light
+        let resolved = theme.document.resolved(for: appearance)
+        WorkspaceView()
+            .environment(\.photaraTheme, resolved)
+            .tint(resolved.color(.borderFocus))
     }
 }

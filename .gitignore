@@ -3,6 +3,7 @@
 /spikes/swift-bridge/.build
 /platform/macos/photara-proxy-imageio/.build
 /platform/macos/photara-app/.build
+/platform/macos/photara-theme/.build
 /DerivedData
 .DS_Store
 *.xcuserstate

@@ -66,6 +66,7 @@ impl NodePackage for AssetSetNodePackage {
                 brand: NodeBrandMetadata {
                     name: "Project Assets".to_owned(),
                     icon_resource_id: "photara.project.assets".to_owned(),
+                    theme_color_role: Some("node.native".to_owned()),
                     accent_srgb_hex: Some("#58BE78".to_owned()),
                 },
                 catalog_path: vec!["Input".to_owned(), "Project".to_owned()],

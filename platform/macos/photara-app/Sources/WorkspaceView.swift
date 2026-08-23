@@ -4,6 +4,7 @@ import SwiftUI
 struct WorkspaceView: View {
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var workspace: WorkspaceModel
+    @Environment(\.photaraTheme) private var theme
 
     var body: some View {
         Group {
@@ -26,6 +27,7 @@ struct WorkspaceView: View {
             }
         }
         .frame(minWidth: 980, minHeight: 620)
+        .background(theme?.color(.surfaceCanvas) ?? Color(nsColor: .windowBackgroundColor))
         .toolbar {
             ToolbarItemGroup {
                 Button("New", systemImage: "doc.badge.plus") { app.newProject() }
@@ -125,6 +127,8 @@ struct WorkspaceView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .foregroundStyle(theme?.color(.textPrimary) ?? Color.primary)
+        .background(theme?.color(.surfacePanel) ?? Color(nsColor: .windowBackgroundColor))
     }
 
     private var panelsMenu: some View {
@@ -146,6 +150,7 @@ struct WorkspaceView: View {
 private struct ProjectCommandBar: View {
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var workspace: WorkspaceModel
+    @Environment(\.photaraTheme) private var theme
 
     private var projectInitials: String {
         let words = (app.snapshot?.title ?? "Photara Project")
@@ -215,7 +220,7 @@ private struct ProjectCommandBar: View {
         .controlSize(.small)
         .padding(.horizontal, 12)
         .frame(height: 54)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(theme?.color(.surfaceElevated) ?? Color(nsColor: .windowBackgroundColor))
     }
 
     private var selectedLayoutNodeID: String? {
@@ -252,6 +257,7 @@ private struct ProjectCommandBar: View {
 
 private struct ProjectStatusBar: View {
     @EnvironmentObject private var app: AppModel
+    @Environment(\.photaraTheme) private var theme
 
     var body: some View {
         HStack(spacing: 9) {
@@ -278,7 +284,7 @@ private struct ProjectStatusBar: View {
         .font(.caption)
         .padding(.horizontal, 12)
         .frame(height: 28)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(theme?.color(.surfaceElevated) ?? Color(nsColor: .windowBackgroundColor))
     }
 
     private var hasErrors: Bool {
@@ -369,6 +375,7 @@ private struct ProjectLauncherView: View {
 
 private struct PanelHeader: View {
     @EnvironmentObject private var workspace: WorkspaceModel
+    @Environment(\.photaraTheme) private var theme
     let panel: WorkspacePanelID
 
     var body: some View {
@@ -399,7 +406,7 @@ private struct PanelHeader: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 34)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(theme?.color(.surfaceElevated) ?? Color(nsColor: .windowBackgroundColor))
     }
 }
 
@@ -410,8 +417,10 @@ private struct SpatialGraphView: View {
     @State private var zoom: CGFloat = 1
     @State private var showsNodeMenu = false
     @State private var showsPointerNodeMenu = false
+    @State private var showsOverview = true
     @State private var nodeFilter = ""
     @State private var graphPointerLocation: CGPoint?
+    @State private var nodePositionOffsets: [String: CGSize] = [:]
     @State private var tabKeyMonitor: Any?
     @FocusState private var graphHasFocus: Bool
     @GestureState private var dragPan: CGSize = .zero
@@ -447,6 +456,13 @@ private struct SpatialGraphView: View {
                     pan = .zero
                     zoom = 1
                 }
+                Button(
+                    showsOverview ? "Hide Graph Overview" : "Show Graph Overview",
+                    systemImage: showsOverview ? "map.fill" : "map"
+                ) {
+                    showsOverview.toggle()
+                }
+                .help(showsOverview ? "Hide Graph overview" : "Show Graph overview")
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
@@ -457,59 +473,123 @@ private struct SpatialGraphView: View {
             Divider()
             GeometryReader { geometry in
                 let nodes = app.snapshot?.nodes ?? []
-                let positions = graphPositions(nodes: nodes, size: geometry.size)
+                let basePositions = graphPositions(nodes: nodes, size: geometry.size)
+                let positions = offsetPositions(basePositions)
+                let gestureZoom = clampedZoom(zoom * magnification)
+                let magnifiedPan = adjustedPan(
+                    pan,
+                    from: zoom,
+                    to: gestureZoom,
+                    around: CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2),
+                    in: geometry.size
+                )
+                let displayedPan = CGSize(
+                    width: magnifiedPan.width + dragPan.width,
+                    height: magnifiedPan.height + dragPan.height
+                )
+                let displayedPositions = cameraPositions(
+                    positions,
+                    viewportSize: geometry.size,
+                    pan: displayedPan,
+                    zoom: gestureZoom
+                )
                 ZStack {
-                    GraphBackground()
+                    GraphBackground(pan: displayedPan, zoom: gestureZoom)
                     Color.clear
                         .frame(width: 2, height: 2)
                         .position(nodeMenuAnchor(in: geometry.size))
                         .popover(isPresented: $showsPointerNodeMenu, arrowEdge: .top) {
                             nodeCatalog
                         }
-                    Canvas { context, _ in
-                        for connection in app.snapshot?.graph.connections ?? [] {
-                            guard let source = positions[connection.outputNodeId],
-                                  let target = positions[connection.inputNodeId]
-                            else { continue }
-                            var path = Path()
-                            let start = CGPoint(x: source.x + 88, y: source.y)
-                            let end = CGPoint(x: target.x - 88, y: target.y)
-                            path.move(to: start)
-                            path.addCurve(
-                                to: end,
-                                control1: CGPoint(x: start.x + 70, y: start.y),
-                                control2: CGPoint(x: end.x - 70, y: end.y)
-                            )
-                            context.stroke(
-                                path,
-                                with: .color(.accentColor.opacity(0.55)),
-                                lineWidth: 2
-                            )
-                        }
-                    }
-                    ForEach(nodes, id: \.nodeId) { node in
-                        GraphNodeCard(
-                            node: node,
-                            selected: workspace.selectedNodeID == node.nodeId
-                        )
-                        .position(positions[node.nodeId] ?? .zero)
-                        .onTapGesture(count: 2) {
-                            workspace.selectedNodeID = node.nodeId
-                            if node.defaultActivationId == "photara.layout.open-workspace" {
-                                workspace.activateWorkspace(for: node.nodeId)
-                            } else {
-                                app.performDefaultActivation(for: node)
+                    ZStack {
+                        Canvas { context, _ in
+                            for connection in app.snapshot?.graph.connections ?? [] {
+                                guard let source = displayedPositions[connection.outputNodeId],
+                                      let target = displayedPositions[connection.inputNodeId]
+                                else { continue }
+                                var path = Path()
+                                let start = CGPoint(x: source.x + 88 * gestureZoom, y: source.y)
+                                let end = CGPoint(x: target.x - 88 * gestureZoom, y: target.y)
+                                path.move(to: start)
+                                path.addCurve(
+                                    to: end,
+                                    control1: CGPoint(x: start.x + 70, y: start.y),
+                                    control2: CGPoint(x: end.x - 70, y: end.y)
+                                )
+                                context.stroke(
+                                    path,
+                                    with: .color(.accentColor.opacity(0.55)),
+                                    lineWidth: 2
+                                )
                             }
                         }
-                        .onTapGesture {
-                            workspace.selectedNodeID = node.nodeId
+                        GlassEffectContainer(spacing: 18) {
+                            ZStack {
+                                ForEach(nodes, id: \.nodeId) { node in
+                                    GraphNodeCard(
+                                        node: node,
+                                        selected: workspace.selectedNodeID == node.nodeId,
+                                        zoom: gestureZoom,
+                                        onMove: { translation in
+                                            let prior = nodePositionOffsets[node.nodeId] ?? .zero
+                                            nodePositionOffsets[node.nodeId] = CGSize(
+                                                width: prior.width + translation.width / gestureZoom,
+                                                height: prior.height + translation.height / gestureZoom
+                                            )
+                                        },
+                                        onDragBegan: {
+                                            workspace.selectedNodeID = node.nodeId
+                                        }
+                                    )
+                                    .position(displayedPositions[node.nodeId] ?? .zero)
+                                    .onTapGesture(count: 2) {
+                                        workspace.selectedNodeID = node.nodeId
+                                        if node.defaultActivationId == "photara.layout.open-workspace" {
+                                            workspace.activateWorkspace(for: node.nodeId)
+                                        } else {
+                                            app.performDefaultActivation(for: node)
+                                        }
+                                    }
+                                    .onTapGesture {
+                                        workspace.selectedNodeID = node.nodeId
+                                    }
+                                }
+                            }
+                            .frame(width: geometry.size.width, height: geometry.size.height)
                         }
                     }
+                    if showsOverview, !nodes.isEmpty {
+                        GraphOverview(
+                            positions: positions,
+                            connections: app.snapshot?.graph.connections ?? [],
+                            viewportSize: geometry.size,
+                            pan: displayedPan,
+                            zoom: gestureZoom
+                        )
+                        .frame(width: 142, height: 104)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                        .padding(12)
+                    }
                 }
-                .scaleEffect(min(2, max(0.55, zoom * magnification)))
-                .offset(
-                    x: pan.width + dragPan.width,
-                    y: pan.height + dragPan.height
+                .clipped()
+                .background(
+                    GraphScrollMonitor(
+                        panBy: { delta in
+                            pan.width += delta.width
+                            pan.height += delta.height
+                        },
+                        zoomBy: { factor, location in
+                            let nextZoom = clampedZoom(zoom * factor)
+                            pan = adjustedPan(
+                                pan,
+                                from: zoom,
+                                to: nextZoom,
+                                around: location,
+                                in: geometry.size
+                            )
+                            zoom = nextZoom
+                        }
+                    )
                 )
                 .contentShape(Rectangle())
                 .onContinuousHover(coordinateSpace: .local) { phase in
@@ -528,7 +608,20 @@ private struct SpatialGraphView: View {
                 .simultaneousGesture(
                     MagnificationGesture()
                         .updating($magnification) { value, state, _ in state = value }
-                        .onEnded { zoom = min(2, max(0.55, zoom * $0)) }
+                        .onEnded { value in
+                            let nextZoom = clampedZoom(zoom * value)
+                            pan = adjustedPan(
+                                pan,
+                                from: zoom,
+                                to: nextZoom,
+                                around: CGPoint(
+                                    x: geometry.size.width / 2,
+                                    y: geometry.size.height / 2
+                                ),
+                                in: geometry.size
+                            )
+                            zoom = nextZoom
+                        }
                 )
                 .overlay {
                     if nodes.isEmpty {
@@ -608,6 +701,7 @@ private struct SpatialGraphView: View {
                         HStack(spacing: 10) {
                             NodeBrandIcon(
                                 resourceID: definition.iconResourceId,
+                                themeColorRole: definition.themeColorRole,
                                 accentHex: definition.accentSrgbHex,
                                 size: 28
                             )
@@ -635,6 +729,28 @@ private struct SpatialGraphView: View {
         return CGPoint(
             x: min(max(24, location.x), max(24, size.width - 24)),
             y: min(max(24, location.y), max(24, size.height - 24))
+        )
+    }
+
+    private func clampedZoom(_ proposed: CGFloat) -> CGFloat {
+        min(2, max(0.55, proposed))
+    }
+
+    private func adjustedPan(
+        _ currentPan: CGSize,
+        from oldZoom: CGFloat,
+        to newZoom: CGFloat,
+        around anchor: CGPoint,
+        in size: CGSize
+    ) -> CGSize {
+        guard oldZoom > 0, oldZoom != newZoom else { return currentPan }
+        let center = CGPoint(x: size.width / 2, y: size.height / 2)
+        let ratio = newZoom / oldZoom
+        return CGSize(
+            width: anchor.x - center.x
+                - (anchor.x - center.x - currentPan.width) * ratio,
+            height: anchor.y - center.y
+                - (anchor.y - center.y - currentPan.height) * ratio
         )
     }
 
@@ -666,6 +782,33 @@ private struct SpatialGraphView: View {
         }
         return positions
     }
+
+    private func offsetPositions(
+        _ positions: [String: CGPoint]
+    ) -> [String: CGPoint] {
+        positions.reduce(into: [:]) { result, entry in
+            let offset = nodePositionOffsets[entry.key] ?? .zero
+            result[entry.key] = CGPoint(
+                x: entry.value.x + offset.width,
+                y: entry.value.y + offset.height
+            )
+        }
+    }
+
+    private func cameraPositions(
+        _ positions: [String: CGPoint],
+        viewportSize: CGSize,
+        pan: CGSize,
+        zoom: CGFloat
+    ) -> [String: CGPoint] {
+        let center = CGPoint(x: viewportSize.width / 2, y: viewportSize.height / 2)
+        return positions.mapValues { point in
+            CGPoint(
+                x: center.x + (point.x - center.x) * zoom + pan.width,
+                y: center.y + (point.y - center.y) * zoom + pan.height
+            )
+        }
+    }
 }
 
 /// Resolves package-neutral icon resources into this macOS client's skin.
@@ -681,12 +824,18 @@ private enum NativeNodeResources {
 }
 
 private struct NodeBrandIcon: View {
+    @Environment(\.photaraTheme) private var theme
+
     let resourceID: String
+    let themeColorRole: String?
     let accentHex: String?
     let size: CGFloat
 
     var body: some View {
-        let accent = Color(srgbHex: accentHex) ?? .accentColor
+        let role = themeColorRole.flatMap(PhotaraThemeRole.init(rawValue:))
+        let accent = role.flatMap { theme?.color($0) }
+            ?? Color(srgbHex: accentHex)
+            ?? .accentColor
         Image(systemName: NativeNodeResources.symbol(for: resourceID))
             .font(.system(size: size * 0.56, weight: .medium))
             .foregroundStyle(accent)
@@ -713,25 +862,238 @@ private extension Color {
 }
 
 private struct GraphBackground: View {
+    @Environment(\.photaraTheme) private var theme
+    let pan: CGSize
+    let zoom: CGFloat
+
     var body: some View {
         Canvas { context, size in
-            let spacing: CGFloat = 24
-            for x in stride(from: 0 as CGFloat, through: size.width, by: spacing) {
-                for y in stride(from: 0 as CGFloat, through: size.height, by: spacing) {
+            let spacing = 24 * zoom
+            let transformedOrigin = CGPoint(
+                x: size.width / 2 * (1 - zoom) + pan.width,
+                y: size.height / 2 * (1 - zoom) + pan.height
+            )
+            let startX = phase(transformedOrigin.x, spacing: spacing)
+            let startY = phase(transformedOrigin.y, spacing: spacing)
+            let dotSize = min(2.4, max(1.1, 1.5 * zoom))
+            for x in stride(from: startX, through: size.width, by: spacing) {
+                for y in stride(from: startY, through: size.height, by: spacing) {
                     context.fill(
-                        Path(ellipseIn: CGRect(x: x, y: y, width: 1.5, height: 1.5)),
-                        with: .color(.secondary.opacity(0.22))
+                        Path(ellipseIn: CGRect(x: x, y: y, width: dotSize, height: dotSize)),
+                        with: .color((theme?.color(.graphGrid) ?? .secondary).opacity(0.45))
                     )
                 }
             }
         }
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.55))
+        .background(theme?.color(.graphBackground) ?? Color(nsColor: .controlBackgroundColor))
+        .allowsHitTesting(false)
+    }
+
+    private func phase(_ value: CGFloat, spacing: CGFloat) -> CGFloat {
+        let remainder = value.truncatingRemainder(dividingBy: spacing)
+        return remainder >= 0 ? remainder : remainder + spacing
     }
 }
 
+private struct GraphOverview: View {
+    @Environment(\.photaraTheme) private var theme
+
+    let positions: [String: CGPoint]
+    let connections: [BridgeConnectionDto]
+    let viewportSize: CGSize
+    let pan: CGSize
+    let zoom: CGFloat
+
+    var body: some View {
+        Canvas { context, size in
+            let viewport = worldViewport
+            let nodes = positions.values.reduce(CGRect.null) { bounds, point in
+                bounds.union(CGRect(x: point.x - 92, y: point.y - 52, width: 184, height: 104))
+            }
+            let world = nodes.union(viewport).insetBy(dx: -80, dy: -80)
+            guard !world.isNull, world.width > 0, world.height > 0 else { return }
+
+            let inset: CGFloat = 8
+            let scale = min(
+                (size.width - inset * 2) / world.width,
+                (size.height - inset * 2) / world.height
+            )
+            let drawnSize = CGSize(width: world.width * scale, height: world.height * scale)
+            let origin = CGPoint(
+                x: (size.width - drawnSize.width) / 2,
+                y: (size.height - drawnSize.height) / 2
+            )
+            func mapped(_ point: CGPoint) -> CGPoint {
+                CGPoint(
+                    x: origin.x + (point.x - world.minX) * scale,
+                    y: origin.y + (point.y - world.minY) * scale
+                )
+            }
+            func mapped(_ rect: CGRect) -> CGRect {
+                let origin = mapped(rect.origin)
+                return CGRect(
+                    x: origin.x,
+                    y: origin.y,
+                    width: rect.width * scale,
+                    height: rect.height * scale
+                )
+            }
+
+            for connection in connections {
+                guard let output = positions[connection.outputNodeId],
+                      let input = positions[connection.inputNodeId]
+                else { continue }
+                var path = Path()
+                path.move(to: mapped(output))
+                path.addLine(to: mapped(input))
+                context.stroke(
+                    path,
+                    with: .color((theme?.color(.borderFocus) ?? .accentColor).opacity(0.55)),
+                    lineWidth: 1
+                )
+            }
+            for point in positions.values {
+                let center = mapped(point)
+                let nodeRect = CGRect(
+                    x: center.x - max(3, 88 * scale),
+                    y: center.y - max(2, 44 * scale),
+                    width: max(6, 176 * scale),
+                    height: max(4, 88 * scale)
+                )
+                context.fill(
+                    Path(roundedRect: nodeRect, cornerRadius: 2),
+                    with: .color(theme?.color(.graphNode) ?? .secondary)
+                )
+                context.stroke(
+                    Path(roundedRect: nodeRect, cornerRadius: 2),
+                    with: .color((theme?.color(.borderStrong) ?? .secondary).opacity(0.7)),
+                    lineWidth: 0.75
+                )
+            }
+            context.stroke(
+                Path(mapped(viewport)),
+                with: .color(theme?.color(.graphNodeSelected) ?? .accentColor),
+                lineWidth: 1.5
+            )
+        }
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke((theme?.color(.borderSubtle) ?? .secondary).opacity(0.65))
+        }
+        .shadow(color: .black.opacity(0.16), radius: 5, y: 2)
+        .allowsHitTesting(false)
+        .accessibilityLabel("Graph overview")
+    }
+
+    private var worldViewport: CGRect {
+        let center = CGPoint(x: viewportSize.width / 2, y: viewportSize.height / 2)
+        let topLeft = CGPoint(
+            x: center.x + (0 - center.x - pan.width) / zoom,
+            y: center.y + (0 - center.y - pan.height) / zoom
+        )
+        let bottomRight = CGPoint(
+            x: center.x + (viewportSize.width - center.x - pan.width) / zoom,
+            y: center.y + (viewportSize.height - center.y - pan.height) / zoom
+        )
+        return CGRect(
+            x: min(topLeft.x, bottomRight.x),
+            y: min(topLeft.y, bottomRight.y),
+            width: abs(bottomRight.x - topLeft.x),
+            height: abs(bottomRight.y - topLeft.y)
+        )
+    }
+}
+
+private struct GraphScrollMonitor: NSViewRepresentable {
+    let panBy: (CGSize) -> Void
+    let zoomBy: (CGFloat, CGPoint) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(panBy: panBy, zoomBy: zoomBy)
+    }
+
+    func makeNSView(context: Context) -> GraphScrollCaptureView {
+        let view = GraphScrollCaptureView()
+        context.coordinator.attach(to: view)
+        return view
+    }
+
+    func updateNSView(_ view: GraphScrollCaptureView, context: Context) {
+        context.coordinator.panBy = panBy
+        context.coordinator.zoomBy = zoomBy
+    }
+
+    static func dismantleNSView(_ view: GraphScrollCaptureView, coordinator: Coordinator) {
+        coordinator.detach()
+    }
+
+    @MainActor
+    final class Coordinator {
+        var panBy: (CGSize) -> Void
+        var zoomBy: (CGFloat, CGPoint) -> Void
+        private weak var view: GraphScrollCaptureView?
+        private var monitor: Any?
+
+        init(
+            panBy: @escaping (CGSize) -> Void,
+            zoomBy: @escaping (CGFloat, CGPoint) -> Void
+        ) {
+            self.panBy = panBy
+            self.zoomBy = zoomBy
+        }
+
+        func attach(to view: GraphScrollCaptureView) {
+            self.view = view
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+                guard let self, let view = self.view, event.window === view.window else {
+                    return event
+                }
+                let location = view.convert(event.locationInWindow, from: nil)
+                guard view.bounds.contains(location) else { return event }
+
+                if event.hasPreciseScrollingDeltas {
+                    self.panBy(CGSize(
+                        width: event.scrollingDeltaX,
+                        height: event.scrollingDeltaY
+                    ))
+                } else {
+                    self.zoomBy(exp(event.scrollingDeltaY * 0.08), location)
+                }
+                return nil
+            }
+        }
+
+        func detach() {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+                self.monitor = nil
+            }
+        }
+    }
+}
+
+private final class GraphScrollCaptureView: NSView {
+    override var isFlipped: Bool { true }
+}
+
 private struct GraphNodeCard: View {
+    @Environment(\.photaraTheme) private var theme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @GestureState private var dragTranslation: CGSize = .zero
+    @GestureState private var isPressed = false
+    @GestureState private var isDragging = false
+
     let node: BridgeNodeDto
     let selected: Bool
+    let zoom: CGFloat
+    let onMove: (CGSize) -> Void
+    let onDragBegan: () -> Void
+
+    private var scale: CGFloat { min(2, max(0.55, zoom)) }
+    private var cardWidth: CGFloat { 176 * scale }
+    private var cornerRadius: CGFloat { 12 * scale }
+    private var isRaised: Bool { isPressed || isDragging }
 
     private var inputs: [BridgePortInspectionDto] {
         node.ports.filter { $0.direction == .input }
@@ -741,54 +1103,113 @@ private struct GraphNodeCard: View {
         node.ports.filter { $0.direction == .output }
     }
 
+    private var accent: Color {
+        let role = node.themeColorRole.flatMap(PhotaraThemeRole.init(rawValue:))
+        return role.flatMap { theme?.color($0) }
+            ?? Color(srgbHex: node.accentSrgbHex)
+            ?? .accentColor
+    }
+
     var body: some View {
+        cardSurface
+            .allowedDynamicRange(.constrainedHigh)
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(
+                        selected
+                            ? (theme?.color(.graphNodeSelected) ?? Color.accentColor)
+                            : (theme?.color(.borderStrong) ?? .secondary).opacity(0.38),
+                        lineWidth: (selected ? 2.5 : 0.75) * scale
+                    )
+            }
+            .shadow(
+                color: .black.opacity(isRaised ? 0.34 : (selected ? 0.22 : 0.12)),
+                radius: (isRaised ? 18 : (selected ? 10 : 5)) * scale,
+                y: (isRaised ? 10 : 3) * scale
+            )
+            .offset(
+                x: dragTranslation.width,
+                y: dragTranslation.height - (isRaised ? 5 * scale : 0)
+            )
+            .zIndex(isRaised ? 10 : 0)
+            .highPriorityGesture(nodeDragGesture)
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0, maximumDistance: .infinity)
+                    .updating($isPressed) { value, state, _ in state = value }
+            )
+    }
+
+    @ViewBuilder
+    private var cardSurface: some View {
+        if reduceTransparency {
+            cardContent
+                .background(
+                    theme?.color(.graphNode) ?? Color(nsColor: .controlBackgroundColor),
+                    in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                )
+        } else {
+            cardContent
+                .glassEffect(
+                    isRaised
+                        ? .clear.interactive()
+                        : .regular.tint(accent.opacity(0.08)).interactive(),
+                    in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                )
+        }
+    }
+
+    private var cardContent: some View {
         VStack(spacing: 0) {
+            Rectangle()
+                .fill(accent)
+                .frame(height: max(2, 3 * scale))
             HStack(spacing: 8) {
                 NodeBrandIcon(
                     resourceID: node.iconResourceId,
+                    themeColorRole: node.themeColorRole,
                     accentHex: node.accentSrgbHex,
-                    size: 24
+                    size: 24 * scale
                 )
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(node.displayName).font(.headline)
+                    Text(node.displayName)
+                        .font(.system(size: 13 * scale, weight: .semibold))
                     if let canvas = node.layout?.canvas {
                         Text("\(canvas.widthPixels) × \(canvas.heightPixels)")
-                            .font(.caption2.monospacedDigit())
+                            .font(.system(size: 9.5 * scale, design: .monospaced))
                             .foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
                 Circle()
-                    .fill(node.status == "Ready" ? Color.green : Color.orange)
-                    .frame(width: 7, height: 7)
+                    .fill(node.status == "Ready"
+                        ? (theme?.color(.statusTextSuccess) ?? .green)
+                        : (theme?.color(.statusTextWarning) ?? .orange))
+                    .frame(width: 7 * scale, height: 7 * scale)
             }
-            .padding(10)
+            .padding(.horizontal, 10 * scale)
+            .padding(.vertical, 8 * scale)
+            .background(accent.opacity(isRaised ? 0.025 : 0.08))
             Divider()
             HStack(alignment: .top) {
                 portColumn(inputs, leading: true)
-                Spacer(minLength: 14)
+                Spacer(minLength: 14 * scale)
                 portColumn(outputs, leading: false)
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, 8 * scale)
         }
-        .frame(width: 176)
-        .frame(minHeight: 86)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
-        .overlay {
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(selected ? Color.accentColor : .secondary.opacity(0.3), lineWidth: selected ? 3 : 1)
-        }
-        .shadow(color: .black.opacity(selected ? 0.18 : 0.08), radius: selected ? 8 : 3, y: 2)
+        .frame(width: cardWidth)
+        .frame(minHeight: 88 * scale)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
     @ViewBuilder
     private func portColumn(_ ports: [BridgePortInspectionDto], leading: Bool) -> some View {
-        VStack(alignment: leading ? .leading : .trailing, spacing: 5) {
+        VStack(alignment: leading ? .leading : .trailing, spacing: 5 * scale) {
             ForEach(ports, id: \.portId) { port in
-                HStack(spacing: 4) {
+                HStack(spacing: 4 * scale) {
                     if leading { portDot }
                     Text(port.portId.capitalized)
-                        .font(.caption2)
+                        .font(.system(size: 9.5 * scale))
                         .foregroundStyle(.secondary)
                     if !leading { portDot }
                 }
@@ -797,15 +1218,36 @@ private struct GraphNodeCard: View {
     }
 
     private var portDot: some View {
-        Circle()
-            .fill(Color.accentColor)
-            .frame(width: 7, height: 7)
+        ZStack {
+            Circle()
+                .fill(.white.opacity(0.12))
+            Circle()
+                .stroke(.white.opacity(0.58), lineWidth: 0.7)
+            Circle()
+                .fill(theme?.color(.borderFocus) ?? accent)
+                .frame(width: 4 * scale, height: 4 * scale)
+        }
+        .frame(width: 10 * scale, height: 10 * scale)
+        .shadow(color: accent.opacity(0.42), radius: 2 * scale)
+    }
+
+    private var nodeDragGesture: some Gesture {
+        DragGesture(minimumDistance: 2, coordinateSpace: .local)
+            .updating($dragTranslation) { value, state, _ in
+                state = value.translation
+            }
+            .updating($isDragging) { _, state, _ in
+                state = true
+            }
+            .onChanged { _ in onDragBegan() }
+            .onEnded { value in onMove(value.translation) }
     }
 }
 
 private struct LayoutInspectorView: View {
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var workspace: WorkspaceModel
+    @Environment(\.photaraTheme) private var theme
 
     private var selectedNode: BridgeNodeDto? {
         let nodes = app.snapshot?.nodes ?? []
@@ -832,6 +1274,7 @@ private struct LayoutInspectorView: View {
                     HStack(spacing: 12) {
                         NodeBrandIcon(
                             resourceID: node.iconResourceId,
+                            themeColorRole: node.themeColorRole,
                             accentHex: node.accentSrgbHex,
                             size: 30
                         )
@@ -849,6 +1292,7 @@ private struct LayoutInspectorView: View {
                     LabeledContent("Node ID", value: node.nodeId)
                         .font(.caption.monospaced())
                 }
+                .listRowBackground(inspectorGroupBackground)
                 if let disk = node.disk {
                     Section("Folder Source") {
                         LabeledContent("Accepted Assets", value: String(disk.acceptedAssetCount))
@@ -876,6 +1320,7 @@ private struct LayoutInspectorView: View {
                             app.connectDiskToAvailableLayout(node)
                         }
                     }
+                    .listRowBackground(inspectorGroupBackground)
                 }
                 if !inputPorts(node).isEmpty {
                     Section("Inputs") {
@@ -883,6 +1328,7 @@ private struct LayoutInspectorView: View {
                             InspectorPortView(port: port)
                         }
                     }
+                    .listRowBackground(inspectorGroupBackground)
                 }
                 if node.layout != nil {
                     Section("Parameters") {
@@ -893,6 +1339,7 @@ private struct LayoutInspectorView: View {
                             .font(.caption.monospaced())
                     }
                     }
+                    .listRowBackground(inspectorGroupBackground)
                 }
                 if let frame = selectedFrame, let cell = selectedCell {
                     Section("Frame") {
@@ -968,6 +1415,7 @@ private struct LayoutInspectorView: View {
                             .disabled(frame.index + 1 >= UInt64(node.layout?.frames.count ?? 0))
                         }
                     }
+                    .listRowBackground(inspectorGroupBackground)
                     Section("Cell") {
                         if let descriptor = app.layoutCellProxies[cell.cellId]?.descriptor() {
                             LabeledContent(
@@ -1032,6 +1480,7 @@ private struct LayoutInspectorView: View {
                             }
                         }
                     }
+                    .listRowBackground(inspectorGroupBackground)
                 }
                 if !outputPorts(node).isEmpty {
                     Section("Outputs") {
@@ -1039,6 +1488,7 @@ private struct LayoutInspectorView: View {
                             InspectorPortView(port: port)
                         }
                     }
+                    .listRowBackground(inspectorGroupBackground)
                 }
                 Section("Evaluation") {
                     LabeledContent("State", value: node.status)
@@ -1048,6 +1498,7 @@ private struct LayoutInspectorView: View {
                     )
                     LabeledContent("Progress", value: app.progressLabel)
                 }
+                .listRowBackground(inspectorGroupBackground)
                 if !node.diagnostics.isEmpty {
                     Section("Diagnostics") {
                         ForEach(node.diagnostics, id: \.code) { diagnostic in
@@ -1059,9 +1510,12 @@ private struct LayoutInspectorView: View {
                             }
                         }
                     }
+                    .listRowBackground(inspectorGroupBackground)
                 }
             }
             .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .background(theme?.color(.surfacePanel) ?? Color(nsColor: .windowBackgroundColor))
         } else {
             ContentUnavailableView(
                 "No Selection",
@@ -1069,6 +1523,10 @@ private struct LayoutInspectorView: View {
                 description: Text("Select a node in Graph to inspect it.")
             )
         }
+    }
+
+    private var inspectorGroupBackground: Color {
+        theme?.color(.surfaceElevated) ?? Color(nsColor: .controlBackgroundColor)
     }
 
     private func canvasDescription(_ node: BridgeNodeDto) -> String {
@@ -1086,9 +1544,9 @@ private struct LayoutInspectorView: View {
 
     private func statusColor(_ status: String) -> Color {
         switch status {
-        case "Ready": .green
-        case "Error": .red
-        default: .orange
+        case "Ready": theme?.color(.statusTextSuccess) ?? .green
+        case "Error": theme?.color(.statusTextError) ?? .red
+        default: theme?.color(.statusTextWarning) ?? .orange
         }
     }
 
@@ -1332,6 +1790,7 @@ private struct LayoutAuthoringSurfaceView: View {
 private struct LayoutCanvasView: View {
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var workspace: WorkspaceModel
+    @Environment(\.photaraTheme) private var theme
     let node: BridgeNodeDto
     let frame: BridgeLayoutFrameInspectionDto
 
@@ -1341,7 +1800,7 @@ private struct LayoutCanvasView: View {
         GeometryReader { available in
             let fitted = fittedCanvas(in: available.size)
             ZStack {
-                Color.black.opacity(0.06)
+                theme?.color(.workspaceSurround) ?? Color.black.opacity(0.06)
                 ZStack {
                     Color.white
                     ForEach(frame.cells, id: \.cellId) { cell in

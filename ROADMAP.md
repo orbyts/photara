@@ -46,6 +46,47 @@ kind.
 10. Future video, VFX, ML, and provider nodes must require no new fundamental
     evaluator variants.
 
+### Extension and boundary-drift guardrail
+
+The architecture is successful only if a materially new node normally arrives
+as an exact package definition plus a host-registered runtime, declared typed
+ports/values, scoped capabilities, and optional Inspector/Workspace
+contributions. Adding a provider, editor, automation, compute, or future
+scripting node must not require a new Core node kind, definition-ID switch in
+the bridge, platform semantics in the Project Document, ambient database or
+filesystem access, or a rewrite of the native application shell.
+
+Before accepting a feature or bug fix that crosses an existing boundary, apply
+this extension test:
+
+> Could an independently versioned package add this behavior through the
+> existing semantic contracts, exact runtime registration, scoped host
+> services, and optional presentation contributions?
+
+If the answer is no, stop and identify the missing general contract. Extend the
+narrowest owning layer deliberately and compatibly; do not make the active
+first-party node a privileged special case. This is a design review trigger,
+not permission to prebuild speculative subsystems. The current stage gate
+remains the priority, and future depth is implemented only when a concrete
+vertical slice requires it.
+
+Executable/code nodes are a future example of this rule. They remain ordinary
+node packages over the existing evaluation, progress, cancellation, typed
+value, diagnostic, and exact-runtime boundaries. A future scripting host must
+add explicit language/runtime identity, implementation fingerprints, resource
+limits, isolation, and scoped filesystem/network/secret/project capabilities;
+it must never grant ambient process, SQL, credential, or machine access. That
+is after `0.2.0` and does not justify implementing a scripting engine now.
+
+Diagnostics follow the same ownership rule. Validation and execution
+diagnostics are structured and node-addressable. Runtime diagnostic history is
+runtime state keyed by evaluation identity, source graph revision, and node;
+it does not enter authored Project Documents or graph digests. Native clients
+render those diagnostics in the selected node's Inspector and other
+presentation surfaces without becoming their semantic owner. Optional future
+source spans, recovery actions, and log references must extend the diagnostic
+contract compatibly.
+
 ## Implementation sequence
 
 ### 0. Repository foundation — complete
@@ -489,6 +530,13 @@ the production UniFFI facade remain unchanged.
 - Iterate native density, border, material, background, shape, typography, and
   interaction using measured visual references while preserving independent
   panel identity and optional node Workspaces.
+- Keep UI palette iteration behind one portable semantic theme document with
+  paired Light/Dark sRGB values. The bounded developer Theme Lab must compile
+  the same parser/resolver and production native views as Photara against an
+  isolated fixture, validate/export the document, and live-reload only native
+  presentation state. Do not maintain a second hand-authored UI preview.
+  Theme choice and node color roles never enter Core, a Project Document, or a
+  graph digest; node catalog taxonomy remains independent from color role.
 
 **Gate:** a real project can be authored visually without the old manual Layout
 worksheet/crop-authoring process, including multiple independent Layout nodes,
@@ -607,6 +655,20 @@ typed port/connection/status/summary DTOs; Swift renders Project Assets and
 Layout through one Inspector shell. A primitive spatial graph replaces the
 engineering list, Layout Workspace opens explicitly, and Workspace → Restore
 Default Workspace recovers presentation state without semantic mutation.
+The Graph camera uses a viewport-sized procedural grid whose spacing follows
+zoom, supports drag/trackpad pan plus pinch/mouse-wheel zoom, and offers an
+optional bottom-left node/connection/viewport overview. Camera and overview
+state remain native workspace presentation only.
+
+The developer Theme Lab is the bounded palette-authoring side tool for the next
+UI pass. A versioned JSON document carries identical semantic slots for paired
+Light/Dark sRGB palettes, including status text and durable node color roles.
+Photara and the Lab compile the same Swift parser/resolver; the Lab previews
+the actual production Workspace, Layout Inspector, Graph, Gallery, and controls
+against an isolated fixture project. A validated development override live-reloads in
+Photara while retaining the last valid palette. Built-in definitions now
+request `node.native` through presentation metadata and keep literal accents as
+compatibility fallbacks. Themes remain client preference state.
 
 ### 10. Scoped runtime persistence and 0.2.0 stabilization
 

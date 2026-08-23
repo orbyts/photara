@@ -69,7 +69,10 @@ final class AppModel: ObservableObject {
 
     private static let recentProjectsKey = "photara.recent-projects.v1"
 
-    init(defaults: UserDefaults = .standard) {
+    init(
+        defaults: UserDefaults = .standard,
+        supportRootOverride: URL? = nil
+    ) {
         self.defaults = defaults
         let configuredLongEdge = defaults.integer(
             forKey: "photara.layout-authoring-preview-long-edge.v1"
@@ -81,14 +84,14 @@ final class AppModel: ObservableObject {
             ?? legacyDefaults?.data(forKey: Self.recentProjectsKey))
             .flatMap { try? JSONDecoder().decode([RecentProject].self, from: $0) } ?? []
         do {
-            let support = try FileManager.default.url(
+            let support = try supportRootOverride ?? FileManager.default.url(
                 for: .applicationSupportDirectory,
                 in: .userDomainMask,
                 appropriateFor: nil,
                 create: true
-            )
-            let storeRoot = support.appending(path: "Photara/GenerationTwo")
-            let proxyCacheRoot = support.appending(path: "Photara/ProxyCache")
+            ).appending(path: "Photara")
+            let storeRoot = support.appending(path: "GenerationTwo")
+            let proxyCacheRoot = support.appending(path: "ProxyCache")
             try FileManager.default.createDirectory(
                 at: storeRoot,
                 withIntermediateDirectories: true
