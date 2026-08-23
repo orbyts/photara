@@ -42,6 +42,12 @@ The Lab is a bounded developer utility, not another product subsystem. It does
 not own a second schema, enter the production facade, create Core commands, or
 persist anything in a project.
 
+Graph interaction and optical experimentation belong to the separate Graph Lab.
+Graph Lab consumes this same resolver and semantic roles while keeping its
+authoring parameters presentation-only. Accepted Graph primitives are shared
+with the production native client; Theme Lab may later embed representative
+shared specimens, but it does not own a hand-authored second Graph skin.
+
 The Lab may disclose presentation-only authoring help for each stable role:
 its intended consumers and whether production coverage is live, partial, or
 reserved. This help is not part of the portable JSON schema. A reserved role

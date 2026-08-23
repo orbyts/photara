@@ -147,6 +147,16 @@ default canvas-wide SwiftUI focus effect is not. Suppress that effect so its
 asynchronous outline cannot masquerade as stale panel geometry during live
 window resize; selected node styling remains inside the Graph surface.
 
+Graph visual authoring has a separate developer utility at
+`platform/macos/photara-graph-lab`. Portable, presentation-only primitives live
+under `platform/macos/photara-graph` and are compiled into both the Lab and the
+native client as they are accepted. The Lab supplies deterministic fixtures and
+temporary optical controls; it does not open a project, call the bridge, own
+semantic graph state, or become an alternate production Graph implementation.
+The first shared extraction is the procedural viewport background. Production
+keeps its established dot-grid defaults while the Lab compares background,
+node-edge, port, and shadow treatments.
+
 The visual Layout surface and conventional Inspector are distinct consumers of
 the same immutable Rust DTOs. Rust resolves explicit `AssetSet` input into
 normalized and pixel cell geometry; Swift composes leased proxy files into that

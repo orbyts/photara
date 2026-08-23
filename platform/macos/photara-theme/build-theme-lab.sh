@@ -33,6 +33,7 @@ xcrun swiftc \
   -module-cache-path "$MODULE_CACHE" \
   "$GENERATED_ROOT/PhotaraBridge.swift" \
   "$SCRIPT_ROOT/Sources/PhotaraTheme.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphPresentation.swift" \
   "$PHOTARA_APP_ROOT/Sources/GalleryPresentationState.swift" \
   "$PHOTARA_APP_ROOT/Sources/ThemeStore.swift" \
   "$PHOTARA_APP_ROOT/Sources/AppModel.swift" \

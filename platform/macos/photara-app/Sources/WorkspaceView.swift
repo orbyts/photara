@@ -862,36 +862,11 @@ private extension Color {
 }
 
 private struct GraphBackground: View {
-    @Environment(\.photaraTheme) private var theme
     let pan: CGSize
     let zoom: CGFloat
 
     var body: some View {
-        Canvas { context, size in
-            let spacing = 24 * zoom
-            let transformedOrigin = CGPoint(
-                x: size.width / 2 * (1 - zoom) + pan.width,
-                y: size.height / 2 * (1 - zoom) + pan.height
-            )
-            let startX = phase(transformedOrigin.x, spacing: spacing)
-            let startY = phase(transformedOrigin.y, spacing: spacing)
-            let dotSize = min(2.4, max(1.1, 1.5 * zoom))
-            for x in stride(from: startX, through: size.width, by: spacing) {
-                for y in stride(from: startY, through: size.height, by: spacing) {
-                    context.fill(
-                        Path(ellipseIn: CGRect(x: x, y: y, width: dotSize, height: dotSize)),
-                        with: .color((theme?.color(.graphGrid) ?? .secondary).opacity(0.45))
-                    )
-                }
-            }
-        }
-        .background(theme?.color(.graphBackground) ?? Color(nsColor: .controlBackgroundColor))
-        .allowsHitTesting(false)
-    }
-
-    private func phase(_ value: CGFloat, spacing: CGFloat) -> CGFloat {
-        let remainder = value.truncatingRemainder(dividingBy: spacing)
-        return remainder >= 0 ? remainder : remainder + spacing
+        PhotaraGraphBackground(pan: pan, zoom: zoom)
     }
 }
 
