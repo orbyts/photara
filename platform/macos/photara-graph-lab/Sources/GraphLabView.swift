@@ -49,11 +49,9 @@ struct GraphLabView: View {
     @State private var zoom = 1.0
     @State private var selectedNode = GraphLabNodeID.transform
     @State private var nodeOffsets: [GraphLabNodeID: CGSize] = [:]
-    @State private var activeNode: GraphLabNodeID?
     @State private var didLoadPreferences = false
     @State private var preferencesStatus: String?
     @GestureState private var canvasDrag = CGSize.zero
-    @GestureState private var nodeDrag = CGSize.zero
 
     var body: some View {
         HSplitView {
@@ -444,7 +442,6 @@ struct GraphLabView: View {
         pan: CGSize
     ) -> some View {
         let storedOffset = nodeOffsets[id] ?? .zero
-        let liveDrag = activeNode == id ? nodeDrag : .zero
         let worldPosition = baseWorldPosition(for: id)
         let position = screenPosition(
             CGPoint(
@@ -455,32 +452,35 @@ struct GraphLabView: View {
             pan: pan
         )
         let glassTreatment = selectedNode == id ? selectedGlassTreatment : idleGlassTreatment
-        let isLifted = activeNode == id
-        return GraphLabNodeSpecimen(
-            title: title,
-            subtitle: subtitle,
-            inputs: inputs,
-            outputs: outputs,
-            style: nodeStyle(isLifted: isLifted),
-            glassTreatment: glassTreatment,
-            titleColor: activeColor(\.titleText) ?? defaultTitleTextColor,
-            detailColor: activeColor(\.detailText) ?? defaultDetailTextColor,
-            glassTintColor: selectedNode == id
-                ? (activeColor(\.selectedGlassTint) ?? theme?.color(.nodeNative) ?? .accentColor)
-                : (activeColor(\.idleGlassTint) ?? theme?.color(.nodeNative) ?? .accentColor),
-            glassTintOpacity: selectedNode == id ? selectedGlassTintOpacity : idleGlassTintOpacity,
-            portGlassTreatment: portGlassTreatment,
-            portGlassTintColor: activeColor(\.portGlassTint) ?? theme?.color(.borderFocus) ?? .accentColor,
-            portGlassTintOpacity: portGlassTintOpacity,
-            portCoreBrightness: appearance == .dark ? darkPortCoreBrightness : lightPortCoreBrightness
-        )
-        .scaleEffect(zoom)
-        .position(position)
-        .offset(liveDrag)
-        .transaction { transaction in
-            transaction.animation = nil
+        return GraphLabDraggableNode(
+            zoom: zoom,
+            storedOffset: storedOffset,
+            position: position,
+            constrainedOffset: { collisionConstrainedOffset(for: id, proposed: $0) },
+            onBegan: {
+                if selectedNode != id { selectedNode = id }
+            },
+            onEnded: { nodeOffsets[id] = $0 }
+        ) { isLifted in
+            GraphLabNodeSpecimen(
+                title: title,
+                subtitle: subtitle,
+                inputs: inputs,
+                outputs: outputs,
+                style: nodeStyle(isLifted: isLifted),
+                glassTreatment: glassTreatment,
+                titleColor: activeColor(\.titleText) ?? defaultTitleTextColor,
+                detailColor: activeColor(\.detailText) ?? defaultDetailTextColor,
+                glassTintColor: selectedNode == id
+                    ? (activeColor(\.selectedGlassTint) ?? theme?.color(.nodeNative) ?? .accentColor)
+                    : (activeColor(\.idleGlassTint) ?? theme?.color(.nodeNative) ?? .accentColor),
+                glassTintOpacity: selectedNode == id ? selectedGlassTintOpacity : idleGlassTintOpacity,
+                portGlassTreatment: portGlassTreatment,
+                portGlassTintColor: activeColor(\.portGlassTint) ?? theme?.color(.borderFocus) ?? .accentColor,
+                portGlassTintOpacity: portGlassTintOpacity,
+                portCoreBrightness: appearance == .dark ? darkPortCoreBrightness : lightPortCoreBrightness
+            )
         }
-        .gesture(nodeGesture(for: id))
     }
 
     private var canvasPanGesture: some Gesture {
@@ -492,66 +492,75 @@ struct GraphLabView: View {
             }
     }
 
-    private func nodeGesture(for id: GraphLabNodeID) -> some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { _ in
-                if selectedNode != id { selectedNode = id }
-                if activeNode != id { activeNode = id }
-            }
-            .updating($nodeDrag) { value, state, _ in state = value.translation }
-            .onEnded { value in
-                var offset = nodeOffsets[id] ?? .zero
-                offset.width += value.translation.width / zoom
-                offset.height += value.translation.height / zoom
-                nodeOffsets[id] = collisionResolvedOffset(for: id, proposed: offset)
-                activeNode = nil
-            }
-    }
-
-    private func collisionResolvedOffset(for id: GraphLabNodeID, proposed: CGSize) -> CGSize {
+    private func collisionConstrainedOffset(for id: GraphLabNodeID, proposed: CGSize) -> CGSize {
         let base = baseWorldPosition(for: id)
-        var center = CGPoint(x: base.x + proposed.width, y: base.y + proposed.height)
+        let storedOffset = nodeOffsets[id] ?? .zero
+        let start = CGPoint(x: base.x + storedOffset.width, y: base.y + storedOffset.height)
+        let target = CGPoint(x: base.x + proposed.width, y: base.y + proposed.height)
         let size = nodeSize(for: id)
+        let halfWidth = size.width / 2
+        let halfHeight = size.height / 2
         let otherIDs = [GraphLabNodeID.source, .transform, .composite].filter { $0 != id }
-
-        for _ in 0..<(otherIDs.count * 2) {
-            var resolvedCollision = false
-            for otherID in otherIDs {
-                let otherOffset = nodeOffsets[otherID] ?? .zero
-                let otherBase = baseWorldPosition(for: otherID)
-                let otherCenter = CGPoint(
-                    x: otherBase.x + otherOffset.width,
-                    y: otherBase.y + otherOffset.height
-                )
-                let otherSize = nodeSize(for: otherID)
-                let protectedOtherRect = CGRect(
-                    x: otherCenter.x - otherSize.width / 2,
-                    y: otherCenter.y - otherSize.height / 2,
-                    width: otherSize.width,
-                    height: otherSize.height
-                ).insetBy(dx: -10, dy: -10)
-                let proposedRect = CGRect(
-                    x: center.x - size.width / 2,
-                    y: center.y - size.height / 2,
-                    width: size.width,
-                    height: size.height
-                )
-                guard proposedRect.intersects(protectedOtherRect) else { continue }
-
-                let candidates = [
-                    CGPoint(x: protectedOtherRect.minX - size.width / 2, y: center.y),
-                    CGPoint(x: protectedOtherRect.maxX + size.width / 2, y: center.y),
-                    CGPoint(x: center.x, y: protectedOtherRect.minY - size.height / 2),
-                    CGPoint(x: center.x, y: protectedOtherRect.maxY + size.height / 2)
-                ]
-                center = candidates.min {
-                    hypot($0.x - center.x, $0.y - center.y)
-                        < hypot($1.x - center.x, $1.y - center.y)
-                } ?? center
-                resolvedCollision = true
-            }
-            if !resolvedCollision { break }
+        let obstacles = otherIDs.map { otherID -> CGRect in
+            let otherOffset = nodeOffsets[otherID] ?? .zero
+            let otherBase = baseWorldPosition(for: otherID)
+            let otherCenter = CGPoint(
+                x: otherBase.x + otherOffset.width,
+                y: otherBase.y + otherOffset.height
+            )
+            let otherSize = nodeSize(for: otherID)
+            return CGRect(
+                x: otherCenter.x - otherSize.width / 2,
+                y: otherCenter.y - otherSize.height / 2,
+                width: otherSize.width,
+                height: otherSize.height
+            ).insetBy(dx: -10, dy: -10)
         }
+
+        var center = start
+        let deltaX = target.x - start.x
+        var constrainedX = target.x
+
+        for obstacle in obstacles {
+            let overlapsVertically = center.y + halfHeight > obstacle.minY
+                && center.y - halfHeight < obstacle.maxY
+            guard overlapsVertically else { continue }
+
+            if deltaX > 0 {
+                let boundary = obstacle.minX - halfWidth
+                if start.x <= boundary && constrainedX > boundary {
+                    constrainedX = min(constrainedX, boundary)
+                }
+            } else if deltaX < 0 {
+                let boundary = obstacle.maxX + halfWidth
+                if start.x >= boundary && constrainedX < boundary {
+                    constrainedX = max(constrainedX, boundary)
+                }
+            }
+        }
+        center.x = constrainedX
+
+        let deltaY = target.y - start.y
+        var constrainedY = target.y
+
+        for obstacle in obstacles {
+            let overlapsHorizontally = center.x + halfWidth > obstacle.minX
+                && center.x - halfWidth < obstacle.maxX
+            guard overlapsHorizontally else { continue }
+
+            if deltaY > 0 {
+                let boundary = obstacle.minY - halfHeight
+                if start.y <= boundary && constrainedY > boundary {
+                    constrainedY = min(constrainedY, boundary)
+                }
+            } else if deltaY < 0 {
+                let boundary = obstacle.maxY + halfHeight
+                if start.y >= boundary && constrainedY < boundary {
+                    constrainedY = max(constrainedY, boundary)
+                }
+            }
+        }
+        center.y = constrainedY
 
         return CGSize(width: center.x - base.x, height: center.y - base.y)
     }
@@ -774,7 +783,6 @@ struct GraphLabView: View {
         zoom = 1
         selectedNode = .transform
         nodeOffsets = [:]
-        activeNode = nil
     }
 }
 
@@ -894,6 +902,60 @@ private struct GraphLabSavedColor: Codable {
     }
 }
 
+private struct GraphLabNodeDragState {
+    var translation = CGSize.zero
+    var isActive = false
+}
+
+private struct GraphLabDraggableNode<Content: View>: View {
+    let zoom: CGFloat
+    let storedOffset: CGSize
+    let position: CGPoint
+    let constrainedOffset: (CGSize) -> CGSize
+    let onBegan: () -> Void
+    let onEnded: (CGSize) -> Void
+    @ViewBuilder let content: (Bool) -> Content
+
+    @GestureState private var dragState = GraphLabNodeDragState()
+
+    var body: some View {
+        let proposedOffset = CGSize(
+            width: storedOffset.width + dragState.translation.width / zoom,
+            height: storedOffset.height + dragState.translation.height / zoom
+        )
+        let allowedOffset = constrainedOffset(proposedOffset)
+        let liveTranslation = CGSize(
+            width: (allowedOffset.width - storedOffset.width) * zoom,
+            height: (allowedOffset.height - storedOffset.height) * zoom
+        )
+
+        content(dragState.isActive)
+            .scaleEffect(zoom)
+            .position(position)
+            .offset(liveTranslation)
+            .transaction { transaction in
+                transaction.animation = nil
+            }
+            .gesture(dragGesture)
+    }
+
+    private var dragGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { _ in onBegan() }
+            .updating($dragState) { value, state, _ in
+                state.translation = value.translation
+                state.isActive = true
+            }
+            .onEnded { value in
+                let proposedOffset = CGSize(
+                    width: storedOffset.width + value.translation.width / zoom,
+                    height: storedOffset.height + value.translation.height / zoom
+                )
+                onEnded(constrainedOffset(proposedOffset))
+            }
+    }
+}
+
 private struct GraphLabNoodleLayer: View {
     let color: Color
     let pan: CGSize
@@ -996,14 +1058,29 @@ private struct GraphLabNodeSpecimen: View {
             .clipShape(RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous))
         } ports: {
             GeometryReader { geometry in
-                ForEach(0..<inputs.count, id: \.self) { index in
-                    port(label: inputs[index], at: index)
-                        .position(x: -style.portOffset, y: portY(index))
+                ZStack {
+                    GlassEffectContainer(spacing: 0) {
+                        ForEach(0..<inputs.count, id: \.self) { index in
+                            portShell(label: inputs[index], at: index)
+                                .position(x: -style.portOffset, y: portY(index))
+                        }
+                        ForEach(0..<outputs.count, id: \.self) { index in
+                            portShell(label: outputs[index], at: index)
+                                .position(x: geometry.size.width + style.portOffset, y: portY(index))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    ForEach(0..<inputs.count, id: \.self) { index in
+                        portCore(label: inputs[index], at: index)
+                            .position(x: -style.portOffset, y: portY(index))
+                    }
+                    ForEach(0..<outputs.count, id: \.self) { index in
+                        portCore(label: outputs[index], at: index)
+                            .position(x: geometry.size.width + style.portOffset, y: portY(index))
+                    }
                 }
-                ForEach(0..<outputs.count, id: \.self) { index in
-                    port(label: outputs[index], at: index)
-                        .position(x: geometry.size.width + style.portOffset, y: portY(index))
-                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(width: width, height: height)
@@ -1021,7 +1098,7 @@ private struct GraphLabNodeSpecimen: View {
         }
     }
 
-    private func port(label: String, at index: Int) -> some View {
+    private func portShell(label: String, at index: Int) -> some View {
         PhotaraGraphPort(
             shape: style.portShape,
             width: 14,
@@ -1029,9 +1106,22 @@ private struct GraphLabNodeSpecimen: View {
             glassTreatment: portGlassTreatment,
             glassTint: portGlassTintColor.opacity(portGlassTintOpacity),
             coreColor: semanticPortColor(for: label),
-            coreBrightness: portCoreBrightness
+            coreBrightness: portCoreBrightness,
+            showsCore: false
         )
             .accessibilityLabel("\(label) port \(index + 1)")
+    }
+
+    private func portCore(label: String, at index: Int) -> some View {
+        PhotaraGraphPortCore(
+            shape: style.portShape,
+            width: 14,
+            height: 14,
+            color: semanticPortColor(for: label),
+            brightness: portCoreBrightness
+        )
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private func semanticPortColor(for label: String) -> Color {

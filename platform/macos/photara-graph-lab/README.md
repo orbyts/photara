@@ -21,14 +21,18 @@ The deterministic scene has one-, three-, and six-row specimens plus fixed
 noodles beneath the nodes. Empty-canvas dragging pans the Graph, direct node
 dragging moves only that node, and Center Scene restores the camera and fixture
 positions. Node movement tracks the pointer directly and restores a small
-non-overlap gap on release; this remains Lab behavior rather than Core
-semantics. Live drag translation uses a direct view offset so the node follows
-the pointer without relayout. The selected node uses separately authored native
+non-overlap gap throughout the gesture; this remains Lab behavior rather than
+Core semantics. Each node owns its gesture state, and live translation uses a
+direct view offset so moving one node neither relays out the scene nor updates
+the authoring form. Axis-separated collision bounds let a dragged node slide
+along another node without crossing it. The selected node uses separately authored native
 glass treatment and tint without adding a selection outline. Shadow blur and
 vertical offset are shared between appearances; shadow opacity is authored per
 appearance. Holding or dragging a node switches from the resting to the lifted
-shadow, and release immediately restores the resting shadow. Ports
-are independent native glass beads with their own
+shadow, and release immediately restores the resting shadow. Each node groups
+all of its port shells in one native `GlassEffectContainer`; semantic SDR cores
+remain outside glass so their colors stay bright and unrefracted. Ports are
+independent native glass beads with their own
 Regular/Clear treatment, tint color, and tint amount controls; Reduce
 Transparency restores the solid semantic port treatment. Unselected and
 selected node glass likewise author tint color and amount independently. A

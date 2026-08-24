@@ -248,6 +248,7 @@ struct PhotaraGraphPort: View {
     var glassTint: Color?
     var coreColor: Color?
     var coreBrightness: Double = 0
+    var showsCore = true
 
     var body: some View {
         Group {
@@ -259,20 +260,38 @@ struct PhotaraGraphPort: View {
                             glass.tint(glassTint ?? theme?.color(.borderFocus) ?? .accentColor),
                             in: portShape
                         )
-                    portShape
-                        .fill(coreColor ?? theme?.color(.borderFocus) ?? .accentColor)
-                        .brightness(coreBrightness)
-                        .padding(min(width, height) * 0.32)
-                        .allowedDynamicRange(.standard)
+                    if showsCore {
+                        PhotaraGraphPortCore(
+                            shape: shape,
+                            width: width,
+                            height: height,
+                            color: coreColor ?? theme?.color(.borderFocus) ?? .accentColor,
+                            brightness: coreBrightness
+                        )
+                    }
                 }
             } else {
                 portShape
-                    .fill(coreColor ?? theme?.color(.borderFocus) ?? .accentColor)
-                    .brightness(coreBrightness)
+                    .fill(
+                        showsCore
+                            ? (coreColor ?? theme?.color(.borderFocus) ?? .accentColor)
+                            : (theme?.color(.graphNode) ?? Color(nsColor: .controlBackgroundColor))
+                    )
                     .overlay {
                         portShape.stroke(Color.white.opacity(0.65), lineWidth: 0.75)
                     }
                     .allowedDynamicRange(.standard)
+                    .overlay {
+                        if showsCore {
+                            PhotaraGraphPortCore(
+                                shape: shape,
+                                width: width,
+                                height: height,
+                                color: coreColor ?? theme?.color(.borderFocus) ?? .accentColor,
+                                brightness: coreBrightness
+                            )
+                        }
+                    }
             }
         }
         .frame(width: shape == .pill ? width * 1.55 : width, height: height)
@@ -283,6 +302,32 @@ struct PhotaraGraphPort: View {
         switch shape {
         case .round: AnyShape(Circle())
         case .pill: AnyShape(Capsule())
+        }
+    }
+}
+
+struct PhotaraGraphPortCore: View {
+    let shape: PhotaraGraphPortShape
+    var width: CGFloat = 12
+    var height: CGFloat = 12
+    let color: Color
+    var brightness: Double = 0
+
+    var body: some View {
+        portShape
+            .fill(color)
+            .brightness(brightness)
+            .padding(min(width, height) * 0.32)
+            .frame(width: shape == .pill ? width * 1.55 : width, height: height)
+            .allowedDynamicRange(.standard)
+    }
+
+    private var portShape: AnyShape {
+        switch shape {
+        case .round:
+            AnyShape(Circle())
+        case .pill:
+            AnyShape(Capsule())
         }
     }
 }
