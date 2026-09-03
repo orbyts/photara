@@ -4,6 +4,23 @@
 the project, metadata, naming, and collection rules. Lua presents the operator
 flow and applies the resulting plan through Lightroom's public SDK.
 
+## Versioned installation
+
+The released CLI carries its exact Lightroom bundle. Install it atomically in
+Lightroom Classic's native Modules directory and verify its checksum/version:
+
+```console
+photara plugin install
+photara plugin status
+photara plugin uninstall
+```
+
+An existing different bundle is moved to a uniquely named recoverable backup;
+Photara never symlinks the installed plugin into a mutable repository checkout.
+Uninstall is also recoverable: it moves the installed bundle to a uniquely
+named backup instead of deleting it. Reload Lightroom Classic after changing
+the installation.
+
 ## Development installation
 
 1. Install the current Photara binary at the path configured in

@@ -766,6 +766,18 @@ enum MasterCommand {
 
 #[derive(Debug, Subcommand)]
 enum PluginCommand {
+    Install {
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Status {
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Uninstall {
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
     Context {
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
@@ -1891,6 +1903,21 @@ async fn metadata(command: MetadataCommand) -> Result<()> {
 }
 
 async fn plugin(command: PluginCommand) -> Result<()> {
+    match command {
+        PluginCommand::Install { format } => {
+            print_serialized(&photara::plugin::install_lightroom_plugin()?, format)?;
+            return Ok(());
+        }
+        PluginCommand::Status { format } => {
+            print_serialized(&photara::plugin::lightroom_status()?, format)?;
+            return Ok(());
+        }
+        PluginCommand::Uninstall { format } => {
+            print_serialized(&photara::plugin::uninstall_lightroom_plugin()?, format)?;
+            return Ok(());
+        }
+        PluginCommand::Context { .. } => {}
+    }
     let config = PhotaraConfig::discover()?;
     config.validate()?;
     let database = persistence::connect_development().await?;
@@ -1898,6 +1925,9 @@ async fn plugin(command: PluginCommand) -> Result<()> {
         PluginCommand::Context { format } => {
             print_serialized(&photara::plugin::context(&database, &config).await?, format)?;
         }
+        PluginCommand::Install { .. }
+        | PluginCommand::Status { .. }
+        | PluginCommand::Uninstall { .. } => unreachable!(),
     }
     database.close().await;
     Ok(())

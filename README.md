@@ -95,14 +95,13 @@ Manage registry entries through Photara so the same application services can
 later back the Lightroom plugin or a GUI:
 
 ```console
-$ photara people add trinity-woodward \
-    --display-name "Trinity Woodward" \
-    --alias Trin --alias Trinity \
+$ photara people add kylee-nielsen \
+    --display-name "Kylee Nielsen" \
+    --alias "Kylee" \
     --role model \
-    --social instagram=@theetr1n1ty \
-    --social threads=@theetr1n1ty
-$ photara people list --json
-$ photara people show trinity-woodward
+    --social "instagram=_kylee_nielsen_"
+$ photara people list
+$ photara people show kylee-nielsen
 ```
 
 Locations and scenes follow the same `add`, `list`, and `show` pattern. Pass
@@ -167,9 +166,16 @@ Locations, Scenes, and Projects trees.
 
 ## Lightroom Classic plugin
 
-The development plugin lives at `lightroom/photara.lrplugin`. Install it through
-Lightroom Classic's Plug-in Manager, then run **Library > Plug-in Extras >
-Validate Photara Connection** for a read-only bridge check. Select the shoot
+Install or verify the exact Lightroom bundle carried by the running release:
+
+```console
+$ photara plugin install
+$ photara plugin status
+$ photara plugin uninstall
+```
+
+Reload it in Lightroom Classic's Plug-in Manager, then run **Library > Plug-in
+Extras > Validate Photara Connection** for a read-only bridge check. Select the shoot
 photos, then choose
 **Library > Plug-in Extras > Apply Project to Selected Shoot**. The plugin asks
 for an existing Photara project, previews the managed values, and requires
@@ -208,7 +214,21 @@ and can be repeated safely. In Lightroom, run **Library > Plug-in Extras >
 Apply Imported Selections** to apply the resulting keywords and reconcile the
 smart collections. Effective workflow membership is hierarchical: Hero implies
 Client Shortlist and Client Favorite, and Client Shortlist implies Client
-Favorite. Direct provider memberships remain unchanged for auditing.
+Favorite. Direct provider memberships remain unchanged for auditing. Operator
+corrections are separate overrides and never rewrite retained Pixieset
+evidence:
+
+```console
+$ photara selections add copper-mist --asset DSC09984.ARW --to hero \
+    --reason "Photographer correction"
+$ photara selections remove copper-mist --asset DSC09993.ARW --from hero \
+    --reason "Added accidentally"
+$ photara selections status copper-mist --asset DSC09993.ARW
+$ photara selections history copper-mist --asset DSC09993.ARW
+```
+
+Adding Hero implies Shortlist and Favorite; adding Shortlist implies Favorite.
+Conflicting removals fail closed unless `--cascade` is explicit.
 
 ## Lightroom Cloud evidence
 

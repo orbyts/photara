@@ -1,7 +1,28 @@
 # Codex handoff: Photara
 
 > Historical working document retained as release evidence. The `0.1.0`
-> vertical slice is complete. Last updated: 2026-08-17.
+> vertical slice is complete. Maintenance checkpoint updated: 2026-09-03.
+
+## 0.1.1 maintenance checkpoint
+
+- Maintenance work is isolated on branch `0.1.x`, cut from `v0.1.0`; do not
+  merge the generation-two `main` tree into it.
+- Copper Mist is the active operator project. Its accepted live checkpoint is
+  24 Photographer Final assets, 47 effective Client Favorites, 23 effective
+  Client Shortlist assets, and one Hero.
+- All 24 Photographer Final assets resolve in the retained Adobe inventory.
+  The no-transfer reconciliation recorded completed audit batch
+  `14a48dbe-c301-48c0-95e4-042647f92aba`; it generated and uploaded no DNGs.
+- The exact `0.1.1` Lightroom bundle is installed as a real directory in the
+  native Modules location. The CLI now owns atomic `plugin install`, byte-level
+  `plugin status`, and recoverable `plugin uninstall`; do not restore the old
+  repository symlink workflow.
+- Pixieset evidence remains immutable. Use `selections add/remove/status/history`
+  for audited operator corrections, then run Lightroom's **Apply Imported
+  Selections**. Hero implies Shortlist and Favorite; Shortlist implies Favorite.
+- Person social accounts use quoted `platform=value` arguments, for example
+  `--social "instagram=_kylee_nielsen_"`; never add an `@` unless it is
+  intentionally part of the provider value.
 
 ## Resume objective
 
@@ -26,10 +47,10 @@ Read these files before changing code:
 ## Repository and Git state
 
 - Repository: `/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara`
-- Branch: `main`
-- Current stable release: tag `v0.1.0` on `main`.
+- Maintenance branch: `0.1.x`, cut from `v0.1.0`.
+- Current release under validation: `v0.1.1` on `0.1.x`.
 - Earlier stable rollback point: commit `c9ec2db`, tag `v0.0.8`.
-- `Cargo.toml` is `0.1.0`.
+- `Cargo.toml` is `0.1.1` on the maintenance branch.
 - The `0.1.0` release includes the complete Sylvan generalization proof.
   Preserve later implementation changes; do not reset, restore, clean, or
   replace the worktree wholesale.
@@ -49,7 +70,7 @@ contracts are all included in `v0.1.0`.
 - Lightroom Classic plug-in source:
   `lightroom/photara.lrplugin`
 - Installed Lightroom plug-in: `~/Library/Application Support/Adobe/Lightroom/Modules/photara.lrplugin`
-  (linked to the repository)
+  (an exact bundled copy; verify it with `photara plugin status`)
 - Installed Photoshop scripts: `/Users/suhail/Pictures/Photara/Scripts`
   - `Prepare Photara HDR-SDR Master.psjs` is the ad-hoc prototype for the future
     UXP panel action after manual 16-bit cleanup. It must preserve an ordinary

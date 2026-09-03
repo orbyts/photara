@@ -539,6 +539,11 @@ released workflow and database rather than merging the generation-two tree
 back into it. Changes must remain additive, upgrade-safe, and reusable by a
 future Lightroom or native UI through structured application-service output.
 
+Released 2026-09-03. The live Copper Mist gate verified 24 Photographer Final
+assets, 47 effective Client Favorites, 23 Client Shortlist assets, and one
+Hero. All 24 final assets were already provider-verified, and the new no-op
+path recorded a completed audit batch without generating or uploading a DNG.
+
 #### 0.1.1 delivery slices
 
 1. **Cloud no-op reconciliation.** Use one definition of provider-verified

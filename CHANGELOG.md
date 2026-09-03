@@ -2,7 +2,7 @@
 
 All notable changes to Photara will be documented in this file.
 
-## 0.1.1 - Unreleased
+## 0.1.1 - 2026-09-03
 
 - Reconcile already-present Photographer Final assets against either current
   provider-backed presence or immutable evidence verified in the exact Adobe
@@ -17,6 +17,14 @@ All notable changes to Photara will be documented in this file.
   rotated refresh tokens, and expose a non-secret `adobe-status` diagnostic.
 - Emit explicit structured success output from `health` and `config validate`
   instead of requiring verbose tracing to distinguish success from silence.
+- Bundle the exact Lightroom Classic plug-in with the CLI and add atomic
+  `plugin install` plus byte-for-byte `plugin status` verification. Existing
+  bundles are retained as uniquely named recoverable backups instead of being
+  overwritten or symlinked to a mutable checkout.
+- Expand the photographer/operator guide with audited post-import selection
+  corrections, hierarchy and cascade behavior, no-transfer Cloud
+  reconciliation, Copper Mist's accepted `24 / 47 / 23` working checkpoint,
+  and a complete quoted `--social "instagram=value"` registry example.
 
 ## 0.1.0 - 2026-08-17
 

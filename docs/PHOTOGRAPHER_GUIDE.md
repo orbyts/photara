@@ -1,7 +1,7 @@
 # Photara photographer guide: Sylvan from import to publication
 
-This is the end-to-end operator guide for Photara `v0.1.0`, the first
-supported reusable operator workflow. It assumes Sylvan is
+This is the end-to-end operator guide for Photara `v0.1.1`, the maintained
+reusable operator workflow. It assumes Sylvan is
 already imported into Lightroom
 Classic, but has no Photara metadata, people, project, client selections, or
 publication package yet.
@@ -124,8 +124,16 @@ photara people show MODEL_SLUG
 ```
 
 To include known alternate names or social accounts on the first run, append
-one `--alias "ALTERNATE NAME"` or `--social instagram=@HANDLE` argument for
-each value.
+one `--alias "ALTERNATE NAME"` or quoted `--social "platform=value"` argument
+for each value. Copper Mist's model is a complete example:
+
+```console
+photara people add kylee-nielsen \
+  --display-name "Kylee Nielsen" \
+  --alias "Kylee" \
+  --role model \
+  --social "instagram=_kylee_nielsen_"
+```
 
 If the person already exists and you intentionally need to replace the
 registry entry, rerun the complete command with `--replace`. Never use
@@ -239,6 +247,28 @@ Hero implies Client Shortlist and Client Favorite. Client Shortlist implies
 Client Favorite. Photara retains the original Pixieset list evidence even
 while applying those effective memberships in Lightroom.
 
+For a correction discovered after import, retain the Pixieset evidence and
+record a separate audited local override. Preview it first:
+
+```console
+photara selections remove copper-mist \
+  --asset DSC09993.ARW --from hero \
+  --reason "Added accidentally" --dry-run
+
+photara selections remove copper-mist \
+  --asset DSC09993.ARW --from hero \
+  --reason "Added accidentally"
+
+photara selections status copper-mist --asset DSC09993.ARW
+photara selections history copper-mist --asset DSC09993.ARW
+```
+
+Adding Hero automatically produces effective Shortlist and Favorite
+membership. Adding Shortlist automatically produces effective Favorite
+membership. A removal that would violate that hierarchy stops unless
+`--cascade` is explicit. Rerun **Apply Imported Selections** and save metadata
+after an accepted correction.
+
 **Checkpoint:** the Sylvan selection smart collections and three managed
 selection keywords show the expected photos.
 
@@ -259,6 +289,10 @@ than merely removing the keyword; see [Recovery](#18-recovery-and-common-problem
 **Checkpoint:** the Photographer Final smart collection contains the exact
 set you intend to edit.
 
+For the in-progress Copper Mist `v0.1.1` verification, the accepted checkpoint
+is 24 Photographer Final assets, 47 effective Client Favorites, and 23
+effective Client Shortlist assets.
+
 ## 9. Send Photographer Final to Lightroom Cloud
 
 ### 9.1 Refresh the inventory
@@ -272,6 +306,8 @@ photara cloud adobe-inventory --account personal
 1. Choose **Library > Plug-in Extras > Prepare Photographer Final DNGs**.
 2. Read the plan: already-present files should be skipped and pending files
    should match Photographer Final.
+   If every asset is already verified, Photara reports **No Transfer Required**,
+   reconciles the local presence ledger, and prepares no DNGs.
 3. Confirm reservation.
 4. Choose **Test One** first.
 5. Inspect the canary DNG when Lightroom finishes.
