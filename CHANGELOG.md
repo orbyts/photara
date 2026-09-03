@@ -2,6 +2,17 @@
 
 All notable changes to Photara will be documented in this file.
 
+## 0.1.1 - Unreleased
+
+- Reconcile already-present Photographer Final assets against either current
+  provider-backed presence or immutable evidence verified in the exact Adobe
+  inventory snapshot. A fully present selection now creates only a completed
+  audit batch and reports that no transfer or DNG preparation is required.
+- Preserve Pixieset imports as immutable evidence while adding audited local
+  selection corrections with direct/effective membership, hierarchical
+  Favorite/Shortlist/Hero implications, guarded cascade removal, dry-run
+  output, current status, and append-only history.
+
 ## 0.1.0 - 2026-08-17
 
 - Treat Instagram's current 20-frame delivery capability as a maximum rather

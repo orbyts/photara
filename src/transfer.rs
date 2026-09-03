@@ -70,6 +70,7 @@ pub struct TransferReservation {
     pub expected_upload_count: usize,
     pub skipped_already_present_count: usize,
     pub reused_existing_batch: bool,
+    pub no_transfer_required: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -326,6 +327,14 @@ pub async fn reserve(
         .bind(&plan.manifest_sha256)
         .execute(&mut *transaction)
         .await?;
+    let inventory_run_id: Uuid = sqlx::query_scalar(
+        "SELECT id FROM cloud_provider_inventory_runs \
+         WHERE account_id = $1 AND snapshot_sha256 = $2",
+    )
+    .bind(account_id)
+    .bind(&plan.inventory_snapshot_sha256)
+    .fetch_one(&mut *transaction)
+    .await?;
     let existing: Option<(Uuid, String)> = sqlx::query_as(
         "SELECT id, state FROM cloud_transfer_batches \
          WHERE account_id = $1 AND project_id = $2 AND manifest_sha256 = $3",
@@ -339,14 +348,20 @@ pub async fn reserve(
         (id, state, true)
     } else {
         let id = Uuid::new_v4();
+        let initial_state = if plan.planned_count == 0 {
+            "complete"
+        } else {
+            "planned"
+        };
         sqlx::query(
             "INSERT INTO cloud_transfer_batches \
              (id, account_id, project_id, mode, state, manifest_sha256, expected_count, manifest) \
-             VALUES ($1, $2, $3, 'api', 'planned', $4, $5, $6)",
+             VALUES ($1, $2, $3, 'api', $4, $5, $6, $7)",
         )
         .bind(id)
         .bind(account_id)
         .bind(project.id)
+        .bind(initial_state)
         .bind(&plan.manifest_sha256)
         .bind(i32::try_from(plan.planned_count).map_err(|_| {
             PhotaraError::Configuration("transfer plan exceeds PostgreSQL integer range".into())
@@ -366,7 +381,7 @@ pub async fn reserve(
             .execute(&mut *transaction)
             .await?;
         }
-        (id, "planned".into(), false)
+        (id, initial_state.into(), false)
     };
 
     for item in plan
@@ -374,9 +389,10 @@ pub async fn reserve(
         .iter()
         .filter(|item| item.state == "skipped-already-present")
     {
-        let presence = existing_presence_for_source(
+        let presence = existing_presence_for_snapshot(
             &mut transaction,
             account_id,
+            inventory_run_id,
             &item.source_key,
             item.asset_id,
         )
@@ -413,6 +429,7 @@ pub async fn reserve(
         expected_upload_count: plan.planned_count,
         skipped_already_present_count: plan.skipped_already_present_count,
         reused_existing_batch,
+        no_transfer_required: plan.planned_count == 0,
     })
 }
 
@@ -1539,21 +1556,46 @@ async fn existing_presence(
     .transpose()
 }
 
-async fn existing_presence_for_source(
+async fn existing_presence_for_snapshot(
     connection: &mut sqlx::PgConnection,
     account_id: Uuid,
+    run_id: Uuid,
     source_key: &str,
     asset_id: Uuid,
 ) -> Result<Option<ExistingPresence>> {
+    if let Some(row) = sqlx::query(
+        "SELECT presence.remote_asset_id, inventory.file_name, \
+                presence.evidence_import_id \
+         FROM asset_cloud_presence AS presence \
+         JOIN cloud_provider_inventory_assets AS inventory \
+           ON inventory.run_id = $3 AND inventory.remote_asset_id = presence.remote_asset_id \
+         WHERE presence.account_id = $1 AND presence.asset_id = $2 \
+           AND presence.status = 'present' AND inventory.file_name IS NOT NULL",
+    )
+    .bind(account_id)
+    .bind(asset_id)
+    .bind(run_id)
+    .fetch_optional(&mut *connection)
+    .await?
+    {
+        return Ok(Some(ExistingPresence {
+            remote_asset_id: row.try_get("remote_asset_id")?,
+            remote_filename: row.try_get("file_name")?,
+            evidence_import_id: row.try_get("evidence_import_id")?,
+        }));
+    }
     let row = sqlx::query(
-        "SELECT evidence.remote_asset_id, evidence.dng_filename, evidence.import_id \
+        "SELECT evidence.remote_asset_id, inventory.file_name, evidence.import_id \
          FROM cloud_evidence_entries AS evidence \
          JOIN cloud_evidence_imports AS evidence_import ON evidence_import.id = evidence.import_id \
+         JOIN cloud_provider_inventory_assets AS inventory \
+           ON inventory.run_id = $3 AND inventory.remote_asset_id = evidence.remote_asset_id \
          WHERE evidence_import.account_id = $1 AND evidence.source_key = $2 \
-           AND evidence.remote_asset_id IS NOT NULL AND evidence.dng_filename IS NOT NULL",
+           AND evidence.remote_asset_id IS NOT NULL AND inventory.file_name IS NOT NULL",
     )
     .bind(account_id)
     .bind(source_key)
+    .bind(run_id)
     .fetch_optional(&mut *connection)
     .await?;
     if let Some(ref row) = row {
@@ -1577,7 +1619,7 @@ async fn existing_presence_for_source(
     row.map(|row| {
         Ok(ExistingPresence {
             remote_asset_id: row.try_get("remote_asset_id")?,
-            remote_filename: row.try_get("dng_filename")?,
+            remote_filename: row.try_get("file_name")?,
             evidence_import_id: Some(row.try_get("import_id")?),
         })
     })

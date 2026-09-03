@@ -2,8 +2,10 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use sqlx::Row;
@@ -44,6 +46,37 @@ impl SelectionKind {
     }
 }
 
+impl FromStr for SelectionKind {
+    type Err = String;
+
+    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
+        match value {
+            "client-favorite" => Ok(Self::ClientFavorite),
+            "client-shortlist" => Ok(Self::ClientShortlist),
+            "hero" => Ok(Self::Hero),
+            _ => Err(format!(
+                "unknown selection kind {value:?}; expected client-favorite, client-shortlist, or hero"
+            )),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SelectionAction {
+    Add,
+    Remove,
+}
+
+impl SelectionAction {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Add => "add",
+            Self::Remove => "remove",
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct SelectionSource {
     pub kind: SelectionKind,
@@ -65,6 +98,7 @@ pub struct SelectionPlan {
     pub project: SelectionProject,
     pub managed_keywords: Vec<KeywordPath>,
     pub assignments: Vec<SelectionAssignment>,
+    pub direct_counts: BTreeMap<String, usize>,
     pub effective_counts: BTreeMap<String, usize>,
 }
 
@@ -79,6 +113,76 @@ pub struct SelectionProject {
 pub struct SelectionAssignment {
     pub original_filename: String,
     pub keywords: Vec<KeywordPath>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct SelectionCorrectionReport {
+    pub schema_version: u32,
+    pub project: String,
+    pub asset: SelectionAsset,
+    pub action: SelectionAction,
+    pub requested_kind: SelectionKind,
+    pub cascade: bool,
+    pub dry_run: bool,
+    pub changed_kinds: Vec<SelectionKind>,
+    pub direct_before: Vec<SelectionKind>,
+    pub direct_after: Vec<SelectionKind>,
+    pub effective_before: Vec<SelectionKind>,
+    pub effective_after: Vec<SelectionKind>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct SelectionCorrection<'a> {
+    pub asset_reference: &'a str,
+    pub kind: SelectionKind,
+    pub action: SelectionAction,
+    pub reason: &'a str,
+    pub cascade: bool,
+    pub dry_run: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct SelectionStatus {
+    pub schema_version: u32,
+    pub project: String,
+    pub asset: SelectionAsset,
+    pub provider_direct: Vec<SelectionKind>,
+    pub overrides: Vec<SelectionOverride>,
+    pub direct: Vec<SelectionKind>,
+    pub effective: Vec<SelectionKind>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct SelectionHistory {
+    pub schema_version: u32,
+    pub project: String,
+    pub asset: SelectionAsset,
+    pub events: Vec<SelectionOverrideEvent>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct SelectionAsset {
+    pub id: Uuid,
+    pub source_key: String,
+    pub original_filename: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct SelectionOverride {
+    pub kind: SelectionKind,
+    pub action: SelectionAction,
+    pub reason: String,
+    pub source: String,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct SelectionOverrideEvent {
+    pub kind: SelectionKind,
+    pub action: SelectionAction,
+    pub reason: String,
+    pub source: String,
+    pub changed_at: DateTime<Utc>,
 }
 
 #[derive(Debug)]
@@ -194,7 +298,7 @@ pub async fn import_pixieset(
     }
     transaction.commit().await?;
 
-    let direct = direct_memberships(&parsed);
+    let direct = database_direct_memberships(database, project.id).await?;
     let effective = effective_memberships(&direct);
     Ok(ImportReport {
         project: project.slug.clone(),
@@ -214,22 +318,9 @@ pub async fn import_pixieset(
 }
 
 pub async fn plan(database: &Database, project: &ProjectRecord) -> Result<SelectionPlan> {
-    let rows = sqlx::query(
-        "SELECT original_filename, selection_kind FROM project_selection_memberships \
-         WHERE project_id = $1 ORDER BY original_filename, selection_kind",
-    )
-    .bind(project.id)
-    .fetch_all(database.pool())
-    .await?;
-    let mut direct: BTreeMap<SelectionKind, BTreeSet<String>> = BTreeMap::new();
-    for row in rows {
-        let kind = parse_kind(row.try_get("selection_kind")?)?;
-        direct
-            .entry(kind)
-            .or_default()
-            .insert(row.try_get("original_filename")?);
-    }
+    let direct = database_direct_memberships(database, project.id).await?;
     let effective = effective_memberships(&direct);
+    let direct_counts = counts(&direct);
     let mut by_filename: BTreeMap<String, Vec<KeywordPath>> = BTreeMap::new();
     for (kind, filenames) in &effective {
         for filename in filenames {
@@ -258,8 +349,355 @@ pub async fn plan(database: &Database, project: &ProjectRecord) -> Result<Select
                 keywords,
             })
             .collect(),
+        direct_counts,
         effective_counts: counts(&effective),
     })
+}
+
+pub async fn correct(
+    database: &Database,
+    project: &ProjectRecord,
+    correction: SelectionCorrection<'_>,
+) -> Result<SelectionCorrectionReport> {
+    let reason = correction.reason.trim();
+    if reason.is_empty() {
+        return Err(PhotaraError::Configuration(
+            "selection correction requires a non-empty reason".into(),
+        ));
+    }
+    if correction.action == SelectionAction::Add && correction.cascade {
+        return Err(PhotaraError::Configuration(
+            "--cascade applies only to selection removal".into(),
+        ));
+    }
+    let asset = resolve_asset(database, project.id, correction.asset_reference).await?;
+    let direct_before_map = database_direct_memberships(database, project.id).await?;
+    let effective_before_map = effective_memberships(&direct_before_map);
+    let direct_before = kinds_for(&direct_before_map, &asset.original_filename);
+    let effective_before = kinds_for(&effective_before_map, &asset.original_filename);
+
+    if correction.action == SelectionAction::Remove && !correction.cascade {
+        let blocking = match correction.kind {
+            SelectionKind::ClientFavorite => effective_before
+                .iter()
+                .copied()
+                .filter(|kind| *kind != SelectionKind::ClientFavorite)
+                .collect::<Vec<_>>(),
+            SelectionKind::ClientShortlist => effective_before
+                .iter()
+                .copied()
+                .filter(|kind| *kind == SelectionKind::Hero)
+                .collect::<Vec<_>>(),
+            SelectionKind::Hero => Vec::new(),
+        };
+        if !blocking.is_empty() {
+            return Err(PhotaraError::Configuration(format!(
+                "cannot remove {} while {} remains effective; retry with --cascade",
+                correction.kind.as_str(),
+                blocking
+                    .iter()
+                    .map(|kind| kind.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )));
+        }
+    }
+
+    let affected_kinds = affected_kinds(correction.kind, correction.action, correction.cascade);
+    let mut direct_after_map = direct_before_map.clone();
+    let mut changed_kinds = Vec::new();
+    for kind in &affected_kinds {
+        let members = direct_after_map.entry(*kind).or_default();
+        let changed = match correction.action {
+            SelectionAction::Add => members.insert(asset.original_filename.clone()),
+            SelectionAction::Remove => members.remove(&asset.original_filename),
+        };
+        if changed {
+            changed_kinds.push(*kind);
+        }
+    }
+    let effective_after_map = effective_memberships(&direct_after_map);
+
+    if !correction.dry_run && !changed_kinds.is_empty() {
+        let mut transaction = database.begin().await?;
+        for kind in &changed_kinds {
+            sqlx::query(
+                "INSERT INTO project_selection_overrides \
+                 (project_id, asset_id, selection_kind, action, reason, source, updated_at) \
+                 VALUES ($1, $2, $3, $4, $5, 'operator-command', now()) \
+                 ON CONFLICT (project_id, asset_id, selection_kind) DO UPDATE SET \
+                   action = EXCLUDED.action, reason = EXCLUDED.reason, \
+                   source = EXCLUDED.source, updated_at = now()",
+            )
+            .bind(project.id)
+            .bind(asset.id)
+            .bind(kind.as_str())
+            .bind(correction.action.as_str())
+            .bind(reason)
+            .execute(&mut *transaction)
+            .await?;
+            sqlx::query(
+                "INSERT INTO project_selection_override_events \
+                 (project_id, asset_id, selection_kind, action, reason, source) \
+                 VALUES ($1, $2, $3, $4, $5, 'operator-command')",
+            )
+            .bind(project.id)
+            .bind(asset.id)
+            .bind(kind.as_str())
+            .bind(correction.action.as_str())
+            .bind(reason)
+            .execute(&mut *transaction)
+            .await?;
+        }
+        transaction.commit().await?;
+    }
+
+    let direct_after = kinds_for(&direct_after_map, &asset.original_filename);
+    let effective_after = kinds_for(&effective_after_map, &asset.original_filename);
+    Ok(SelectionCorrectionReport {
+        schema_version: 1,
+        project: project.slug.clone(),
+        asset,
+        action: correction.action,
+        requested_kind: correction.kind,
+        cascade: correction.cascade,
+        dry_run: correction.dry_run,
+        changed_kinds,
+        direct_before,
+        direct_after,
+        effective_before,
+        effective_after,
+    })
+}
+
+pub async fn status(
+    database: &Database,
+    project: &ProjectRecord,
+    asset_reference: &str,
+) -> Result<SelectionStatus> {
+    let asset = resolve_asset(database, project.id, asset_reference).await?;
+    let provider = provider_direct_memberships(database, project.id).await?;
+    let direct = database_direct_memberships(database, project.id).await?;
+    let effective = effective_memberships(&direct);
+    let overrides = load_overrides(database, project.id, Some(asset.id)).await?;
+    Ok(SelectionStatus {
+        schema_version: 1,
+        project: project.slug.clone(),
+        provider_direct: kinds_for(&provider, &asset.original_filename),
+        direct: kinds_for(&direct, &asset.original_filename),
+        effective: kinds_for(&effective, &asset.original_filename),
+        overrides,
+        asset,
+    })
+}
+
+pub async fn history(
+    database: &Database,
+    project: &ProjectRecord,
+    asset_reference: &str,
+) -> Result<SelectionHistory> {
+    let asset = resolve_asset(database, project.id, asset_reference).await?;
+    let events = sqlx::query(
+        "SELECT selection_kind, action, reason, source, changed_at \
+         FROM project_selection_override_events \
+         WHERE project_id = $1 AND asset_id = $2 ORDER BY changed_at, id",
+    )
+    .bind(project.id)
+    .bind(asset.id)
+    .fetch_all(database.pool())
+    .await?
+    .into_iter()
+    .map(|row| {
+        Ok(SelectionOverrideEvent {
+            kind: parse_kind(row.try_get("selection_kind")?)?,
+            action: parse_action(row.try_get("action")?)?,
+            reason: row.try_get("reason")?,
+            source: row.try_get("source")?,
+            changed_at: row.try_get("changed_at")?,
+        })
+    })
+    .collect::<Result<Vec<_>>>()?;
+    Ok(SelectionHistory {
+        schema_version: 1,
+        project: project.slug.clone(),
+        asset,
+        events,
+    })
+}
+
+async fn resolve_asset(
+    database: &Database,
+    project_id: Uuid,
+    asset_reference: &str,
+) -> Result<SelectionAsset> {
+    let asset_reference = asset_reference.trim();
+    if asset_reference.is_empty() {
+        return Err(PhotaraError::Configuration(
+            "selection correction requires an asset filename or source key".into(),
+        ));
+    }
+    let rows = sqlx::query(
+        "SELECT DISTINCT asset.id, asset.original_filename, file.location \
+         FROM project_assets AS membership \
+         JOIN assets AS asset ON asset.id = membership.asset_id \
+         JOIN asset_files AS file ON file.asset_id = asset.id \
+           AND file.representation = 'camera-raw' AND file.state = 'current' \
+         WHERE membership.project_id = $1 \
+           AND (file.location = $2 OR lower(asset.original_filename) = lower($2)) \
+         ORDER BY file.location",
+    )
+    .bind(project_id)
+    .bind(asset_reference)
+    .fetch_all(database.pool())
+    .await?;
+    if rows.is_empty() {
+        return Err(PhotaraError::Configuration(format!(
+            "project asset {asset_reference:?} was not found"
+        )));
+    }
+    if rows.len() > 1 {
+        return Err(PhotaraError::Configuration(format!(
+            "project asset filename {asset_reference:?} is ambiguous; use its canonical source key"
+        )));
+    }
+    let row = &rows[0];
+    Ok(SelectionAsset {
+        id: row.try_get("id")?,
+        original_filename: row.try_get("original_filename")?,
+        source_key: row.try_get("location")?,
+    })
+}
+
+async fn provider_direct_memberships(
+    database: &Database,
+    project_id: Uuid,
+) -> Result<BTreeMap<SelectionKind, BTreeSet<String>>> {
+    let rows = sqlx::query(
+        "SELECT original_filename, selection_kind FROM project_selection_memberships \
+         WHERE project_id = $1 ORDER BY original_filename, selection_kind",
+    )
+    .bind(project_id)
+    .fetch_all(database.pool())
+    .await?;
+    let mut direct = BTreeMap::from([
+        (SelectionKind::ClientFavorite, BTreeSet::new()),
+        (SelectionKind::ClientShortlist, BTreeSet::new()),
+        (SelectionKind::Hero, BTreeSet::new()),
+    ]);
+    for row in rows {
+        direct
+            .entry(parse_kind(row.try_get("selection_kind")?)?)
+            .or_insert_with(BTreeSet::new)
+            .insert(row.try_get("original_filename")?);
+    }
+    Ok(direct)
+}
+
+async fn database_direct_memberships(
+    database: &Database,
+    project_id: Uuid,
+) -> Result<BTreeMap<SelectionKind, BTreeSet<String>>> {
+    let mut direct = provider_direct_memberships(database, project_id).await?;
+    let rows = sqlx::query(
+        "SELECT asset.original_filename, correction.selection_kind, correction.action \
+         FROM project_selection_overrides AS correction \
+         JOIN assets AS asset ON asset.id = correction.asset_id \
+         WHERE correction.project_id = $1 \
+         ORDER BY asset.original_filename, correction.selection_kind",
+    )
+    .bind(project_id)
+    .fetch_all(database.pool())
+    .await?;
+    for row in rows {
+        let filename: String = row.try_get("original_filename")?;
+        let kind = parse_kind(row.try_get("selection_kind")?)?;
+        match parse_action(row.try_get("action")?)? {
+            SelectionAction::Add => {
+                direct.entry(kind).or_default().insert(filename);
+            }
+            SelectionAction::Remove => {
+                direct.entry(kind).or_default().remove(&filename);
+            }
+        }
+    }
+    Ok(direct)
+}
+
+async fn load_overrides(
+    database: &Database,
+    project_id: Uuid,
+    asset_id: Option<Uuid>,
+) -> Result<Vec<SelectionOverride>> {
+    sqlx::query(
+        "SELECT selection_kind, action, reason, source, updated_at \
+         FROM project_selection_overrides \
+         WHERE project_id = $1 AND ($2::uuid IS NULL OR asset_id = $2) \
+         ORDER BY selection_kind",
+    )
+    .bind(project_id)
+    .bind(asset_id)
+    .fetch_all(database.pool())
+    .await?
+    .into_iter()
+    .map(|row| {
+        Ok(SelectionOverride {
+            kind: parse_kind(row.try_get("selection_kind")?)?,
+            action: parse_action(row.try_get("action")?)?,
+            reason: row.try_get("reason")?,
+            source: row.try_get("source")?,
+            updated_at: row.try_get("updated_at")?,
+        })
+    })
+    .collect()
+}
+
+fn affected_kinds(
+    requested: SelectionKind,
+    action: SelectionAction,
+    cascade: bool,
+) -> Vec<SelectionKind> {
+    if action != SelectionAction::Remove || !cascade {
+        return vec![requested];
+    }
+    match requested {
+        SelectionKind::ClientFavorite => vec![
+            SelectionKind::ClientFavorite,
+            SelectionKind::ClientShortlist,
+            SelectionKind::Hero,
+        ],
+        SelectionKind::ClientShortlist => {
+            vec![SelectionKind::ClientShortlist, SelectionKind::Hero]
+        }
+        SelectionKind::Hero => vec![SelectionKind::Hero],
+    }
+}
+
+fn kinds_for(
+    memberships: &BTreeMap<SelectionKind, BTreeSet<String>>,
+    filename: &str,
+) -> Vec<SelectionKind> {
+    [
+        SelectionKind::ClientFavorite,
+        SelectionKind::ClientShortlist,
+        SelectionKind::Hero,
+    ]
+    .into_iter()
+    .filter(|kind| {
+        memberships
+            .get(kind)
+            .is_some_and(|members| members.contains(filename))
+    })
+    .collect()
+}
+
+fn parse_action(value: &str) -> Result<SelectionAction> {
+    match value {
+        "add" => Ok(SelectionAction::Add),
+        "remove" => Ok(SelectionAction::Remove),
+        _ => Err(PhotaraError::Configuration(format!(
+            "unknown selection override action {value:?}"
+        ))),
+    }
 }
 
 fn parse_pixieset(
@@ -406,22 +844,6 @@ fn raw_manifest(source_root: &Path) -> Result<BTreeMap<String, String>> {
     Ok(manifest)
 }
 
-fn direct_memberships(selections: &[ParsedSelection]) -> BTreeMap<SelectionKind, BTreeSet<String>> {
-    selections
-        .iter()
-        .map(|selection| {
-            (
-                selection.kind,
-                selection
-                    .entries
-                    .iter()
-                    .map(|entry| entry.original_filename.clone())
-                    .collect(),
-            )
-        })
-        .collect()
-}
-
 fn effective_memberships(
     direct: &BTreeMap<SelectionKind, BTreeSet<String>>,
 ) -> BTreeMap<SelectionKind, BTreeSet<String>> {
@@ -509,5 +931,37 @@ mod tests {
         assert_eq!(effective[&SelectionKind::Hero].len(), 1);
         assert_eq!(effective[&SelectionKind::ClientShortlist].len(), 2);
         assert_eq!(effective[&SelectionKind::ClientFavorite].len(), 3);
+    }
+
+    #[test]
+    fn cascade_removal_preserves_the_selection_hierarchy() {
+        assert_eq!(
+            affected_kinds(SelectionKind::ClientFavorite, SelectionAction::Remove, true),
+            vec![
+                SelectionKind::ClientFavorite,
+                SelectionKind::ClientShortlist,
+                SelectionKind::Hero,
+            ]
+        );
+        assert_eq!(
+            affected_kinds(
+                SelectionKind::ClientShortlist,
+                SelectionAction::Remove,
+                true
+            ),
+            vec![SelectionKind::ClientShortlist, SelectionKind::Hero]
+        );
+        assert_eq!(
+            affected_kinds(SelectionKind::Hero, SelectionAction::Remove, true),
+            vec![SelectionKind::Hero]
+        );
+    }
+
+    #[test]
+    fn additions_need_only_the_requested_direct_membership() {
+        assert_eq!(
+            affected_kinds(SelectionKind::Hero, SelectionAction::Add, false),
+            vec![SelectionKind::Hero]
+        );
     }
 }

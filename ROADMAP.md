@@ -6,7 +6,9 @@ and every photography-specific decision.
 
 `0.1.0` is the first released reusable operator workflow. Versions `0.0.1`
 through `0.0.9` remain Git checkpoints. Architectural work begins only with a
-separate `0.2.0` discovery and dependency-mapping pass.
+separate `0.2.0` discovery and dependency-mapping pass. The `0.1.x` branch is
+the supported maintenance line for the complete CLI, Lightroom Classic, and
+Photoshop workflow while generation two develops independently on `main`.
 
 ## Representation ownership invariants
 
@@ -529,6 +531,63 @@ source placements in one parent canvas. Repeated assets are intentional.
 - Existing MIT releases remain MIT. Before productization or external
   distribution, deliberately review Photara's commercial boundary and future
   license. This roadmap does not select that license.
+
+### 0.1.1 — legacy workflow maintenance and recovery
+
+`0.1.1` is cut from `v0.1.0` on the dedicated `0.1.x` branch. It preserves the
+released workflow and database rather than merging the generation-two tree
+back into it. Changes must remain additive, upgrade-safe, and reusable by a
+future Lightroom or native UI through structured application-service output.
+
+#### 0.1.1 delivery slices
+
+1. **Cloud no-op reconciliation.** Use one definition of provider-verified
+   presence during transfer preview and reservation. Accept either a current
+   provider-backed presence record or immutable imported evidence that still
+   resolves in the exact Adobe inventory snapshot. Reconcile missing local
+   presence rows transactionally. When every Photographer Final asset is
+   already present, report `no-transfer-required`, create no upload workload,
+   and tell Lightroom that zero DNGs need preparation. A failure must leave no
+   partial batch, item, evidence link, or presence update.
+2. **Audited client-selection corrections.** Keep Pixieset imports immutable
+   and store operator additions/removals in a separate current override table
+   plus append-only event history. Add idempotent `selections add`, `remove`,
+   `status`, and `history` commands with required reasons, dry-run output, exact
+   asset resolution, and explicit cascade behavior. Enforce
+   `Hero ⊆ Client Shortlist ⊆ Client Favorites`; Photographer Final remains
+   independent. Lightroom reconciliation consumes provider evidence plus the
+   local override ledger and reports both direct and effective membership.
+3. **Adobe authentication recovery.** Preserve secrets in Keychain, parse and
+   sanitize Adobe OAuth error bodies, distinguish revoked/expired grants from
+   client configuration and transient provider failures, detect client-ID
+   mismatch, persist rotated refresh tokens atomically, and provide an
+   actionable `adobe-status`/`adobe-doctor` path. Never print authorization
+   codes, access tokens, refresh tokens, or client secrets.
+4. **Observable health and configuration.** Successful `health` and
+   `config validate` commands emit explicit human-readable or structured
+   results for configuration, database, credentials, storage roots, Adobe
+   connectivity, and installed integration versions. Remove misleading
+   connection-string warnings without weakening TLS requirements.
+5. **Self-contained Lightroom installation.** Package the exact release
+   plug-in and add install, status, verification, and uninstall commands for
+   Lightroom Classic's native Modules directory. Installation is atomic,
+   version-aware, checksum-verified, and recoverable; it never symlinks into a
+   mutable source checkout. Detect incompatible CLI/plug-in versions clearly.
+6. **Documentation and release engineering.** Add a concise `0.1.x` operator
+   guide covering reauthentication, integration installation, selection
+   corrections, XMP persistence, backups, retries, and recovery. Test a fresh
+   install and an in-place `v0.1.0` migration, mock OAuth failure classes,
+   exercise selection add/remove/restore and Cloud no-op idempotency, run the
+   existing Red Meridian/Sylvan regressions, and publish the CLI, Lightroom
+   bundle, checksums, and release notes together under tag `v0.1.1`.
+
+#### 0.1.1 exclusions
+
+- No generation-two Core, node-runtime, bridge, SwiftUI, or database redesign.
+- No new publishing provider, layout system, visual editor, or product GUI.
+- No undocumented Adobe endpoint and no attempt to bypass Adobe approval.
+- No wholesale merge of `0.1.x` into `main`; reusable work is salvaged later as
+  reviewed application services or individual commits.
 
 ### 0.2.0 — operator experience and visual authoring
 

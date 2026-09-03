@@ -1158,6 +1158,23 @@ function M.planPhotographerFinalTransfer()
     local plan = runPhotara(
         "cloud transfer-plan " .. shellQuote(projectSlug) .. " --account personal --format lua"
     )
+    if plan.planned_count == 0 then
+        local reservation = runPhotara(
+            "cloud reserve-transfer " .. shellQuote(projectSlug) ..
+            " --account personal --format lua"
+        )
+        LrDialogs.message(
+            "Photara — No Transfer Required",
+            "Photographer Final: " .. tostring(plan.photographer_final_count) .. "\n" ..
+            "Already verified in Cloud: " ..
+                tostring(plan.skipped_already_present_count) .. "\n" ..
+            "DNGs to prepare: 0\n\n" ..
+            "Cloud presence was reconciled successfully. No DNGs were generated or uploaded.\n\n" ..
+            "Audit batch: " .. tostring(reservation.batch_id),
+            "info"
+        )
+        return
+    end
     local preview = {}
     for _, item in ipairs(plan.items or {}) do
         if item.state == "planned" and #preview < 5 then

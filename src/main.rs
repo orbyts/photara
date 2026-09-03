@@ -12,7 +12,7 @@ use photara::{
     master, persistence,
     project::{self, NewProject, ProjectOrigin},
     publication,
-    selection::{self, SelectionKind, SelectionSource},
+    selection::{self, SelectionAction, SelectionCorrection, SelectionKind, SelectionSource},
     transfer, withdrawal,
 };
 use serde::Serialize;
@@ -749,6 +749,48 @@ enum PluginCommand {
 #[derive(Debug, Subcommand)]
 enum SelectionCommand {
     ImportPixieset(PixiesetImport),
+    Add {
+        project: String,
+        #[arg(long)]
+        asset: String,
+        #[arg(long = "to")]
+        kind: SelectionKind,
+        #[arg(long)]
+        reason: String,
+        #[arg(long)]
+        dry_run: bool,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Remove {
+        project: String,
+        #[arg(long)]
+        asset: String,
+        #[arg(long = "from")]
+        kind: SelectionKind,
+        #[arg(long)]
+        reason: String,
+        #[arg(long)]
+        cascade: bool,
+        #[arg(long)]
+        dry_run: bool,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    Status {
+        project: String,
+        #[arg(long)]
+        asset: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
+    History {
+        project: String,
+        #[arg(long)]
+        asset: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
     Plan {
         project: String,
         #[arg(long, value_enum, default_value = "json")]
@@ -1693,6 +1735,89 @@ async fn selections(command: SelectionCommand) -> Result<()> {
                     .await?
                 )?
             );
+        }
+        SelectionCommand::Add {
+            project: slug,
+            asset,
+            kind,
+            reason,
+            dry_run,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &selection::correct(
+                    &database,
+                    &project,
+                    SelectionCorrection {
+                        asset_reference: &asset,
+                        kind,
+                        action: SelectionAction::Add,
+                        reason: &reason,
+                        cascade: false,
+                        dry_run,
+                    },
+                )
+                .await?,
+                format,
+            )?;
+        }
+        SelectionCommand::Remove {
+            project: slug,
+            asset,
+            kind,
+            reason,
+            cascade,
+            dry_run,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &selection::correct(
+                    &database,
+                    &project,
+                    SelectionCorrection {
+                        asset_reference: &asset,
+                        kind,
+                        action: SelectionAction::Remove,
+                        reason: &reason,
+                        cascade,
+                        dry_run,
+                    },
+                )
+                .await?,
+                format,
+            )?;
+        }
+        SelectionCommand::Status {
+            project: slug,
+            asset,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &selection::status(&database, &project, &asset).await?,
+                format,
+            )?;
+        }
+        SelectionCommand::History {
+            project: slug,
+            asset,
+            format,
+        } => {
+            let project = project::find(&database, &slug).await?.ok_or_else(|| {
+                photara::PhotaraError::Configuration(format!("project {slug:?} was not found"))
+            })?;
+            print_serialized(
+                &selection::history(&database, &project, &asset).await?,
+                format,
+            )?;
         }
         SelectionCommand::Plan {
             project: slug,
