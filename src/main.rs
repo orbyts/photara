@@ -30,6 +30,26 @@ struct TerminalMasterProgress {
     enabled: bool,
 }
 
+#[derive(Debug, Serialize)]
+struct HealthReport {
+    schema_version: u32,
+    status: &'static str,
+    provider: String,
+    server_version: String,
+    latency_ms: u128,
+}
+
+#[derive(Debug, Serialize)]
+struct ConfigValidationReport {
+    schema_version: u32,
+    status: &'static str,
+    config_root: PathBuf,
+    images_root: PathBuf,
+    projects_root: PathBuf,
+    lightroom_inbox: PathBuf,
+    templates_root: PathBuf,
+}
+
 impl TerminalMasterProgress {
     fn new() -> Self {
         Self {
@@ -507,6 +527,12 @@ enum CloudCommand {
         account: String,
     },
     AdobeProbe,
+    AdobeStatus {
+        #[arg(long, default_value = "personal")]
+        account: String,
+        #[arg(long, value_enum, default_value = "json")]
+        format: SerializationFormat,
+    },
     AdobeVerify {
         #[arg(long, default_value = "personal")]
         account: String,
@@ -1354,6 +1380,25 @@ async fn master_checkpoint(
 }
 
 async fn cloud_command(command: CloudCommand) -> Result<()> {
+    let command = match command {
+        CloudCommand::AdobeLogout { account } => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&adobe::logout(&account)?)?
+            );
+            return Ok(());
+        }
+        CloudCommand::AdobeProbe => {
+            let report = adobe::probe().await?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            return Ok(());
+        }
+        CloudCommand::AdobeStatus { account, format } => {
+            print_serialized(&adobe::status(&account)?, format)?;
+            return Ok(());
+        }
+        command => command,
+    };
     let database = persistence::connect_development().await?;
     match command {
         CloudCommand::AdobeLogin { account } => {
@@ -1361,22 +1406,15 @@ async fn cloud_command(command: CloudCommand) -> Result<()> {
             cloud::register_remote_catalog(&database, &account, &report.catalog_id).await?;
             println!("{}", serde_json::to_string_pretty(&report)?);
         }
-        CloudCommand::AdobeLogout { account } => {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&adobe::logout(&account)?)?
-            );
-        }
         CloudCommand::AdobeInventory { account } => {
             let inventory = adobe::inventory(&account).await?;
             cloud::register_remote_catalog(&database, &account, &inventory.catalog_id).await?;
             let report = cloud::record_adobe_inventory(&database, &account, &inventory).await?;
             println!("{}", serde_json::to_string_pretty(&report)?);
         }
-        CloudCommand::AdobeProbe => {
-            let report = adobe::probe().await?;
-            println!("{}", serde_json::to_string_pretty(&report)?);
-        }
+        CloudCommand::AdobeLogout { .. }
+        | CloudCommand::AdobeProbe
+        | CloudCommand::AdobeStatus { .. } => unreachable!(),
         CloudCommand::AdobeVerify { account } => {
             let report = adobe::verify(&account).await?;
             cloud::register_remote_catalog(&database, &account, &report.catalog_id).await?;
@@ -1882,6 +1920,16 @@ async fn health() -> Result<()> {
         latency_ms = report.latency.as_millis(),
         "Photara database is healthy"
     );
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&HealthReport {
+            schema_version: 1,
+            status: "healthy",
+            provider: database.provider().to_string(),
+            server_version: report.server_version,
+            latency_ms: report.latency.as_millis(),
+        })?
+    );
     database.close().await;
     Ok(())
 }
@@ -1907,6 +1955,18 @@ fn config(command: ConfigCommand) -> Result<()> {
             let config = PhotaraConfig::discover()?;
             config.validate()?;
             info!(path = %config.root.display(), "Photara configuration is valid");
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&ConfigValidationReport {
+                    schema_version: 1,
+                    status: "valid",
+                    config_root: config.root,
+                    images_root: config.settings.images_root,
+                    projects_root: config.settings.projects_root,
+                    lightroom_inbox: config.settings.lightroom_inbox,
+                    templates_root: config.settings.templates_root,
+                })?
+            );
         }
     }
     Ok(())

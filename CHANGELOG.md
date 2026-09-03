@@ -12,6 +12,11 @@ All notable changes to Photara will be documented in this file.
   selection corrections with direct/effective membership, hierarchical
   Favorite/Shortlist/Hero implications, guarded cascade removal, dry-run
   output, current status, and append-only history.
+- Report sanitized Adobe OAuth failure classes with direct reauthentication
+  guidance, detect stored credentials issued for a different client ID, retain
+  rotated refresh tokens, and expose a non-secret `adobe-status` diagnostic.
+- Emit explicit structured success output from `health` and `config validate`
+  instead of requiring verbose tracing to distinguish success from silence.
 
 ## 0.1.0 - 2026-08-17
 

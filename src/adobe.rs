@@ -47,6 +47,12 @@ struct TokenResponse {
 }
 
 #[derive(Debug, Deserialize)]
+struct OAuthErrorResponse {
+    error: Option<String>,
+    error_description: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct CatalogResponse {
     id: String,
 }
@@ -174,6 +180,17 @@ pub struct AdobeLogoutReport {
     pub provider: String,
     pub account_label: String,
     pub credential_removed: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct AdobeStatusReport {
+    pub provider: String,
+    pub account_label: String,
+    pub configuration_valid: bool,
+    pub refresh_token_stored: bool,
+    pub client_id_fingerprint: String,
+    pub credential_client_id_fingerprint: Option<String>,
+    pub credential_matches_client_id: Option<bool>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -322,6 +339,10 @@ pub async fn login(account_label: &str) -> Result<AdobeLoginReport> {
         )
     })?;
     SystemCredentialStore.save(&refresh_id, refresh_token.as_bytes())?;
+    SystemCredentialStore.save(
+        &client_fingerprint_id(account_label)?,
+        client_id_fingerprint(&config.client_id).as_bytes(),
+    )?;
     show_browser_success()?;
     Ok(AdobeLoginReport {
         provider: ADOBE_LIGHTROOM_PROVIDER.into(),
@@ -821,20 +842,57 @@ async fn refreshed_session(
         PhotaraError::Credential("stored Adobe refresh token is not valid UTF-8".into())
     })?;
     let config = AdobeOAuthConfig::from_environment()?;
+    let fingerprint_id = client_fingerprint_id(account_label)?;
+    let configured_fingerprint = client_id_fingerprint(&config.client_id);
+    if let Some(stored_fingerprint) = store.load(&fingerprint_id)? {
+        let stored_fingerprint = String::from_utf8(stored_fingerprint).map_err(|_| {
+            PhotaraError::Credential("stored Adobe client-ID fingerprint is not valid UTF-8".into())
+        })?;
+        if stored_fingerprint != configured_fingerprint {
+            return Err(PhotaraError::Configuration(format!(
+                "Adobe credential for account {account_label:?} was issued for a different client ID; run `photara cloud adobe-login --account {account_label}`"
+            )));
+        }
+    }
     let client = Client::new();
-    let token = refresh_access_token(&client, &config, &refresh_token).await?;
+    let token = refresh_access_token(&client, &config, &refresh_token, account_label).await?;
     if let Some(rotated) = token.refresh_token.as_deref() {
         store.save(&refresh_id, rotated.as_bytes())?;
     }
+    store.save(&fingerprint_id, configured_fingerprint.as_bytes())?;
     Ok((client, config, token))
 }
 
 pub fn logout(account_label: &str) -> Result<AdobeLogoutReport> {
     let removed = SystemCredentialStore.delete(&refresh_token_id(account_label)?)?;
+    SystemCredentialStore.delete(&client_fingerprint_id(account_label)?)?;
     Ok(AdobeLogoutReport {
         provider: ADOBE_LIGHTROOM_PROVIDER.into(),
         account_label: account_label.into(),
         credential_removed: removed,
+    })
+}
+
+pub fn status(account_label: &str) -> Result<AdobeStatusReport> {
+    let config = AdobeOAuthConfig::from_environment()?;
+    let store = SystemCredentialStore;
+    let refresh_token_stored = store.load(&refresh_token_id(account_label)?)?.is_some();
+    let configured = client_id_fingerprint(&config.client_id);
+    let stored = store
+        .load(&client_fingerprint_id(account_label)?)?
+        .map(String::from_utf8)
+        .transpose()
+        .map_err(|_| {
+            PhotaraError::Credential("stored Adobe client-ID fingerprint is not valid UTF-8".into())
+        })?;
+    Ok(AdobeStatusReport {
+        provider: ADOBE_LIGHTROOM_PROVIDER.into(),
+        account_label: account_label.into(),
+        configuration_valid: true,
+        refresh_token_stored,
+        client_id_fingerprint: configured.clone(),
+        credential_matches_client_id: stored.as_ref().map(|value| value == &configured),
+        credential_client_id_fingerprint: stored,
     })
 }
 
@@ -851,7 +909,7 @@ async fn authorize(client: &Client, config: &AdobeOAuthConfig) -> Result<TokenRe
     eprintln!("Waiting for Adobe to return authorization to Photara...");
     let callback = receiver.wait().await?;
     let code = config.authorization_code(&callback, &request.state)?;
-    Ok(client
+    let response = client
         .post(TOKEN_ENDPOINT)
         .query(&[("client_id", config.client_id.as_str())])
         .form(&[
@@ -860,18 +918,17 @@ async fn authorize(client: &Client, config: &AdobeOAuthConfig) -> Result<TokenRe
             ("code_verifier", request.verifier.as_str()),
         ])
         .send()
-        .await?
-        .error_for_status()?
-        .json()
-        .await?)
+        .await?;
+    token_response(response, None).await
 }
 
 async fn refresh_access_token(
     client: &Client,
     config: &AdobeOAuthConfig,
     refresh_token: &str,
+    account_label: &str,
 ) -> Result<TokenResponse> {
-    Ok(client
+    let response = client
         .post(TOKEN_ENDPOINT)
         .query(&[("client_id", config.client_id.as_str())])
         .form(&[
@@ -879,10 +936,8 @@ async fn refresh_access_token(
             ("refresh_token", refresh_token),
         ])
         .send()
-        .await?
-        .error_for_status()?
-        .json()
-        .await?)
+        .await?;
+    token_response(response, Some(account_label)).await
 }
 
 async fn catalog(
@@ -903,6 +958,59 @@ async fn catalog(
 
 fn refresh_token_id(account_label: &str) -> Result<SecretId> {
     SecretId::new(ADOBE_LIGHTROOM_PROVIDER, account_label, "refresh-token")
+}
+
+fn client_fingerprint_id(account_label: &str) -> Result<SecretId> {
+    SecretId::new(
+        ADOBE_LIGHTROOM_PROVIDER,
+        account_label,
+        "oauth-client-id-sha256",
+    )
+}
+
+fn client_id_fingerprint(client_id: &str) -> String {
+    format!("{:x}", Sha256::digest(client_id.as_bytes()))[..12].to_owned()
+}
+
+async fn token_response(
+    response: reqwest::Response,
+    account_label: Option<&str>,
+) -> Result<TokenResponse> {
+    let status = response.status();
+    if status.is_success() {
+        return Ok(response.json().await?);
+    }
+    let body = response.text().await.unwrap_or_default();
+    Err(PhotaraError::Configuration(oauth_failure_message(
+        status,
+        &body,
+        account_label,
+    )))
+}
+
+fn oauth_failure_message(status: StatusCode, body: &str, account_label: Option<&str>) -> String {
+    let parsed = serde_json::from_str::<OAuthErrorResponse>(body).ok();
+    let code = parsed
+        .as_ref()
+        .and_then(|error| error.error.as_deref())
+        .unwrap_or("unknown_error");
+    let description = parsed
+        .as_ref()
+        .and_then(|error| error.error_description.as_deref())
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let detail = description
+        .map(|value| format!(": {value}"))
+        .unwrap_or_default();
+    match (code, account_label) {
+        ("invalid_grant", Some(account)) => format!(
+            "Adobe authorization is expired, revoked, or no longer valid ({status}, {code}){detail}; run `photara cloud adobe-login --account {account}`"
+        ),
+        ("invalid_client", Some(account)) => format!(
+            "Adobe rejected the configured client ID ({status}, {code}){detail}; verify PHOTARA_ADOBE_CLIENT_ID and then run `photara cloud adobe-login --account {account}`"
+        ),
+        _ => format!("Adobe OAuth token request failed ({status}, {code}){detail}"),
+    }
 }
 
 fn validate_lightroom_url(url: &Url) -> Result<()> {
@@ -1190,6 +1298,29 @@ mod tests {
         assert_eq!(
             strip_lightroom_json_prefix("  while (1) {}\n{\"id\":\"catalog\"}"),
             "{\"id\":\"catalog\"}"
+        );
+    }
+
+    #[test]
+    fn invalid_grant_explains_how_to_reauthenticate_without_echoing_secrets() {
+        let message = oauth_failure_message(
+            StatusCode::BAD_REQUEST,
+            r#"{"error":"invalid_grant","error_description":"Refresh token expired"}"#,
+            Some("personal"),
+        );
+        assert!(message.contains("adobe-login --account personal"));
+        assert!(message.contains("invalid_grant"));
+        assert!(!message.contains("refresh_token="));
+    }
+
+    #[test]
+    fn client_id_fingerprint_is_stable_and_non_revealing() {
+        let fingerprint = client_id_fingerprint("private-client-identifier");
+        assert_eq!(fingerprint.len(), 12);
+        assert_ne!(fingerprint, "private-client-identifier");
+        assert_eq!(
+            fingerprint,
+            client_id_fingerprint("private-client-identifier")
         );
     }
 }
