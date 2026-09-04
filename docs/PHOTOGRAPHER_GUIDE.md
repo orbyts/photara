@@ -609,6 +609,13 @@ photara posts add-edit-comparison sylvan package-a \
   --top DSC01234.ARW --bottom DSC01238.ARW
 ```
 
+Three-image stacks work on both platforms. With no `--rows` option they use an
+equal one-third distribution. To emphasize the center image, add
+`--rows 30,40,30`; Photara derives the exact crop-selection dimensions
+independently for Instagram and Threads. Percentages must total 100 unless
+`--outer-letterbox` explicitly permits centered black padding, for example
+`--rows 25,40,25 --outer-letterbox`.
+
 `add-full-frame` and `add-grid-four` accept `--fit fill`, `--fit contain`, or
 `--fit crop`. Use `set-fit` to change any existing placement or to give the
 slots of a multi-image item different policies:

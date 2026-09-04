@@ -24,6 +24,17 @@
   `--social "instagram=_kylee_nielsen_"`; never add an `@` unless it is
   intentionally part of the provider value.
 
+## 0.1.2 stacked-layout checkpoint
+
+- `stacked-three@2` is the default three-row template on the `0.1.x` line.
+- `posts add-stacked-three --rows 30,40,30` stores project-owned proportions;
+  omitting `--rows` means an equal one-third distribution.
+- Custom rows resolve independently against Instagram and Threads and feed
+  exact slot bounds into crop authoring. Totals below 100 require
+  `--outer-letterbox`; the unused height is centered and black in both WSP
+  layers. Totals above 100 and zero rows are rejected.
+- Preserve `stacked-three@1` for exact reproduction of existing posts.
+
 ## Resume objective
 
 Continue Photara from the completed `v0.1.0` reusable workflow. Red Meridian
@@ -48,9 +59,9 @@ Read these files before changing code:
 
 - Repository: `/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara`
 - Maintenance branch: `0.1.x`, cut from `v0.1.0`.
-- Current release under validation: `v0.1.1` on `0.1.x`.
+- Current release under validation: `v0.1.2` on `0.1.x`.
 - Earlier stable rollback point: commit `c9ec2db`, tag `v0.0.8`.
-- `Cargo.toml` is `0.1.1` on the maintenance branch.
+- `Cargo.toml` is `0.1.2` on the maintenance branch.
 - The `0.1.0` release includes the complete Sylvan generalization proof.
   Preserve later implementation changes; do not reset, restore, clean, or
   replace the worktree wholesale.

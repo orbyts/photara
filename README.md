@@ -608,6 +608,32 @@ $ photara posts add-stacked-two red-meridian package-a \
     --bottom-crop-from-item panorama-05382
 ```
 
+Create a three-image stack for either platform. Omitting `--rows` means an
+equal one-third distribution. Custom rows belong to this project post while
+the global template remains immutable:
+
+```console
+$ photara posts add-stacked-three copper-mist package-a \
+    --platform instagram \
+    --item stacked-three-01 \
+    --top FIRST_ASSET.PSB \
+    --middle FEATURED_ASSET.PSB \
+    --bottom THIRD_ASSET.PSB \
+    --rows 30,40,30
+```
+
+The three positive percentages must total 100 by default. To intentionally
+leave outer canvas space, opt in explicitly; Photara centers the remainder as
+black padding in both HDR and SDR:
+
+```console
+$ photara posts add-stacked-three copper-mist package-a \
+    --platform threads \
+    --item stacked-three-letterboxed-01 \
+    --top FIRST_ASSET.PSB --middle FEATURED_ASSET.PSB --bottom THIRD_ASSET.PSB \
+    --rows 25,40,25 --outer-letterbox
+```
+
 Every ordinary placement has an explicit policy: `fill` covers its target with
 an automatic focal-point crop, `contain` fits the complete source inside it,
 and `crop` requests manual platform-specific authoring. Aspect mismatch does

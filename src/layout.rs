@@ -20,6 +20,7 @@ use crate::{
 const FULL_FRAME_V1: &str = include_str!("../templates/full-frame/v1.json");
 const STACKED_TWO_V1: &str = include_str!("../templates/stacked-two/v1.json");
 const STACKED_THREE_V1: &str = include_str!("../templates/stacked-three/v1.json");
+const STACKED_THREE_V2: &str = include_str!("../templates/stacked-three/v2.json");
 const GRID_FOUR_V1: &str = include_str!("../templates/grid-four/v1.json");
 const GRID_FOUR_THREADS_V1: &str = include_str!("../templates/grid-four-threads/v1.json");
 const CONTINUOUS_PANORAMA_V1: &str = include_str!("../templates/continuous-panorama/v1.json");
@@ -93,6 +94,8 @@ pub struct LayoutTemplate {
     pub slots: Vec<TemplateSlot>,
     pub decoration: TemplateDecoration,
     pub wsp: WspContract,
+    #[serde(default)]
+    pub custom_rows: bool,
     #[serde(default)]
     pub surface: Option<ContinuousSurface>,
     #[serde(default)]
@@ -189,6 +192,76 @@ pub struct NormalizedRect {
 
 impl Eq for NormalizedRect {}
 
+impl StackedThreeParameters {
+    fn validate(self) -> Result<()> {
+        if self.row_percentages.contains(&0) {
+            return Err(PhotaraError::Configuration(
+                "stacked-three row percentages must all be greater than zero".into(),
+            ));
+        }
+        let total: u16 = self
+            .row_percentages
+            .iter()
+            .map(|value| u16::from(*value))
+            .sum();
+        if total > 100 {
+            return Err(PhotaraError::Configuration(format!(
+                "stacked-three row percentages total {total}%; the total cannot exceed 100%"
+            )));
+        }
+        if total < 100 && self.underfill == StackedUnderfill::Error {
+            return Err(PhotaraError::Configuration(format!(
+                "stacked-three row percentages total {total}%; use --outer-letterbox to place the remaining {}% equally above and below the stack",
+                100 - total
+            )));
+        }
+        Ok(())
+    }
+
+    fn total(self) -> u16 {
+        self.row_percentages
+            .iter()
+            .map(|value| u16::from(*value))
+            .sum()
+    }
+
+    fn slots(self) -> [NormalizedRect; 3] {
+        let total = self.total();
+        let outer_padding = if total < 100 {
+            f64::from(100 - total) / 200.0
+        } else {
+            0.0
+        };
+        let top_height = f64::from(self.row_percentages[0]) / 100.0;
+        let middle_height = f64::from(self.row_percentages[1]) / 100.0;
+        let bottom_height = f64::from(self.row_percentages[2]) / 100.0;
+        [
+            NormalizedRect {
+                x: 0.0,
+                y: outer_padding,
+                width: 1.0,
+                height: top_height,
+            },
+            NormalizedRect {
+                x: 0.0,
+                y: outer_padding + top_height,
+                width: 1.0,
+                height: middle_height,
+            },
+            NormalizedRect {
+                x: 0.0,
+                y: outer_padding + top_height + middle_height,
+                width: 1.0,
+                height: bottom_height,
+            },
+        ]
+    }
+
+    fn needs_background(self) -> bool {
+        self.total() < 100 && self.underfill == StackedUnderfill::OuterLetterbox
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct TemplateDecoration {
     pub background: bool,
@@ -269,7 +342,24 @@ pub struct PostSpecification {
 pub struct PostItem {
     pub id: String,
     pub template: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stacked_three: Option<StackedThreeParameters>,
     pub placements: Vec<PostPlacement>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StackedThreeParameters {
+    pub row_percentages: [u8; 3],
+    #[serde(default)]
+    pub underfill: StackedUnderfill,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum StackedUnderfill {
+    #[default]
+    Error,
+    OuterLetterbox,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -432,6 +522,8 @@ pub struct PlatformProfile {
 pub struct ResolvedItem {
     pub id: String,
     pub template: ResolvedTemplate,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stacked_three: Option<StackedThreeParameters>,
     pub placements: Vec<ResolvedPlacement>,
 }
 
@@ -491,6 +583,8 @@ pub struct LayoutRenderItem {
     pub canvas_height: u32,
     pub bit_depth: u8,
     pub color_profile: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub background_rgb: Option<[u8; 3]>,
     pub placements: Vec<LayoutRenderPlacement>,
     pub output_relative_path: PathBuf,
     pub output_filename: String,
@@ -708,6 +802,7 @@ pub fn install_builtin_templates(root: &Path) -> Result<TemplateInstallReport> {
         ("full-frame@1", FULL_FRAME_V1),
         ("stacked-two@1", STACKED_TWO_V1),
         ("stacked-three@1", STACKED_THREE_V1),
+        ("stacked-three@2", STACKED_THREE_V2),
         ("grid-four@1", GRID_FOUR_V1),
         ("grid-four-threads@1", GRID_FOUR_THREADS_V1),
         ("continuous-panorama@1", CONTINUOUS_PANORAMA_V1),
@@ -788,6 +883,40 @@ pub fn load_template(config: &PhotaraConfig, value: &str) -> Result<ResolvedTemp
         sha256: sha256(text.as_bytes()),
         template,
     })
+}
+
+fn apply_stacked_three_parameters(
+    template: &mut ResolvedTemplate,
+    parameters: Option<StackedThreeParameters>,
+) -> Result<()> {
+    let Some(parameters) = parameters else {
+        return Ok(());
+    };
+    parameters.validate()?;
+    if template.template.kind != "stacked-three" || !template.template.custom_rows {
+        return Err(PhotaraError::Configuration(format!(
+            "template {} does not support custom stacked-three rows",
+            template.reference
+        )));
+    }
+    for (slot_id, bounds) in ["top", "middle", "bottom"]
+        .into_iter()
+        .zip(parameters.slots())
+    {
+        let slot = template
+            .template
+            .slots
+            .iter_mut()
+            .find(|slot| slot.id == slot_id)
+            .ok_or_else(|| {
+                PhotaraError::Configuration(format!(
+                    "template {} has no {slot_id:?} slot",
+                    template.reference
+                ))
+            })?;
+        slot.bounds = bounds;
+    }
+    Ok(())
 }
 
 pub fn install_template_reference(
@@ -910,6 +1039,7 @@ pub async fn add_full_frame(
     let item = PostItem {
         id: item_id.into(),
         template,
+        stacked_three: None,
         placements: vec![PostPlacement {
             slot: "image".into(),
             asset_id: binding.asset_id,
@@ -1002,6 +1132,7 @@ pub async fn add_stacked_two(
     let item = PostItem {
         id: item_id.into(),
         template: Some(template_reference),
+        stacked_three: None,
         placements: vec![
             placement("top", &top, top_crop_from_item)?,
             placement("bottom", &bottom, bottom_crop_from_item)?,
@@ -1040,16 +1171,26 @@ pub async fn add_stacked_three(
     middle_reference: &str,
     bottom_reference: &str,
     template: Option<String>,
+    stacked_three: Option<StackedThreeParameters>,
 ) -> Result<PostWriteReport> {
     validate_post_identity(project, post_name)?;
     validate_slug(item_id).map_err(|message| {
         PhotaraError::Configuration(format!("invalid post item ID {item_id:?}: {message}"))
     })?;
-    let template_reference = template.unwrap_or_else(|| "stacked-three@1".into());
+    if let Some(parameters) = stacked_three {
+        parameters.validate()?;
+    }
+    let template_reference =
+        template.unwrap_or_else(|| config.settings.layouts.defaults.stacked_three.clone());
     let loaded = load_template(config, &template_reference)?;
     if loaded.template.kind != "stacked-three" {
         return Err(PhotaraError::Configuration(format!(
             "template {template_reference:?} is not a stacked-three template"
+        )));
+    }
+    if stacked_three.is_some() && !loaded.template.custom_rows {
+        return Err(PhotaraError::Configuration(format!(
+            "template {template_reference:?} does not support custom row percentages; use stacked-three@2"
         )));
     }
     let bindings = [
@@ -1075,6 +1216,7 @@ pub async fn add_stacked_three(
     let item = PostItem {
         id: item_id.into(),
         template: Some(template_reference),
+        stacked_three,
         placements: vec![
             placement("top", &bindings[0]),
             placement("middle", &bindings[1]),
@@ -1163,6 +1305,7 @@ pub async fn add_grid_four(
     let item = PostItem {
         id: item_id.into(),
         template: Some(template_reference),
+        stacked_three: None,
         placements,
     };
     let path = post_path(config, &project.slug, post_name, platform)?;
@@ -1264,6 +1407,7 @@ pub async fn add_continuous_panorama(
     let item = PostItem {
         id: item_id.into(),
         template: Some(template_reference),
+        stacked_three: None,
         placements: vec![PostPlacement {
             slot: "image".into(),
             asset_id: binding.asset_id,
@@ -1339,6 +1483,7 @@ pub async fn add_dynamic_range_comparison(
     let item = PostItem {
         id: item_id.into(),
         template: Some(template_reference),
+        stacked_three: None,
         placements: vec![placement("top", &top), placement("bottom", &bottom)],
     };
     let path = post_path(config, &project.slug, post_name, platform)?;
@@ -1438,6 +1583,7 @@ pub async fn add_edit_comparison(
     let item = PostItem {
         id: item_id.into(),
         template: Some(template_reference),
+        stacked_three: None,
         placements: vec![placement("top", &top), placement("bottom", &bottom)],
     };
     upsert_comparison_item(
@@ -2012,7 +2158,8 @@ async fn collect_authoring_source(
             .template
             .clone()
             .unwrap_or_else(|| config.settings.layouts.defaults.full_frame.clone());
-        let template = load_template(config, &template_reference)?;
+        let mut template = load_template(config, &template_reference)?;
+        apply_stacked_three_parameters(&mut template, item.stacked_three)?;
         if let Some(reference) = template.template.reference.as_ref() {
             let profile = platform.profile();
             if reference.width != profile.width || reference.height != profile.height {
@@ -2818,7 +2965,8 @@ async fn resolve_post_item(
             .template
             .clone()
             .unwrap_or_else(|| config.settings.layouts.defaults.full_frame.clone());
-        let template = load_template(config, &template_reference)?;
+        let mut template = load_template(config, &template_reference)?;
+        apply_stacked_three_parameters(&mut template, item.stacked_three)?;
         let slot_ids: BTreeSet<_> = template
             .template
             .slots
@@ -2883,6 +3031,7 @@ async fn resolve_post_item(
         items.push(ResolvedItem {
             id: item.id,
             template,
+            stacked_three: item.stacked_three,
             placements,
         });
     }
@@ -3232,6 +3381,10 @@ pub async fn prepare_render_item(
             canvas_height,
             bit_depth: 32,
             color_profile: "Display P3 Linear".into(),
+            background_rgb: item
+                .stacked_three
+                .filter(|parameters| parameters.needs_background())
+                .map(|_| [0, 0, 0]),
             placements: render_placements,
             output_relative_path: render_root.join(&output_filename),
             output_filename,
@@ -3856,6 +4009,12 @@ fn validate_template(template: &LayoutTemplate, reference: &TemplateRef) -> Resu
             reference.display()
         )));
     }
+    if template.custom_rows && template.kind != "stacked-three" {
+        return Err(PhotaraError::Configuration(format!(
+            "layout template {} enables custom rows for a non-stacked-three layout",
+            reference.display()
+        )));
+    }
     if !matches!(
         template.kind.as_str(),
         "dynamic-range-comparison" | "edit-comparison"
@@ -4167,6 +4326,15 @@ fn validate_post(
             template_name.as_deref() == Some("dynamic-range-comparison");
         let is_edit_comparison = template_name.as_deref() == Some("edit-comparison");
         let is_continuous_panorama = template_name.as_deref() == Some("continuous-panorama");
+        if let Some(parameters) = item.stacked_three {
+            if template_name.as_deref() != Some("stacked-three") {
+                return Err(PhotaraError::Configuration(format!(
+                    "post item {:?} has stacked-three parameters but does not use a stacked-three template",
+                    item.id
+                )));
+            }
+            parameters.validate()?;
+        }
         let mut slots = BTreeSet::new();
         for placement in &item.placements {
             if !slots.insert(&placement.slot) {
@@ -4623,9 +4791,9 @@ mod tests {
     fn installs_and_refuses_mutated_immutable_template() {
         let temporary = tempfile::tempdir().unwrap();
         let first = install_builtin_templates(temporary.path()).unwrap();
-        assert_eq!(first.installed.len(), 11);
+        assert_eq!(first.installed.len(), 12);
         let second = install_builtin_templates(temporary.path()).unwrap();
-        assert_eq!(second.verified.len(), 11);
+        assert_eq!(second.verified.len(), 12);
         fs::write(temporary.path().join("full-frame/v1.json"), "{}\n").unwrap();
         assert!(install_builtin_templates(temporary.path()).is_err());
     }
@@ -4700,6 +4868,107 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn flexible_stacked_three_resolves_independently_for_both_platforms() {
+        let parameters = StackedThreeParameters {
+            row_percentages: [30, 40, 30],
+            underfill: StackedUnderfill::Error,
+        };
+        parameters.validate().unwrap();
+        let bounds = parameters.slots();
+        let instagram: Vec<_> = bounds
+            .iter()
+            .map(|bounds| resolve_bounds(*bounds, 4500, 6000).unwrap())
+            .collect();
+        let threads: Vec<_> = bounds
+            .iter()
+            .map(|bounds| resolve_bounds(*bounds, 4500, 8000).unwrap())
+            .collect();
+        assert_eq!(
+            instagram,
+            [
+                PixelRect {
+                    x: 0,
+                    y: 0,
+                    width: 4500,
+                    height: 1800
+                },
+                PixelRect {
+                    x: 0,
+                    y: 1800,
+                    width: 4500,
+                    height: 2400
+                },
+                PixelRect {
+                    x: 0,
+                    y: 4200,
+                    width: 4500,
+                    height: 1800
+                },
+            ]
+        );
+        assert_eq!(
+            threads,
+            [
+                PixelRect {
+                    x: 0,
+                    y: 0,
+                    width: 4500,
+                    height: 2400
+                },
+                PixelRect {
+                    x: 0,
+                    y: 2400,
+                    width: 4500,
+                    height: 3200
+                },
+                PixelRect {
+                    x: 0,
+                    y: 5600,
+                    width: 4500,
+                    height: 2400
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn flexible_stacked_three_requires_explicit_centered_underfill() {
+        let rejected = StackedThreeParameters {
+            row_percentages: [25, 40, 25],
+            underfill: StackedUnderfill::Error,
+        };
+        assert!(rejected.validate().is_err());
+
+        let letterboxed = StackedThreeParameters {
+            row_percentages: [25, 40, 25],
+            underfill: StackedUnderfill::OuterLetterbox,
+        };
+        letterboxed.validate().unwrap();
+        assert!(letterboxed.needs_background());
+        let rows: Vec<_> = letterboxed
+            .slots()
+            .iter()
+            .map(|bounds| resolve_bounds(*bounds, 4500, 6000).unwrap())
+            .collect();
+        assert_eq!(rows[0].y, 300);
+        assert_eq!(rows[2].y + rows[2].height, 5700);
+    }
+
+    #[test]
+    fn flexible_stacked_three_rejects_zero_or_overfilled_rows() {
+        for row_percentages in [[0, 50, 50], [40, 40, 30]] {
+            assert!(
+                StackedThreeParameters {
+                    row_percentages,
+                    underfill: StackedUnderfill::OuterLetterbox,
+                }
+                .validate()
+                .is_err()
+            );
+        }
     }
 
     #[test]
@@ -5081,6 +5350,7 @@ mod tests {
             items: vec![PostItem {
                 id: "item".into(),
                 template: Some("full-frame@1".into()),
+                stacked_three: None,
                 placements: vec![test_placement(Some(crop))],
             }],
         };
@@ -5238,6 +5508,7 @@ mod tests {
             items: vec![PostItem {
                 id: "panorama".into(),
                 template: Some("continuous-panorama@1".into()),
+                stacked_three: None,
                 placements: vec![PostPlacement {
                     slot: "image".into(),
                     asset_id,
@@ -5262,6 +5533,7 @@ mod tests {
         let make_item = |id: &str| PostItem {
             id: id.into(),
             template: None,
+            stacked_three: None,
             placements: vec![PostPlacement {
                 slot: "image".into(),
                 asset_id: Uuid::nil(),

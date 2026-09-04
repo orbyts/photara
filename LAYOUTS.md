@@ -98,6 +98,7 @@ The main Photara configuration pins global defaults to exact versions:
 [layouts.defaults]
 full_frame = "full-frame@1"
 stacked_two = "stacked-two@1"
+stacked_three = "stacked-three@2"
 continuous_panorama = "continuous-panorama@1"
 dynamic_range_comparison = "dynamic-range-comparison@2"
 edit_comparison = "edit-comparison@1"
@@ -233,6 +234,22 @@ Aspect mismatch never implies authoring by itself. Only unresolved `crop`
 placements enter generalized authoring. A captured transform is independent
 per platform. Sources are never stretched. Continuous panoramas retain their
 specialized crop and seam contract.
+
+### Flexible three-image stacks
+
+`stacked-three@2` is one global parameterized template for Instagram and
+Threads. Omitting row percentages always means an equal one-third,
+gapless distribution. A post item may instead store three positive integer
+percentages such as `[30, 40, 30]`. Photara resolves those proportions against
+each platform's authoring canvas, so crop authoring receives 4500×1800,
+4500×2400, and 4500×1800 targets on Instagram and 4500×2400, 4500×3200,
+and 4500×2400 targets on Threads.
+
+Row percentages may total less than 100 only when the post explicitly requests
+outer letterboxing. Photara splits the unused height equally above and below
+the stack and fills it with black in both the HDR and SDR composites. Totals
+above 100, zero-height rows, and implicit underfill are errors. Stack geometry
+is separate from each placement's `crop`, `fill`, or `contain` policy.
 
 ### Continuous multi-frame compositions
 

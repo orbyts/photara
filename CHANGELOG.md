@@ -2,6 +2,17 @@
 
 All notable changes to Photara will be documented in this file.
 
+## 0.1.2 - 2026-09-04
+
+- Add the cross-platform `stacked-three@2` layout with equal-third defaults
+  and project-owned `--rows TOP,MIDDLE,BOTTOM` percentages. Resolve the same
+  proportions independently against Instagram's 3:4 canvas and Threads' 9:16
+  canvas so crop authoring receives each slot's exact target dimensions.
+- Reject zero-height rows, totals above 100%, and incomplete stacks by
+  default. An explicit `--outer-letterbox` option centers totals below 100%
+  and renders the unused outer canvas as identical black pixels in both the
+  HDR and SDR composites.
+
 ## 0.1.1 - 2026-09-03
 
 - Reconcile already-present Photographer Final assets against either current

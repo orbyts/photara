@@ -273,6 +273,12 @@ enum PostCommand {
         bottom: String,
         #[arg(long)]
         template: Option<String>,
+        /// Three positive integer percentages, for example 30,40,30.
+        #[arg(long, value_parser = parse_stacked_rows)]
+        rows: Option<[u8; 3]>,
+        /// Permit totals below 100% and center the unused area as black outer padding.
+        #[arg(long, requires = "rows")]
+        outer_letterbox: bool,
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
@@ -2123,6 +2129,8 @@ async fn posts(command: PostCommand) -> Result<()> {
             middle,
             bottom,
             template,
+            rows,
+            outer_letterbox,
             format,
         } => {
             let project = project::find(&database, &slug).await?.ok_or_else(|| {
@@ -2140,6 +2148,14 @@ async fn posts(command: PostCommand) -> Result<()> {
                     &middle,
                     &bottom,
                     template,
+                    rows.map(|row_percentages| layout::StackedThreeParameters {
+                        row_percentages,
+                        underfill: if outer_letterbox {
+                            layout::StackedUnderfill::OuterLetterbox
+                        } else {
+                            layout::StackedUnderfill::Error
+                        },
+                    }),
                 )
                 .await?,
                 format,
@@ -2536,6 +2552,28 @@ async fn posts(command: PostCommand) -> Result<()> {
     Ok(())
 }
 
+fn parse_stacked_rows(value: &str) -> std::result::Result<[u8; 3], String> {
+    let values = value
+        .split(',')
+        .map(str::trim)
+        .map(|part| {
+            part.parse::<u8>().map_err(|_| {
+                format!("row percentage {part:?} must be an integer from 1 through 100")
+            })
+        })
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let rows: [u8; 3] = values.try_into().map_err(|values: Vec<u8>| {
+        format!(
+            "--rows requires exactly three comma-separated percentages; received {}",
+            values.len()
+        )
+    })?;
+    if rows.contains(&0) {
+        return Err("row percentages must all be greater than zero".into());
+    }
+    Ok(rows)
+}
+
 fn people(command: PeopleCommand) -> Result<()> {
     let mut config = PhotaraConfig::discover()?;
     match command {
@@ -2683,5 +2721,13 @@ mod tests {
             "Hashing layered masters  14/20  _SUH5235.PSB"
         );
         assert!(serde_json::to_string(&serde_json::json!({"ok": true})).is_ok());
+    }
+
+    #[test]
+    fn stacked_rows_require_three_positive_integer_percentages() {
+        assert_eq!(parse_stacked_rows("30,40,30").unwrap(), [30, 40, 30]);
+        assert!(parse_stacked_rows("30,70").is_err());
+        assert!(parse_stacked_rows("30,0,70").is_err());
+        assert!(parse_stacked_rows("30.5,49.5,20").is_err());
     }
 }

@@ -169,6 +169,36 @@ async function openSource(projectRoot, relativePath, item, role, normalizeNeutra
   return document;
 }
 
+async function addSolidBackground(document, rgb) {
+  await action.batchPlay(
+    [
+      {
+        _obj: "make",
+        _target: [{ _ref: "layer" }],
+        using: { _obj: "layer", name: "Photara Background" },
+      },
+      {
+        _obj: "fill",
+        using: {
+          _obj: "RGBColor",
+          red: rgb[0],
+          grain: rgb[1],
+          blue: rgb[2],
+        },
+        opacity: { _unit: "percentUnit", _value: 100 },
+        mode: { _enum: "blendMode", _value: "normal" },
+      },
+    ],
+    {}
+  );
+  const background = document.activeLayers[0];
+  background.name = "Photara Background";
+  const lowest = document.layers[document.layers.length - 1];
+  if (lowest && lowest.id !== background.id) {
+    background.move(lowest, constants.ElementPlacement.PLACEAFTER);
+  }
+}
+
 async function buildRole(projectRoot, item, role) {
   let composite = null;
   let source = null;
@@ -231,6 +261,9 @@ async function buildRole(projectRoot, item, role) {
       }, { commandName: `Place ${role} ${placement.slot} for ${item.id}` });
     }
     await core.executeAsModal(async () => {
+      if (item.background_rgb) {
+        await addSolidBackground(composite, item.background_rgb);
+      }
       await composite.flatten();
       const background = composite.layers[0];
       const roleLayer = await background.duplicate();

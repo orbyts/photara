@@ -594,6 +594,22 @@ path recorded a completed audit batch without generating or uploading a DNG.
 - No wholesale merge of `0.1.x` into `main`; reusable work is salvaged later as
   reviewed application services or individual commits.
 
+### 0.1.2 — flexible cross-platform stacked layouts
+
+- Add immutable global template `stacked-three@2` with equal thirds as the
+  backward-compatible default.
+- Store optional top/middle/bottom integer percentages in the project-owned
+  post specification. Require three positive values; reject totals above 100%
+  and reject totals below 100% unless outer letterboxing is explicit.
+- Resolve normalized rows separately against Instagram 4500×6000 and Threads
+  4500×8000 authoring canvases. Feed those exact bounds into the existing
+  platform-specific crop-authoring workflow without stretching sources.
+- Center unused height equally above and below the image stack and render it
+  as black in both HDR and SDR composites so padding contributes no gain-map
+  signal.
+- Keep existing `stacked-three@1` posts immutable and reproducible. No database
+  migration or Photoshop reference document is required.
+
 ### 0.2.0 — operator experience and visual authoring
 
 - Improve the existing CLI, Lightroom Classic adapter, Photoshop workflow, and

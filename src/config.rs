@@ -26,6 +26,7 @@ templates_cache = "~/Library/Caches/photara/templates"
 [layouts.defaults]
 full_frame = "full-frame@1"
 stacked_two = "stacked-two@1"
+stacked_three = "stacked-three@2"
 continuous_panorama = "continuous-panorama@1"
 dynamic_range_comparison = "dynamic-range-comparison@2"
 edit_comparison = "edit-comparison@1"
@@ -68,6 +69,8 @@ pub struct LayoutDefaults {
     pub full_frame: String,
     #[serde(default = "default_stacked_two_template")]
     pub stacked_two: String,
+    #[serde(default = "default_stacked_three_template")]
+    pub stacked_three: String,
     #[serde(default = "default_continuous_panorama_template")]
     pub continuous_panorama: String,
     #[serde(default = "default_dynamic_range_comparison_template")]
@@ -81,6 +84,7 @@ impl Default for LayoutDefaults {
         Self {
             full_frame: default_full_frame_template(),
             stacked_two: default_stacked_two_template(),
+            stacked_three: default_stacked_three_template(),
             continuous_panorama: default_continuous_panorama_template(),
             dynamic_range_comparison: default_dynamic_range_comparison_template(),
             edit_comparison: default_edit_comparison_template(),
@@ -211,6 +215,7 @@ impl PhotaraConfig {
         validate_author_code(&self.settings.default_author_code)?;
         crate::layout::TemplateRef::parse(&self.settings.layouts.defaults.full_frame)?;
         crate::layout::TemplateRef::parse(&self.settings.layouts.defaults.stacked_two)?;
+        crate::layout::TemplateRef::parse(&self.settings.layouts.defaults.stacked_three)?;
         crate::layout::TemplateRef::parse(&self.settings.layouts.defaults.continuous_panorama)?;
         crate::layout::TemplateRef::parse(
             &self.settings.layouts.defaults.dynamic_range_comparison,
@@ -273,6 +278,10 @@ fn default_full_frame_template() -> String {
 
 fn default_stacked_two_template() -> String {
     "stacked-two@1".into()
+}
+
+fn default_stacked_three_template() -> String {
+    "stacked-three@2".into()
 }
 
 fn default_continuous_panorama_template() -> String {
