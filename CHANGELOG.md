@@ -2,6 +2,20 @@
 
 All notable changes to Photara will be documented in this file.
 
+## 0.1.3 - 2026-09-06
+
+- Add immutable `continuous-panorama@2`, whose two-frame authoring surface is
+  derived from the destination platform: 3:2 overall for two Instagram 3:4
+  frames and 9:8 overall for two Threads 9:16 frames. Crop authoring and render
+  validation now consume the same platform-aware contract.
+- Select the installed Instagram and Threads Dynamic Range Comparison and Edit
+  Comparison references automatically. Reject a platform-incompatible
+  reference before preparing an authoring session or render manifest.
+- Allow `add-continuous-panorama` to upgrade the template of an existing item
+  only when its item ID, slot, and stable asset identity are unchanged. Existing
+  authored transforms are preserved; immutable `continuous-panorama@1` remains
+  available for reproducible Instagram work.
+
 ## 0.1.2 - 2026-09-04
 
 - Add the cross-platform `stacked-three@2` layout with equal-third defaults

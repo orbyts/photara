@@ -713,8 +713,16 @@ $ photara posts prepare-panorama-crop red-meridian package-a \
     --platform instagram --item panorama-05382
 ```
 
+New panorama items use immutable `continuous-panorama@2`. Photara derives the
+combined authoring selection from the destination: 3:2 for two Instagram 3:4
+frames, and 9:8 for two Threads 9:16 frames. The same command may safely upgrade
+an existing panorama item when its ID, slot, and asset are unchanged; its
+authored transform is retained. Use `--template continuous-panorama@1` only to
+reproduce an older Instagram post exactly.
+
 Run **Author Photara Panorama Crop.psjs**, choose the Red Meridian project
-folder, and use **Select > Transform Selection** to position the 3:2 marquee.
+folder, and use **Select > Transform Selection** to position the prepared
+platform-specific marquee.
 Then run **Capture Photara Panorama Crop.psjs** and choose the same folder. It
 places a vertical guide at the seam between the two horizontal 3:4 frames; if
 needed, adjust the selection and capture it again. Apply the approved report:

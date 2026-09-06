@@ -327,6 +327,8 @@ enum PostCommand {
         item: String,
         #[arg(long)]
         asset: String,
+        #[arg(long)]
+        template: Option<String>,
         #[arg(long, value_enum, default_value = "json")]
         format: SerializationFormat,
     },
@@ -2227,6 +2229,7 @@ async fn posts(command: PostCommand) -> Result<()> {
             platform,
             item,
             asset,
+            template,
             format,
         } => {
             let project = project::find(&database, &slug).await?.ok_or_else(|| {
@@ -2241,6 +2244,7 @@ async fn posts(command: PostCommand) -> Result<()> {
                     platform.into(),
                     &item,
                     &asset,
+                    template.as_deref(),
                 )
                 .await?,
                 format,

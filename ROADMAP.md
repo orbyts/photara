@@ -610,6 +610,21 @@ path recorded a completed audit batch without generating or uploading a DNG.
 - Keep existing `stacked-three@1` posts immutable and reproducible. No database
   migration or Photoshop reference document is required.
 
+### 0.1.3 — platform-aware authoring contracts
+
+- Derive a continuous two-frame panorama from the destination platform:
+  Instagram authors a 3:2 combined crop and Threads authors a 9:8 combined
+  crop. Keep the two individual frames at their native 3:4 and 9:16 platform
+  aspects and leave final splitting/resizing to Web Sharp Pro.
+- Select platform-specific Dynamic Range Comparison and Edit Comparison
+  references automatically and reject incompatible pinned references before
+  Photoshop handoff.
+- Preserve immutable earlier templates while allowing a matching existing
+  panorama item to move to the new platform-aware template without losing its
+  asset identity or authored transform.
+- Regenerate the Copper Mist dual-platform authoring manifest and verify exact
+  9000×6000 Instagram and 9000×8000 Threads panorama target bounds.
+
 ### 0.2.0 — operator experience and visual authoring
 
 - Improve the existing CLI, Lightroom Classic adapter, Photoshop workflow, and

@@ -3,6 +3,21 @@
 > Historical working document retained as release evidence. The `0.1.0`
 > vertical slice is complete. Maintenance checkpoint updated: 2026-09-03.
 
+## 0.1.3 platform-contract checkpoint
+
+- `continuous-panorama@2` derives each frame from the destination platform.
+  Its two-frame authoring target is 9000×6000 (3:2) for Instagram and
+  9000×8000 (9:8) for Threads. Do not restore a hard-coded 3:2 render check.
+- Instagram comparison defaults remain `dynamic-range-comparison@2` and
+  `edit-comparison@1`; Threads defaults are
+  `dynamic-range-comparison@3` and `edit-comparison@2`.
+- Template/reference compatibility is checked while adding items, preparing
+  authoring, resolving posts, and preparing renders. A wrong platform reference
+  must fail before Photoshop opens.
+- A matching existing panorama item may upgrade templates without losing its
+  crop/rotation. The item ID, single image slot, and stable asset UUID must all
+  match; otherwise the command remains non-destructive and refuses the change.
+
 ## 0.1.1 maintenance checkpoint
 
 - Maintenance work is isolated on branch `0.1.x`, cut from `v0.1.0`; do not

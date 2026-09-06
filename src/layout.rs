@@ -24,6 +24,7 @@ const STACKED_THREE_V2: &str = include_str!("../templates/stacked-three/v2.json"
 const GRID_FOUR_V1: &str = include_str!("../templates/grid-four/v1.json");
 const GRID_FOUR_THREADS_V1: &str = include_str!("../templates/grid-four-threads/v1.json");
 const CONTINUOUS_PANORAMA_V1: &str = include_str!("../templates/continuous-panorama/v1.json");
+const CONTINUOUS_PANORAMA_V2: &str = include_str!("../templates/continuous-panorama/v2.json");
 const DYNAMIC_RANGE_COMPARISON_V1: &str =
     include_str!("../templates/dynamic-range-comparison/v1.json");
 const DYNAMIC_RANGE_COMPARISON_V2: &str =
@@ -326,6 +327,26 @@ impl PostPlatform {
                 maximum_delivery_frames: None,
             },
         }
+    }
+}
+
+fn default_dynamic_range_template(config: &PhotaraConfig, platform: PostPlatform) -> &str {
+    match platform {
+        PostPlatform::Instagram => &config.settings.layouts.defaults.dynamic_range_comparison,
+        PostPlatform::Threads => {
+            &config
+                .settings
+                .layouts
+                .defaults
+                .dynamic_range_comparison_threads
+        }
+    }
+}
+
+fn default_edit_comparison_template(config: &PhotaraConfig, platform: PostPlatform) -> &str {
+    match platform {
+        PostPlatform::Instagram => &config.settings.layouts.defaults.edit_comparison,
+        PostPlatform::Threads => &config.settings.layouts.defaults.edit_comparison_threads,
     }
 }
 
@@ -806,6 +827,7 @@ pub fn install_builtin_templates(root: &Path) -> Result<TemplateInstallReport> {
         ("grid-four@1", GRID_FOUR_V1),
         ("grid-four-threads@1", GRID_FOUR_THREADS_V1),
         ("continuous-panorama@1", CONTINUOUS_PANORAMA_V1),
+        ("continuous-panorama@2", CONTINUOUS_PANORAMA_V2),
         ("dynamic-range-comparison@1", DYNAMIC_RANGE_COMPARISON_V1),
         ("dynamic-range-comparison@2", DYNAMIC_RANGE_COMPARISON_V2),
         ("dynamic-range-comparison@3", DYNAMIC_RANGE_COMPARISON_V3),
@@ -1380,6 +1402,7 @@ fn reuse_item_crop(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn add_continuous_panorama(
     database: &Database,
     config: &PhotaraConfig,
@@ -1388,18 +1411,22 @@ pub async fn add_continuous_panorama(
     platform: PostPlatform,
     item_id: &str,
     asset_reference: &str,
+    template_reference: Option<&str>,
 ) -> Result<PostWriteReport> {
     validate_post_identity(project, post_name)?;
     validate_slug(item_id).map_err(|message| {
         PhotaraError::Configuration(format!("invalid post item ID {item_id:?}: {message}"))
     })?;
-    let template_reference = config.settings.layouts.defaults.continuous_panorama.clone();
+    let template_reference = template_reference
+        .unwrap_or(&config.settings.layouts.defaults.continuous_panorama)
+        .to_string();
     let template = load_template(config, &template_reference)?;
     if template.template.kind != "continuous-panorama" {
         return Err(PhotaraError::Configuration(format!(
             "template {template_reference:?} is not a continuous panorama template"
         )));
     }
+    validate_template_platform(&template, platform)?;
     let binding = find_master(database, config, project, asset_reference).await?;
     let path = post_path(config, &project.slug, post_name, platform)?;
     let mut post = read_post(&path)?;
@@ -1418,8 +1445,26 @@ pub async fn add_continuous_panorama(
             transform: None,
         }],
     };
-    let changed = match post.items.iter().find(|existing| existing.id == item.id) {
-        Some(existing) if existing == &item => false,
+    let changed = match post
+        .items
+        .iter()
+        .position(|existing| existing.id == item.id)
+    {
+        Some(index) if post.items[index] == item => false,
+        Some(index)
+            if post.items[index]
+                .template
+                .as_deref()
+                .and_then(|value| TemplateRef::parse(value).ok())
+                .is_some_and(|reference| reference.name == "continuous-panorama")
+                && post.items[index].placements.len() == 1
+                && post.items[index].placements[0].slot == item.placements[0].slot
+                && post.items[index].placements[0].asset_id == item.placements[0].asset_id =>
+        {
+            post.items[index].template = item.template;
+            write_json_atomic(&path, &post)?;
+            true
+        }
         Some(_) => {
             return Err(PhotaraError::Configuration(format!(
                 "post item {item_id:?} already exists with different contents"
@@ -1456,7 +1501,7 @@ pub async fn add_dynamic_range_comparison(
         PhotaraError::Configuration(format!("invalid post item ID {item_id:?}: {message}"))
     })?;
     let template_reference = template_reference
-        .unwrap_or(&config.settings.layouts.defaults.dynamic_range_comparison)
+        .unwrap_or(default_dynamic_range_template(config, platform))
         .to_string();
     let loaded = load_template(config, &template_reference)?;
     if loaded.template.kind != "dynamic-range-comparison" {
@@ -1464,6 +1509,7 @@ pub async fn add_dynamic_range_comparison(
             "template {template_reference:?} is not a dynamic range comparison template"
         )));
     }
+    validate_template_platform(&loaded, platform)?;
     let top = find_master(database, config, project, top_reference).await?;
     let bottom = find_master(database, config, project, bottom_reference).await?;
     if top.asset_id == bottom.asset_id {
@@ -1556,7 +1602,7 @@ pub async fn add_edit_comparison(
         PhotaraError::Configuration(format!("invalid post item ID {item_id:?}: {message}"))
     })?;
     let template_reference = template_reference
-        .unwrap_or(&config.settings.layouts.defaults.edit_comparison)
+        .unwrap_or(default_edit_comparison_template(config, platform))
         .to_string();
     let loaded = load_template(config, &template_reference)?;
     if loaded.template.kind != "edit-comparison" {
@@ -1564,6 +1610,7 @@ pub async fn add_edit_comparison(
             "template {template_reference:?} is not an edit comparison template"
         )));
     }
+    validate_template_platform(&loaded, platform)?;
     let top = find_master(database, config, project, top_reference).await?;
     let bottom = find_master(database, config, project, bottom_reference).await?;
     if top.asset_id == bottom.asset_id {
@@ -2160,20 +2207,7 @@ async fn collect_authoring_source(
             .unwrap_or_else(|| config.settings.layouts.defaults.full_frame.clone());
         let mut template = load_template(config, &template_reference)?;
         apply_stacked_three_parameters(&mut template, item.stacked_three)?;
-        if let Some(reference) = template.template.reference.as_ref() {
-            let profile = platform.profile();
-            if reference.width != profile.width || reference.height != profile.height {
-                return Err(PhotaraError::Configuration(format!(
-                    "template {} reference is {}x{}, but {} posts require {}x{}",
-                    template.reference,
-                    reference.width,
-                    reference.height,
-                    platform.as_str(),
-                    profile.width,
-                    profile.height
-                )));
-            }
-        }
+        validate_template_platform(&template, platform)?;
         for placement in item
             .placements
             .iter()
@@ -2766,16 +2800,7 @@ fn authoring_target_bounds(
         let surface = template.surface.as_ref().ok_or_else(|| {
             PhotaraError::Configuration("continuous panorama has no surface contract".into())
         })?;
-        let (width, height) = surface
-            .frame_aspect
-            .split_once(':')
-            .ok_or_else(|| PhotaraError::Configuration("invalid frame aspect".into()))?;
-        let width = width
-            .parse::<u32>()
-            .map_err(|_| PhotaraError::Configuration("invalid frame aspect width".into()))?;
-        let height = height
-            .parse::<u32>()
-            .map_err(|_| PhotaraError::Configuration("invalid frame aspect height".into()))?;
+        let (width, height) = surface_frame_dimensions(surface, platform)?;
         return Ok(PixelRect {
             x: 0,
             y: 0,
@@ -2967,6 +2992,7 @@ async fn resolve_post_item(
             .unwrap_or_else(|| config.settings.layouts.defaults.full_frame.clone());
         let mut template = load_template(config, &template_reference)?;
         apply_stacked_three_parameters(&mut template, item.stacked_three)?;
+        validate_template_platform(&template, platform)?;
         let slot_ids: BTreeSet<_> = template
             .template
             .slots
@@ -2985,9 +3011,18 @@ async fn resolve_post_item(
             validate_focal_point(placement.focal_point)?;
             let binding = find_master_by_id(database, config, project, placement.asset_id).await?;
             if template.template.kind == "continuous-panorama" && transform.crop.is_none() {
+                let surface = template.template.surface.as_ref().ok_or_else(|| {
+                    PhotaraError::Configuration(
+                        "continuous panorama has no surface contract".into(),
+                    )
+                })?;
+                let (frame_width, frame_height) = surface_frame_dimensions(surface, platform)?;
                 requirements.insert(format!(
-                    "author a 3:2 crop for panorama item {} ({})",
-                    item.id, binding.original_filename
+                    "author a {}:{} crop for panorama item {} ({})",
+                    frame_width * surface.frame_count,
+                    frame_height,
+                    item.id,
+                    binding.original_filename
                 ));
             }
             if placement_requires_authoring(&placement.fit, transform) {
@@ -3144,11 +3179,27 @@ pub async fn prepare_render_item(
                     item.id
                 ))
             })?;
+            let surface = item.template.template.surface.as_ref().ok_or_else(|| {
+                PhotaraError::Configuration(format!(
+                    "continuous panorama template {} has no surface contract",
+                    item.template.reference
+                ))
+            })?;
+            let (frame_width, frame_height) = surface_frame_dimensions(surface, resolved.platform)?;
+            let combined_width = frame_width
+                .checked_mul(surface.frame_count)
+                .ok_or_else(|| {
+                    PhotaraError::Configuration("continuous surface aspect overflowed".into())
+                })?;
+            let expected_ratio = f64::from(combined_width) / f64::from(frame_height);
             let ratio = f64::from(crop.width) / f64::from(crop.height);
-            if (ratio - 1.5).abs() > 0.002 {
+            if (ratio - expected_ratio).abs() > 0.002 {
                 return Err(PhotaraError::Configuration(format!(
-                    "resolved panorama crop for {:?} is not 3:2 ({ratio:.6}:1)",
-                    item.id
+                    "resolved panorama crop for {:?} is not {}:{} for {} ({ratio:.6}:1)",
+                    item.id,
+                    combined_width,
+                    frame_height,
+                    resolved.platform.as_str()
                 )));
             }
             Some(crop)
@@ -3989,6 +4040,72 @@ fn inspect_tiff_dimensions(path: &Path) -> Result<(u32, u32)> {
     }
 }
 
+fn surface_frame_dimensions(
+    surface: &ContinuousSurface,
+    platform: PostPlatform,
+) -> Result<(u32, u32)> {
+    if surface.frame_aspect == "platform-profile" {
+        let profile = platform.profile();
+        return Ok((profile.width, profile.height));
+    }
+    let (width, height) = surface
+        .frame_aspect
+        .split_once(':')
+        .ok_or_else(|| PhotaraError::Configuration("invalid frame aspect".into()))?;
+    let width = width
+        .parse::<u32>()
+        .map_err(|_| PhotaraError::Configuration("invalid frame aspect width".into()))?;
+    let height = height
+        .parse::<u32>()
+        .map_err(|_| PhotaraError::Configuration("invalid frame aspect height".into()))?;
+    if width == 0 || height == 0 {
+        return Err(PhotaraError::Configuration(
+            "frame aspect dimensions must be positive".into(),
+        ));
+    }
+    Ok((width, height))
+}
+
+fn validate_template_platform(template: &ResolvedTemplate, platform: PostPlatform) -> Result<()> {
+    let profile = platform.profile();
+    if let Some(reference) = template.template.reference.as_ref()
+        && (reference.width != profile.width || reference.height != profile.height)
+    {
+        return Err(PhotaraError::Configuration(format!(
+            "template {} reference is {}x{}, but {} posts require {}x{}",
+            template.reference,
+            reference.width,
+            reference.height,
+            platform.as_str(),
+            profile.width,
+            profile.height
+        )));
+    }
+    if template.template.kind == "continuous-panorama" {
+        let surface = template.template.surface.as_ref().ok_or_else(|| {
+            PhotaraError::Configuration(format!(
+                "continuous panorama template {} has no surface contract",
+                template.reference
+            ))
+        })?;
+        let (width, height) = surface_frame_dimensions(surface, platform)?;
+        if u64::from(width) * u64::from(profile.height)
+            != u64::from(profile.width) * u64::from(height)
+        {
+            return Err(PhotaraError::Configuration(format!(
+                "template {} uses {}:{} frames, but {} posts require {}:{} frames",
+                template.reference,
+                width,
+                height,
+                platform.as_str(),
+                profile.width,
+                profile.height
+            )));
+        }
+    }
+    Ok(())
+}
+
 fn validate_template(template: &LayoutTemplate, reference: &TemplateRef) -> Result<()> {
     if template.schema_version != 1
         || template.name != reference.name
@@ -4165,6 +4282,11 @@ fn validate_template(template: &LayoutTemplate, reference: &TemplateRef) -> Resu
                 && !template.decoration.text
         }
         "continuous-panorama" => {
+            let expected_frame_aspect = match template.version {
+                1 => "3:4",
+                2 => "platform-profile",
+                _ => "",
+            };
             template.slots.len() == 1
                 && slot_matches(
                     "image",
@@ -4178,7 +4300,7 @@ fn validate_template(template: &LayoutTemplate, reference: &TemplateRef) -> Resu
                 && matches!(
                     template.surface.as_ref(),
                     Some(surface)
-                        if surface.frame_aspect == "3:4"
+                        if surface.frame_aspect == expected_frame_aspect
                             && surface.frame_count == 2
                             && surface.flow == "horizontal"
                             && surface.splitter == "web-sharp-pro"
@@ -4791,11 +4913,56 @@ mod tests {
     fn installs_and_refuses_mutated_immutable_template() {
         let temporary = tempfile::tempdir().unwrap();
         let first = install_builtin_templates(temporary.path()).unwrap();
-        assert_eq!(first.installed.len(), 12);
+        assert_eq!(first.installed.len(), 13);
         let second = install_builtin_templates(temporary.path()).unwrap();
-        assert_eq!(second.verified.len(), 12);
+        assert_eq!(second.verified.len(), 13);
         fs::write(temporary.path().join("full-frame/v1.json"), "{}\n").unwrap();
         assert!(install_builtin_templates(temporary.path()).is_err());
+    }
+
+    #[test]
+    fn panorama_v2_derives_authoring_bounds_from_platform() {
+        let reference = TemplateRef::parse("continuous-panorama@2").unwrap();
+        let template: LayoutTemplate = serde_json::from_str(CONTINUOUS_PANORAMA_V2).unwrap();
+        validate_template(&template, &reference).unwrap();
+        let resolved = ResolvedTemplate {
+            reference: reference.display(),
+            path: PathBuf::from("continuous-panorama/v2.json"),
+            sha256: sha256(CONTINUOUS_PANORAMA_V2.as_bytes()),
+            template: template.clone(),
+        };
+        validate_template_platform(&resolved, PostPlatform::Instagram).unwrap();
+        validate_template_platform(&resolved, PostPlatform::Threads).unwrap();
+        let placement = PostPlacement {
+            slot: "image".into(),
+            asset_id: Uuid::nil(),
+            display_filename: "source.ARW".into(),
+            fit: "crop".into(),
+            focal_point: FocalPoint { x: 0.5, y: 0.5 },
+            crop: None,
+            transform: None,
+        };
+        let instagram =
+            authoring_target_bounds(&template, &placement, PostPlatform::Instagram).unwrap();
+        let threads =
+            authoring_target_bounds(&template, &placement, PostPlatform::Threads).unwrap();
+        assert_eq!((instagram.width, instagram.height), (9000, 6000));
+        assert_eq!((threads.width, threads.height), (9000, 8000));
+    }
+
+    #[test]
+    fn panorama_v1_is_rejected_for_threads() {
+        let reference = TemplateRef::parse("continuous-panorama@1").unwrap();
+        let template: LayoutTemplate = serde_json::from_str(CONTINUOUS_PANORAMA_V1).unwrap();
+        validate_template(&template, &reference).unwrap();
+        let resolved = ResolvedTemplate {
+            reference: reference.display(),
+            path: PathBuf::from("continuous-panorama/v1.json"),
+            sha256: sha256(CONTINUOUS_PANORAMA_V1.as_bytes()),
+            template,
+        };
+        validate_template_platform(&resolved, PostPlatform::Instagram).unwrap();
+        assert!(validate_template_platform(&resolved, PostPlatform::Threads).is_err());
     }
 
     #[test]

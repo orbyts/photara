@@ -609,6 +609,12 @@ photara posts add-edit-comparison sylvan package-a \
   --top DSC01234.ARW --bottom DSC01238.ARW
 ```
 
+The default panorama contract is platform-aware. Two Instagram frames prepare
+a 3:2 combined selection (9000×6000 reference bounds); two Threads frames
+prepare a 9:8 selection (9000×8000 reference bounds). If the command is rerun
+for an existing matching panorama, Photara may update only its template version
+while preserving the already authored transform.
+
 Three-image stacks work on both platforms. With no `--rows` option they use an
 equal one-third distribution. To emphasize the center image, add
 `--rows 30,40,30`; Photara derives the exact crop-selection dimensions

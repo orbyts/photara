@@ -27,9 +27,11 @@ templates_cache = "~/Library/Caches/photara/templates"
 full_frame = "full-frame@1"
 stacked_two = "stacked-two@1"
 stacked_three = "stacked-three@2"
-continuous_panorama = "continuous-panorama@1"
+continuous_panorama = "continuous-panorama@2"
 dynamic_range_comparison = "dynamic-range-comparison@2"
+dynamic_range_comparison_threads = "dynamic-range-comparison@3"
 edit_comparison = "edit-comparison@1"
+edit_comparison_threads = "edit-comparison@2"
 "#;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -75,8 +77,12 @@ pub struct LayoutDefaults {
     pub continuous_panorama: String,
     #[serde(default = "default_dynamic_range_comparison_template")]
     pub dynamic_range_comparison: String,
+    #[serde(default = "default_dynamic_range_comparison_threads_template")]
+    pub dynamic_range_comparison_threads: String,
     #[serde(default = "default_edit_comparison_template")]
     pub edit_comparison: String,
+    #[serde(default = "default_edit_comparison_threads_template")]
+    pub edit_comparison_threads: String,
 }
 
 impl Default for LayoutDefaults {
@@ -87,7 +93,9 @@ impl Default for LayoutDefaults {
             stacked_three: default_stacked_three_template(),
             continuous_panorama: default_continuous_panorama_template(),
             dynamic_range_comparison: default_dynamic_range_comparison_template(),
+            dynamic_range_comparison_threads: default_dynamic_range_comparison_threads_template(),
             edit_comparison: default_edit_comparison_template(),
+            edit_comparison_threads: default_edit_comparison_threads_template(),
         }
     }
 }
@@ -220,7 +228,15 @@ impl PhotaraConfig {
         crate::layout::TemplateRef::parse(
             &self.settings.layouts.defaults.dynamic_range_comparison,
         )?;
+        crate::layout::TemplateRef::parse(
+            &self
+                .settings
+                .layouts
+                .defaults
+                .dynamic_range_comparison_threads,
+        )?;
         crate::layout::TemplateRef::parse(&self.settings.layouts.defaults.edit_comparison)?;
+        crate::layout::TemplateRef::parse(&self.settings.layouts.defaults.edit_comparison_threads)?;
         for (name, value) in [
             ("default_creator", &self.settings.default_creator),
             ("default_copyright", &self.settings.default_copyright),
@@ -285,15 +301,23 @@ fn default_stacked_three_template() -> String {
 }
 
 fn default_continuous_panorama_template() -> String {
-    "continuous-panorama@1".into()
+    "continuous-panorama@2".into()
 }
 
 fn default_dynamic_range_comparison_template() -> String {
     "dynamic-range-comparison@2".into()
 }
 
+fn default_dynamic_range_comparison_threads_template() -> String {
+    "dynamic-range-comparison@3".into()
+}
+
 fn default_edit_comparison_template() -> String {
     "edit-comparison@1".into()
+}
+
+fn default_edit_comparison_threads_template() -> String {
+    "edit-comparison@2".into()
 }
 
 fn default_lightroom_inbox() -> PathBuf {
