@@ -4,6 +4,14 @@ Graph Lab is a small macOS developer utility for evaluating Photara's reusable
 Graph presentation primitives without opening a project or building the Rust
 bridge. It owns fixture data and temporary authoring controls only.
 
+Node headers follow the reusable
+[Graph Node Design Language](../photara-graph/NODE_DESIGN_LANGUAGE.md): a
+free-standing 28-point outline icon centered against a tight title/category
+stack. The icon alone receives an adaptive functional-category color; the title
+and category label remain neutral. SVGs are cached native template images, so
+node movement, pan, and zoom do not regenerate paths. Presentation metadata is
+resolved separately from the graph document and interaction controller.
+
 The current slice compares procedural major/minor background patterns, native
 glass treatments, node corner radius, round versus pill ports, port edge
 offset, and one stable node-shadow model. There are deliberately no

@@ -507,6 +507,7 @@ struct GraphLabView: View {
             GraphLabNodeSpecimen(
                 title: node.title,
                 subtitle: node.subtitle,
+                presentation: GraphLabFixtures.presentation(for: node.kind),
                 inputs: node.ports(.input),
                 outputs: node.ports(.output),
                 style: nodeStyle(),
@@ -985,8 +986,10 @@ private struct GraphLabSavedColor: Codable {
 
 private struct GraphLabNodeSpecimen: View {
     @Environment(\.photaraTheme) private var theme
+    @Environment(\.photaraGraphPresentationZoom) private var zoom
     let title: String
     let subtitle: String
+    let presentation: PhotaraGraphNodePresentationMetadata
     let inputs: [PhotaraGraphPortDefinition]
     let outputs: [PhotaraGraphPortDefinition]
     let style: PhotaraGraphNodeStyle
@@ -1014,54 +1017,76 @@ private struct GraphLabNodeSpecimen: View {
     let activePortShadowOffsetY: Double
     let connectedInputs: Set<Int>
     let connectedOutputs: Set<Int>
-    private let width = PhotaraGraphGeometry.nodeWidth
+    private var width: CGFloat { PhotaraGraphGeometry.nodeWidth * zoom }
     private var rowCount: Int { max(1, max(inputs.count, outputs.count)) }
-    private var height: CGFloat { 74 + CGFloat(rowCount) * PhotaraGraphGeometry.rowHeight }
+    private var height: CGFloat {
+        (74 + CGFloat(rowCount) * PhotaraGraphGeometry.rowHeight) * zoom
+    }
+
+    private var scaledStyle: PhotaraGraphNodeStyle {
+        PhotaraGraphNodeStyle(
+            cornerRadius: style.cornerRadius * zoom,
+            portShape: style.portShape,
+            portOffset: style.portOffset * zoom,
+            shadowBlur: style.shadowBlur * zoom,
+            shadowOpacity: style.shadowOpacity,
+            shadowOffsetY: style.shadowOffsetY * zoom
+        )
+    }
 
     var body: some View {
         PhotaraGraphNodeSurface(
-            style: style,
+            style: scaledStyle,
             glassTreatment: glassTreatment,
             glassTint: glassTintColor.opacity(glassTintOpacity),
             glassOpacity: glassOpacity,
             flatFill: flatFillColor,
             flatStroke: flatStrokeColor,
-            flatStrokeWidth: flatStrokeWidth
+            flatStrokeWidth: flatStrokeWidth * zoom
         ) {
             VStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(titleColor)
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(detailColor)
+                HStack(spacing: 9 * zoom) {
+                    PhotaraGraphNodeIcon(
+                        resource: presentation.iconResource,
+                        color: presentation.category.color,
+                        size: 28 * zoom
+                    )
+                    .frame(width: 32 * zoom, height: 32 * zoom)
+
+                    VStack(alignment: .leading, spacing: 1 * zoom) {
+                        Text(title)
+                            .font(.system(size: 13 * zoom, weight: .semibold))
+                            .foregroundStyle(titleColor)
+                        Text(subtitle)
+                            .font(.system(size: 11 * zoom))
+                            .foregroundStyle(detailColor)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 14 * zoom)
+                .padding(.vertical, 10 * zoom)
                 Divider()
                 HStack(alignment: .top) {
                     labelColumn(inputs, alignment: .leading)
-                    Spacer(minLength: 16)
+                    Spacer(minLength: 16 * zoom)
                     labelColumn(outputs, alignment: .trailing)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 14 * zoom)
+                .padding(.vertical, 8 * zoom)
             }
             .frame(width: width, height: height, alignment: .top)
-            .clipShape(RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: style.cornerRadius * zoom, style: .continuous))
         } ports: {
             GeometryReader { geometry in
                 ZStack {
                     GlassEffectContainer(spacing: 0) {
                         ForEach(0..<inputs.count, id: \.self) { index in
                             portShell(label: inputs[index].label, at: index, isConnected: connectedInputs.contains(index))
-                                .position(x: -style.portOffset, y: portY(index))
+                                .position(x: -style.portOffset * zoom, y: portY(index))
                         }
                         ForEach(0..<outputs.count, id: \.self) { index in
                             portShell(label: outputs[index].label, at: index, isConnected: connectedOutputs.contains(index))
-                                .position(x: geometry.size.width + style.portOffset, y: portY(index))
+                                .position(x: geometry.size.width + style.portOffset * zoom, y: portY(index))
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1073,7 +1098,7 @@ private struct GraphLabNodeSpecimen: View {
                             at: index,
                             isConnected: connectedInputs.contains(index)
                         )
-                            .position(x: -style.portOffset, y: portY(index))
+                            .position(x: -style.portOffset * zoom, y: portY(index))
                     }
                     ForEach(0..<outputs.count, id: \.self) { index in
                         portCore(
@@ -1082,23 +1107,23 @@ private struct GraphLabNodeSpecimen: View {
                             at: index,
                             isConnected: connectedOutputs.contains(index)
                         )
-                            .position(x: geometry.size.width + style.portOffset, y: portY(index))
+                            .position(x: geometry.size.width + style.portOffset * zoom, y: portY(index))
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(width: width, height: height)
-        .contentShape(RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: style.cornerRadius * zoom, style: .continuous))
     }
 
     private func labelColumn(_ ports: [PhotaraGraphPortDefinition], alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: 0) {
             ForEach(ports) { port in
                 Text(port.label)
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 10.5 * zoom))
                     .foregroundStyle(detailColor)
-                    .frame(height: PhotaraGraphGeometry.rowHeight)
+                    .frame(height: PhotaraGraphGeometry.rowHeight * zoom)
             }
         }
     }
@@ -1109,8 +1134,8 @@ private struct GraphLabNodeSpecimen: View {
             if isConnected {
                 PhotaraGraphPort(
                     shape: style.portShape,
-                    width: 14,
-                    height: 14,
+                    width: 14 * zoom,
+                    height: 14 * zoom,
                     glassTreatment: portGlassTreatment,
                     glassTint: portGlassTintColor.opacity(portGlassTintOpacity),
                     coreColor: semanticPortColor(for: label),
@@ -1121,13 +1146,13 @@ private struct GraphLabNodeSpecimen: View {
                     color: semanticPortColor(for: label).opacity(
                         activePortShowsShadow ? activePortShadowOpacity : 0
                     ),
-                    radius: activePortShowsShadow ? activePortShadowBlur : 0,
-                    y: activePortShowsShadow ? activePortShadowOffsetY : 0
+                    radius: activePortShowsShadow ? activePortShadowBlur * zoom : 0,
+                    y: activePortShowsShadow ? activePortShadowOffsetY * zoom : 0
                 )
             } else {
                 Color.clear
-                    .frame(width: style.portShape == .pill ? 21.7 : 14, height: 14)
-                    .contentShape(Rectangle().inset(by: -6))
+                    .frame(width: (style.portShape == .pill ? 21.7 : 14) * zoom, height: 14 * zoom)
+                    .contentShape(Rectangle().inset(by: -6 * zoom))
             }
         }
         .accessibilityHidden(true)
@@ -1146,22 +1171,22 @@ private struct GraphLabNodeSpecimen: View {
                 portShape
                     .fill(color)
                     .brightness(activePortCoreBrightness)
-                    .frame(width: portCoreWidth, height: portCoreSize)
+                    .frame(width: portCoreWidth * zoom, height: portCoreSize * zoom)
                     .allowedDynamicRange(.standard)
             } else {
                 ZStack {
                     portShape.fill(color)
                     if inactivePortShowsStroke {
-                        portShape.stroke(color, lineWidth: inactivePortStrokeWidth)
+                        portShape.stroke(color, lineWidth: inactivePortStrokeWidth * zoom)
                     }
                 }
                 .saturation(inactivePortSaturation)
                 .brightness(inactivePortCoreBrightness)
-                .frame(width: portCoreWidth, height: portCoreSize)
+                .frame(width: portCoreWidth * zoom, height: portCoreSize * zoom)
                 .allowedDynamicRange(.standard)
             }
         }
-        .frame(width: 36, height: 22)
+        .frame(width: 36 * zoom, height: 22 * zoom)
         .contentShape(Rectangle())
         .accessibilityLabel("\(label) port \(index + 1)")
         .accessibilityValue(isConnected ? "Connected" : "Not connected")
@@ -1195,6 +1220,6 @@ private struct GraphLabNodeSpecimen: View {
     }
 
     private func portY(_ index: Int) -> CGFloat {
-        PhotaraGraphGeometry.firstPortY + CGFloat(index) * PhotaraGraphGeometry.rowHeight
+        (PhotaraGraphGeometry.firstPortY + CGFloat(index) * PhotaraGraphGeometry.rowHeight) * zoom
     }
 }

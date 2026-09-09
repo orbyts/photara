@@ -58,7 +58,7 @@ private struct GraphLabPlacedNode<Content: View>: View {
     var body: some View {
         content(node, controller.selection == .node(node.id), controller.activePorts(for: node, direction: .input),
                 controller.activePorts(for: node, direction: .output))
-            .scaleEffect(controller.camera.zoom)
+            .environment(\.photaraGraphPresentationZoom, controller.camera.zoom)
             .position(controller.camera.screen(controller.position(of: node), in: controller.viewport))
             .allowsHitTesting(false)
     }

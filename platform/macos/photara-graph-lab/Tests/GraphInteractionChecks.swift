@@ -245,7 +245,7 @@ final class GraphLabChecks {
         Self.check(controller.document.connections.isEmpty, "Empty release after valid hover cancels")
         idle("invalid new wire")
         drag(from: port(assets), to: port(input))
-        Self.check(connected(assets, input), "Create Source to Transform")
+        Self.check(connected(assets, input), "Create Disk Folder to Rotate")
         drag(from: port(assets), to: port(layer1))
         Self.check(controller.document.connections.count == 2, "Output fanout")
         drag(from: port(assets), to: port(input))
@@ -483,7 +483,7 @@ final class GraphLabChecks {
         Self.check(controller.document.connections[0].knot == nil, "Control-click menu removes knot")
         menu("Disconnect", at: port(input))
         Self.check(controller.document.connections.isEmpty, "Port menu disconnects")
-        menu("Connect Source / Assets Here", at: port(input))
+        menu("Connect Disk Folder / Assets Here", at: port(input))
         Self.check(connected(assets, input), "Port menu uses compatible sources")
         menu("Add Routing Knot", at: screen(middle))
         let id = controller.document.connections[0].id

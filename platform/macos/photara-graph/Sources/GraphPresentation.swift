@@ -1,4 +1,113 @@
+import AppKit
 import SwiftUI
+
+private struct PhotaraGraphPresentationZoomKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 1
+}
+
+extension EnvironmentValues {
+    var photaraGraphPresentationZoom: CGFloat {
+        get { self[PhotaraGraphPresentationZoomKey.self] }
+        set { self[PhotaraGraphPresentationZoomKey.self] = newValue }
+    }
+}
+
+/// Functional node taxonomy for native catalog and graph presentation. Package
+/// provenance is independent and must not be encoded as a category.
+enum PhotaraGraphNodeCategory: String, CaseIterable, Identifiable {
+    case sourcesImport
+    case selectionLogic
+    case transform
+    case applicationActions
+    case layoutComposition
+    case aiAutomation
+    case metadataOrganization
+    case outputDelivery
+    case utilitiesControl
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .sourcesImport: "Sources & Import"
+        case .selectionLogic: "Selection & Logic"
+        case .transform: "Transform"
+        case .applicationActions: "Application Actions"
+        case .layoutComposition: "Layout & Composition"
+        case .aiAutomation: "AI & Automation"
+        case .metadataOrganization: "Metadata & Organization"
+        case .outputDelivery: "Output & Delivery"
+        case .utilitiesControl: "Utilities & Control"
+        }
+    }
+
+    var color: Color {
+        let color: NSColor
+        switch self {
+        case .sourcesImport: color = .systemTeal
+        case .selectionLogic: color = .systemPurple
+        case .transform: color = .systemOrange
+        case .applicationActions: color = .systemPink
+        case .layoutComposition: color = .systemBlue
+        case .aiAutomation: color = .systemIndigo
+        case .metadataOrganization: color = .systemYellow
+        case .outputDelivery: color = .systemGreen
+        case .utilitiesControl: color = .systemGray
+        }
+        return Color(nsColor: color)
+    }
+}
+
+/// Presentation metadata is resolved by a package/catalog adapter. It is not
+/// document state and deliberately stays outside `PhotaraGraphNode`.
+struct PhotaraGraphNodePresentationMetadata: Equatable {
+    let category: PhotaraGraphNodeCategory
+    let iconResource: String
+}
+
+@MainActor
+private final class PhotaraGraphNodeIconStore {
+    static let shared = PhotaraGraphNodeIconStore()
+    private var images: [String: NSImage] = [:]
+
+    func image(named name: String) -> NSImage? {
+        if let image = images[name] { return image }
+        guard let url = Bundle.main.url(
+            forResource: name,
+            withExtension: "svg",
+            subdirectory: "NodeIcons"
+        ), let image = NSImage(contentsOf: url) else { return nil }
+        image.isTemplate = true
+        images[name] = image
+        return image
+    }
+}
+
+/// Cached template rendering keeps SVG parsing out of pan, zoom, and node-drag
+/// frames while letting native appearance resolve the category color.
+struct PhotaraGraphNodeIcon: View {
+    let resource: String
+    let color: Color
+    var size: CGFloat = 28
+
+    var body: some View {
+        Group {
+            if let image = PhotaraGraphNodeIconStore.shared.image(named: resource) {
+                Image(nsImage: image)
+                    .resizable()
+                    .renderingMode(.template)
+                    .scaledToFit()
+            } else {
+                Image(systemName: "square.dashed")
+                    .resizable()
+                    .scaledToFit()
+            }
+        }
+        .foregroundStyle(color)
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
 
 /// Reusable, presentation-only Graph appearance values. These do not enter a
 /// Photara project, graph digest, or node package contract.
