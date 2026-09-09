@@ -17,11 +17,18 @@ cp -p "$THEME_ROOT/Resources/photara-default.json" "$RESOURCES/photara-default.j
 
 xcrun swiftc \
   -swift-version 6 \
+  -O \
   -parse-as-library \
   -module-cache-path "$MODULE_CACHE" \
   "$THEME_ROOT/Sources/PhotaraTheme.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-app/Sources/ThemeStore.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphPresentation.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphDocument.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphGeometry.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphInteraction.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphEventSurface.swift" \
+  "$SCRIPT_ROOT/Sources/GraphLabFixtures.swift" \
+  "$SCRIPT_ROOT/Sources/GraphLabCanvas.swift" \
   "$SCRIPT_ROOT/Sources/GraphLabView.swift" \
   "$SCRIPT_ROOT/Sources/GraphLabApp.swift" \
   -framework SwiftUI \

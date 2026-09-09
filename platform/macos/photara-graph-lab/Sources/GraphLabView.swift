@@ -2,15 +2,16 @@ import AppKit
 import Foundation
 import SwiftUI
 
-private enum GraphLabNodeID: Hashable {
-    case source
-    case transform
-    case composite
+private enum GraphLabNodeSurfaceStyle: String, CaseIterable, Identifiable {
+    case flat
+    case glass
+
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
 }
 
 struct GraphLabView: View {
     private static let preferencesKey = "graph-lab.visual-preferences.v1"
-
     @Environment(\.photaraTheme) private var theme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Binding var appearance: PhotaraThemeAppearance
@@ -26,32 +27,43 @@ struct GraphLabView: View {
     @State private var majorMarkSize = 3.0
     @State private var lightColors = GraphLabAppearanceColors()
     @State private var darkColors = GraphLabAppearanceColors()
+    @State private var nodeSurfaceStyle = GraphLabNodeSurfaceStyle.flat
     @State private var idleGlassTreatment = PhotaraGraphGlassTreatment.regular
     @State private var selectedGlassTreatment = PhotaraGraphGlassTreatment.clear
     @State private var idleGlassTintOpacity = 0.05
     @State private var selectedGlassTintOpacity = 0.025
+    @State private var lightIdleGlassOpacity = 1.0
+    @State private var darkIdleGlassOpacity = 1.0
+    @State private var lightSelectedGlassOpacity = 1.0
+    @State private var darkSelectedGlassOpacity = 1.0
+    @State private var selectedStrokeWidth = 2.0
     @State private var cornerRadius = 12.0
     @State private var portShape = PhotaraGraphPortShape.round
     @State private var portOffset = 0.0
     @State private var portGlassTreatment = PhotaraGraphGlassTreatment.clear
     @State private var portGlassTintOpacity = 0.18
+    @State private var portCoreSize = 5.0
+    @State private var inactivePortSaturation = 0.18
+    @State private var inactivePortShowsStroke = true
+    @State private var inactivePortStrokeWidth = 1.0
+    @State private var activePortShowsShadow = true
+    @State private var activePortShadowOpacity = 0.32
+    @State private var activePortShadowBlur = 3.0
+    @State private var activePortShadowOffsetY = 1.5
     @State private var lightPortCoreBrightness = 0.0
     @State private var darkPortCoreBrightness = 0.18
-    @State private var restingShadowBlur = 5.0
-    @State private var restingShadowOffsetY = 3.0
-    @State private var liftedShadowBlur = 12.0
-    @State private var liftedShadowOffsetY = 7.0
-    @State private var lightRestingShadowOpacity = 0.12
-    @State private var darkRestingShadowOpacity = 0.18
-    @State private var lightLiftedShadowOpacity = 0.18
-    @State private var darkLiftedShadowOpacity = 0.28
-    @State private var pan = CGSize.zero
-    @State private var zoom = 1.0
-    @State private var selectedNode = GraphLabNodeID.transform
-    @State private var nodeOffsets: [GraphLabNodeID: CGSize] = [:]
+    @State private var lightActivePortCoreBrightness = 0.12
+    @State private var darkActivePortCoreBrightness = 0.28
+    @State private var noodleStyle = PhotaraGraphNoodleStyle.curved
+    @State private var controller = PhotaraGraphInteractionController(
+        document: GraphLabFixtures.document, selection: .node("transform")
+    )
+    @State private var nodeShadowBlur = 5.0
+    @State private var nodeShadowOffsetY = 3.0
+    @State private var lightNodeShadowOpacity = 0.12
+    @State private var darkNodeShadowOpacity = 0.18
     @State private var didLoadPreferences = false
     @State private var preferencesStatus: String?
-    @GestureState private var canvasDrag = CGSize.zero
 
     var body: some View {
         HSplitView {
@@ -65,11 +77,6 @@ struct GraphLabView: View {
             Button("Save Preferences", systemImage: "square.and.arrow.down") {
                 savePreferences()
             }
-            Text("Zoom \(Int(zoom * 100))%")
-                .font(.caption.monospacedDigit())
-            Slider(value: $zoom, in: 0.55...1.8)
-                .frame(width: 120)
-            Divider()
             Picker("Appearance", selection: $appearance) {
                 Text("Light").tag(PhotaraThemeAppearance.light)
                 Text("Dark").tag(PhotaraThemeAppearance.dark)
@@ -77,82 +84,35 @@ struct GraphLabView: View {
             .pickerStyle(.segmented)
             .frame(width: 150)
         }
-        .onAppear { loadPreferencesIfAvailable() }
+        .onAppear {
+            loadPreferencesIfAvailable()
+            configureGeometry()
+        }
+        .onChange(of: portOffset) { configureGeometry() }
+        .onChange(of: noodleStyle) { configureGeometry() }
+        .onChange(of: appearance) { controller.cancel(resetTool: true) }
+        .onChange(of: nodeSurfaceStyle) { controller.cancel() }
+    }
+
+    private func configureGeometry() {
+        controller.configure(.init(portOffset: portOffset, noodleStyle: noodleStyle))
     }
 
     private var canvas: some View {
-        GeometryReader { geometry in
-            let displayedPan = CGSize(
-                width: pan.width + canvasDrag.width,
-                height: pan.height + canvasDrag.height
-            )
-            ZStack {
-                PhotaraGraphBackground(
-                    pan: displayedPan,
-                    zoom: zoom,
-                    style: PhotaraGraphBackgroundStyle(
-                        pattern: pattern,
-                        spacing: gridSpacing,
-                        opacity: minorOpacity,
-                        markSize: minorMarkSize,
-                        lineWidth: minorLineWidth,
-                        majorInterval: majorInterval,
-                        majorOpacity: majorOpacity,
-                        majorMarkSize: majorMarkSize,
-                        majorLineWidth: majorLineWidth
-                    ),
-                    backgroundColor: activeColor(\.graphBackground),
-                    minorColor: activeColor(\.minor),
-                    majorColor: activeColor(\.major)
-                )
-                GraphLabNoodleLayer(
-                    color: activeColor(\.noodle) ?? theme?.color(.borderFocus) ?? .accentColor,
-                    pan: displayedPan,
-                    zoom: zoom
-                )
-
-                Color.clear
-                    .contentShape(Rectangle())
-                    .gesture(canvasPanGesture)
-
-                specimen(
-                    id: .source,
-                    title: "Source",
-                    subtitle: "One port",
-                    inputs: [],
-                    outputs: ["Assets"],
-                    canvasSize: geometry.size,
-                    pan: displayedPan
-                )
-                specimen(
-                    id: .transform,
-                    title: "Transform",
-                    subtitle: "Three port rows",
-                    inputs: ["Input", "Mask", "Control"],
-                    outputs: ["Result", "Preview", "Metadata"],
-                    canvasSize: geometry.size,
-                    pan: displayedPan
-                )
-                specimen(
-                    id: .composite,
-                    title: "Composite",
-                    subtitle: "Six port rows",
-                    inputs: ["Layer 1", "Layer 2", "Mask", "Depth", "Color", "Control"],
-                    outputs: ["Image", "Preview"],
-                    canvasSize: geometry.size,
-                    pan: displayedPan
-                )
-            }
-            .clipped()
-            .overlay(alignment: .bottomLeading) {
-                Text("Click or drag a node · drag empty canvas to pan")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(10)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
-                    .padding(14)
-            }
-        }
+        GraphLabCanvas(
+            controller: controller,
+            backgroundStyle: PhotaraGraphBackgroundStyle(
+                pattern: pattern, spacing: gridSpacing, opacity: minorOpacity,
+                markSize: minorMarkSize, lineWidth: minorLineWidth,
+                majorInterval: majorInterval, majorOpacity: majorOpacity,
+                majorMarkSize: majorMarkSize, majorLineWidth: majorLineWidth
+            ),
+            backgroundColor: activeColor(\.graphBackground),
+            minorColor: activeColor(\.minor),
+            majorColor: activeColor(\.major),
+            noodleColor: activeColor(\.noodle) ?? theme?.color(.borderFocus) ?? .accentColor,
+            nodeContent: specimen
+        )
     }
 
     private var controls: some View {
@@ -211,6 +171,29 @@ struct GraphLabView: View {
             }
 
             Section("Node") {
+                Picker("Surface", selection: $nodeSurfaceStyle) {
+                    ForEach(GraphLabNodeSurfaceStyle.allCases) { style in
+                        Text(style.title).tag(style)
+                    }
+                }
+                .pickerStyle(.segmented)
+                if nodeSurfaceStyle == .flat {
+                    ColorPicker(
+                        appearance == .dark ? "Dark node color" : "Light node color",
+                        selection: colorBinding(
+                            activeColorBinding(\.idleNodeFill),
+                            default: defaultFlatNodeColor
+                        )
+                    )
+                    ColorPicker(
+                        appearance == .dark ? "Dark selected stroke" : "Light selected stroke",
+                        selection: colorBinding(
+                            activeColorBinding(\.selectedNodeStroke),
+                            default: defaultSelectedStrokeColor
+                        )
+                    )
+                    valueSlider("Selected stroke width", value: $selectedStrokeWidth, range: 0...6, suffix: " pt")
+                }
                 valueSlider("Corner radius", value: $cornerRadius, range: 0...32, suffix: " pt")
             }
 
@@ -229,17 +212,10 @@ struct GraphLabView: View {
                         default: defaultDetailTextColor
                     )
                 )
-                valueSlider(
-                    appearance == .dark ? "Dark port brightness" : "Light port brightness",
-                    value: activePortCoreBrightnessBinding,
-                    range: 0...0.35
-                )
-                Text("Port brightness preserves each semantic port hue while raising contrast.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
-            Section("Native glass") {
+            if nodeSurfaceStyle == .glass {
+                Section("Node glass") {
                 Picker("Unselected", selection: $idleGlassTreatment) {
                     ForEach(PhotaraGraphGlassTreatment.allCases) { treatment in
                         Text(treatment.title).tag(treatment)
@@ -254,6 +230,11 @@ struct GraphLabView: View {
                     )
                 )
                 valueSlider("Unselected tint", value: $idleGlassTintOpacity, range: 0...0.18)
+                valueSlider(
+                    appearance == .dark ? "Dark unselected glass opacity" : "Light unselected glass opacity",
+                    value: activeIdleGlassOpacityBinding,
+                    range: 0.2...1
+                )
 
                 Picker("Selected", selection: $selectedGlassTreatment) {
                     ForEach(PhotaraGraphGlassTreatment.allCases) { treatment in
@@ -269,13 +250,19 @@ struct GraphLabView: View {
                     )
                 )
                 valueSlider("Selected tint", value: $selectedGlassTintOpacity, range: 0...0.18)
-                Text("Regular and Clear are Apple's public optical treatments. Tint changes native glass color, not blur strength.")
+                valueSlider(
+                    appearance == .dark ? "Dark selected glass opacity" : "Light selected glass opacity",
+                    value: activeSelectedGlassOpacityBinding,
+                    range: 0.2...1
+                )
+                Text("Regular and Clear are Apple's public optical treatments. Tint changes glass color; opacity changes only the native glass surface, never its text or ports.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if reduceTransparency {
                     Text("Reduce Transparency is active: semantic opaque surfaces replace glass.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
                 }
             }
 
@@ -301,32 +288,62 @@ struct GraphLabView: View {
                     )
                 )
                 valueSlider("Glass tint", value: $portGlassTintOpacity, range: 0...0.5)
-            }
-
-            Section("Resting shadow") {
-                valueSlider("Blur", value: $restingShadowBlur, range: 0...30, suffix: " pt")
-                valueSlider(
-                    appearance == .dark ? "Dark opacity" : "Light opacity",
-                    value: activeRestingShadowOpacityBinding,
-                    range: 0...0.5
-                )
-                valueSlider("Vertical offset", value: $restingShadowOffsetY, range: -4...18, suffix: " pt")
-            }
-
-            Section("Lifted shadow") {
-                valueSlider("Blur", value: $liftedShadowBlur, range: 0...40, suffix: " pt")
-                valueSlider(
-                    appearance == .dark ? "Dark opacity" : "Light opacity",
-                    value: activeLiftedShadowOpacityBinding,
-                    range: 0...0.5
-                )
-                valueSlider("Vertical offset", value: $liftedShadowOffsetY, range: -4...24, suffix: " pt")
-                Text("Applied only while a node is held or dragged; release returns it to the resting shadow.")
+                valueSlider("Inner dot size", value: $portCoreSize, range: 3...10, suffix: " pt")
+                Text("Assets and Input are connected; neighboring ports remain disconnected for comparison.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section("Backdrop specimen") {
+            Section("Inactive port dot") {
+                valueSlider("Saturation", value: $inactivePortSaturation, range: 0...1)
+                valueSlider(
+                    appearance == .dark ? "Dark brightness" : "Light brightness",
+                    value: activeInactivePortBrightnessBinding,
+                    range: -0.25...0.35
+                )
+                Toggle("Stroke", isOn: $inactivePortShowsStroke)
+                if inactivePortShowsStroke {
+                    valueSlider("Stroke width", value: $inactivePortStrokeWidth, range: 0.5...3, suffix: " pt")
+                }
+            }
+
+            Section("Active port dot") {
+                valueSlider(
+                    appearance == .dark ? "Dark brightness" : "Light brightness",
+                    value: activeConnectedPortBrightnessBinding,
+                    range: -0.25...0.35
+                )
+                Text("Dot size stays constant and the active dot remains centered over the glass bead.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Active port shadow") {
+                Toggle("Enabled", isOn: $activePortShowsShadow)
+                if activePortShowsShadow {
+                    valueSlider("Opacity", value: $activePortShadowOpacity, range: 0...0.8)
+                    valueSlider("Blur", value: $activePortShadowBlur, range: 0...10, suffix: " pt")
+                    valueSlider("Vertical offset", value: $activePortShadowOffsetY, range: -4...8, suffix: " pt")
+                }
+                Text("The semantic-colored shadow belongs only to a connected glass bead.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Node shadow") {
+                valueSlider("Blur", value: $nodeShadowBlur, range: 0...30, suffix: " pt")
+                valueSlider(
+                    appearance == .dark ? "Dark opacity" : "Light opacity",
+                    value: activeNodeShadowOpacityBinding,
+                    range: 0...0.5
+                )
+                valueSlider("Vertical offset", value: $nodeShadowOffsetY, range: -4...18, suffix: " pt")
+                Text("Selection uses only the authored stroke; clicking or dragging does not change this shadow.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Noodle") {
                 ColorPicker(
                     appearance == .dark ? "Dark noodle color" : "Light noodle color",
                     selection: colorBinding(
@@ -334,7 +351,22 @@ struct GraphLabView: View {
                         default: theme?.color(.borderFocus) ?? .accentColor
                     )
                 )
-                Text("The bright noodle remains fixed in Graph space beneath Transform.")
+                Picker("Style", selection: $noodleStyle) {
+                    ForEach(PhotaraGraphNoodleStyle.allCases) { style in
+                        Text(style.title).tag(style)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Button(activeNoodleKnot == nil ? "Add routing knot" : "Remove routing knot") {
+                    guard let id = connectionForKnotEditingID else { return }
+                    if activeNoodleKnot == nil {
+                        setNoodleKnot(defaultNoodleKnotPosition(connectionID: id), connectionID: id)
+                    } else {
+                        removeNoodleKnot(connectionID: id)
+                    }
+                }
+                .disabled(controller.document.connections.isEmpty)
+                Text("The noodle follows both ports live. A routing knot bends the path without changing the connection; drag the knot to place it.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -376,11 +408,45 @@ struct GraphLabView: View {
         appearance == .dark ? .white : (theme?.color(.textPrimary) ?? .primary)
     }
 
+    private var activeIdleGlassOpacityBinding: Binding<Double> {
+        Binding(
+            get: { appearance == .dark ? darkIdleGlassOpacity : lightIdleGlassOpacity },
+            set: { value in
+                if appearance == .dark {
+                    darkIdleGlassOpacity = value
+                } else {
+                    lightIdleGlassOpacity = value
+                }
+            }
+        )
+    }
+
+    private var activeSelectedGlassOpacityBinding: Binding<Double> {
+        Binding(
+            get: { appearance == .dark ? darkSelectedGlassOpacity : lightSelectedGlassOpacity },
+            set: { value in
+                if appearance == .dark {
+                    darkSelectedGlassOpacity = value
+                } else {
+                    lightSelectedGlassOpacity = value
+                }
+            }
+        )
+    }
+
     private var defaultDetailTextColor: Color {
         appearance == .dark ? Color.white.opacity(0.86) : (theme?.color(.textSecondary) ?? .secondary)
     }
 
-    private var activePortCoreBrightnessBinding: Binding<Double> {
+    private var defaultFlatNodeColor: Color {
+        theme?.color(.graphNode) ?? Color(nsColor: .controlBackgroundColor)
+    }
+
+    private var defaultSelectedStrokeColor: Color {
+        appearance == .dark ? Color.white.opacity(0.72) : Color.black.opacity(0.42)
+    }
+
+    private var activeInactivePortBrightnessBinding: Binding<Double> {
         Binding(
             get: { appearance == .dark ? darkPortCoreBrightness : lightPortCoreBrightness },
             set: { value in
@@ -393,199 +459,110 @@ struct GraphLabView: View {
         )
     }
 
-    private var activeRestingShadowOpacityBinding: Binding<Double> {
+    private var activeConnectedPortBrightnessBinding: Binding<Double> {
         Binding(
-            get: { appearance == .dark ? darkRestingShadowOpacity : lightRestingShadowOpacity },
+            get: { appearance == .dark ? darkActivePortCoreBrightness : lightActivePortCoreBrightness },
             set: { value in
                 if appearance == .dark {
-                    darkRestingShadowOpacity = value
+                    darkActivePortCoreBrightness = value
                 } else {
-                    lightRestingShadowOpacity = value
+                    lightActivePortCoreBrightness = value
                 }
             }
         )
     }
 
-    private var activeLiftedShadowOpacityBinding: Binding<Double> {
+    private var activeNodeShadowOpacityBinding: Binding<Double> {
         Binding(
-            get: { appearance == .dark ? darkLiftedShadowOpacity : lightLiftedShadowOpacity },
+            get: { appearance == .dark ? darkNodeShadowOpacity : lightNodeShadowOpacity },
             set: { value in
                 if appearance == .dark {
-                    darkLiftedShadowOpacity = value
+                    darkNodeShadowOpacity = value
                 } else {
-                    lightLiftedShadowOpacity = value
+                    lightNodeShadowOpacity = value
                 }
             }
         )
     }
 
-    private func nodeStyle(isLifted: Bool) -> PhotaraGraphNodeStyle {
+    private func nodeStyle() -> PhotaraGraphNodeStyle {
         return PhotaraGraphNodeStyle(
             cornerRadius: cornerRadius,
             portShape: portShape,
             portOffset: portOffset,
-            shadowBlur: isLifted ? liftedShadowBlur : restingShadowBlur,
-            shadowOpacity: isLifted
-                ? (appearance == .dark ? darkLiftedShadowOpacity : lightLiftedShadowOpacity)
-                : (appearance == .dark ? darkRestingShadowOpacity : lightRestingShadowOpacity),
-            shadowOffsetY: isLifted ? liftedShadowOffsetY : restingShadowOffsetY
+            shadowBlur: nodeShadowBlur,
+            shadowOpacity: appearance == .dark ? darkNodeShadowOpacity : lightNodeShadowOpacity,
+            shadowOffsetY: nodeShadowOffsetY
         )
     }
 
     private func specimen(
-        id: GraphLabNodeID,
-        title: String,
-        subtitle: String,
-        inputs: [String],
-        outputs: [String],
-        canvasSize: CGSize,
-        pan: CGSize
+        node: PhotaraGraphNode,
+        isSelected: Bool,
+        connectedInputs: Set<Int>,
+        connectedOutputs: Set<Int>
     ) -> some View {
-        let storedOffset = nodeOffsets[id] ?? .zero
-        let worldPosition = baseWorldPosition(for: id)
-        let position = screenPosition(
-            CGPoint(
-                x: worldPosition.x + storedOffset.width,
-                y: worldPosition.y + storedOffset.height
-            ),
-            canvasSize: canvasSize,
-            pan: pan
-        )
-        let glassTreatment = selectedNode == id ? selectedGlassTreatment : idleGlassTreatment
-        return GraphLabDraggableNode(
-            zoom: zoom,
-            storedOffset: storedOffset,
-            position: position,
-            constrainedOffset: { collisionConstrainedOffset(for: id, proposed: $0) },
-            onBegan: {
-                if selectedNode != id { selectedNode = id }
-            },
-            onEnded: { nodeOffsets[id] = $0 }
-        ) { isLifted in
+        let glassTreatment = isSelected ? selectedGlassTreatment : idleGlassTreatment
+        return
             GraphLabNodeSpecimen(
-                title: title,
-                subtitle: subtitle,
-                inputs: inputs,
-                outputs: outputs,
-                style: nodeStyle(isLifted: isLifted),
-                glassTreatment: glassTreatment,
+                title: node.title,
+                subtitle: node.subtitle,
+                inputs: node.ports(.input),
+                outputs: node.ports(.output),
+                style: nodeStyle(),
+                glassTreatment: nodeSurfaceStyle == .glass ? glassTreatment : nil,
+                flatFillColor: activeColor(\.idleNodeFill) ?? defaultFlatNodeColor,
+                flatStrokeColor: isSelected
+                    ? (activeColor(\.selectedNodeStroke) ?? defaultSelectedStrokeColor)
+                    : nil,
+                flatStrokeWidth: isSelected ? selectedStrokeWidth : 0.5,
                 titleColor: activeColor(\.titleText) ?? defaultTitleTextColor,
                 detailColor: activeColor(\.detailText) ?? defaultDetailTextColor,
-                glassTintColor: selectedNode == id
+                glassTintColor: isSelected
                     ? (activeColor(\.selectedGlassTint) ?? theme?.color(.nodeNative) ?? .accentColor)
                     : (activeColor(\.idleGlassTint) ?? theme?.color(.nodeNative) ?? .accentColor),
-                glassTintOpacity: selectedNode == id ? selectedGlassTintOpacity : idleGlassTintOpacity,
+                glassTintOpacity: isSelected ? selectedGlassTintOpacity : idleGlassTintOpacity,
+                glassOpacity: isSelected
+                    ? (appearance == .dark ? darkSelectedGlassOpacity : lightSelectedGlassOpacity)
+                    : (appearance == .dark ? darkIdleGlassOpacity : lightIdleGlassOpacity),
                 portGlassTreatment: portGlassTreatment,
                 portGlassTintColor: activeColor(\.portGlassTint) ?? theme?.color(.borderFocus) ?? .accentColor,
                 portGlassTintOpacity: portGlassTintOpacity,
-                portCoreBrightness: appearance == .dark ? darkPortCoreBrightness : lightPortCoreBrightness
+                inactivePortCoreBrightness: appearance == .dark ? darkPortCoreBrightness : lightPortCoreBrightness,
+                activePortCoreBrightness: appearance == .dark
+                    ? darkActivePortCoreBrightness
+                    : lightActivePortCoreBrightness,
+                portCoreSize: portCoreSize,
+                inactivePortSaturation: inactivePortSaturation,
+                inactivePortShowsStroke: inactivePortShowsStroke,
+                inactivePortStrokeWidth: inactivePortStrokeWidth,
+                activePortShowsShadow: activePortShowsShadow,
+                activePortShadowOpacity: activePortShadowOpacity,
+                activePortShadowBlur: activePortShadowBlur,
+                activePortShadowOffsetY: activePortShadowOffsetY,
+                connectedInputs: connectedInputs,
+                connectedOutputs: connectedOutputs
             )
-        }
     }
 
-    private var canvasPanGesture: some Gesture {
-        DragGesture()
-            .updating($canvasDrag) { value, state, _ in state = value.translation }
-            .onEnded {
-                pan.width += $0.translation.width
-                pan.height += $0.translation.height
-            }
-    }
-
-    private func collisionConstrainedOffset(for id: GraphLabNodeID, proposed: CGSize) -> CGSize {
-        let base = baseWorldPosition(for: id)
-        let storedOffset = nodeOffsets[id] ?? .zero
-        let start = CGPoint(x: base.x + storedOffset.width, y: base.y + storedOffset.height)
-        let target = CGPoint(x: base.x + proposed.width, y: base.y + proposed.height)
-        let size = nodeSize(for: id)
-        let halfWidth = size.width / 2
-        let halfHeight = size.height / 2
-        let otherIDs = [GraphLabNodeID.source, .transform, .composite].filter { $0 != id }
-        let obstacles = otherIDs.map { otherID -> CGRect in
-            let otherOffset = nodeOffsets[otherID] ?? .zero
-            let otherBase = baseWorldPosition(for: otherID)
-            let otherCenter = CGPoint(
-                x: otherBase.x + otherOffset.width,
-                y: otherBase.y + otherOffset.height
-            )
-            let otherSize = nodeSize(for: otherID)
-            return CGRect(
-                x: otherCenter.x - otherSize.width / 2,
-                y: otherCenter.y - otherSize.height / 2,
-                width: otherSize.width,
-                height: otherSize.height
-            ).insetBy(dx: -10, dy: -10)
-        }
-
-        var center = start
-        let deltaX = target.x - start.x
-        var constrainedX = target.x
-
-        for obstacle in obstacles {
-            let overlapsVertically = center.y + halfHeight > obstacle.minY
-                && center.y - halfHeight < obstacle.maxY
-            guard overlapsVertically else { continue }
-
-            if deltaX > 0 {
-                let boundary = obstacle.minX - halfWidth
-                if start.x <= boundary && constrainedX > boundary {
-                    constrainedX = min(constrainedX, boundary)
-                }
-            } else if deltaX < 0 {
-                let boundary = obstacle.maxX + halfWidth
-                if start.x >= boundary && constrainedX < boundary {
-                    constrainedX = max(constrainedX, boundary)
-                }
-            }
-        }
-        center.x = constrainedX
-
-        let deltaY = target.y - start.y
-        var constrainedY = target.y
-
-        for obstacle in obstacles {
-            let overlapsHorizontally = center.x + halfWidth > obstacle.minX
-                && center.x - halfWidth < obstacle.maxX
-            guard overlapsHorizontally else { continue }
-
-            if deltaY > 0 {
-                let boundary = obstacle.minY - halfHeight
-                if start.y <= boundary && constrainedY > boundary {
-                    constrainedY = min(constrainedY, boundary)
-                }
-            } else if deltaY < 0 {
-                let boundary = obstacle.maxY + halfHeight
-                if start.y >= boundary && constrainedY < boundary {
-                    constrainedY = max(constrainedY, boundary)
-                }
-            }
-        }
-        center.y = constrainedY
-
-        return CGSize(width: center.x - base.x, height: center.y - base.y)
-    }
-
-    private func baseWorldPosition(for id: GraphLabNodeID) -> CGPoint {
-        switch id {
-        case .source: CGPoint(x: -190, y: -120)
-        case .transform: CGPoint(x: 150, y: -90)
-        case .composite: CGPoint(x: 0, y: 150)
+    private var connectionForKnotEditingID: String? {
+        switch controller.selection {
+        case .noodle(let id), .knot(let id): return id
+        default: return controller.document.connections.first?.id
         }
     }
-
-    private func nodeSize(for id: GraphLabNodeID) -> CGSize {
-        switch id {
-        case .source: CGSize(width: 224, height: 99)
-        case .transform: CGSize(width: 224, height: 149)
-        case .composite: CGSize(width: 224, height: 224)
-        }
+    private var activeNoodleKnot: CGPoint? {
+        guard let id = connectionForKnotEditingID else { return nil }
+        return controller.document.connections.first(where: { $0.id == id })?.knot?.cgPoint
     }
-
-    private func screenPosition(_ world: CGPoint, canvasSize: CGSize, pan: CGSize) -> CGPoint {
-        CGPoint(
-            x: canvasSize.width / 2 + world.x * zoom + pan.width,
-            y: canvasSize.height / 2 + world.y * zoom + pan.height
-        )
+    private func setNoodleKnot(_ point: CGPoint, connectionID: String) {
+        controller.setKnot(point, connectionID: connectionID)
+    }
+    private func removeNoodleKnot(connectionID: String) {
+        controller.setKnot(nil, connectionID: connectionID)
+    }
+    private func defaultNoodleKnotPosition(connectionID: String) -> CGPoint {
+        controller.defaultKnot(connectionID: connectionID)
     }
 
     private func valueSlider(
@@ -614,6 +591,7 @@ struct GraphLabView: View {
     }
 
     private func savePreferences() {
+        let savedKnot = controller.document.connections.first?.knot
         let preferences = GraphLabSavedPreferences(
             appearance: appearance.rawValue,
             pattern: pattern.rawValue,
@@ -633,30 +611,59 @@ struct GraphLabView: View {
             noodleColor: nil,
             lightColors: GraphLabSavedPalette(lightColors),
             darkColors: GraphLabSavedPalette(darkColors),
+            noodleStyle: noodleStyle.rawValue,
+            noodleKnotX: savedKnot.map { Double($0.x) },
+            noodleKnotY: savedKnot.map { Double($0.y) },
+            nodeSurfaceStyle: nodeSurfaceStyle.rawValue,
             idleGlassTreatment: idleGlassTreatment.rawValue,
             selectedGlassTreatment: selectedGlassTreatment.rawValue,
             idleGlassTintColor: nil,
             selectedGlassTintColor: nil,
             idleGlassTintOpacity: idleGlassTintOpacity,
             selectedGlassTintOpacity: selectedGlassTintOpacity,
+            lightIdleGlassOpacity: lightIdleGlassOpacity,
+            darkIdleGlassOpacity: darkIdleGlassOpacity,
+            lightSelectedGlassOpacity: lightSelectedGlassOpacity,
+            darkSelectedGlassOpacity: darkSelectedGlassOpacity,
+            selectedStrokeWidth: selectedStrokeWidth,
             cornerRadius: cornerRadius,
             portShape: portShape.rawValue,
             portOffset: portOffset,
             portGlassTreatment: portGlassTreatment.rawValue,
             portGlassTintColor: nil,
             portGlassTintOpacity: portGlassTintOpacity,
+            showsPortCutouts: nil,
+            portCutoutRadius: nil,
+            showsPortRecesses: nil,
+            portRecessDepth: nil,
+            inactivePortCoreScale: nil,
+            activePortCoreScale: nil,
+            portCoreSize: portCoreSize,
+            inactivePortSaturation: inactivePortSaturation,
+            inactivePortOpacity: nil,
+            inactivePortShowsStroke: inactivePortShowsStroke,
+            inactivePortStrokeWidth: inactivePortStrokeWidth,
+            activePortShowsGlow: nil,
+            activePortGlowOpacity: nil,
+            activePortGlowRadius: nil,
+            activePortShowsShadow: activePortShowsShadow,
+            activePortShadowOpacity: activePortShadowOpacity,
+            activePortShadowBlur: activePortShadowBlur,
+            activePortShadowOffsetY: activePortShadowOffsetY,
             lightPortCoreBrightness: lightPortCoreBrightness,
             darkPortCoreBrightness: darkPortCoreBrightness,
-            shadowBlur: restingShadowBlur,
-            shadowOpacity: lightRestingShadowOpacity,
-            shadowOffsetY: restingShadowOffsetY,
-            clearShadowBlur: liftedShadowBlur,
-            clearShadowOpacity: lightLiftedShadowOpacity,
-            clearShadowOffsetY: liftedShadowOffsetY,
-            lightRestingShadowOpacity: lightRestingShadowOpacity,
-            darkRestingShadowOpacity: darkRestingShadowOpacity,
-            lightLiftedShadowOpacity: lightLiftedShadowOpacity,
-            darkLiftedShadowOpacity: darkLiftedShadowOpacity
+            lightActivePortCoreBrightness: lightActivePortCoreBrightness,
+            darkActivePortCoreBrightness: darkActivePortCoreBrightness,
+            shadowBlur: nodeShadowBlur,
+            shadowOpacity: lightNodeShadowOpacity,
+            shadowOffsetY: nodeShadowOffsetY,
+            clearShadowBlur: nil,
+            clearShadowOpacity: nil,
+            clearShadowOffsetY: nil,
+            lightRestingShadowOpacity: lightNodeShadowOpacity,
+            darkRestingShadowOpacity: darkNodeShadowOpacity,
+            lightLiftedShadowOpacity: nil,
+            darkLiftedShadowOpacity: nil
         )
 
         do {
@@ -686,29 +693,51 @@ struct GraphLabView: View {
         majorLineWidth = preferences.majorLineWidth
         majorMarkSize = preferences.majorMarkSize
         loadSavedColors(preferences)
+        noodleStyle = PhotaraGraphNoodleStyle(rawValue: preferences.noodleStyle ?? "") ?? noodleStyle
+        if let x = preferences.noodleKnotX, let y = preferences.noodleKnotY {
+            let point = CGPoint(x: x, y: y)
+            if let id = controller.document.connections.first?.id {
+                controller.setKnot(point, connectionID: id)
+                controller.select(.node("transform"))
+            }
+        }
+        nodeSurfaceStyle = GraphLabNodeSurfaceStyle(rawValue: preferences.nodeSurfaceStyle ?? "") ?? nodeSurfaceStyle
         idleGlassTreatment = PhotaraGraphGlassTreatment(rawValue: preferences.idleGlassTreatment) ?? idleGlassTreatment
         selectedGlassTreatment = PhotaraGraphGlassTreatment(rawValue: preferences.selectedGlassTreatment) ?? selectedGlassTreatment
         idleGlassTintOpacity = preferences.idleGlassTintOpacity
         selectedGlassTintOpacity = preferences.selectedGlassTintOpacity
+        lightIdleGlassOpacity = preferences.lightIdleGlassOpacity ?? lightIdleGlassOpacity
+        darkIdleGlassOpacity = preferences.darkIdleGlassOpacity ?? darkIdleGlassOpacity
+        lightSelectedGlassOpacity = preferences.lightSelectedGlassOpacity ?? lightSelectedGlassOpacity
+        darkSelectedGlassOpacity = preferences.darkSelectedGlassOpacity ?? darkSelectedGlassOpacity
+        selectedStrokeWidth = preferences.selectedStrokeWidth ?? selectedStrokeWidth
         cornerRadius = preferences.cornerRadius
         portShape = PhotaraGraphPortShape(rawValue: preferences.portShape) ?? portShape
         portOffset = preferences.portOffset
         portGlassTreatment = PhotaraGraphGlassTreatment(rawValue: preferences.portGlassTreatment) ?? portGlassTreatment
         portGlassTintOpacity = preferences.portGlassTintOpacity
+        portCoreSize = preferences.portCoreSize ?? portCoreSize
+        inactivePortSaturation = preferences.inactivePortSaturation ?? inactivePortSaturation
+        inactivePortShowsStroke = preferences.inactivePortShowsStroke ?? inactivePortShowsStroke
+        inactivePortStrokeWidth = preferences.inactivePortStrokeWidth ?? inactivePortStrokeWidth
+        activePortShowsShadow = preferences.activePortShowsShadow
+            ?? preferences.activePortShowsGlow
+            ?? activePortShowsShadow
+        activePortShadowOpacity = preferences.activePortShadowOpacity
+            ?? preferences.activePortGlowOpacity
+            ?? activePortShadowOpacity
+        activePortShadowBlur = preferences.activePortShadowBlur
+            ?? preferences.activePortGlowRadius
+            ?? activePortShadowBlur
+        activePortShadowOffsetY = preferences.activePortShadowOffsetY ?? activePortShadowOffsetY
         lightPortCoreBrightness = preferences.lightPortCoreBrightness ?? lightPortCoreBrightness
         darkPortCoreBrightness = preferences.darkPortCoreBrightness ?? darkPortCoreBrightness
-        restingShadowBlur = preferences.shadowBlur
-        restingShadowOffsetY = preferences.shadowOffsetY
-        liftedShadowBlur = preferences.clearShadowBlur ?? preferences.shadowBlur
-        liftedShadowOffsetY = preferences.clearShadowOffsetY ?? preferences.shadowOffsetY
-        lightRestingShadowOpacity = preferences.lightRestingShadowOpacity ?? preferences.shadowOpacity
-        darkRestingShadowOpacity = preferences.darkRestingShadowOpacity ?? preferences.shadowOpacity
-        lightLiftedShadowOpacity = preferences.lightLiftedShadowOpacity
-            ?? preferences.clearShadowOpacity
-            ?? preferences.shadowOpacity
-        darkLiftedShadowOpacity = preferences.darkLiftedShadowOpacity
-            ?? preferences.clearShadowOpacity
-            ?? preferences.shadowOpacity
+        lightActivePortCoreBrightness = preferences.lightActivePortCoreBrightness ?? lightActivePortCoreBrightness
+        darkActivePortCoreBrightness = preferences.darkActivePortCoreBrightness ?? darkActivePortCoreBrightness
+        nodeShadowBlur = preferences.shadowBlur
+        nodeShadowOffsetY = preferences.shadowOffsetY
+        lightNodeShadowOpacity = preferences.lightRestingShadowOpacity ?? preferences.shadowOpacity
+        darkNodeShadowOpacity = preferences.darkRestingShadowOpacity ?? preferences.shadowOpacity
         preferencesStatus = "Loaded saved preferences."
     }
 
@@ -756,33 +785,44 @@ struct GraphLabView: View {
         majorMarkSize = 3
         lightColors = GraphLabAppearanceColors()
         darkColors = GraphLabAppearanceColors()
+        noodleStyle = .curved
+        try? controller.replaceDocument(GraphLabFixtures.document)
+        nodeSurfaceStyle = .flat
         idleGlassTreatment = .regular
         selectedGlassTreatment = .clear
         idleGlassTintOpacity = 0.05
         selectedGlassTintOpacity = 0.025
+        lightIdleGlassOpacity = 1
+        darkIdleGlassOpacity = 1
+        lightSelectedGlassOpacity = 1
+        darkSelectedGlassOpacity = 1
+        selectedStrokeWidth = 2
         cornerRadius = 12
         portShape = .round
         portOffset = 0
         portGlassTreatment = .clear
         portGlassTintOpacity = 0.18
+        portCoreSize = 5
+        inactivePortSaturation = 0.18
+        inactivePortShowsStroke = true
+        inactivePortStrokeWidth = 1
+        activePortShowsShadow = true
+        activePortShadowOpacity = 0.32
+        activePortShadowBlur = 3
+        activePortShadowOffsetY = 1.5
         lightPortCoreBrightness = 0
         darkPortCoreBrightness = 0.18
-        restingShadowBlur = 5
-        restingShadowOffsetY = 3
-        liftedShadowBlur = 12
-        liftedShadowOffsetY = 7
-        lightRestingShadowOpacity = 0.12
-        darkRestingShadowOpacity = 0.18
-        lightLiftedShadowOpacity = 0.18
-        darkLiftedShadowOpacity = 0.28
+        lightActivePortCoreBrightness = 0.12
+        darkActivePortCoreBrightness = 0.28
+        nodeShadowBlur = 5
+        nodeShadowOffsetY = 3
+        lightNodeShadowOpacity = 0.12
+        darkNodeShadowOpacity = 0.18
         centerScene()
     }
 
     private func centerScene() {
-        pan = .zero
-        zoom = 1
-        selectedNode = .transform
-        nodeOffsets = [:]
+        controller.center(positions: Dictionary(uniqueKeysWithValues: GraphLabFixtures.document.nodes.map { ($0.id, $0.position) }), selectedNode: "transform")
     }
 }
 
@@ -805,20 +845,49 @@ private struct GraphLabSavedPreferences: Codable {
     let noodleColor: GraphLabSavedColor?
     let lightColors: GraphLabSavedPalette?
     let darkColors: GraphLabSavedPalette?
+    let noodleStyle: String?
+    let noodleKnotX: Double?
+    let noodleKnotY: Double?
+    let nodeSurfaceStyle: String?
     let idleGlassTreatment: String
     let selectedGlassTreatment: String
     let idleGlassTintColor: GraphLabSavedColor?
     let selectedGlassTintColor: GraphLabSavedColor?
     let idleGlassTintOpacity: Double
     let selectedGlassTintOpacity: Double
+    let lightIdleGlassOpacity: Double?
+    let darkIdleGlassOpacity: Double?
+    let lightSelectedGlassOpacity: Double?
+    let darkSelectedGlassOpacity: Double?
+    let selectedStrokeWidth: Double?
     let cornerRadius: Double
     let portShape: String
     let portOffset: Double
     let portGlassTreatment: String
     let portGlassTintColor: GraphLabSavedColor?
     let portGlassTintOpacity: Double
+    let showsPortCutouts: Bool?
+    let portCutoutRadius: Double?
+    let showsPortRecesses: Bool?
+    let portRecessDepth: Double?
+    let inactivePortCoreScale: Double?
+    let activePortCoreScale: Double?
+    let portCoreSize: Double?
+    let inactivePortSaturation: Double?
+    let inactivePortOpacity: Double?
+    let inactivePortShowsStroke: Bool?
+    let inactivePortStrokeWidth: Double?
+    let activePortShowsGlow: Bool?
+    let activePortGlowOpacity: Double?
+    let activePortGlowRadius: Double?
+    let activePortShowsShadow: Bool?
+    let activePortShadowOpacity: Double?
+    let activePortShadowBlur: Double?
+    let activePortShadowOffsetY: Double?
     let lightPortCoreBrightness: Double?
     let darkPortCoreBrightness: Double?
+    let lightActivePortCoreBrightness: Double?
+    let darkActivePortCoreBrightness: Double?
     let shadowBlur: Double
     let shadowOpacity: Double
     let shadowOffsetY: Double
@@ -836,6 +905,9 @@ private struct GraphLabAppearanceColors {
     var minor: Color?
     var major: Color?
     var noodle: Color?
+    var idleNodeFill: Color?
+    var selectedNodeFill: Color?
+    var selectedNodeStroke: Color?
     var idleGlassTint: Color?
     var selectedGlassTint: Color?
     var portGlassTint: Color?
@@ -848,6 +920,9 @@ private struct GraphLabSavedPalette: Codable {
     let minor: GraphLabSavedColor?
     let major: GraphLabSavedColor?
     let noodle: GraphLabSavedColor?
+    let idleNodeFill: GraphLabSavedColor?
+    let selectedNodeFill: GraphLabSavedColor?
+    let selectedNodeStroke: GraphLabSavedColor?
     let idleGlassTint: GraphLabSavedColor?
     let selectedGlassTint: GraphLabSavedColor?
     let portGlassTint: GraphLabSavedColor?
@@ -859,6 +934,9 @@ private struct GraphLabSavedPalette: Codable {
         minor = GraphLabSavedColor(colors.minor)
         major = GraphLabSavedColor(colors.major)
         noodle = GraphLabSavedColor(colors.noodle)
+        idleNodeFill = GraphLabSavedColor(colors.idleNodeFill)
+        selectedNodeFill = GraphLabSavedColor(colors.selectedNodeFill)
+        selectedNodeStroke = GraphLabSavedColor(colors.selectedNodeStroke)
         idleGlassTint = GraphLabSavedColor(colors.idleGlassTint)
         selectedGlassTint = GraphLabSavedColor(colors.selectedGlassTint)
         portGlassTint = GraphLabSavedColor(colors.portGlassTint)
@@ -872,6 +950,9 @@ private struct GraphLabSavedPalette: Codable {
             minor: minor?.color,
             major: major?.color,
             noodle: noodle?.color,
+            idleNodeFill: idleNodeFill?.color,
+            selectedNodeFill: selectedNodeFill?.color,
+            selectedNodeStroke: selectedNodeStroke?.color,
             idleGlassTint: idleGlassTint?.color,
             selectedGlassTint: selectedGlassTint?.color,
             portGlassTint: portGlassTint?.color,
@@ -902,136 +983,50 @@ private struct GraphLabSavedColor: Codable {
     }
 }
 
-private struct GraphLabNodeDragState {
-    var translation = CGSize.zero
-    var isActive = false
-}
-
-private struct GraphLabDraggableNode<Content: View>: View {
-    let zoom: CGFloat
-    let storedOffset: CGSize
-    let position: CGPoint
-    let constrainedOffset: (CGSize) -> CGSize
-    let onBegan: () -> Void
-    let onEnded: (CGSize) -> Void
-    @ViewBuilder let content: (Bool) -> Content
-
-    @GestureState private var dragState = GraphLabNodeDragState()
-
-    var body: some View {
-        let proposedOffset = CGSize(
-            width: storedOffset.width + dragState.translation.width / zoom,
-            height: storedOffset.height + dragState.translation.height / zoom
-        )
-        let allowedOffset = constrainedOffset(proposedOffset)
-        let liveTranslation = CGSize(
-            width: (allowedOffset.width - storedOffset.width) * zoom,
-            height: (allowedOffset.height - storedOffset.height) * zoom
-        )
-
-        content(dragState.isActive)
-            .scaleEffect(zoom)
-            .position(position)
-            .offset(liveTranslation)
-            .transaction { transaction in
-                transaction.animation = nil
-            }
-            .gesture(dragGesture)
-    }
-
-    private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { _ in onBegan() }
-            .updating($dragState) { value, state, _ in
-                state.translation = value.translation
-                state.isActive = true
-            }
-            .onEnded { value in
-                let proposedOffset = CGSize(
-                    width: storedOffset.width + value.translation.width / zoom,
-                    height: storedOffset.height + value.translation.height / zoom
-                )
-                onEnded(constrainedOffset(proposedOffset))
-            }
-    }
-}
-
-private struct GraphLabNoodleLayer: View {
-    let color: Color
-    let pan: CGSize
-    let zoom: CGFloat
-
-    var body: some View {
-        GeometryReader { geometry in
-            Canvas { context, _ in
-                let start = screenPoint(CGPoint(x: -360, y: -90), in: geometry.size)
-                let end = screenPoint(CGPoint(x: 390, y: -90), in: geometry.size)
-                var primary = Path()
-                primary.move(to: start)
-                primary.addCurve(
-                    to: end,
-                    control1: CGPoint(x: start.x + 190 * zoom, y: start.y - 54 * zoom),
-                    control2: CGPoint(x: end.x - 190 * zoom, y: end.y + 54 * zoom)
-                )
-                context.stroke(
-                    primary,
-                    with: .color(color.opacity(0.92)),
-                    lineWidth: max(1.5, 2.4 * zoom)
-                )
-
-                let secondaryStart = screenPoint(CGPoint(x: -300, y: 210), in: geometry.size)
-                let secondaryEnd = screenPoint(CGPoint(x: 310, y: -190), in: geometry.size)
-                var secondary = Path()
-                secondary.move(to: secondaryStart)
-                secondary.addCurve(
-                    to: secondaryEnd,
-                    control1: CGPoint(x: secondaryStart.x + 150 * zoom, y: secondaryStart.y - 20 * zoom),
-                    control2: CGPoint(x: secondaryEnd.x - 140 * zoom, y: secondaryEnd.y + 100 * zoom)
-                )
-                context.stroke(
-                    secondary,
-                    with: .color(color.opacity(0.36)),
-                    lineWidth: max(1, 1.3 * zoom)
-                )
-            }
-        }
-        .allowsHitTesting(false)
-    }
-
-    private func screenPoint(_ world: CGPoint, in size: CGSize) -> CGPoint {
-        CGPoint(
-            x: size.width / 2 + world.x * zoom + pan.width,
-            y: size.height / 2 + world.y * zoom + pan.height
-        )
-    }
-}
-
 private struct GraphLabNodeSpecimen: View {
     @Environment(\.photaraTheme) private var theme
     let title: String
     let subtitle: String
-    let inputs: [String]
-    let outputs: [String]
+    let inputs: [PhotaraGraphPortDefinition]
+    let outputs: [PhotaraGraphPortDefinition]
     let style: PhotaraGraphNodeStyle
-    let glassTreatment: PhotaraGraphGlassTreatment
+    let glassTreatment: PhotaraGraphGlassTreatment?
+    let flatFillColor: Color
+    let flatStrokeColor: Color?
+    let flatStrokeWidth: Double
     let titleColor: Color
     let detailColor: Color
     let glassTintColor: Color
     let glassTintOpacity: Double
+    let glassOpacity: Double
     let portGlassTreatment: PhotaraGraphGlassTreatment
     let portGlassTintColor: Color
     let portGlassTintOpacity: Double
-    let portCoreBrightness: Double
-
-    private let width = 224.0
+    let inactivePortCoreBrightness: Double
+    let activePortCoreBrightness: Double
+    let portCoreSize: Double
+    let inactivePortSaturation: Double
+    let inactivePortShowsStroke: Bool
+    let inactivePortStrokeWidth: Double
+    let activePortShowsShadow: Bool
+    let activePortShadowOpacity: Double
+    let activePortShadowBlur: Double
+    let activePortShadowOffsetY: Double
+    let connectedInputs: Set<Int>
+    let connectedOutputs: Set<Int>
+    private let width = PhotaraGraphGeometry.nodeWidth
     private var rowCount: Int { max(1, max(inputs.count, outputs.count)) }
-    private var height: CGFloat { 62 + CGFloat(rowCount) * 25 + 12 }
+    private var height: CGFloat { 74 + CGFloat(rowCount) * PhotaraGraphGeometry.rowHeight }
 
     var body: some View {
         PhotaraGraphNodeSurface(
             style: style,
             glassTreatment: glassTreatment,
-            glassTint: glassTintColor.opacity(glassTintOpacity)
+            glassTint: glassTintColor.opacity(glassTintOpacity),
+            glassOpacity: glassOpacity,
+            flatFill: flatFillColor,
+            flatStroke: flatStrokeColor,
+            flatStrokeWidth: flatStrokeWidth
         ) {
             VStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -1061,22 +1056,32 @@ private struct GraphLabNodeSpecimen: View {
                 ZStack {
                     GlassEffectContainer(spacing: 0) {
                         ForEach(0..<inputs.count, id: \.self) { index in
-                            portShell(label: inputs[index], at: index)
+                            portShell(label: inputs[index].label, at: index, isConnected: connectedInputs.contains(index))
                                 .position(x: -style.portOffset, y: portY(index))
                         }
                         ForEach(0..<outputs.count, id: \.self) { index in
-                            portShell(label: outputs[index], at: index)
+                            portShell(label: outputs[index].label, at: index, isConnected: connectedOutputs.contains(index))
                                 .position(x: geometry.size.width + style.portOffset, y: portY(index))
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     ForEach(0..<inputs.count, id: \.self) { index in
-                        portCore(label: inputs[index], at: index)
+                        portCore(
+                            label: inputs[index].label,
+                            edge: .leading,
+                            at: index,
+                            isConnected: connectedInputs.contains(index)
+                        )
                             .position(x: -style.portOffset, y: portY(index))
                     }
                     ForEach(0..<outputs.count, id: \.self) { index in
-                        portCore(label: outputs[index], at: index)
+                        portCore(
+                            label: outputs[index].label,
+                            edge: .trailing,
+                            at: index,
+                            isConnected: connectedOutputs.contains(index)
+                        )
                             .position(x: geometry.size.width + style.portOffset, y: portY(index))
                     }
                 }
@@ -1087,41 +1092,91 @@ private struct GraphLabNodeSpecimen: View {
         .contentShape(RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous))
     }
 
-    private func labelColumn(_ labels: [String], alignment: HorizontalAlignment) -> some View {
+    private func labelColumn(_ ports: [PhotaraGraphPortDefinition], alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: 0) {
-            ForEach(labels, id: \.self) { label in
-                Text(label)
+            ForEach(ports) { port in
+                Text(port.label)
                     .font(.system(size: 10.5))
                     .foregroundStyle(detailColor)
-                    .frame(height: 25)
+                    .frame(height: PhotaraGraphGeometry.rowHeight)
             }
         }
     }
 
-    private func portShell(label: String, at index: Int) -> some View {
-        PhotaraGraphPort(
-            shape: style.portShape,
-            width: 14,
-            height: 14,
-            glassTreatment: portGlassTreatment,
-            glassTint: portGlassTintColor.opacity(portGlassTintOpacity),
-            coreColor: semanticPortColor(for: label),
-            coreBrightness: portCoreBrightness,
-            showsCore: false
-        )
-            .accessibilityLabel("\(label) port \(index + 1)")
+    @ViewBuilder
+    private func portShell(label: String, at index: Int, isConnected: Bool) -> some View {
+        Group {
+            if isConnected {
+                PhotaraGraphPort(
+                    shape: style.portShape,
+                    width: 14,
+                    height: 14,
+                    glassTreatment: portGlassTreatment,
+                    glassTint: portGlassTintColor.opacity(portGlassTintOpacity),
+                    coreColor: semanticPortColor(for: label),
+                    coreBrightness: activePortCoreBrightness,
+                    showsCore: false
+                )
+                .shadow(
+                    color: semanticPortColor(for: label).opacity(
+                        activePortShowsShadow ? activePortShadowOpacity : 0
+                    ),
+                    radius: activePortShowsShadow ? activePortShadowBlur : 0,
+                    y: activePortShowsShadow ? activePortShadowOffsetY : 0
+                )
+            } else {
+                Color.clear
+                    .frame(width: style.portShape == .pill ? 21.7 : 14, height: 14)
+                    .contentShape(Rectangle().inset(by: -6))
+            }
+        }
+        .accessibilityHidden(true)
     }
 
-    private func portCore(label: String, at index: Int) -> some View {
-        PhotaraGraphPortCore(
-            shape: style.portShape,
-            width: 14,
-            height: 14,
-            color: semanticPortColor(for: label),
-            brightness: portCoreBrightness
-        )
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
+    @ViewBuilder
+    private func portCore(
+        label: String,
+        edge: PhotaraGraphNodeEdge,
+        at index: Int,
+        isConnected: Bool
+    ) -> some View {
+        let color = semanticPortColor(for: label)
+        Group {
+            if isConnected {
+                portShape
+                    .fill(color)
+                    .brightness(activePortCoreBrightness)
+                    .frame(width: portCoreWidth, height: portCoreSize)
+                    .allowedDynamicRange(.standard)
+            } else {
+                ZStack {
+                    portShape.fill(color)
+                    if inactivePortShowsStroke {
+                        portShape.stroke(color, lineWidth: inactivePortStrokeWidth)
+                    }
+                }
+                .saturation(inactivePortSaturation)
+                .brightness(inactivePortCoreBrightness)
+                .frame(width: portCoreWidth, height: portCoreSize)
+                .allowedDynamicRange(.standard)
+            }
+        }
+        .frame(width: 36, height: 22)
+        .contentShape(Rectangle())
+        .accessibilityLabel("\(label) port \(index + 1)")
+        .accessibilityValue(isConnected ? "Connected" : "Not connected")
+        .accessibilityHint("Drag to create or reconnect a noodle")
+    }
+
+    private var portCoreWidth: CGFloat {
+        style.portShape == .pill ? portCoreSize * 1.55 : portCoreSize
+    }
+
+    private var portShape: AnyShape {
+        switch style.portShape {
+        case .round: AnyShape(Circle())
+        case .pill: AnyShape(Capsule())
+        }
     }
 
     private func semanticPortColor(for label: String) -> Color {
@@ -1140,6 +1195,6 @@ private struct GraphLabNodeSpecimen: View {
     }
 
     private func portY(_ index: Int) -> CGFloat {
-        62 + 12.5 + CGFloat(index) * 25
+        PhotaraGraphGeometry.firstPortY + CGFloat(index) * PhotaraGraphGeometry.rowHeight
     }
 }

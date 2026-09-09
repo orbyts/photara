@@ -6,7 +6,7 @@ bridge. It owns fixture data and temporary authoring controls only.
 
 The current slice compares procedural major/minor background patterns, native
 glass treatments, node corner radius, round versus pill ports, port edge
-offset, and resting versus lifted shadow models. There are deliberately no
+offset, and one stable node-shadow model. There are deliberately no
 status indicators or Graph semantics.
 
 Lines, Dots, and Crosses share aligned minor and major phases while the camera
@@ -17,29 +17,57 @@ port-bead tint, and node text. Semantic port hues remain shared concepts while
 each appearance authors a native brightness adjustment. Dense minor marks fade
 before they alias.
 
-The deterministic scene has one-, three-, and six-row specimens plus fixed
-noodles beneath the nodes. Empty-canvas dragging pans the Graph, direct node
-dragging moves only that node, and Center Scene restores the camera and fixture
-positions. Node movement tracks the pointer directly and restores a small
-non-overlap gap throughout the gesture; this remains Lab behavior rather than
-Core semantics. Each node owns its gesture state, and live translation uses a
-direct view offset so moving one node neither relays out the scene nor updates
-the authoring form. Axis-separated collision bounds let a dragged node slide
-along another node without crossing it. The selected node uses separately authored native
-glass treatment and tint without adding a selection outline. Shadow blur and
-vertical offset are shared between appearances; shadow opacity is authored per
-appearance. Holding or dragging a node switches from the resting to the lifted
-shadow, and release immediately restores the resting shadow. Each node groups
-all of its port shells in one native `GlassEffectContainer`; semantic SDR cores
-remain outside glass so their colors stay bright and unrefracted. Ports are
-independent native glass beads with their own
-Regular/Clear treatment, tint color, and tint amount controls; Reduce
-Transparency restores the solid semantic port treatment. Unselected and
-selected node glass likewise author tint color and amount independently. A
-small SDR color core remains above each bead
-so fixture port kinds stay legible without participating in refraction. Apple
-exposes Regular and Clear rather than a continuous blur/transparency value, so
-Graph Lab does not present a fictitious optical slider.
+The scene uses one-, three-, and six-row node definitions with live port-to-port
+connections. Pressing an output immediately starts a noodle. Dropping near a
+compatible input connects; dropping on empty canvas cancels. Outputs fan out,
+inputs accept one incoming connection, and identical pairs are idempotent.
+Dragging a connected input rewires its existing connection; an invalid or
+cancelled rewire preserves its identity and routing knot.
+
+Hold `Y` and slice to cut all crossed noodles. Option-click a noodle to add a
+routing knot; drag the knot to bend it. Click a noodle or knot and press Delete,
+or use the native right-click/Control-click menu. Input-port menus list compatible
+outputs from the document. Straight and curved noodle styles remain available.
+
+Empty-canvas dragging, middle-mouse dragging, and precise two-finger scrolling
+pan the graph. Mouse-wheel zoom and trackpad magnification preserve the pointer
+anchor. The bottom slider zooms about the canvas center. All graph geometry,
+text, ports, knots and hit targets use the same camera. The floating control
+retains Apple's interactive Regular Liquid Glass capsule and native material
+fallback for Reduce Transparency.
+
+One AppKit canvas responder captures each pointer sequence. Its interaction
+controller owns node drag, pan, wire/rewire, knife and knot previews. SwiftUI
+renders those previews and the document without graph drag gestures or delayed
+mouse-up callbacks. Escape, tool changes, focus loss and viewport changes cancel
+uncommitted motion. Node positions and every attached endpoint derive from the
+same preview in the same frame. Axis sweeps from the last accepted position keep
+the authored non-overlap gap, including large/coalesced moves and boundary rounding.
+The authoring form does not observe per-frame pointer state.
+
+Node rendering, port geometry and hit testing share reusable definitions. New
+nodes require fixture/document data, not gesture code. Selection uses the saved
+stroke, with no additional shadow state. Native glass remains on the connected
+port beads and zoom control; the accepted flat node rendering and separate light
+and dark palettes are preserved. Node-shadow blur and vertical offset are shared,
+while opacity is authored per appearance.
+
+The node silhouette has no port recesses. The Assets-to-Input fixture noodle
+terminates beneath its ports. A disconnected port is only a small flat semantic
+dot that remains fully opaque; its saturation, optional same-color stroke,
+stroke width, and Light/Dark brightness can be authored. Connecting keeps that
+dot at the same size and exact bead center, raises its separately authored
+Light/Dark brightness, and adds the native glass bead beneath it. A separate
+semantic-colored shadow belongs only to the connected bead and provides native
+opacity, blur, and vertical-offset controls. There is no connection ring or
+state animation. The node shadow is applied only to the node surface, so text
+and ports never inherit or duplicate it.
+
+The node body can independently use a native flat fill or native Liquid Glass.
+Flat mode keeps the port beads as Liquid Glass and provides one node color plus
+a selected-node stroke color for each of Light and Dark, independent of the
+graph background. Stroke width is shared across appearances. Selection is
+communicated by the stroke rather than a second shadow state.
 
 Save Preferences stores the current appearance, both complete appearance
 palettes, and the visual controls in Graph Lab's local, versioned `UserDefaults`
@@ -57,3 +85,18 @@ open "platform/macos/photara-graph-lab/.build/Photara Graph Lab.app"
 Shared primitives live in `platform/macos/photara-graph/Sources`. Production
 Photara currently consumes the shared procedural background with its existing
 defaults; further node integration waits for an accepted Graph Lab treatment.
+
+## Interaction engineering and verification
+
+[INTERACTION_MODEL.md](INTERACTION_MODEL.md) describes the event lifecycle and
+serializable document boundary. [Tests/README.md](Tests/README.md) describes the
+native acceptance matrix and seeded random gesture harness, including exact
+failure replay. Run both with:
+
+```console
+platform/macos/photara-graph-lab/verify-interactions.sh
+```
+
+The verification app uses a separate preferences domain and reads the existing
+visual payload without saving to the author's domain. Reports, compositor
+screenshots, and seed traces are written to `/tmp/photara-graph-verification`.

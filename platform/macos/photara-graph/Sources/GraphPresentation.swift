@@ -181,6 +181,11 @@ enum PhotaraGraphGlassTreatment: String, CaseIterable, Identifiable {
     var title: String { rawValue.capitalized }
 }
 
+enum PhotaraGraphNodeEdge: Equatable {
+    case leading
+    case trailing
+}
+
 /// Shared node surface/chrome. Content and semantic port rows are supplied by
 /// the production adapter or by deterministic Graph Lab fixtures.
 struct PhotaraGraphNodeSurface<Content: View, Ports: View>: View {
@@ -190,6 +195,10 @@ struct PhotaraGraphNodeSurface<Content: View, Ports: View>: View {
     let style: PhotaraGraphNodeStyle
     let glassTreatment: PhotaraGraphGlassTreatment?
     let glassTint: Color
+    let glassOpacity: Double
+    let flatFill: Color?
+    let flatStroke: Color?
+    let flatStrokeWidth: CGFloat
     let content: Content
     let ports: Ports
 
@@ -197,12 +206,20 @@ struct PhotaraGraphNodeSurface<Content: View, Ports: View>: View {
         style: PhotaraGraphNodeStyle,
         glassTreatment: PhotaraGraphGlassTreatment? = nil,
         glassTint: Color = .clear,
+        glassOpacity: Double = 1,
+        flatFill: Color? = nil,
+        flatStroke: Color? = nil,
+        flatStrokeWidth: CGFloat = 0.5,
         @ViewBuilder content: () -> Content,
         @ViewBuilder ports: () -> Ports
     ) {
         self.style = style
         self.glassTreatment = glassTreatment
         self.glassTint = glassTint
+        self.glassOpacity = glassOpacity
+        self.flatFill = flatFill
+        self.flatStroke = flatStroke
+        self.flatStrokeWidth = flatStrokeWidth
         self.content = content()
         self.ports = ports()
     }
@@ -210,14 +227,14 @@ struct PhotaraGraphNodeSurface<Content: View, Ports: View>: View {
     var body: some View {
         ZStack {
             nodeSurface
+                .shadow(
+                    color: .black.opacity(style.shadowOpacity),
+                    radius: style.shadowBlur,
+                    y: style.shadowOffsetY
+                )
             content.allowedDynamicRange(.standard)
         }
-            .overlay { ports }
-            .shadow(
-                color: .black.opacity(style.shadowOpacity),
-                radius: style.shadowBlur,
-                y: style.shadowOffsetY
-            )
+        .overlay { ports }
     }
 
     @ViewBuilder
@@ -227,11 +244,15 @@ struct PhotaraGraphNodeSurface<Content: View, Ports: View>: View {
             let glass: Glass = glassTreatment == .clear ? .clear : .regular
             Color.clear
                 .glassEffect(glass.tint(glassTint), in: shape)
+                .opacity(glassOpacity)
         } else {
             shape
-                .fill(theme?.color(.graphNode) ?? Color(nsColor: .controlBackgroundColor))
+                .fill(flatFill ?? theme?.color(.graphNode) ?? Color(nsColor: .controlBackgroundColor))
                 .overlay {
-                    shape.stroke((theme?.color(.borderStrong) ?? .secondary).opacity(0.5))
+                    shape.strokeBorder(
+                        flatStroke ?? (theme?.color(.borderStrong) ?? .secondary).opacity(0.5),
+                        lineWidth: flatStrokeWidth
+                    )
                 }
         }
     }
