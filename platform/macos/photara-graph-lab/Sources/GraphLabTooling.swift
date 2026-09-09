@@ -117,7 +117,7 @@ struct GraphLabToolPalette: View {
 
     @ViewBuilder
     private var paletteContent: some View {
-        toolButton("Center Graph", systemImage: "scope", help: "Center Graph") { centerScene() }
+        toolButton("Center Graph", systemImage: "scope", help: "Center Graph · Fit all nodes in the viewport") { centerScene() }
         Menu {
             Button("Zoom to 55%") { setZoom(0.55) }
             Button("Zoom to 100%") { setZoom(1.0) }
@@ -134,7 +134,7 @@ struct GraphLabToolPalette: View {
         .help("Zoom options · Mouse wheel or pinch")
         .accessibilityLabel("Zoom options")
 
-        toolButton("Toggle Overview", systemImage: "map", help: "Show or hide graph overview") {
+        toolButton("Toggle Overview", systemImage: "map", help: "Graph Overview · Show or hide the graph map") {
             controller.overviewPolicy = controller.overviewPolicy == .always ? .whileZooming : .always
         }
 
@@ -158,12 +158,12 @@ struct GraphLabToolPalette: View {
 
         if canAddKnot {
             toolButton("Add Routing Knot", systemImage: "point.topleft.down.to.point.bottomright.curvepath",
-                       help: "Add Routing Knot to selected noodle · Option-click") {
+                       help: "Add Routing Knot · Option-click the selected noodle") {
                 guard let id = selectedConnectionID else { return }
                 controller.setKnot(controller.defaultKnot(connectionID: id), connectionID: id)
             }
         } else if canRemoveSelection {
-            toolButton(removeTitle, systemImage: removeImage, help: "\(removeTitle) (Delete)") {
+            toolButton(removeTitle, systemImage: removeImage, help: "\(removeTitle) · Delete") {
                 _ = controller.deleteSelection()
             }
         }
@@ -182,7 +182,7 @@ struct GraphLabToolPalette: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Add \(shortcut.title) node")
+                .help("Add \(shortcut.title) Node · Right-click to unpin")
                 .accessibilityLabel("Add \(shortcut.title) node")
                 .contextMenu {
                     Button("Remove \(shortcut.title) Shortcut", systemImage: "pin.slash") {

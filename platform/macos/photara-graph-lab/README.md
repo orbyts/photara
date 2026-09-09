@@ -65,7 +65,10 @@ vertical proposal is too short. The Graph Lab authoring sidebar exposes corner
 radius, light/dark shadow opacity, blur, and vertical offset. The Settings window
 contains user preferences for rail visibility/placement, overview behavior, and
 knife cursor size. Hiding the rail does not disable keyboard, pointer,
-contextual-menu, or zoom behavior. The command menu shows graph gestures and shortcuts. Native node types can
+contextual-menu, or zoom behavior. The passive gesture guide appears only while
+the rail is hidden. When the rail is visible, native hover help describes each
+tool and includes its available shortcut or pointer gesture. The command menu
+shows graph gestures and shortcuts. Native node types can
 be pinned or removed there, or removed from a shortcut's contextual menu.
 Clicking a shortcut inserts an ordinary node DTO at an unoccupied position near
 the viewport center; it does not create a separate node interaction path.

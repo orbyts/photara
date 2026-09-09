@@ -32,14 +32,16 @@ struct GraphLabCanvas<NodeContent: View>: View {
         }
         .clipped()
         .transaction { $0.animation = nil }
-        .overlay(alignment: railPlacement == .leftBottom && showsToolRail ? .bottomTrailing : .bottomLeading) {
-            Text("Wire: port/knot drag · Move knot: Option-drag · Cut: Y-drag · Pan: canvas, middle-drag, or scroll")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(10)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
-                .padding(14)
-                .allowsHitTesting(false)
+        .overlay(alignment: .bottomLeading) {
+            if !showsToolRail {
+                Text("Wire: port/knot drag · Move knot: Option-drag · Cut: Y-drag · Pan: canvas, middle-drag, or scroll")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(10)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                    .padding(14)
+                    .allowsHitTesting(false)
+            }
         }
         .overlay(alignment: overviewPosition.alignment) {
             GraphLabOverviewOverlay(controller: controller, position: overviewPosition)
