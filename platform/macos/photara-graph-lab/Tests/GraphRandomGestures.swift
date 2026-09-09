@@ -122,7 +122,9 @@ extension GraphLabChecks {
             let dy = delta(screens.map(\.y), lower: 24, upper: oracle.viewport.height - 78)
             guard abs(dx) > 0.001 || abs(dy) > 0.001 else { return true }
             trace.append("  prerequisite: middle-pan visible targets by (\(dx), \(dy))")
-            drag(from: CGPoint(x: 20, y: 65), to: CGPoint(x: 20 + dx, y: 65 + dy), middle: true)
+            // The floating tool rail owns the leading 50 points. Exercise the
+            // canvas immediately beside it, as a user would.
+            drag(from: CGPoint(x: 70, y: 65), to: CGPoint(x: 70 + dx, y: 65 + dy), middle: true)
             oracle.pan.x += dx; oracle.pan.y += dy
             return verify("prerequisite reveal targets")
         }
@@ -321,7 +323,7 @@ extension GraphLabChecks {
                 mouse(.leftMouseUp, oracle.screen(target))
             case .pan, .middlePan, .escapePan:
                 let delta = CGPoint(x: rng.value(-8, 8) - oracle.pan.x, y: rng.value(-8, 8) - oracle.pan.y)
-                let start = CGPoint(x: 20, y: 65), end = CGPoint(x: 20 + delta.x, y: 65 + delta.y)
+                let start = CGPoint(x: 70, y: 65), end = CGPoint(x: 70 + delta.x, y: 65 + delta.y)
                 trace.append("  delta \(delta)")
                 let middle = action == .middlePan
                 mouse(middle ? .otherMouseDown : .leftMouseDown, start)

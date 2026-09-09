@@ -10,6 +10,10 @@ struct GraphLabCanvas<NodeContent: View>: View {
     let minorColor: Color?
     let majorColor: Color?
     let noodleColor: Color
+    let knifeCursorSize: Double
+    let showsToolRail: Bool
+    let centerScene: () -> Void
+    let addNativeNode: (String) -> Void
     let nodeContent: (PhotaraGraphNode, Bool, Set<Int>, Set<Int>) -> NodeContent
 
     var body: some View {
@@ -19,7 +23,7 @@ struct GraphLabCanvas<NodeContent: View>: View {
             ForEach(controller.document.nodes) { node in
                 GraphLabPlacedNode(controller: controller, node: node, content: nodeContent)
             }
-            PhotaraGraphEventSurface(controller: controller)
+            PhotaraGraphEventSurface(controller: controller, knifeCursorSize: knifeCursorSize)
         }
         .clipped()
         .transaction { $0.animation = nil }
@@ -38,6 +42,13 @@ struct GraphLabCanvas<NodeContent: View>: View {
         }
         .overlay(alignment: .bottom) {
             GraphLabZoomControl(controller: controller, reduceTransparency: reduceTransparency).padding(14)
+        }
+        .overlay(alignment: .topLeading) {
+            if showsToolRail {
+                GraphLabToolPalette(controller: controller, centerScene: centerScene, addNativeNode: addNativeNode)
+                    .padding(.leading, 14)
+                    .padding(.top, 14)
+            }
         }
     }
 }

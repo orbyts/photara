@@ -5,8 +5,14 @@ import SwiftUI
 /// content is render-only; controls outside/above this view keep native routing.
 struct PhotaraGraphEventSurface: NSViewRepresentable {
     let controller: PhotaraGraphInteractionController
-    func makeNSView(context: Context) -> PhotaraGraphEventView { PhotaraGraphEventView(controller: controller) }
-    func updateNSView(_ view: PhotaraGraphEventView, context: Context) { view.refreshCursor() }
+    let knifeCursorSize: Double
+    func makeNSView(context: Context) -> PhotaraGraphEventView {
+        PhotaraGraphEventView(controller: controller, knifeCursorSize: knifeCursorSize)
+    }
+    func updateNSView(_ view: PhotaraGraphEventView, context: Context) {
+        view.setKnifeCursorSize(knifeCursorSize)
+        view.refreshCursor()
+    }
     static func dismantleNSView(_ view: PhotaraGraphEventView, coordinator: ()) { view.detach() }
 }
 
@@ -17,10 +23,13 @@ final class PhotaraGraphEventView: NSView {
     private var shortcutMonitor: Any?
     private var lastCursor: NSCursor?
     private var menuActions: [() -> Void] = []
-    private lazy var knifeCursor = Self.makeKnifeCursor()
+    private var knifeCursor: NSCursor
+    private var knifeCursorSize: Double
 
-    init(controller: PhotaraGraphInteractionController) {
+    init(controller: PhotaraGraphInteractionController, knifeCursorSize: Double = 20) {
         self.controller = controller
+        self.knifeCursorSize = knifeCursorSize
+        self.knifeCursor = Self.makeKnifeCursor(size: knifeCursorSize)
         super.init(frame: .zero)
         setAccessibilityIdentifier("photara.graph.canvas")
     }
@@ -144,6 +153,13 @@ final class PhotaraGraphEventView: NSView {
         super.updateTrackingAreas()
     }
     private var cursor: NSCursor { controller.isPanning ? .closedHand : (controller.knifeMode ? knifeCursor : .arrow) }
+    func setKnifeCursorSize(_ value: Double) {
+        let size = min(32, max(16, value))
+        guard size != knifeCursorSize else { return }
+        knifeCursorSize = size
+        knifeCursor = Self.makeKnifeCursor(size: size)
+        lastCursor = nil
+    }
     override func resetCursorRects() { addCursorRect(bounds, cursor: cursor) }
     override func cursorUpdate(with event: NSEvent) { cursor.set() }
     override func mouseEntered(with event: NSEvent) { cursor.set() }
@@ -210,22 +226,12 @@ final class PhotaraGraphEventView: NSView {
         if menuActions.indices.contains(item.tag) { menuActions[item.tag]() }
     }
 
-    private static func makeKnifeCursor() -> NSCursor {
-        let image = NSImage(size: NSSize(width: 24, height: 24), flipped: false) { _ in
-            let blade = NSBezierPath()
-            blade.move(to: NSPoint(x: 9, y: 16))
-            blade.line(to: NSPoint(x: 15, y: 16))
-            blade.curve(to: NSPoint(x: 12, y: 2), controlPoint1: NSPoint(x: 15, y: 10), controlPoint2: NSPoint(x: 13, y: 5))
-            blade.curve(to: NSPoint(x: 9, y: 16), controlPoint1: NSPoint(x: 11, y: 5), controlPoint2: NSPoint(x: 9, y: 10))
-            blade.close()
-            NSColor.white.setStroke(); blade.lineWidth = 2; blade.stroke()
-            NSColor.black.setFill(); blade.fill()
-            let handle = NSBezierPath(roundedRect: NSRect(x: 7, y: 16, width: 10, height: 6), xRadius: 2, yRadius: 2)
-            NSColor.white.setStroke(); handle.lineWidth = 2; handle.stroke()
-            NSColor.black.setFill(); handle.fill()
-            return true
-        }
+    private static func makeKnifeCursor(size: Double) -> NSCursor {
+        let pointSize = min(32, max(16, size))
+        let image = PhotaraGraphToolIconStore.knife.copy() as? NSImage ?? PhotaraGraphToolIconStore.knife
+        image.size = NSSize(width: pointSize, height: pointSize)
+        image.isTemplate = false
         image.accessibilityDescription = "Knife cursor for cutting noodles"
-        return NSCursor(image: image, hotSpot: NSPoint(x: 12, y: 21))
+        return NSCursor(image: image, hotSpot: NSPoint(x: pointSize * 0.18, y: pointSize * 0.80))
     }
 }

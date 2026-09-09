@@ -15,6 +15,14 @@ struct GraphLabView: View {
     @Environment(\.photaraTheme) private var theme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Binding var appearance: PhotaraThemeAppearance
+    @Environment(\.openSettings) private var openSettings
+    @AppStorage(GraphLabSettingsKeys.knifeCursorSize) private var knifeCursorSize = GraphLabSettingsKeys.defaultKnifeCursorSize
+    @AppStorage(GraphLabSettingsKeys.showsToolRail) private var showsToolRail = true
+    @AppStorage(GraphLabSettingsKeys.toolRailCornerRadius) private var toolRailCornerRadius = 10.0
+    @AppStorage(GraphLabSettingsKeys.toolRailLightShadowOpacity) private var toolRailLightShadowOpacity = 0.18
+    @AppStorage(GraphLabSettingsKeys.toolRailDarkShadowOpacity) private var toolRailDarkShadowOpacity = 0.34
+    @AppStorage(GraphLabSettingsKeys.toolRailShadowBlur) private var toolRailShadowBlur = 8.0
+    @AppStorage(GraphLabSettingsKeys.toolRailShadowOffsetY) private var toolRailShadowOffsetY = 3.0
 
     @State private var pattern = PhotaraGraphPattern.lines
     @State private var gridSpacing = 24.0
@@ -73,6 +81,7 @@ struct GraphLabView: View {
                 .frame(minWidth: 285, idealWidth: 310, maxWidth: 340)
         }
         .toolbar {
+            Button("Settings", systemImage: "gearshape") { openSettings() }
             Button("Center Scene", systemImage: "scope") { centerScene() }
             Button("Save Preferences", systemImage: "square.and.arrow.down") {
                 savePreferences()
@@ -111,12 +120,30 @@ struct GraphLabView: View {
             minorColor: activeColor(\.minor),
             majorColor: activeColor(\.major),
             noodleColor: activeColor(\.noodle) ?? theme?.color(.borderFocus) ?? .accentColor,
+            knifeCursorSize: knifeCursorSize,
+            showsToolRail: showsToolRail,
+            centerScene: centerScene,
+            addNativeNode: addNativeNode,
             nodeContent: specimen
         )
     }
 
     private var controls: some View {
         Form {
+            Section("Floating tool rail") {
+                valueSlider("Corner radius", value: $toolRailCornerRadius, range: 4...24, suffix: " pt")
+                valueSlider(
+                    appearance == .dark ? "Dark shadow opacity" : "Light shadow opacity",
+                    value: appearance == .dark ? $toolRailDarkShadowOpacity : $toolRailLightShadowOpacity,
+                    range: 0...0.5
+                )
+                valueSlider("Shadow blur", value: $toolRailShadowBlur, range: 0...24, suffix: " pt")
+                valueSlider("Shadow vertical offset", value: $toolRailShadowOffsetY, range: -4...12, suffix: " pt")
+                valueSlider("Knife cursor size", value: $knifeCursorSize, range: 16...32, suffix: " pt")
+                Text("Native Liquid Glass keeps the floating rail translucent; its tool and node icons remain flat.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
             Section("Overview") {
                 Picker("Visibility", selection: $controller.overviewPolicy) {
                     ForEach(PhotaraGraphOverviewPolicy.allCases) { policy in
@@ -856,6 +883,15 @@ struct GraphLabView: View {
 
     private func centerScene() {
         controller.center(positions: Dictionary(uniqueKeysWithValues: GraphLabFixtures.document.nodes.map { ($0.id, $0.position) }), selectedNode: "transform")
+    }
+
+    private func addNativeNode(kind: String) {
+        guard let template = GraphLabFixtures.document.nodes.first(where: { $0.kind == kind }) else { return }
+        let center = controller.camera.world(
+            CGPoint(x: controller.viewport.width / 2, y: controller.viewport.height / 2),
+            in: controller.viewport
+        )
+        controller.insertNode(template, near: center)
     }
 }
 

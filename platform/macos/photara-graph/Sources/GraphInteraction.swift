@@ -356,6 +356,32 @@ final class PhotaraGraphInteractionController {
               let a = portPoint(connection.source), let b = portPoint(connection.destination) else { return .zero }
         return CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
     }
+    func insertNode(_ template: PhotaraGraphNode, near requestedPosition: CGPoint) {
+        cancel(resetTool: true)
+        var position = requestedPosition
+        let size = PhotaraGraphGeometry.size(of: template)
+        func overlaps(_ point: CGPoint) -> Bool {
+            let candidate = CGRect(x: point.x - size.width / 2, y: point.y - size.height / 2,
+                                   width: size.width, height: size.height).insetBy(dx: -10, dy: -10)
+            return document.nodes.contains {
+                candidate.intersects(PhotaraGraphGeometry.rect(of: $0, at: $0.position.cgPoint))
+            }
+        }
+        if overlaps(position) {
+            let step = max(size.width, size.height) + 24
+            for ring in 1...12 {
+                let candidates = [CGPoint(x: requestedPosition.x + Double(ring) * step, y: requestedPosition.y),
+                                  CGPoint(x: requestedPosition.x, y: requestedPosition.y + Double(ring) * step),
+                                  CGPoint(x: requestedPosition.x - Double(ring) * step, y: requestedPosition.y),
+                                  CGPoint(x: requestedPosition.x, y: requestedPosition.y - Double(ring) * step)]
+                if let available = candidates.first(where: { !overlaps($0) }) { position = available; break }
+            }
+        }
+        let id = "\(template.kind)-\(UUID().uuidString)"
+        document.nodes.append(.init(id: id, kind: template.kind, title: template.title, subtitle: template.subtitle,
+                                    ports: template.ports, position: PhotaraGraphPoint(position)))
+        selection = .node(id)
+    }
     func replaceDocument(_ document: PhotaraGraphDocument) throws {
         try document.validate()
         cancel(resetTool: true)

@@ -1,6 +1,6 @@
 # Interaction verification — 2026-09-09
 
-`verify-interactions.sh` completed with **15,558 assertions and zero failures**.
+`verify-interactions.sh` completed with **15,562 assertions and zero failures**.
 The optimized normal app built successfully and was launched after verification.
 `git diff --check` passed. No changes were staged, committed or pushed.
 
@@ -39,6 +39,11 @@ Native compositor captures were reviewed for the authored light/dark appearance,
 connected/disconnected port beads, routing, live wire preview and overview corner
 placements. Legacy knot DTO migration and old/new preference serialization were
 checked, including preservation of every existing palette field.
+The floating tool rail was verified as native chrome over (rather than part of)
+the event surface. Random pan targets explicitly avoid its control hit region.
+Pinned native shortcuts insert a unique, collision-free ordinary node DTO and
+preserve document validation. The final build also includes the global Settings
+toggle that hides the rail without modifying the graph controller.
 The saved `graph-lab.visual-preferences.v1` payload remained byte-for-byte identical:
 SHA256 `d62c94bf1c1fa2e5791178316809c13b21d4b53274c7c8917c6a5a1fbce97937`.
 The four unrelated working-tree files named in the engineering handoff retained

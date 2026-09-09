@@ -11,11 +11,13 @@ MACOS="$CONTENTS/MacOS"
 RESOURCES="$CONTENTS/Resources"
 THEME_ROOT="$REPOSITORY_ROOT/platform/macos/photara-theme"
 GRAPH_ICON_ROOT="$REPOSITORY_ROOT/platform/macos/photara-graph/Resources/NodeIcons"
+GRAPH_TOOL_ICON_ROOT="$REPOSITORY_ROOT/platform/macos/photara-graph/Resources/ToolIcons"
 
 mkdir -p "$MODULE_CACHE" "$MACOS" "$RESOURCES"
 cp -p "$SCRIPT_ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
 cp -p "$THEME_ROOT/Resources/photara-default.json" "$RESOURCES/photara-default.json"
 ditto "$GRAPH_ICON_ROOT" "$RESOURCES/NodeIcons"
+ditto "$GRAPH_TOOL_ICON_ROOT" "$RESOURCES/ToolIcons"
 
 xcrun swiftc \
   -swift-version 6 \
@@ -27,10 +29,12 @@ xcrun swiftc \
   "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphPresentation.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphDocument.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphOverview.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphToolIcons.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphGeometry.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphInteraction.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphEventSurface.swift" \
   "$SCRIPT_ROOT/Sources/GraphLabFixtures.swift" \
+  "$SCRIPT_ROOT/Sources/GraphLabTooling.swift" \
   "$SCRIPT_ROOT/Sources/GraphLabCanvas.swift" \
   "$SCRIPT_ROOT/Sources/GraphLabView.swift" \
   "$SCRIPT_ROOT/Sources/GraphLabApp.swift" \

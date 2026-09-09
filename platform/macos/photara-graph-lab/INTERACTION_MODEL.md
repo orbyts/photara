@@ -82,6 +82,13 @@ selection, camera, geometry caches or transient endpoints. Camera and visual
 preferences are Lab UI state. The existing legacy saved-knot preference is still
 read/written for compatibility, but its in-memory owner is a document routing point.
 
+Selection is a single tagged value (`node`, `noodle`, or `knot`), never parallel
+booleans. The floating palette derives its contextual command from that value and
+calls the same controller transaction used by keyboard and context-menu commands.
+It does not own a second tool or document model. The knife SVG and cursor-size
+preference are presentation resources; changing cursor size cannot affect cutting
+geometry, tolerance, capture, or DTO state.
+
 A plain routing-point drag enters the existing wire state with a routing-point
 origin and the point's semantic upstream output. The normal connection transaction
 performs validation, input replacement, and deduplication. Option-drag moves the
@@ -115,6 +122,15 @@ changes cancel that task and its held state. Only the overview's opacity animate
 visibility and Never Show suppresses it. No overview timer changes graph state.
 
 ## Rendering and performance
+
+The floating tool rail is chrome over the event surface, not graph state. Its
+buttons call the same controller transactions used by canvas gestures and
+context menus. A pinned native-node shortcut supplies a data template to
+`insertNode`; the controller assigns a unique opaque ID, finds a collision-free
+position, inserts one ordinary DTO node, and selects it. Pin choices, rail chrome,
+and cursor size are local UI preferences and never cross the Rust graph boundary.
+The selection enum remains the single source of truth, so contextual commands
+cannot target multiple noodles or an implicit fallback edge.
 
 `GraphLabView` retains authoring controls and the unchanged versioned preference
 payload. `GraphLabCanvas` isolates observable pointer/camera state from that form.

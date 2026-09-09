@@ -23,5 +23,8 @@ struct PhotaraGraphLabApp: App {
                 .preferredColorScheme(appearance == .dark ? .dark : .light)
                 .frame(minWidth: 1_080, minHeight: 700)
         }
+        Settings {
+            GraphLabSettingsView()
+        }
     }
 }

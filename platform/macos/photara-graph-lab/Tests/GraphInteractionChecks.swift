@@ -593,6 +593,21 @@ final class GraphLabChecks {
         let futurePort = PhotaraGraphPortID(node: "future", key: "in.Input")
         Self.check(model.portPoint(futurePort) != nil && model.document.canConnect(assets, futurePort), "New node inherits geometry and compatibility")
         Self.check(!model.document.canConnect(assets, .init(node: "future", key: "in.extra")), "Data type compatibility enforced")
+
+        let insertion = PhotaraGraphInteractionController(document: document)
+        insertion.viewport = CGSize(width: 900, height: 700)
+        let prototype = document.nodes[0]
+        insertion.insertNode(prototype, near: prototype.position.cgPoint)
+        Self.check(insertion.document.nodes.count == document.nodes.count + 1,
+                   "Pinned native shortcut inserts one DTO node")
+        Self.check(Set(insertion.document.nodes.map(\.id)).count == insertion.document.nodes.count,
+                   "Pinned native shortcut receives a unique node identity")
+        let inserted = insertion.document.nodes.last!
+        Self.check(!PhotaraGraphGeometry.rect(of: inserted, at: inserted.position.cgPoint)
+            .intersects(PhotaraGraphGeometry.rect(of: prototype, at: prototype.position.cgPoint)),
+                   "Pinned native shortcut avoids an occupied node position")
+        Self.check((try? insertion.document.validate()) != nil,
+                   "Pinned native shortcut preserves the Rust-facing DTO contract")
     }
 
     func fuzzChecks() {

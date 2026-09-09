@@ -56,6 +56,38 @@ ratio and follows window reshaping immediately. Bottom placements clear the zoom
 It does not intercept graph input. Save Preferences persists all overview choices
 alongside the existing palettes, with defaults for older preference payloads.
 
+The narrow floating tool rail groups camera controls, selected-noodle actions,
+and pinned native-node shortcuts. Its icons are flat while its container uses
+Apple's native Liquid Glass, with the semantic material fallback when Reduce
+Transparency is enabled. It switches to two columns only when its vertical
+proposal is too short. The Graph Lab sidebar and Settings window expose its
+corner radius, light/dark shadow opacity, blur, vertical offset, and knife cursor
+size. The Settings window can hide the rail completely without disabling any
+keyboard, pointer, contextual-menu, or zoom behavior. The command menu shows graph gestures and shortcuts. Native node types can
+be pinned or removed there, or removed from a shortcut's contextual menu.
+Clicking a shortcut inserts an ordinary node DTO at an unoccupied position near
+the viewport center; it does not create a separate node interaction path.
+
+Selection remains one typed value: at most one node, noodle, or routing knot is
+selected. Contextual rail actions therefore apply only to the current selection.
+Add Knot appears for a selected direct noodle, Delete Knot for a selected routing
+point, and Disconnect for a selected noodle.
+
+A native floating tool palette sits at the leading edge of the canvas. It uses
+the same controller commands as the canvas responder instead of duplicating graph
+interaction state. Center and zoom commands are always available. The contextual
+slot offers Add Routing Knot only for a selected direct noodle, Delete Routing
+Knot only for a selected knot, and Disconnect only for a selected noodle. The
+commands menu documents the corresponding native gestures and shortcuts. Only
+one node, noodle, or routing knot can be selected at a time. When vertical space
+is constrained, the palette falls back to a compact two-column layout.
+
+The flat knife artwork is the shared SVG for the palette and custom cursor. Its
+lower blade tip is the cut hotspot. The standard macOS Settings command opens a
+Graph Tools pane with a 16–32 point cursor-size control; the default is 20 points.
+The setting is persisted by macOS independently of graph documents and visual
+palette exports.
+
 One AppKit canvas responder captures each pointer sequence. Its interaction
 controller owns node drag, pan, wire/rewire, knife and knot previews. SwiftUI
 renders those previews and the document without graph drag gestures or delayed
