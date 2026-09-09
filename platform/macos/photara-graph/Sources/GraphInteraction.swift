@@ -13,6 +13,7 @@ enum PhotaraGraphHit: Equatable {
 struct PhotaraGraphWireDrag: Equatable {
     let source: PhotaraGraphPortID
     let originalConnection: String?
+    var routingPointID: String? = nil
     var location: CGPoint
     var target: PhotaraGraphPortID?
 }
@@ -39,6 +40,49 @@ final class PhotaraGraphInteractionController {
     private(set) var knifeMode = false
     private(set) var geometry = PhotaraGraphGeometry()
     var viewport = CGSize.zero
+    var overviewSizeFraction = 0.16
+    var overviewPosition = PhotaraGraphOverviewPosition.topRight
+    var overviewCornerRadius = 12.0
+    var overviewPolicy = PhotaraGraphOverviewPolicy.whileZooming {
+        didSet { if overviewPolicy != oldValue { endZoomActivity() } }
+    }
+    private(set) var zoomActive = false
+    @ObservationIgnored private var zoomGestureHeld = false
+    @ObservationIgnored private var zoomDismissal: Task<Void, Never>?
+    var overviewVisible: Bool { overviewPolicy == .always || (overviewPolicy == .whileZooming && zoomActive) }
+    private func noteZoomActivity() {
+        zoomDismissal?.cancel()
+        zoomActive = true
+        guard !zoomGestureHeld else { return }
+        zoomDismissal = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(650)) } catch { return }
+            guard !Task.isCancelled else { return }
+            self?.zoomActive = false
+            self?.zoomDismissal = nil
+        }
+    }
+    func beginZoomGesture() {
+        guard interaction == .idle else { return }
+        zoomGestureHeld = true
+        noteZoomActivity()
+    }
+    func endZoomGesture() {
+        guard zoomGestureHeld else { return }
+        zoomGestureHeld = false
+        noteZoomActivity()
+    }
+    var overviewSnapshot: PhotaraGraphOverviewSnapshot {
+        PhotaraGraphOverviewSnapshot(
+            nodes: document.nodes.map { PhotaraGraphGeometry.rect(of: $0, at: position(of: $0)) },
+            paths: document.connections.map(path),
+            knots: document.connections.compactMap { knot(of: $0) }, camera: camera, size: viewport)
+    }
+    func endZoomActivity() {
+        zoomGestureHeld = false
+        zoomDismissal?.cancel()
+        zoomDismissal = nil
+        zoomActive = false
+    }
     @ObservationIgnored private var knifePaths: [(String, Path)] = []
 
     init(document: PhotaraGraphDocument, selection: PhotaraGraphSelection? = nil) {
@@ -50,6 +94,11 @@ final class PhotaraGraphInteractionController {
     var wire: PhotaraGraphWireDrag? {
         if case .wire(let drag) = interaction { return drag }
         return nil
+    }
+    var wireStart: CGPoint? {
+        guard let wire else { return nil }
+        if let id = wire.routingPointID { return document.routingPoints.first { $0.id == id }?.position.cgPoint }
+        return portPoint(wire.source)
     }
     var isPanning: Bool {
         if case .pan = interaction { return true }
@@ -65,15 +114,27 @@ final class PhotaraGraphInteractionController {
         return node.position.cgPoint
     }
     func knot(of connection: PhotaraGraphConnection) -> CGPoint? {
-        if case .knot(let id, _, _, let current) = interaction, connection.id == id { return current }
-        return connection.knot?.cgPoint
+        guard connection.routingPointID != nil else { return nil }
+        if case .knot(let id, _, _, let current) = interaction,
+           let moving = document.connections.first(where: { $0.id == id }),
+           moving.routingPointID == connection.routingPointID { return current }
+        return document.knot(of: connection)?.cgPoint
     }
     func portPoint(_ id: PhotaraGraphPortID) -> CGPoint? {
         guard let node = document.nodes.first(where: { $0.id == id.node }) else { return nil }
         return geometry.port(id, node: node, position: position(of: node))
     }
+    func sharedRoutingPoint(_ connection: PhotaraGraphConnection) -> Bool {
+        document.routingPoint(for: connection)?.isJunction == true
+    }
     func path(_ connection: PhotaraGraphConnection) -> Path {
         guard let start = portPoint(connection.source), let end = portPoint(connection.destination) else { return Path() }
+        guard connection.routingPointID != nil else { return geometry.path(from: start, to: end, through: nil) }
+        if sharedRoutingPoint(connection), let knot = knot(of: connection) {
+            var path = geometry.path(from: start, to: knot, through: nil)
+            path.addPath(geometry.path(from: knot, to: end, through: nil))
+            return path
+        }
         return geometry.path(from: start, to: end, through: knot(of: connection))
     }
     func activePorts(for node: PhotaraGraphNode, direction: PhotaraGraphPortDirection) -> Set<Int> {
@@ -100,6 +161,7 @@ final class PhotaraGraphInteractionController {
         knifeMode = enabled
     }
     func cancel(resetTool: Bool = false) {
+        endZoomActivity()
         if case .pan(_, let original) = interaction { camera = original }
         interaction = .idle
         knifePaths.removeAll(keepingCapacity: true)
@@ -169,11 +231,17 @@ final class PhotaraGraphInteractionController {
             selection = .node(id)
             interaction = .node(id: id, anchor: point, original: node.position.cgPoint, current: node.position.cgPoint)
         case .knot(let id):
-            guard let knot = document.connections.first(where: { $0.id == id })?.knot?.cgPoint else { return }
+            guard let connection = document.connections.first(where: { $0.id == id }),
+                  let knot = knot(of: connection) else { return }
             selection = .knot(id)
-            interaction = .knot(id: id, anchor: point, original: knot, current: knot)
+            if option {
+                interaction = .knot(id: id, anchor: point, original: knot, current: knot)
+            } else {
+                interaction = .wire(.init(source: connection.source, originalConnection: nil,
+                    routingPointID: connection.routingPointID, location: knot))
+            }
         case .noodle(let id):
-            if option, document.connections.first(where: { $0.id == id })?.knot == nil { setKnot(point, connectionID: id) }
+            if option, document.connections.first(where: { $0.id == id })?.routingPointID == nil { setKnot(point, connectionID: id) }
             else { selection = .noodle(id) }
             interaction = .pressed(hit)
         case .canvas:
@@ -224,7 +292,7 @@ final class PhotaraGraphInteractionController {
         case .wire(let wire):
             // The release position is authoritative. Never fall back to the
             // previous hover target when a release lands on empty canvas.
-            if let target = wire.target, let id = document.connect(from: wire.source, to: target, replacing: wire.originalConnection) {
+            if let target = wire.target, let id = document.connect(from: wire.source, to: target, replacing: wire.originalConnection, via: wire.routingPointID) {
                 selection = .noodle(id)
             }
         case .node(let id, _, _, let current):
@@ -237,6 +305,8 @@ final class PhotaraGraphInteractionController {
 
     func zoom(to value: Double, anchor: CGPoint) {
         guard interaction == .idle else { return }
+        guard value.isFinite else { return }
+        noteZoomActivity()
         camera.setZoom(value, anchor: anchor, size: viewport)
     }
     func scroll(by delta: CGSize) {
@@ -262,7 +332,7 @@ final class PhotaraGraphInteractionController {
     }
     func removeConnections(_ ids: Set<String>) {
         cancel()
-        document.connections.removeAll { ids.contains($0.id) }
+        document.removeConnections(ids)
         switch selection {
         case .noodle(let id), .knot(let id): if ids.contains(id) { selection = nil }
         default: break
@@ -270,8 +340,8 @@ final class PhotaraGraphInteractionController {
     }
     func setKnot(_ point: CGPoint?, connectionID: String) {
         cancel()
-        guard let index = document.connections.firstIndex(where: { $0.id == connectionID }) else { return }
-        document.connections[index].knot = point.map(PhotaraGraphPoint.init)
+        guard document.connections.contains(where: { $0.id == connectionID }) else { return }
+        document.setKnot(point.map(PhotaraGraphPoint.init), connectionID: connectionID)
         selection = point == nil ? .noodle(connectionID) : .knot(connectionID)
     }
     @discardableResult func deleteSelection() -> Bool {

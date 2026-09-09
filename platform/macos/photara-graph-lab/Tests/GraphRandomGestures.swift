@@ -8,6 +8,8 @@ private enum RandomGraphGesture: String, CaseIterable {
     case escapeWire, focusLoss, switchTool, escapeNode, escapePan, escapeKnot
     case contextConnect, contextDisconnect, contextAddKnot, contextDeleteKnot
     case rejectOutputOutput, rejectInputInput
+    case branch, branchCancel, branchInvalid, branchDuplicate, branchFocusLoss, branchEscape, branchToolSwitch, branchDelete, branchCut
+    case overviewPolicy, overviewSize, overviewPosition, overviewRounding, resizeWindow
 }
 
 extension GraphLabChecks {
@@ -34,12 +36,19 @@ extension GraphLabChecks {
     }
 
     private func randomSequence(seed: UInt64, steps: Int, style: PhotaraGraphNoodleStyle, appearance: String) async -> [String: Int] {
+        window.setContentSize(NSSize(width: 1800, height: 1000))
+        window.center()
+        await Self.settle()
         reset(zoom: 1, style: style)
         await Self.settle()
         var oracle = GraphGestureOracle(viewport: controller.viewport)
         oracle.curved = style == .curved
         var rng = GraphSeededRandom(state: seed)
         var coverage: [String: Int] = [:]
+        var expectedPolicy = PhotaraGraphOverviewPolicy.whileZooming
+        var expectedOverviewSize = controller.overviewSizeFraction
+        var expectedPosition = controller.overviewPosition
+        var expectedRounding = controller.overviewCornerRadius
         let prefix = "seed=\(seed) \(appearance)/\(style.rawValue)"
         GraphTestLog.write("RANDOM: \(prefix), \(steps) actions")
         var trace = ["Replay: verify-interactions.sh --random-only --seed \(seed) --steps \(steps) --appearance \(appearance) --style \(style.rawValue)"]
@@ -51,6 +60,12 @@ extension GraphLabChecks {
         func p(_ port: PhotaraGraphPortID) -> CGPoint { oracle.screen(oracle.point(port)) }
         func verify(_ step: String) -> Bool {
             var errors = oracle.mismatches(document: controller.document, actualZoom: controller.camera.zoom, actualPan: controller.camera.pan)
+            if controller.overviewPolicy != expectedPolicy || controller.overviewSizeFraction != expectedOverviewSize
+                || controller.overviewPosition != expectedPosition || controller.overviewCornerRadius != expectedRounding {
+                errors.append("overview preferences changed unexpectedly")
+            }
+            if expectedPolicy == .always && !controller.overviewVisible { errors.append("always overview disappeared") }
+            if expectedPolicy == .never && controller.overviewVisible { errors.append("disabled overview visible") }
             if controller.interaction != .idle || controller.wire != nil || !controller.hiddenConnections.isEmpty || surface.capturedButton != nil || controller.knifeMode {
                 errors.append("transient gesture/tool/capture survived completion")
             }
@@ -131,6 +146,101 @@ extension GraphLabChecks {
             let failuresBeforeStep = Self.failures.count
             var performed = true
             switch action {
+            case .resizeWindow:
+                let sizes = [NSSize(width: 1600, height: 1000), NSSize(width: 1800, height: 1100),
+                             NSSize(width: 2000, height: 1200), NSSize(width: 1800, height: 1000)]
+                let size = sizes[rng.index(sizes.count)]
+                window.setContentSize(size)
+                window.center()
+                await Self.settle()
+                // Native layout dimensions are an external input to the model,
+                // just like the initial viewport. Never read the controller's
+                // camera or document to manufacture the expected result.
+                oracle.viewport = surface.bounds.size
+                let preview = PhotaraGraphOverviewSizing.size(in: oracle.viewport, fraction: expectedOverviewSize)
+                Self.check(controller.viewport == oracle.viewport
+                           && abs(preview.width / preview.height - oracle.viewport.width / oracle.viewport.height) < 0.00001,
+                           "Random native window resize updates viewport and overview aspect")
+                trace.append("  native window \(size), canvas \(oracle.viewport)")
+            case .overviewPolicy:
+                expectedPolicy = PhotaraGraphOverviewPolicy.allCases[rng.index(3)]
+                controller.cancel()
+                controller.overviewPolicy = expectedPolicy
+                trace.append("  overview policy \(expectedPolicy.rawValue)")
+                Self.check(controller.overviewVisible == (expectedPolicy == .always), "Random overview policy at rest")
+            case .overviewPosition:
+                expectedPosition = PhotaraGraphOverviewPosition.allCases[rng.index(4)]
+                controller.overviewPosition = expectedPosition
+                trace.append("  overview position \(expectedPosition.rawValue)")
+            case .overviewRounding:
+                expectedRounding = rng.value(0, 36)
+                controller.overviewCornerRadius = expectedRounding
+                trace.append("  overview rounding \(expectedRounding)")
+            case .overviewSize:
+                expectedOverviewSize = rng.value(0.10, 0.28)
+                controller.overviewSizeFraction = expectedOverviewSize
+                trace.append("  overview fraction \(expectedOverviewSize)")
+                let size = PhotaraGraphOverviewSizing.size(in: oracle.viewport, fraction: expectedOverviewSize)
+                Self.check(abs(size.width - min(360, max(144, oracle.viewport.width * expectedOverviewSize))) < 0.00001,
+                           "Random overview responds to relative size setting")
+            case .branch, .branchCancel, .branchInvalid, .branchDuplicate, .branchFocusLoss, .branchEscape, .branchToolSwitch, .branchDelete, .branchCut:
+                guard ensureEdge() else { return coverage }
+                if !oracle.edges.contains(where: { $0.knot != nil }),
+                   let edge = oracle.edges.first(where: { oracle.selectablePoint($0) != nil }),
+                   let point = oracle.selectablePoint(edge) {
+                    trace.append("  prerequisite: routing knot on \(edge.destination) at \(point)")
+                    mouse(.leftMouseDown, oracle.screen(point), flags: [.option])
+                    mouse(.leftMouseUp, oracle.screen(point), flags: [.option])
+                    oracle.setKnot(point, edgeID: edge.id!)
+                    guard verify("prerequisite branch point") else { return coverage }
+                }
+                let choices = oracle.edges.filter { edge in
+                    guard let point = edge.knot, !oracle.nodeContains(point), !oracle.portContains(point) else { return false }
+                    return !oracle.edges.contains { other in
+                        other.group != edge.group && (other.knot.map { hypot($0.x - point.x, $0.y - point.y) < 13 } ?? false)
+                    }
+                }
+                guard !choices.isEmpty else { performed = false; break }
+                let edge = choices[rng.index(choices.count)], point = edge.knot!
+                let inputs = oracle.inputs.filter { $0.node != edge.source.node }
+                let destination = action == .branchDuplicate ? edge.destination : inputs[rng.index(inputs.count)]
+                trace.append("  route \(edge.group!) at \(point), upstream \(edge.source), destination \(destination)")
+                mouse(.leftMouseDown, oracle.screen(point))
+                mouse(.leftMouseDragged, p(destination))
+                Self.check(controller.wire?.source == edge.source && Self.near(controller.wireStart ?? .zero, point),
+                           "Random branch owns its shared source and origin")
+                if action == .branchFocusLoss { await loseAndRestoreFocus() }
+                if action == .branchEscape { key(53, "\u{1b}") }
+                if action == .branchToolSwitch { key(16, "y") }
+                var end = p(destination)
+                if action == .branchCancel { end = CGPoint(x: 8, y: 8) }
+                if action == .branchInvalid { end = p(oracle.outputs[rng.index(oracle.outputs.count)]) }
+                mouse(.leftMouseUp, end)
+                if action == .branchToolSwitch { key(16, "y", up: true) }
+                if [.branch, .branchDuplicate, .branchDelete, .branchCut].contains(action) {
+                    oracle.branch(edge, to: destination)
+                    guard verify("branch creation") else { return coverage }
+                }
+                if action == .branchDelete {
+                    Self.check(contextMenu("Disconnect", at: p(destination)), "Random branch deletion menu")
+                    oracle.edges.removeAll { $0.destination == destination }
+                }
+                if action == .branchCut {
+                    var slice: (Double, Set<String>)?
+                    for _ in 0..<40 {
+                        let samples = oracle.polyline(chooseEdge())
+                        let x = Double(samples[rng.index(samples.count)].x)
+                        if let ids = oracle.cutIDs(atX: x), !ids.isEmpty { slice = (x, ids); break }
+                    }
+                    if let (x, ids) = slice {
+                        trace.append("  branch cut x=\(x), \(ids.count) crossed edges")
+                        let sx = oracle.screen(CGPoint(x: x, y: 0)).x
+                        key(16, "y")
+                        drag(from: CGPoint(x: sx, y: 5), to: CGPoint(x: sx, y: oracle.viewport.height - 3))
+                        key(16, "y", up: true)
+                        oracle.edges.removeAll { $0.id.map(ids.contains) ?? false }
+                    } else { performed = false }
+                }
             case .connect, .duplicate, .replaceInput, .contextConnect:
                 var source = oracle.outputs[rng.index(oracle.outputs.count)]
                 let candidates = oracle.inputs.filter { $0.node != source.node }
@@ -268,7 +378,7 @@ extension GraphLabChecks {
                     mouse(.leftMouseUp, oracle.screen(point), flags: flags)
                 }
                 if action == .addKnot || action == .contextAddKnot {
-                    oracle.edges[oracle.edges.firstIndex { $0.id == edge.id }!].knot = point
+                    oracle.setKnot(point, edgeID: edge.id!)
                 } else {
                     key(51, "\u{7f}")
                     oracle.edges.removeAll { $0.id == edge.id }
@@ -278,32 +388,32 @@ extension GraphLabChecks {
                 if !oracle.edges.contains(where: { $0.knot != nil }),
                    let edge = oracle.edges.first(where: { oracle.selectablePoint($0) != nil }),
                    let point = oracle.selectablePoint(edge) {
+                    trace.append("  prerequisite: routing knot on \(edge.destination) at \(point)")
                     mouse(.leftMouseDown, oracle.screen(point), flags: [.option])
                     mouse(.leftMouseUp, oracle.screen(point), flags: [.option])
-                    oracle.edges[oracle.edges.firstIndex { $0.id == edge.id }!].knot = point
+                    oracle.setKnot(point, edgeID: edge.id!)
                     guard verify("prerequisite knot") else { return coverage }
                 }
                 let choices = oracle.edges.filter { edge in
                     guard let k = edge.knot, !oracle.nodeContains(k), !oracle.portContains(k) else { return false }
-                    return !oracle.edges.contains { other in other.id != edge.id && (other.knot.map { hypot($0.x - k.x, $0.y - k.y) < 13 } ?? false) }
+                    return !oracle.edges.contains { other in other.id != edge.id && other.group != edge.group && (other.knot.map { hypot($0.x - k.x, $0.y - k.y) < 13 } ?? false) }
                 }
                 if choices.isEmpty { performed = false; break }
                 let edge = choices[rng.index(choices.count)], start = edge.knot!
                 let target = CGPoint(x: min(300, max(-300, start.x + rng.value(-15, 15))), y: min(200, max(-150, start.y + rng.value(-25, 25))))
-                let edgeIndex = oracle.edges.firstIndex { $0.id == edge.id }!
                 if action == .contextDeleteKnot {
                     Self.check(contextMenu("Delete Knot", at: oracle.screen(start), control: rng.index(2) == 0), "Random native delete-knot menu")
-                    oracle.edges[edgeIndex].knot = nil
+                    oracle.setKnot(nil, edgeID: edge.id!)
                     break
                 }
-                mouse(.leftMouseDown, oracle.screen(start))
+                mouse(.leftMouseDown, oracle.screen(start), flags: [.option])
                 if action == .deleteKnot {
                     mouse(.leftMouseUp, oracle.screen(start)); key(51, "\u{7f}")
-                    oracle.edges[edgeIndex].knot = nil
+                    oracle.setKnot(nil, edgeID: edge.id!)
                 } else {
                     mouse(.leftMouseDragged, oracle.screen(target))
                     if action == .escapeKnot { key(53, "\u{1b}") }
-                    else { oracle.edges[edgeIndex].knot = target }
+                    else { oracle.setKnot(target, edgeID: edge.id!) }
                     mouse(.leftMouseUp, oracle.screen(target))
                 }
                 trace.append("  knot \(start) -> \(target)")

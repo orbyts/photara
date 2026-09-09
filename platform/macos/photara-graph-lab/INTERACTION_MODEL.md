@@ -23,7 +23,7 @@ magnification events use the native responder. There are no delayed cleanup task
 | Node drag | Collision-constrained position preview | Commit position | Discard preview |
 | Wire | Free endpoint and nearest compatible input | Connect/replace or rewire atomically | Preserve document |
 | Knife | Accumulate every edge touched by each slice segment | Remove crossed connections | Restore all edges |
-| Routing knot | Knot position preview | Commit knot position | Discard preview |
+| Routing knot (Option-drag) | Shared point position preview | Commit shared position | Discard preview |
 | Canvas pan | Camera delta from down position | Retain camera | Restore initial camera |
 | Pressed node content/empty input/noodle | Retain ownership without panning | End sequence | End sequence |
 
@@ -55,7 +55,7 @@ The knife caches stroked paths once at the start of a slice and tests each
 pointer segment at at most one screen-pixel intervals. Its stroke tolerance
 covers those sample intervals. Every intersected connection is included, even
 when the pointer moves across several wires in one coalesced event. Deleted
-connections own their knots, so removing an edge also removes its routing state.
+routing points are pruned only after their last connection is removed.
 
 ## Document boundary
 
@@ -64,7 +64,9 @@ connections own their knots, so removing an edge also removes its routing state.
 - Nodes: opaque stable ID, kind, title, subtitle, position and port definitions.
 - Ports: stable key, input/output direction, data type and label. Array order
   determines rows; identity never depends on a row index or display label.
-- Connections: stable ID, source and destination port IDs, optional routing knot.
+- Connections: stable ID, source and destination port IDs, optional routing-point ID.
+- Routing points: stable ID, upstream output ID, position, and whether the point
+  has become a fan-out junction. Legacy connection-owned knots migrate on decode.
 
 Graph validation rejects missing/invalid endpoints, incompatible types, duplicate
 node/port/connection identities, multiple incoming edges and nonfinite positions.
@@ -78,7 +80,39 @@ input and rewiring while preserving the reconnected edge's ID and knot.
 The document does not contain AppKit events, SwiftUI state, gestures, hover,
 selection, camera, geometry caches or transient endpoints. Camera and visual
 preferences are Lab UI state. The existing legacy saved-knot preference is still
-read/written for compatibility, but its in-memory owner is its connection.
+read/written for compatibility, but its in-memory owner is a document routing point.
+
+A plain routing-point drag enters the existing wire state with a routing-point
+origin and the point's semantic upstream output. The normal connection transaction
+performs validation, input replacement, and deduplication. Option-drag moves the
+point. Every edge sharing its ID reads the same preview and persistent position.
+Branching promotes the point to a junction with one common incoming segment;
+this is the routing geometry change necessary for fan-out. That designation
+survives deletion of a branch, so sibling geometry does not unexpectedly change.
+Rendering draws the common trunk and point once; picking/cutting tests the full
+path of each semantic edge. A trunk cut removes all traversing edges, a downstream
+cut removes only crossed branches, and deleting a knot keeps the edges as direct
+connections. The knot menu explicitly labels disconnecting multiple branches.
+
+## Overview lifecycle
+
+The overview is a presentation-only snapshot of live node rectangles, noodle
+paths, routing points and the camera's world-space viewport. Its fit includes
+both graph bounds and the viewport so panning outside the graph remains legible.
+It uses native point sizes, an aspect-preserving transform, and no input handlers.
+The default width is 16% of the canvas, with 144–360 point bounds. Controls allow
+10–28%, four corner positions, and a 0–36 point corner radius. Bottom corners
+clear the existing controls. The frame follows the graph canvas aspect ratio
+as the window is reshaped; the size control scales both dimensions together. These settings and the three visibility policies
+are optional fields in the existing preference DTO; older payloads keep all
+colors and choices and receive sensible overview defaults.
+
+Wheel, magnification and slider events notify the same controller. Repeated zoom
+updates replace a 650 ms idle dismissal task; a held native zoom gesture suppresses
+dismissal until it ends. Cancellation, tool changes, focus loss and viewport
+changes cancel that task and its held state. Only the overview's opacity animates
+(180 ms); graph geometry updates remain unanimated. Always Show overrides idle
+visibility and Never Show suppresses it. No overview timer changes graph state.
 
 ## Rendering and performance
 

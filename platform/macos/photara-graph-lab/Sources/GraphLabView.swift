@@ -117,6 +117,26 @@ struct GraphLabView: View {
 
     private var controls: some View {
         Form {
+            Section("Overview") {
+                Picker("Visibility", selection: $controller.overviewPolicy) {
+                    ForEach(PhotaraGraphOverviewPolicy.allCases) { policy in
+                        Text(policy.title).tag(policy)
+                    }
+                }
+                .accessibilityIdentifier("photara.graph.overview-policy")
+                Picker("Position", selection: $controller.overviewPosition) {
+                    ForEach(PhotaraGraphOverviewPosition.allCases) { position in
+                        Text(position.title).tag(position)
+                    }
+                }
+                valueSlider("Corner radius", value: $controller.overviewCornerRadius, range: 0...36, suffix: " pt")
+                valueSlider("Size", value: Binding(get: { controller.overviewSizeFraction * 100 },
+                    set: { controller.overviewSizeFraction = PhotaraGraphOverviewSizing.fraction($0 / 100) }),
+                    range: 10...28, suffix: "%")
+                Text("Relative to the graph window, with limits to keep the overview readable and compact.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
             Section("Background pattern") {
                 ColorPicker(
                     appearance == .dark ? "Dark Graph color" : "Light Graph color",
@@ -366,7 +386,7 @@ struct GraphLabView: View {
                     }
                 }
                 .disabled(controller.document.connections.isEmpty)
-                Text("The noodle follows both ports live. A routing knot bends the path without changing the connection; drag the knot to place it.")
+                Text("The noodle follows both ports live. A routing knot bends the path without changing the connection; drag the knot to branch, or Option-drag to move it.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -554,7 +574,7 @@ struct GraphLabView: View {
     }
     private var activeNoodleKnot: CGPoint? {
         guard let id = connectionForKnotEditingID else { return nil }
-        return controller.document.connections.first(where: { $0.id == id })?.knot?.cgPoint
+        return controller.document.connections.first(where: { $0.id == id }).flatMap { controller.knot(of: $0) }
     }
     private func setNoodleKnot(_ point: CGPoint, connectionID: String) {
         controller.setKnot(point, connectionID: connectionID)
@@ -592,7 +612,7 @@ struct GraphLabView: View {
     }
 
     private func savePreferences() {
-        let savedKnot = controller.document.connections.first?.knot
+        let savedKnot = controller.document.connections.first.flatMap { controller.document.knot(of: $0) }
         let preferences = GraphLabSavedPreferences(
             appearance: appearance.rawValue,
             pattern: pattern.rawValue,
@@ -613,6 +633,10 @@ struct GraphLabView: View {
             lightColors: GraphLabSavedPalette(lightColors),
             darkColors: GraphLabSavedPalette(darkColors),
             noodleStyle: noodleStyle.rawValue,
+            overviewPolicy: controller.overviewPolicy.rawValue,
+            overviewSizeFraction: controller.overviewSizeFraction,
+            overviewPosition: controller.overviewPosition.rawValue,
+            overviewCornerRadius: controller.overviewCornerRadius,
             noodleKnotX: savedKnot.map { Double($0.x) },
             noodleKnotY: savedKnot.map { Double($0.y) },
             nodeSurfaceStyle: nodeSurfaceStyle.rawValue,
@@ -695,6 +719,10 @@ struct GraphLabView: View {
         majorMarkSize = preferences.majorMarkSize
         loadSavedColors(preferences)
         noodleStyle = PhotaraGraphNoodleStyle(rawValue: preferences.noodleStyle ?? "") ?? noodleStyle
+        controller.overviewPolicy = PhotaraGraphOverviewPolicy(savedValue: preferences.overviewPolicy)
+        controller.overviewSizeFraction = PhotaraGraphOverviewSizing.fraction(preferences.overviewSizeFraction)
+        controller.overviewPosition = PhotaraGraphOverviewPosition(savedValue: preferences.overviewPosition)
+        controller.overviewCornerRadius = PhotaraGraphOverviewSizing.cornerRadius(preferences.overviewCornerRadius)
         if let x = preferences.noodleKnotX, let y = preferences.noodleKnotY {
             let point = CGPoint(x: x, y: y)
             if let id = controller.document.connections.first?.id {
@@ -787,6 +815,10 @@ struct GraphLabView: View {
         lightColors = GraphLabAppearanceColors()
         darkColors = GraphLabAppearanceColors()
         noodleStyle = .curved
+        controller.overviewPolicy = .whileZooming
+        controller.overviewSizeFraction = 0.16
+        controller.overviewPosition = .topRight
+        controller.overviewCornerRadius = 12
         try? controller.replaceDocument(GraphLabFixtures.document)
         nodeSurfaceStyle = .flat
         idleGlassTreatment = .regular
@@ -827,7 +859,7 @@ struct GraphLabView: View {
     }
 }
 
-private struct GraphLabSavedPreferences: Codable {
+struct GraphLabSavedPreferences: Codable {
     let appearance: String
     let pattern: String
     let gridSpacing: Double
@@ -847,6 +879,10 @@ private struct GraphLabSavedPreferences: Codable {
     let lightColors: GraphLabSavedPalette?
     let darkColors: GraphLabSavedPalette?
     let noodleStyle: String?
+    var overviewPolicy: String? = nil
+    var overviewSizeFraction: Double? = nil
+    var overviewPosition: String? = nil
+    var overviewCornerRadius: Double? = nil
     let noodleKnotX: Double?
     let noodleKnotY: Double?
     let nodeSurfaceStyle: String?
@@ -901,7 +937,7 @@ private struct GraphLabSavedPreferences: Codable {
     let darkLiftedShadowOpacity: Double?
 }
 
-private struct GraphLabAppearanceColors {
+struct GraphLabAppearanceColors {
     var graphBackground: Color?
     var minor: Color?
     var major: Color?
@@ -916,7 +952,7 @@ private struct GraphLabAppearanceColors {
     var detailText: Color?
 }
 
-private struct GraphLabSavedPalette: Codable {
+struct GraphLabSavedPalette: Codable {
     let graphBackground: GraphLabSavedColor?
     let minor: GraphLabSavedColor?
     let major: GraphLabSavedColor?
@@ -963,7 +999,7 @@ private struct GraphLabSavedPalette: Codable {
     }
 }
 
-private struct GraphLabSavedColor: Codable {
+struct GraphLabSavedColor: Codable {
     let red: Double
     let green: Double
     let blue: Double

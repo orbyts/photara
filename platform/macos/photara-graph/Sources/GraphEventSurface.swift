@@ -131,7 +131,10 @@ final class PhotaraGraphEventView: NSView {
     }
     override func magnify(with event: NSEvent) {
         guard capturedButton == nil else { return }
+        if event.phase == .cancelled { controller.endZoomActivity(); return }
+        if event.phase == .began { controller.beginZoomGesture() }
         controller.zoom(to: controller.camera.zoom * max(0.01, 1 + event.magnification), anchor: point(event))
+        if event.phase == .ended { controller.endZoomGesture() }
     }
 
     override func updateTrackingAreas() {
@@ -171,14 +174,18 @@ final class PhotaraGraphEventView: NSView {
         }
         switch hit {
         case .noodle(let id):
-            if controller.document.connections.first(where: { $0.id == id })?.knot == nil {
+            if controller.document.connections.first(where: { $0.id == id })?.routingPointID == nil {
                 let point = controller.camera.world(point(event), in: controller.viewport)
                 add("Add Routing Knot") { [controller] in controller.setKnot(point, connectionID: id) }
             }
             add("Disconnect") { [controller] in controller.removeConnections([id]) }
         case .knot(let id):
             add("Delete Knot") { [controller] in controller.setKnot(nil, connectionID: id) }
-            add("Disconnect") { [controller] in controller.removeConnections([id]) }
+            let route = controller.document.connections.first { $0.id == id }?.routingPointID
+            let branches = Set(controller.document.connections.filter { $0.routingPointID == route }.map(\.id))
+            add(branches.count > 1 ? "Disconnect All Branches" : "Disconnect") {
+                [controller] in controller.removeConnections(branches)
+            }
         case .port(let port):
             if controller.document.connections.contains(where: { $0.source == port || $0.destination == port }) {
                 add("Disconnect") { [controller] in controller.disconnect(port: port) }

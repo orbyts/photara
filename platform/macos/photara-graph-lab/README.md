@@ -33,7 +33,8 @@ Dragging a connected input rewires its existing connection; an invalid or
 cancelled rewire preserves its identity and routing knot.
 
 Hold `Y` and slice to cut all crossed noodles. Option-click a noodle to add a
-routing knot; drag the knot to bend it. Click a noodle or knot and press Delete,
+routing knot. Drag from the knot to branch to another input; Option-drag moves
+the shared point and all of its attached noodles. Click a noodle or knot and press Delete,
 or use the native right-click/Control-click menu. Input-port menus list compatible
 outputs from the document. Straight and curved noodle styles remain available.
 
@@ -43,6 +44,17 @@ anchor. The bottom slider zooms about the canvas center. All graph geometry,
 text, ports, knots and hit targets use the same camera. The floating control
 retains Apple's interactive Regular Liquid Glass capsule and native material
 fallback for Reduce Transparency.
+
+The translucent overview shows the entire graph and a viewport rectangle. It
+fades in at zoom start and fades out after 650 ms of inactivity; held slider or
+pinch gestures keep it visible until they end. The Overview section at the top
+of the sidebar offers Show While Zooming (default), Always Show, and Never Show,
+all four corners, a relative size control, and corner radius. Its default width
+is 16% of the graph window, bounded to 144–360 native points; native display
+scaling handles Retina resolution. The frame matches the graph canvas aspect
+ratio and follows window reshaping immediately. Bottom placements clear the zoom controls.
+It does not intercept graph input. Save Preferences persists all overview choices
+alongside the existing palettes, with defaults for older preference payloads.
 
 One AppKit canvas responder captures each pointer sequence. Its interaction
 controller owns node drag, pan, wire/rewire, knife and knot previews. SwiftUI

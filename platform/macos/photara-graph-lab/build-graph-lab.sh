@@ -26,6 +26,7 @@ xcrun swiftc \
   "$REPOSITORY_ROOT/platform/macos/photara-app/Sources/ThemeStore.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphPresentation.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphDocument.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphOverview.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphGeometry.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphInteraction.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphEventSurface.swift" \

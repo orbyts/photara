@@ -11,16 +11,19 @@ struct GraphGestureOracle {
         let source: PhotaraGraphPortID
         var destination: PhotaraGraphPortID
         var knot: CGPoint?
+        var group: String?
     }
     var nodes = GraphLabFixtures.document.nodes
     var edges: [Edge] = GraphLabFixtures.document.connections.map {
-        Edge(id: $0.id, source: $0.source, destination: $0.destination, knot: $0.knot?.cgPoint)
+        Edge(id: $0.id, source: $0.source, destination: $0.destination, knot: GraphLabFixtures.document.knot(of: $0)?.cgPoint)
     }
     var knownIDs = Set(GraphLabFixtures.document.connections.map(\.id))
+    var junctionGroups = Set<String>()
+    var routeIDs: [String: String] = [:]
     var pan = CGPoint.zero
     var zoom = 1.0
     var curved = true
-    let viewport: CGSize
+    var viewport: CGSize
 
     func screen(_ p: CGPoint) -> CGPoint {
         CGPoint(x: viewport.width / 2 + pan.x + p.x * zoom, y: viewport.height / 2 + pan.y + p.y * zoom)
@@ -47,6 +50,24 @@ struct GraphGestureOracle {
         if edges.contains(where: { $0.source == source && $0.destination == destination }) { return }
         edges.removeAll { $0.destination == destination }
         edges.append(.init(source: source, destination: destination))
+    }
+    mutating func setKnot(_ point: CGPoint?, edgeID: String) {
+        guard let index = edges.firstIndex(where: { $0.id == edgeID }) else { return }
+        if let group = edges[index].group {
+            for i in edges.indices where edges[i].group == group {
+                edges[i].knot = point
+                if point == nil { edges[i].group = nil }
+            }
+        } else if let point {
+            edges[index].knot = point
+            edges[index].group = "route-\(edgeID)-\(routeIDs.count)"
+        }
+    }
+    mutating func branch(_ edge: Edge, to destination: PhotaraGraphPortID) {
+        if edges.contains(where: { $0.source == edge.source && $0.destination == destination }) { return }
+        edges.removeAll { $0.destination == destination }
+        edges.append(.init(source: edge.source, destination: destination, knot: edge.knot, group: edge.group))
+        if let group = edge.group { junctionGroups.insert(group) }
     }
     mutating func rewire(_ edge: Edge, to destination: PhotaraGraphPortID) {
         edges.removeAll { $0.destination == destination && $0.id != edge.id }
@@ -80,6 +101,13 @@ struct GraphGestureOracle {
             }
         }
         if let k = edge.knot {
+            if let group = edge.group, junctionGroups.contains(group) {
+                func segment(_ start: CGPoint, _ end: CGPoint) -> [CGPoint] {
+                    let reach = min(90.0, max(28.0, abs(end.x - start.x) * 0.36))
+                    return cubic(start, CGPoint(x: start.x + reach, y: start.y), CGPoint(x: end.x - reach, y: end.y), end)
+                }
+                return segment(a, k) + segment(k, b).dropFirst()
+            }
             let tangent = CGPoint(x: (b.x - a.x) * 0.14, y: (b.y - a.y) * 0.14)
             return cubic(a, CGPoint(x: a.x + lead, y: a.y), CGPoint(x: k.x - tangent.x, y: k.y - tangent.y), k)
                 + cubic(k, CGPoint(x: k.x + tangent.x, y: k.y + tangent.y), CGPoint(x: b.x - lead, y: b.y), b).dropFirst()
@@ -107,11 +135,15 @@ struct GraphGestureOracle {
                   screen(p).x > 5, screen(p).x < viewport.width - 5,
                   screen(p).y > 5, screen(p).y < viewport.height - 60,
                   !edges.contains(where: { $0.knot.map { hypot($0.x - p.x, $0.y - p.y) <= 13 } ?? false }) else { return false }
-            let top = edges.reversed().first { other in
+            // Select a span clearly outside every higher edge's hit stroke.
+            // Bezier sampling and native stroked paths differ slightly right
+            // at the stroke boundary; those ambiguous pixels are not reliable
+            // user targets for asserting which overlapping edge was intended.
+            guard let index = edges.firstIndex(where: { $0.id == edge.id }) else { return false }
+            return edges.dropFirst(index + 1).allSatisfy { other in
                 let points = polyline(other)
-                return zip(points, points.dropFirst()).contains { Self.distance(p, $0.0, $0.1) < 9 / zoom }
+                return zip(points, points.dropFirst()).allSatisfy { Self.distance(p, $0.0, $0.1) > 10 / zoom }
             }
-            return top?.id == edge.id
         }
     }
     static func distance(_ p: CGPoint, _ a: CGPoint, _ b: CGPoint) -> Double {
@@ -174,9 +206,21 @@ struct GraphGestureOracle {
                 knownIDs.insert(actual.id)
             }
             if let knot = expected.knot {
-                if !near(knot, actual.knot?.cgPoint ?? CGPoint(x: Double.infinity, y: Double.infinity)) { errors.append("routing knot changed") }
-            } else if actual.knot != nil { errors.append("unexpected routing knot") }
+                if !near(knot, document.knot(of: actual)?.cgPoint ?? CGPoint(x: Double.infinity, y: Double.infinity)) { errors.append("routing knot changed") }
+            } else if document.knot(of: actual) != nil { errors.append("unexpected routing knot") }
+            if let group = expected.group {
+                guard let route = document.routingPoint(for: actual) else { errors.append("missing shared routing point"); continue }
+                if let known = routeIDs[group], known != route.id { errors.append("shared routing identity changed") }
+                if routeIDs[group] == nil {
+                    if routeIDs.values.contains(route.id) { errors.append("routing identity reused") }
+                    routeIDs[group] = route.id
+                }
+                if route.source != expected.source || (route.isJunction == true) != junctionGroups.contains(group) {
+                    errors.append("routing source/junction semantics changed")
+                }
+            } else if actual.routingPointID != nil { errors.append("unexpected routing group") }
         }
+        if document.routingPoints.count != Set(edges.compactMap(\.group)).count { errors.append("orphan/duplicate routing point") }
         return errors
     }
 }

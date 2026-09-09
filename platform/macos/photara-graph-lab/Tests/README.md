@@ -30,12 +30,22 @@ after each slider gesture. It checks both appearances, straight/curved paths, an
   incompatible-type drops, with the document unchanged.
 - Every node's continuous endpoint positions and document commit boundary.
 - Single/multiple cuts, then immediate pan, zoom, node movement and rewiring.
-- Knot addition, movement, deletion, and edge deletion/cutting with knots.
+- Knot addition, Option-drag movement, deletion, and edge deletion/cutting with knots.
+- Routing-point branches, shared movement, upstream identity, duplicate prevention,
+  cancellation/invalid drops, individual branch deletion and common-trunk cuts.
+- Overview policies, idle/held-gesture lifecycle, camera mapping, relative size,
+  four corner placements, rounding, live resize/aspect-ratio matching and
+  backward-compatible preference roundtrips.
 - Escape, real window focus loss, mode change and resize during every drag kind.
 - Late drag/up events after cancellation, mixed buttons and outside releases.
 - Native contextual-menu commands, middle button, wheel, precise scrolling and
   the bottom native SwiftUI slider.
 - DTO roundtrips, invalid documents and randomized swept node collisions.
+
+After native window resizing, the button-event bridge normalizes and verifies
+its window-local coordinates before dispatch. Focus-loss cases wait for actual
+native key-window transitions instead of assuming a fixed delay is sufficient.
+Neither adjustment changes production interaction behavior or the state oracle.
 
 AppKit has no public constructor for a magnification NSEvent. Pinch verification
 uses a typed NSEvent test double through the production `magnify(with:)` responder.
@@ -53,12 +63,16 @@ calls production connection operations, hit testing, collision resolution or
 camera transforms. It maintains its own nodes, edges, knots, and camera, and uses
 separate Bezier sampling to predict visible wire targets and knife intersections.
 
-The 32-action vocabulary includes connecting, abandoning a wire after hovering a
+The 46-action vocabulary includes connecting, abandoning a wire after hovering a
 valid input, duplicate creation, input replacement, rewiring/abandoning a rewire,
 node movement, left/middle pan, wheel/pinch/precise scrolling, both slider limits,
 routing knots, Delete, cutting, native context-menu operations, invalid
 output-to-output/input-to-input attempts, and interruption by Escape, focus loss
-or tool switching. Targeted lifecycle tests additionally cancel all drag kinds. Long
+or tool switching. It also mixes routing-point branch creation/cancellation,
+invalid/duplicate drops, focus loss, Escape, tool switching, branch cuts/deletion,
+all overview settings, and actual native window resizing. Later gestures run
+against the resized viewport, and every sequence starts at the same window size. The oracle tracks shared routing groups and junction
+identity independently. Targeted lifecycle tests additionally cancel all drag kinds. Long
 random sequences retain prior graph and camera state across actions.
 When zoom/scroll moves a target outside the canvas or beneath the slider, a
 recorded native middle-pan brings it back into view before the next gesture.
@@ -73,7 +87,7 @@ After **each** action the suite compares topology, connection identity, routing,
 node positions, camera pan/zoom, attached endpoint positions, active port beads,
 and empty transient/knife/capture state. Fresh random UUIDs are accepted only
 when the intended topology matches; the oracle then requires those IDs to stay
-stable. Invisible/occluded knot or wire targets are recorded as explicit no-ops.
+stable. Shared routing IDs must remain stable too; orphan points are rejected. Invisible/occluded knot or wire targets are recorded as explicit no-ops.
 Default runs require every action category to have actually executed.
 
 Run a longer replayable sequence:

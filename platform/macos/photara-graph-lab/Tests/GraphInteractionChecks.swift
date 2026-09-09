@@ -63,8 +63,10 @@ final class GraphLabChecks {
                 for zoom in [0.55, 1.0, 1.8] {
                     GraphTestLog.write("MATRIX: \(mode.rawValue), \(style.rawValue), \(zoom)")
                     await suite.matrix(zoom: zoom, style: style)
+                    await suite.branchChecks(zoom: zoom, style: style)
                 }
             }
+            await suite.overviewSnapshotCheck(mode.rawValue)
             suite.reset(zoom: 1, style: .curved)
             await settle()
             suite.snapshot("\(mode.rawValue)-baseline")
@@ -87,6 +89,8 @@ final class GraphLabChecks {
         await suite.lifecycleChecks()
         await suite.nativeCameraChecks()
         await suite.ownershipAndMenuChecks()
+        await suite.overviewChecks()
+        suite.preferenceChecks()
         await suite.randomChecks(appearance: appearance)
         suite.fuzzChecks()
         suite.benchmark()
@@ -118,7 +122,13 @@ final class GraphLabChecks {
         controller.configure(.init(portOffset: 0, noodleStyle: style))
         controller.zoom(to: zoom, anchor: CGPoint(x: controller.viewport.width / 2, y: controller.viewport.height / 2))
         window.makeFirstResponder(surface)
+        controller.overviewPolicy = .whileZooming
+        controller.overviewSizeFraction = 0.16
+        controller.overviewPosition = .topRight
+        controller.overviewCornerRadius = 12
+        controller.endZoomActivity()
     }
+    var lastMouseDelivery = ""
     func mouse(_ type: NSEvent.EventType, _ point: CGPoint, flags: NSEvent.ModifierFlags = []) {
         let location = surface.convert(point, to: nil)
         let event = NSEvent.mouseEvent(with: type, location: location, modifierFlags: flags,
@@ -127,7 +137,22 @@ final class GraphLabChecks {
         if type == .otherMouseDown || type == .otherMouseDragged || type == .otherMouseUp || type == .rightMouseDown || type == .rightMouseUp {
             let cg = event.cgEvent!
             cg.setIntegerValueField(.mouseEventButtonNumber, value: (type == .rightMouseDown || type == .rightMouseUp) ? 1 : 2)
+            // CGEvent bridging can retain a cached window origin after a
+            // programmatic resize. This harness dispatches via NSWindow, so
+            // normalize the wrapped event's window-local point and verify it
+            // before dispatch. Production input handling needs no workaround.
+            let global = window.convertPoint(toScreen: location)
+            cg.location = CGPoint(x: global.x, y: NSScreen.screens.first!.frame.height - global.y)
+            let bridged = NSEvent(cgEvent: cg)!
+            let error = CGPoint(x: location.x - bridged.locationInWindow.x,
+                                y: location.y - bridged.locationInWindow.y)
+            cg.location = CGPoint(x: cg.location.x + error.x, y: cg.location.y - error.y)
             let middle = NSEvent(cgEvent: cg)!
+            lastMouseDelivery = "expected \(location), actual \(middle.locationInWindow), window \(middle.windowNumber)/\(window.windowNumber), frame \(window.frame), button \(middle.buttonNumber), original button \(event.buttonNumber)"
+            guard Self.near(middle.locationInWindow, location) else {
+                Self.check(false, "Native event coordinate precondition: \(lastMouseDelivery)")
+                return
+            }
             window.sendEvent(middle)
         } else { window.sendEvent(event) }
     }
@@ -138,13 +163,13 @@ final class GraphLabChecks {
                                     isARepeat: false, keyCode: code)!
         window.sendEvent(event)
     }
-    func drag(from start: CGPoint, to end: CGPoint, middle: Bool = false) {
-        mouse(middle ? .otherMouseDown : .leftMouseDown, start)
+    func drag(from start: CGPoint, to end: CGPoint, middle: Bool = false, flags: NSEvent.ModifierFlags = []) {
+        mouse(middle ? .otherMouseDown : .leftMouseDown, start, flags: flags)
         for step in 1...8 {
             let t = Double(step) / 8
-            mouse(middle ? .otherMouseDragged : .leftMouseDragged, CGPoint(x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t))
+            mouse(middle ? .otherMouseDragged : .leftMouseDragged, CGPoint(x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t), flags: flags)
         }
-        mouse(middle ? .otherMouseUp : .leftMouseUp, end)
+        mouse(middle ? .otherMouseUp : .leftMouseUp, end, flags: flags)
     }
     func focusCanvas() async {
         NSApp.activate(ignoringOtherApps: true)
@@ -293,15 +318,30 @@ final class GraphLabChecks {
         await postCut(zoom: zoom)
 
         reset(zoom: zoom, style: style)
+        drag(from: port(assets), to: port(mask))
+        // This point is clearly inside both hit strokes, at every tested zoom.
+        // The visually higher (later) edge must own it in both path styles.
+        let overlap = screen(CGPoint(x: -50, y: -91))
+        let upper = controller.document.connections.last!.id
+        mouse(.leftMouseDown, overlap, flags: [.option])
+        mouse(.leftMouseUp, overlap, flags: [.option])
+        Self.check(controller.document.connections.first { $0.id == upper }?.routingPointID != nil
+                   && controller.document.connections[0].routingPointID == nil,
+                   "Overlapping noodles deterministically pick the topmost edge")
+        key(51, "\u{7f}")
+        Self.check(controller.document.connections.count == 2 && controller.document.routingPoints.isEmpty,
+                   "Deleting the selected overlap knot preserves both edges")
+
+        reset(zoom: zoom, style: style)
         let midpoint = controller.defaultKnot(connectionID: "fixture-assets-input")
         mouse(.leftMouseDown, screen(midpoint), flags: [.option])
         mouse(.leftMouseUp, screen(midpoint), flags: [.option])
-        Self.check(controller.document.connections[0].knot != nil, "Option-click adds routing knot")
+        Self.check(controller.document.knot(of: controller.document.connections[0]) != nil, "Option-click adds routing knot")
         let moved = CGPoint(x: midpoint.x, y: midpoint.y + 35)
-        drag(from: screen(midpoint), to: screen(moved))
-        Self.check(Self.near(controller.document.connections[0].knot!.cgPoint, moved), "Routing knot moves and persists")
+        drag(from: screen(midpoint), to: screen(moved), flags: [.option])
+        Self.check(Self.near(controller.document.knot(of: controller.document.connections[0])!.cgPoint, moved), "Routing knot moves and persists")
         key(51, "\u{7f}")
-        Self.check(controller.document.connections[0].knot == nil, "Delete selected knot")
+        Self.check(controller.document.knot(of: controller.document.connections[0]) == nil, "Delete selected knot")
         controller.setKnot(moved, connectionID: "fixture-assets-input")
         cut(CGPoint(x: moved.x - 20, y: moved.y), CGPoint(x: moved.x + 20, y: moved.y))
         Self.check(controller.document.connections.isEmpty, "Cut removes connection and its knot")
@@ -333,6 +373,7 @@ final class GraphLabChecks {
         for cancellation in ["escape", "focus", "tool", "resize"] {
             for gesture in ["wire", "rewire", "node", "pan", "middle", "knot", "knife"] {
                 reset(zoom: 1, style: .curved)
+                await focusCanvas()
                 var start = port(assets)
                 if gesture == "rewire" { start = port(input) }
                 if gesture == "node" { start = screen(controller.document.nodes[0].position.cgPoint) }
@@ -348,21 +389,18 @@ final class GraphLabChecks {
                 let down: NSEvent.EventType = gesture == "middle" ? .otherMouseDown : .leftMouseDown
                 let move: NSEvent.EventType = gesture == "middle" ? .otherMouseDragged : .leftMouseDragged
                 let up: NSEvent.EventType = gesture == "middle" ? .otherMouseUp : .leftMouseUp
-                mouse(down, start)
+                mouse(down, start, flags: gesture == "knot" ? [.option] : [])
                 let end = CGPoint(x: start.x + 25, y: start.y + 80)
                 mouse(move, end)
                 Self.check(controller.interaction != .idle, "\(gesture) started before \(cancellation)")
                 switch cancellation {
                 case "escape": key(53, "\u{1b}")
-                case "focus":
-                    let other = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 120, height: 120), styleMask: [.titled], backing: .buffered, defer: false)
-                    other.makeKeyAndOrderFront(nil)
-                    await Self.settle()
-                    other.orderOut(nil)
-                    window.makeKeyAndOrderFront(nil)
-                    window.makeFirstResponder(surface)
+                case "focus": await loseAndRestoreFocus()
                 case "tool": controller.setKnifeMode(!controller.knifeMode)
-                default: surface.setFrameSize(NSSize(width: surface.frame.width - 1, height: surface.frame.height))
+                default:
+                    let size = window.contentView!.bounds.size
+                    window.setContentSize(NSSize(width: size.width - 1, height: size.height))
+                    await Self.settle()
                 }
                 Self.check(controller.interaction == .idle && controller.wire == nil, "\(cancellation) cancels \(gesture)")
                 Self.check(controller.document == original && controller.camera == camera, "\(cancellation) rolls back \(gesture)")
@@ -478,9 +516,9 @@ final class GraphLabChecks {
             mouse(control ? .leftMouseUp : .rightMouseUp, point)
         }
         menu("Add Routing Knot", at: screen(middle))
-        Self.check(controller.document.connections[0].knot != nil, "Native menu adds knot")
+        Self.check(controller.document.knot(of: controller.document.connections[0]) != nil, "Native menu adds knot")
         menu("Delete Knot", at: screen(middle), control: true)
-        Self.check(controller.document.connections[0].knot == nil, "Control-click menu removes knot")
+        Self.check(controller.document.knot(of: controller.document.connections[0]) == nil, "Control-click menu removes knot")
         menu("Disconnect", at: port(input))
         Self.check(controller.document.connections.isEmpty, "Port menu disconnects")
         menu("Connect Disk Folder / Assets Here", at: port(input))
@@ -520,7 +558,7 @@ final class GraphLabChecks {
         mouse(control ? .leftMouseDown : .rightMouseDown, point, flags: control ? [.control] : [])
         mouse(control ? .leftMouseUp : .rightMouseUp, point)
         if !driver.performed {
-            GraphTestLog.write("MENU DELIVERY: expected=\(title), hit=\(controller.hitTest(point)), menus=\(driver.observedTitles), focus=\(window.isKeyWindow)/\(NSApp.isActive), control=\(control)")
+            GraphTestLog.write("MENU DELIVERY: expected=\(title), hit=\(controller.hitTest(point)), menus=\(driver.observedTitles), delivery=\(lastMouseDelivery), focus=\(window.isKeyWindow)/\(NSApp.isActive), control=\(control)")
         }
         return driver.performed
     }
@@ -616,7 +654,11 @@ final class GraphLabChecks {
 final class MagnifyEvent: NSEvent {
     let anchor: NSPoint
     let amount: CGFloat
-    init(anchor: NSPoint, amount: CGFloat) { self.anchor = anchor; self.amount = amount; super.init() }
+    let eventPhase: NSEvent.Phase
+    init(anchor: NSPoint, amount: CGFloat, phase: NSEvent.Phase = []) {
+        self.anchor = anchor; self.amount = amount; eventPhase = phase; super.init()
+    }
+    override var phase: NSEvent.Phase { eventPhase }
     required init?(coder: NSCoder) { fatalError("Not used") }
     override var type: NSEvent.EventType { .magnify }
     override var locationInWindow: NSPoint { anchor }

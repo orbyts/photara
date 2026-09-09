@@ -16,10 +16,10 @@ xcrun swiftc -swift-version 6 -O -parse-as-library -module-cache-path "$SCRIPT_R
   "$THEME_ROOT/Sources/PhotaraTheme.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-app/Sources/ThemeStore.swift" \
   "$GRAPH_ROOT/GraphPresentation.swift" "$GRAPH_ROOT/GraphDocument.swift" \
-  "$GRAPH_ROOT/GraphGeometry.swift" "$GRAPH_ROOT/GraphInteraction.swift" "$GRAPH_ROOT/GraphEventSurface.swift" \
+  "$GRAPH_ROOT/GraphOverview.swift" "$GRAPH_ROOT/GraphGeometry.swift" "$GRAPH_ROOT/GraphInteraction.swift" "$GRAPH_ROOT/GraphEventSurface.swift" \
   "$SCRIPT_ROOT/Sources/GraphLabFixtures.swift" "$SCRIPT_ROOT/Sources/GraphLabCanvas.swift" \
   "$SCRIPT_ROOT/Sources/GraphLabView.swift" "$SCRIPT_ROOT/Tests/GraphInteractionChecks.swift" \
-  "$SCRIPT_ROOT/Tests/GraphGestureOracle.swift" "$SCRIPT_ROOT/Tests/GraphRandomGestures.swift" \
+  "$SCRIPT_ROOT/Tests/GraphBranchOverviewChecks.swift" "$SCRIPT_ROOT/Tests/GraphGestureOracle.swift" "$SCRIPT_ROOT/Tests/GraphRandomGestures.swift" \
   -framework SwiftUI -framework AppKit -o "$APP_BUNDLE/Contents/MacOS/PhotaraGraphLab"
 codesign --force --deep --sign - "$APP_BUNDLE"
 # Read the author's existing payload without ever writing their preference domain.
