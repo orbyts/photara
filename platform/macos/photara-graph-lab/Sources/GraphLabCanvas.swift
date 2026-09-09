@@ -4,6 +4,7 @@ import SwiftUI
 /// and saved palettes do not subscribe to pointer motion.
 struct GraphLabCanvas<NodeContent: View>: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @AppStorage(GraphLabSettingsKeys.toolRailPlacement) private var toolRailPlacementRaw = GraphLabToolRailPlacement.leftTop.rawValue
     let controller: PhotaraGraphInteractionController
     let backgroundStyle: PhotaraGraphBackgroundStyle
     let backgroundColor: Color?
@@ -17,6 +18,10 @@ struct GraphLabCanvas<NodeContent: View>: View {
     let nodeContent: (PhotaraGraphNode, Bool, Set<Int>, Set<Int>) -> NodeContent
 
     var body: some View {
+        let railPlacement = GraphLabToolRailPlacement(rawValue: toolRailPlacementRaw) ?? .leftTop
+        let overviewPosition = showsToolRail
+            ? railPlacement.overviewPosition(avoiding: controller.overviewPosition)
+            : controller.overviewPosition
         ZStack {
             GraphLabBackground(controller: controller, style: backgroundStyle, backgroundColor: backgroundColor, minorColor: minorColor, majorColor: majorColor)
             GraphLabNoodles(controller: controller, color: noodleColor)
@@ -27,7 +32,7 @@ struct GraphLabCanvas<NodeContent: View>: View {
         }
         .clipped()
         .transaction { $0.animation = nil }
-        .overlay(alignment: .bottomLeading) {
+        .overlay(alignment: railPlacement == .leftBottom && showsToolRail ? .bottomTrailing : .bottomLeading) {
             Text("Wire: port/knot drag · Move knot: Option-drag · Cut: Y-drag · Pan: canvas, middle-drag, or scroll")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -36,18 +41,20 @@ struct GraphLabCanvas<NodeContent: View>: View {
                 .padding(14)
                 .allowsHitTesting(false)
         }
-        .overlay(alignment: controller.overviewPosition.alignment) {
-            GraphLabOverviewOverlay(controller: controller)
+        .overlay(alignment: overviewPosition.alignment) {
+            GraphLabOverviewOverlay(controller: controller, position: overviewPosition)
 
         }
         .overlay(alignment: .bottom) {
             GraphLabZoomControl(controller: controller, reduceTransparency: reduceTransparency).padding(14)
         }
-        .overlay(alignment: .topLeading) {
+        .overlay(alignment: railPlacement.alignment) {
             if showsToolRail {
                 GraphLabToolPalette(controller: controller, centerScene: centerScene, addNativeNode: addNativeNode)
-                    .padding(.leading, 14)
-                    .padding(.top, 14)
+                    .padding(.leading, railPlacement.isLeft ? 14 : 0)
+                    .padding(.trailing, railPlacement.isRight ? 14 : 0)
+                    .padding(.top, railPlacement.isTop ? 14 : 0)
+                    .padding(.bottom, railPlacement.isBottom ? 14 : 0)
             }
         }
     }
@@ -161,6 +168,7 @@ private struct GraphLabZoomControl: View {
 
 private struct GraphLabOverviewOverlay: View {
     let controller: PhotaraGraphInteractionController
+    let position: PhotaraGraphOverviewPosition
     var body: some View {
         ZStack {
             if controller.overviewVisible {
@@ -169,7 +177,7 @@ private struct GraphLabOverviewOverlay: View {
                     cornerRadius: controller.overviewCornerRadius)
                     .padding(.horizontal, 14)
                     .padding(.top, 14)
-                    .padding(.bottom, controller.overviewPosition.isBottom ? 64 : 14)
+                    .padding(.bottom, position.isBottom ? 64 : 14)
                     .transition(.opacity)
             }
         }

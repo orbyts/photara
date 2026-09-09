@@ -59,11 +59,13 @@ alongside the existing palettes, with defaults for older preference payloads.
 The narrow floating tool rail groups camera controls, selected-noodle actions,
 and pinned native-node shortcuts. Its icons are flat while its container uses
 Apple's native Liquid Glass, with the semantic material fallback when Reduce
-Transparency is enabled. It switches to two columns only when its vertical
-proposal is too short. The Graph Lab sidebar and Settings window expose its
-corner radius, light/dark shadow opacity, blur, vertical offset, and knife cursor
-size. The Settings window can hide the rail completely without disabling any
-keyboard, pointer, contextual-menu, or zoom behavior. The command menu shows graph gestures and shortcuts. Native node types can
+Transparency is enabled. A top-center rail is horizontal; left and right rails
+can align to the top, center, or bottom, switching to two columns only when their
+vertical proposal is too short. The Graph Lab authoring sidebar exposes corner
+radius, light/dark shadow opacity, blur, and vertical offset. The Settings window
+contains user preferences for rail visibility/placement, overview behavior, and
+knife cursor size. Hiding the rail does not disable keyboard, pointer,
+contextual-menu, or zoom behavior. The command menu shows graph gestures and shortcuts. Native node types can
 be pinned or removed there, or removed from a shortcut's contextual menu.
 Clicking a shortcut inserts an ordinary node DTO at an unoccupied position near
 the viewport center; it does not create a separate node interaction path.
@@ -72,6 +74,10 @@ Selection remains one typed value: at most one node, noodle, or routing knot is
 selected. Contextual rail actions therefore apply only to the current selection.
 Add Knot appears for a selected direct noodle, Delete Knot for a selected routing
 point, and Disconnect for a selected noodle.
+
+The tool rail and overview are mutually exclusive overlays. If both request the
+same occupied corner, the overview is presented in the opposite corner. A
+left-bottom rail also moves the passive gesture hint away from its hit region.
 
 A native floating tool palette sits at the leading edge of the canvas. It uses
 the same controller commands as the canvas responder instead of duplicating graph

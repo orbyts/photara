@@ -11,6 +11,51 @@ enum GraphLabSettingsKeys {
     static let toolRailDarkShadowOpacity = "graph-lab.tool-rail-dark-shadow-opacity"
     static let toolRailShadowBlur = "graph-lab.tool-rail-shadow-blur"
     static let toolRailShadowOffsetY = "graph-lab.tool-rail-shadow-offset-y"
+    static let toolRailPlacement = "graph-lab.tool-rail-placement"
+    static let overviewPolicy = "graph-lab.overview-policy"
+    static let overviewPosition = "graph-lab.overview-position"
+}
+
+enum GraphLabToolRailPlacement: String, CaseIterable, Identifiable {
+    case topCenter, leftTop, leftCenter, leftBottom, rightTop, rightCenter, rightBottom
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .topCenter: "Top — Centered"
+        case .leftTop: "Left — Top"
+        case .leftCenter: "Left — Centered"
+        case .leftBottom: "Left — Bottom"
+        case .rightTop: "Right — Top"
+        case .rightCenter: "Right — Centered"
+        case .rightBottom: "Right — Bottom"
+        }
+    }
+    var alignment: Alignment {
+        switch self {
+        case .topCenter: .top
+        case .leftTop: .topLeading
+        case .leftCenter: .leading
+        case .leftBottom: .bottomLeading
+        case .rightTop: .topTrailing
+        case .rightCenter: .trailing
+        case .rightBottom: .bottomTrailing
+        }
+    }
+    var isHorizontal: Bool { self == .topCenter }
+    var isLeft: Bool { self == .leftTop || self == .leftCenter || self == .leftBottom }
+    var isRight: Bool { self == .rightTop || self == .rightCenter || self == .rightBottom }
+    var isTop: Bool { self == .topCenter || self == .leftTop || self == .rightTop }
+    var isBottom: Bool { self == .leftBottom || self == .rightBottom }
+
+    func overviewPosition(avoiding requested: PhotaraGraphOverviewPosition) -> PhotaraGraphOverviewPosition {
+        switch (self, requested) {
+        case (.leftTop, .topLeft): .topRight
+        case (.leftBottom, .bottomLeft): .bottomRight
+        case (.rightTop, .topRight): .topLeft
+        case (.rightBottom, .bottomRight): .bottomLeft
+        default: requested
+        }
+    }
 }
 
 enum GraphLabNativeNodeShortcut: String, CaseIterable, Identifiable {
@@ -30,6 +75,7 @@ struct GraphLabToolPalette: View {
     @AppStorage(GraphLabSettingsKeys.toolRailDarkShadowOpacity) private var darkShadowOpacity = 0.34
     @AppStorage(GraphLabSettingsKeys.toolRailShadowBlur) private var shadowBlur = 8.0
     @AppStorage(GraphLabSettingsKeys.toolRailShadowOffsetY) private var shadowOffsetY = 3.0
+    @AppStorage(GraphLabSettingsKeys.toolRailPlacement) private var placementRaw = GraphLabToolRailPlacement.leftTop.rawValue
     let controller: PhotaraGraphInteractionController
     let centerScene: () -> Void
     let addNativeNode: (String) -> Void
@@ -50,13 +96,23 @@ struct GraphLabToolPalette: View {
     private var canRemoveSelection: Bool { selectedConnectionID != nil }
 
     var body: some View {
-        ViewThatFits(in: .vertical) {
-            rail(VStack(spacing: 0) { paletteContent })
-            rail(LazyVGrid(columns: [GridItem(.fixed(30), spacing: 0), GridItem(.fixed(30), spacing: 0)], spacing: 0) {
-                paletteContent
-            })
+        Group {
+            if placement.isHorizontal {
+                rail(HStack(spacing: 0) { paletteContent })
+            } else {
+                ViewThatFits(in: .vertical) {
+                    rail(VStack(spacing: 0) { paletteContent })
+                    rail(LazyVGrid(columns: [GridItem(.fixed(30), spacing: 0), GridItem(.fixed(30), spacing: 0)], spacing: 0) {
+                        paletteContent
+                    })
+                }
+            }
         }
         .accessibilityIdentifier("photara.graph.tool-palette")
+    }
+
+    private var placement: GraphLabToolRailPlacement {
+        GraphLabToolRailPlacement(rawValue: placementRaw) ?? .leftTop
     }
 
     @ViewBuilder
@@ -202,8 +258,12 @@ struct GraphLabToolPalette: View {
             .help(help)
     }
 
-    private var railDivider: some View {
-        Divider().frame(width: 30).accessibilityHidden(true)
+    @ViewBuilder private var railDivider: some View {
+        if placement.isHorizontal {
+            Divider().frame(height: 30).accessibilityHidden(true)
+        } else {
+            Divider().frame(width: 30).accessibilityHidden(true)
+        }
     }
 
     private func rail<Content: View>(_ content: Content) -> some View {
@@ -238,11 +298,9 @@ struct GraphLabToolPalette: View {
 struct GraphLabSettingsView: View {
     @AppStorage(GraphLabSettingsKeys.showsToolRail) private var showsToolRail = true
     @AppStorage(GraphLabSettingsKeys.knifeCursorSize) private var knifeCursorSize = GraphLabSettingsKeys.defaultKnifeCursorSize
-    @AppStorage(GraphLabSettingsKeys.toolRailCornerRadius) private var cornerRadius = 10.0
-    @AppStorage(GraphLabSettingsKeys.toolRailLightShadowOpacity) private var lightShadowOpacity = 0.18
-    @AppStorage(GraphLabSettingsKeys.toolRailDarkShadowOpacity) private var darkShadowOpacity = 0.34
-    @AppStorage(GraphLabSettingsKeys.toolRailShadowBlur) private var shadowBlur = 8.0
-    @AppStorage(GraphLabSettingsKeys.toolRailShadowOffsetY) private var shadowOffsetY = 3.0
+    @AppStorage(GraphLabSettingsKeys.toolRailPlacement) private var placementRaw = GraphLabToolRailPlacement.leftTop.rawValue
+    @AppStorage(GraphLabSettingsKeys.overviewPolicy) private var overviewPolicyRaw = PhotaraGraphOverviewPolicy.whileZooming.rawValue
+    @AppStorage(GraphLabSettingsKeys.overviewPosition) private var overviewPositionRaw = PhotaraGraphOverviewPosition.topRight.rawValue
 
     var body: some View {
         Form {
@@ -270,33 +328,37 @@ struct GraphLabSettingsView: View {
             }
             Section("Floating Tool Rail") {
                 Toggle("Show floating tool rail", isOn: $showsToolRail)
-                Group {
-                    settingSlider("Corner radius", value: $cornerRadius, range: 4...24, suffix: " pt")
-                    settingSlider("Light shadow opacity", value: $lightShadowOpacity, range: 0...0.5)
-                    settingSlider("Dark shadow opacity", value: $darkShadowOpacity, range: 0...0.5)
-                    settingSlider("Shadow blur", value: $shadowBlur, range: 0...24, suffix: " pt")
-                    settingSlider("Shadow vertical offset", value: $shadowOffsetY, range: -4...12, suffix: " pt")
+                Picker("Position", selection: $placementRaw) {
+                    ForEach(GraphLabToolRailPlacement.allCases) { placement in
+                        Text(placement.title).tag(placement.rawValue)
+                    }
                 }
                 .disabled(!showsToolRail)
-                Text("The rail uses Apple's native translucent material. Icons and node shortcuts remain flat.")
+                Text("Top is horizontal. Left and right can align to the top, center, or bottom. Bottom-center remains reserved for zoom.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section("Graph Overview") {
+                Picker("Visibility", selection: $overviewPolicyRaw) {
+                    ForEach(PhotaraGraphOverviewPolicy.allCases) { policy in
+                        Text(policy.title).tag(policy.rawValue)
+                    }
+                }
+                Picker("Position", selection: $overviewPositionRaw) {
+                    ForEach(PhotaraGraphOverviewPosition.allCases) { position in
+                        Text(position.title).tag(position.rawValue)
+                    }
+                }
+                Text("If the rail occupies the same corner, the overview moves to the opposite corner automatically.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section {
+                Text("These are user preferences. Graph colors, node styling, rail corner radius, and shadows are Photara defaults authored only in Graph Lab.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 440)
+        .frame(width: 440, height: 430)
     }
 
-    private func settingSlider(_ title: String, value: Binding<Double>, range: ClosedRange<Double>, suffix: String = "") -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(title)
-                Spacer()
-                Text(value.wrappedValue.formatted(.number.precision(.fractionLength(2))) + suffix)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-            Slider(value: value, in: range)
-        }
-    }
 }

@@ -23,6 +23,8 @@ struct GraphLabView: View {
     @AppStorage(GraphLabSettingsKeys.toolRailDarkShadowOpacity) private var toolRailDarkShadowOpacity = 0.34
     @AppStorage(GraphLabSettingsKeys.toolRailShadowBlur) private var toolRailShadowBlur = 8.0
     @AppStorage(GraphLabSettingsKeys.toolRailShadowOffsetY) private var toolRailShadowOffsetY = 3.0
+    @AppStorage(GraphLabSettingsKeys.overviewPolicy) private var overviewPolicyRaw = PhotaraGraphOverviewPolicy.whileZooming.rawValue
+    @AppStorage(GraphLabSettingsKeys.overviewPosition) private var overviewPositionRaw = PhotaraGraphOverviewPosition.topRight.rawValue
 
     @State private var pattern = PhotaraGraphPattern.lines
     @State private var gridSpacing = 24.0
@@ -95,12 +97,15 @@ struct GraphLabView: View {
         }
         .onAppear {
             loadPreferencesIfAvailable()
+            applyUserGraphSettings()
             configureGeometry()
         }
         .onChange(of: portOffset) { configureGeometry() }
         .onChange(of: noodleStyle) { configureGeometry() }
         .onChange(of: appearance) { controller.cancel(resetTool: true) }
         .onChange(of: nodeSurfaceStyle) { controller.cancel() }
+        .onChange(of: overviewPolicyRaw) { applyUserGraphSettings() }
+        .onChange(of: overviewPositionRaw) { applyUserGraphSettings() }
     }
 
     private func configureGeometry() {
@@ -130,7 +135,14 @@ struct GraphLabView: View {
 
     private var controls: some View {
         Form {
-            Section("Floating tool rail") {
+            Section {
+                Label("Lab authoring controls", systemImage: "paintbrush.pointed")
+                    .font(.headline)
+                Text("These values define Photara's shipped visual defaults. User choices such as rail visibility and placement live in Settings.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section("Floating tool rail · Lab authoring") {
                 valueSlider("Corner radius", value: $toolRailCornerRadius, range: 4...24, suffix: " pt")
                 valueSlider(
                     appearance == .dark ? "Dark shadow opacity" : "Light shadow opacity",
@@ -144,18 +156,7 @@ struct GraphLabView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
 
-            Section("Overview") {
-                Picker("Visibility", selection: $controller.overviewPolicy) {
-                    ForEach(PhotaraGraphOverviewPolicy.allCases) { policy in
-                        Text(policy.title).tag(policy)
-                    }
-                }
-                .accessibilityIdentifier("photara.graph.overview-policy")
-                Picker("Position", selection: $controller.overviewPosition) {
-                    ForEach(PhotaraGraphOverviewPosition.allCases) { position in
-                        Text(position.title).tag(position)
-                    }
-                }
+            Section("Overview appearance · Lab authoring") {
                 valueSlider("Corner radius", value: $controller.overviewCornerRadius, range: 0...36, suffix: " pt")
                 valueSlider("Size", value: Binding(get: { controller.overviewSizeFraction * 100 },
                     set: { controller.overviewSizeFraction = PhotaraGraphOverviewSizing.fraction($0 / 100) }),
@@ -842,9 +843,7 @@ struct GraphLabView: View {
         lightColors = GraphLabAppearanceColors()
         darkColors = GraphLabAppearanceColors()
         noodleStyle = .curved
-        controller.overviewPolicy = .whileZooming
         controller.overviewSizeFraction = 0.16
-        controller.overviewPosition = .topRight
         controller.overviewCornerRadius = 12
         try? controller.replaceDocument(GraphLabFixtures.document)
         nodeSurfaceStyle = .flat
@@ -883,6 +882,11 @@ struct GraphLabView: View {
 
     private func centerScene() {
         controller.center(positions: Dictionary(uniqueKeysWithValues: GraphLabFixtures.document.nodes.map { ($0.id, $0.position) }), selectedNode: "transform")
+    }
+
+    private func applyUserGraphSettings() {
+        controller.overviewPolicy = PhotaraGraphOverviewPolicy(savedValue: overviewPolicyRaw)
+        controller.overviewPosition = PhotaraGraphOverviewPosition(savedValue: overviewPositionRaw)
     }
 
     private func addNativeNode(kind: String) {

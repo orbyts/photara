@@ -131,6 +131,12 @@ position, inserts one ordinary DTO node, and selects it. Pin choices, rail chrom
 and cursor size are local UI preferences and never cross the Rust graph boundary.
 The selection enum remains the single source of truth, so contextual commands
 cannot target multiple noodles or an implicit fallback edge.
+Rail placement is a user preference: top-center is horizontal, while left/right
+offer top, center, and bottom anchors. Bottom-center remains reserved for zoom.
+Overlay layout resolves a rail/overview corner collision by moving the overview
+to the opposite corner; neither controller state nor document geometry changes.
+Graph Lab labels visual controls as authoring defaults and keeps user choices in
+the native Settings scene.
 
 `GraphLabView` retains authoring controls and the unchanged versioned preference
 payload. `GraphLabCanvas` isolates observable pointer/camera state from that form.
