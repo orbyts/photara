@@ -70,6 +70,7 @@ xcrun swiftc \
   "$SCRIPT_ROOT/Sources/WorkspaceModel.swift" \
   "$SCRIPT_ROOT/Sources/GraphAdapter.swift" \
   "$SCRIPT_ROOT/Sources/ProductionGraphView.swift" \
+  "$SCRIPT_ROOT/Sources/HDRImageView.swift" \
   "$SCRIPT_ROOT/Sources/GalleryView.swift" \
   "$SCRIPT_ROOT/Sources/WorkspaceView.swift" \
   "$SCRIPT_ROOT/Sources/PhotaraMacApp.swift" \

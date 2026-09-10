@@ -395,7 +395,6 @@ private struct GalleryThumbnail: View {
     var body: some View {
         GeometryReader { geometry in
             previewContent
-                .allowedDynamicRange(.constrainedHigh)
                 .frame(
                     width: geometry.size.width,
                     height: geometry.size.height,
@@ -428,19 +427,13 @@ private struct GalleryThumbnail: View {
 
     @ViewBuilder
     private func renderedImage(_ image: NSImage) -> some View {
-        if fillsFrame {
-            Image(nsImage: image)
-                .resizable()
-                .scaledToFill()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-        } else {
-            Image(nsImage: image)
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-        }
+        PhotaraHDRImageView(
+            image: image,
+            sizingMode: fillsFrame ? .fill : .fit,
+            preferredDynamicRange: .constrainedHigh
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
     }
 }
 
@@ -557,10 +550,11 @@ private struct GalleryFullImageView: View {
             .padding(12)
             Divider()
             GeometryReader { geometry in
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .allowedDynamicRange(.constrainedHigh)
+                PhotaraHDRImageView(
+                    image: image,
+                    sizingMode: .fit,
+                    preferredDynamicRange: .high
+                )
                     .frame(width: geometry.size.width, height: geometry.size.height)
             }
             .background(Color(nsColor: .controlBackgroundColor))

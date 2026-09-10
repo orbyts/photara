@@ -1111,15 +1111,17 @@ private struct LayoutCanvasCell: View {
     private func proxyImage(_ image: NSImage) -> some View {
         switch cell.contentMode {
         case .fit:
-            Image(nsImage: image)
-                .resizable()
-                .scaledToFit()
-                .allowedDynamicRange(.constrainedHigh)
+            PhotaraHDRImageView(
+                image: image,
+                sizingMode: .fit,
+                preferredDynamicRange: .constrainedHigh
+            )
         case .fill, .crop:
-            Image(nsImage: image)
-                .resizable()
-                .scaledToFill()
-                .allowedDynamicRange(.constrainedHigh)
+            PhotaraHDRImageView(
+                image: image,
+                sizingMode: .fill,
+                preferredDynamicRange: .constrainedHigh
+            )
         }
     }
 
