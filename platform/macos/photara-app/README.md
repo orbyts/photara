@@ -93,3 +93,11 @@ to the bundled theme with:
 ```console
 platform/macos/photara-theme/.build/photara-theme reset
 ```
+
+The shared shell now uses one native toolbar and progressive disclosure. Opening
+shows Create/Open and collapsed Recents. An empty project gives Graph all content
+space; first node selection reveals Inspector, which remains stable on deselection.
+Gallery appears for asset context or an explicit request. Layout requires capability.
+Diagnostics are available from Workspace and actionable status without reserving an
+empty pane. Compact windows stack active regions. See [Shell Lab](../photara-shell-lab/README.md)
+for independent shell authoring and the versioned presentation preset shared here.

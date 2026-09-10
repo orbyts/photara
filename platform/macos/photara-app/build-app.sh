@@ -18,6 +18,7 @@ PROXY_HELPER_BUILD="$BUILD_ROOT/proxy-helper-build"
 PROXY_HELPER="$MACOS/photara-proxy-imageio"
 
 mkdir -p "$GENERATED_ROOT" "$MODULE_CACHE" "$MACOS" "$FRAMEWORKS" "$RESOURCES"
+cp -p "$REPOSITORY_ROOT/platform/macos/photara-shell/Resources/photara-application-presentation-v1.json" "$RESOURCES/"
 cp -p "$SCRIPT_ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
 cp -p "$REPOSITORY_ROOT/platform/macos/photara-gallery/Resources/photara-gallery-presentation-v1.json" "$RESOURCES/"
 mkdir -p "$RESOURCES/Themes"

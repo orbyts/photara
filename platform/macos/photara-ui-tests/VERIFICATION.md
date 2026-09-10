@@ -1,4 +1,41 @@
-# Shared UI extraction acceptance
+# Shell integration acceptance — 2026-09-10
+
+Work is integrated directly on `main`, including the five reviewed launcher/roadmap
+handoff files. The historical extraction report below describes its earlier branch.
+
+- `platform/macos/build-ui.sh`: Graph, Gallery, Inspector, Shell Lab and Photara built.
+- Shell Lab independently built and opened its native 1440×900 Preview and 360×760
+  Authoring windows. Its executable links SwiftUI/AppKit without `photara_bridge`.
+- Shared UI checks: shell preset validation/roundtrip/rejection, typed availability,
+  first-node selection, stable no-selection Inspector, explicit Gallery/diagnostics,
+  project-session reset, Layout/Review capability, catalog handoff, cancellation,
+  existing Gallery/Inspector/HDR contracts and 54 Light/Dark compositor captures.
+- Production UI checks: launcher and compact empty states, real Core actions,
+  undo/redo, HDR preview, binding/save and graph digest isolation passed.
+- Bridge verification: passed at graph revision 19, with evaluation and cancellation.
+- Full unchanged Graph suite: **15,562 assertions, 0 failures** in the isolated rerun.
+
+Visual inspection covered both appearances, launcher/recents, empty Graph,
+Inspector no-selection, compact pane sizing and production Graph assembly. Snapshot
+review caught and corrected a vertically centered panel header and compact width
+caps. A Swift compiler method-reference conversion crash was avoided with an
+explicit binding closure. Neither fix changed feature renderers or Graph tests.
+
+An initial full Graph run reported native focus failures and a branch-menu failure;
+its result was not accepted as green. The rerun uses the exact unchanged verification
+binary, with other native test windows closed and no concurrent native UI tests.
+
+Ownership: every node has an Inspector and may provide a node-owned work surface.
+Layout's surface stays in `photara-layout`. Production dispatch uses a node-contribution registry, with `photara.layout.workspace`
+as the first registered renderer. Toolbar icons come from the contributing node;
+other contributions cannot accidentally route to Layout. A future Layout Node Lab, additional node
+surfaces, a specialized review workflow, cloud sync and physical HDR luminance checks
+remain separate work. Shell Lab's Review scenario hosts the shared Gallery; its
+sync status is a deterministic fixture, not a new sync implementation.
+
+---
+
+# Historical shared UI extraction acceptance
 
 Verified on the supplied macOS/Xcode host from `codex/shared-ui-labs`, based on
 Graph/HDR commit `4631c67`. Graph renderer, interaction source, preset, test

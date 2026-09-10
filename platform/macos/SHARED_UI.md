@@ -1,8 +1,8 @@
 # Shared native UI and component labs
 
-Photara is the integration surface. Graph Lab, Gallery Lab and Inspector Lab
+Photara is the integration surface. Graph Lab, Gallery Lab, Inspector Lab and Shell Lab
 are independently runnable authoring hosts around the **same source files**
-that Photara compiles. There is intentionally no separate Main App UI Lab.
+that Photara compiles. Shell Lab authors shared shell composition with deterministic fixtures in a separate controls window; Photara remains the production integration app. There is no duplicate Main App UI Lab.
 This is source-level modularization, matching the existing Graph pattern;
 these directories are not independent Swift binary frameworks.
 
@@ -12,10 +12,26 @@ these directories are not independent Swift binary frameworks.
 | `photara-graph` | Existing canvas, nodes, event surface, interaction controller, authored preset | Graph Lab fixtures; production bridge adapter |
 | `photara-gallery` | Photo/square grids, cards, activity badges, selection treatment, filter, sizing, full-image sheet, authored preset | Assets/images, selection/filter bindings, open/assign/request callbacks |
 | `photara-inspector` | Assembled Inspector and individually previewable identity, Disk, ports, parameters, frame/cell, evaluation and diagnostic sections | Immutable typed inspection values and semantic action callbacks |
-| `photara-layout` | Optional Layout workspace, canvas and cells, transient crop gesture | Resolved Layout inspection, proxy images, selection state, request and edit callbacks |
-| `photara-shell` | Application chrome/launcher/status, three split regions, panel headers/placement/visibility, client workspace preferences | Project summary, application actions, feature composition |
+| `photara-layout` | Layout-node-owned optional work surface, canvas and cells, transient crop gesture | Resolved Layout inspection, proxy images, selection state, request and edit callbacks |
+| `photara-shell` | Application chrome/launcher/status, capability-driven split regions, panel headers/placement/visibility, client workspace preferences | Project summary, application actions, feature composition |
 | `photara-app` | Thin `WorkspaceView` composition and production adapters | Core, bridge, persistence, file dialogs, source grants, evaluation, proxy ownership |
 | `photara-lab-support` | Deterministic fixtures and lab appearance/export helpers | Compiled only by labs and verification, never Photara |
+
+### Planned user Library
+
+The user-level production catalog will be a distinct `photara-library` UI
+module with its own `photara-library-lab`, parallel to Gallery, Inspector, and
+Graph. It will browse, search, edit, and assign global People (including the
+model role), Clients, Locations, and Scenes. It is not the visual asset Gallery
+and it is not the node Catalog.
+
+The shared native module will consume immutable presentation values and emit
+semantic actions. Core-owned backend-neutral services will own record identity,
+validation, revisions, local persistence, and optional authenticated cloud
+sync. Projects will reference stable library identities while retaining the
+portable snapshots required for offline and historical meaning. The module and
+lab are planned after `0.2.0`; do not scaffold placeholder views or bind them to
+a specific database before that vertical slice defines its contracts.
 
 `shared-ui-sources.sh` is the production assembly manifest. Feature labs compile
 only foundation, theme, their feature and their lab fixtures. They do not build
@@ -32,6 +48,8 @@ platform/macos/photara-gallery-lab/build-gallery-lab.sh
 open 'platform/macos/photara-gallery-lab/.build/Photara Gallery Lab.app'
 platform/macos/photara-inspector-lab/build-inspector-lab.sh
 open 'platform/macos/photara-inspector-lab/.build/Photara Inspector Lab.app'
+platform/macos/photara-shell-lab/build-shell-lab.sh
+open 'platform/macos/photara-shell-lab/.build/Photara Shell Lab.app'
 platform/macos/photara-app/build-app.sh
 open 'platform/macos/photara-app/.build/app/Photara.app'
 ```
@@ -51,9 +69,10 @@ a clean checkout.
    `photara-gallery/Resources/photara-gallery-presentation-v1.json`, review the
    diff, and rebuild Gallery Lab and Photara. Both decode that exact resource.
    Graph retains its existing Graph Lab export/preset workflow unchanged.
-4. Inspector hierarchy/spacing and shell region sizing are shared code constants;
-   colors remain semantic theme roles. There is no artificial Inspector or shell
-   preset duplicating theme values or constants.
+4. Shell Lab exports validated `photara-shell/Resources/photara-application-presentation-v1.json`.
+   Promote that file and rebuild to share launcher typography, spacing, pane sizes
+   and chrome dimensions. Availability remains typed Swift. Inspector hierarchy
+   stays in its component; colors stay in Theme.
 5. Gallery filter, current grid style/size, selection and focused image are
    disposable native viewing state. Workspace panel visibility and placement
    retain the existing `photara.workspace.layout-authoring.v1` UserDefaults
@@ -70,6 +89,11 @@ Every selected node has a standard Inspector for identity, package/definition
 contract, typed ports, evaluation and diagnostics, including missing packages.
 Node-specific parameter sections are optional. A dedicated authoring pane is
 also optional and independent of Inspector: Layout is the existing example.
+The work surface belongs to its node, not to the application shell or Inspector.
+`photara-layout` is the Layout node's native work-surface implementation; the shell
+only hosts it and manages placement and capability-driven access. Each node's
+surface can be authored separately. A dedicated Layout Node Lab can be added
+later, consuming these same sources; it is not part of this shell task.
 `NodeInspection` contains native projections, not node-authored JSON, and
 `InspectorActions`/`LayoutActions` carry explicit intents to the production
 adapter. The adapter resolves the current node and submits the existing
@@ -78,8 +102,13 @@ revision-checked Core command.
 Future node packages should contribute typed inspection/authoring contracts
 through the bridge's definition/contribution mechanism. Do not turn Inspector
 into a Swift parser for package JSON, assume every node has Layout state, or
-make Core own native view policy. A general registry for additional native
-node-specific workspaces remains a later behavior feature.
+make Core own native view policy. `NodeWorkSurfacePresentation` carries each contributing node's identity, title,
+icon resource and contribution ID. The shell renders one toolbar button per node
+and invokes the supplied host renderer. `ProductionWorkSurfaceRegistry` registers
+node-owned native renderers; Layout is the first entry. Future node surfaces add
+an entry there and their own module/lab, without changing shell navigation. Nodes
+without a work surface still have an Inspector; unsupported native contributions
+do not advertise dead toolbar buttons.
 
 ## Compatibility and boundaries
 
@@ -108,7 +137,7 @@ platform/macos/photara-ui-tests/verify-production-ui.sh
 
 The shared checks validate preset decoding/round trips, extended-range float
 fixtures, native HDR policy and fit/fill geometry, workspace preference isolation,
-Inspector callback targets, and render 26 Gallery/Inspector states. The production
+Inspector callback targets, and render 54 Gallery/Inspector/Shell states. The production
 checks compose the real `WorkspaceView`, use an isolated Core project, import an
 HDR/SDR pair, exercise semantic edits and undo/redo, save, and check that viewing
 Graph/Layout leaves the graph digest unchanged. Snapshots live under
@@ -127,7 +156,7 @@ edits in `photara-inspector` and Inspector Lab. Read this document and the
 feature's lab README first. Shared foundation/contract changes require checking
 the other consumers and should be called out in that task's handoff.
 
-One command assembles the three labs and production:
+One command assembles the four labs and production:
 
 ```sh
 platform/macos/build-ui.sh
@@ -147,3 +176,11 @@ The original Disk/main-functionality task can resume against this structure:
 edit production adapters/models and bridge/Core as required by behavior, while
 leaving renderer ownership in the shared component directories. Keep all node
 inspectors universal and dedicated node authoring surfaces optional.
+
+Shell tasks own `photara-shell`, its presentation preset, and `photara-shell-lab`.
+Read [Shell Lab](photara-shell-lab/README.md) before authoring. Empty projects show
+Graph alone. Inspector stays disclosed after first selection; Gallery requires
+assets, an asset-producing context, or an explicit request. Layout navigation
+requires Layout capability; Review requires reviewable content. Diagnostics use
+no space until requested. Compact windows stack disclosed regions. All this is
+client state and never changes Core digests.

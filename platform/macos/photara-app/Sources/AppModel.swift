@@ -80,9 +80,10 @@ final class AppModel: ObservableObject {
         layoutAuthoringPreviewLongEdge = [512, 1_024, 2_048].contains(configuredLongEdge)
             ? UInt32(configuredLongEdge) : 1_024
         let legacyDefaults = UserDefaults(suiteName: "Photara")
-        recentProjects = (defaults.data(forKey: Self.recentProjectsKey)
+        recentProjects = ((defaults.data(forKey: Self.recentProjectsKey)
             ?? legacyDefaults?.data(forKey: Self.recentProjectsKey))
-            .flatMap { try? JSONDecoder().decode([RecentProject].self, from: $0) } ?? []
+            .flatMap { try? JSONDecoder().decode([RecentProject].self, from: $0) } ?? [])
+            .filter { $0.title != "Untitled Project" }
         do {
             let support = try supportRootOverride ?? FileManager.default.url(
                 for: .applicationSupportDirectory,
@@ -160,7 +161,6 @@ final class AppModel: ObservableObject {
             pendingLayoutNativeCellIDs.removeAll()
             layoutCellProxies.removeAll()
             layoutNativeThumbnails.removeAll()
-            rememberCurrentProject()
         } catch {
             presentedError = error.localizedDescription
         }
@@ -746,6 +746,10 @@ final class AppModel: ObservableObject {
 
     private func rememberCurrentProject(documentPath: String? = nil) {
         guard let snapshot else { return }
+        // A newly created draft is not a meaningful recent project until it has
+        // a real title. This also keeps disposable UI-test projects out of the
+        // launcher while preserving explicitly opened portable documents.
+        guard snapshot.title != "Untitled Project" else { return }
         let retainedPath = documentPath ?? recentProjects
             .first { $0.projectID == snapshot.projectId }?
             .documentPath

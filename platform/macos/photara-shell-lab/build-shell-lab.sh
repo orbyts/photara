@@ -4,23 +4,20 @@ SCRIPT_ROOT="${0:A:h}"
 REPOSITORY_ROOT="${SCRIPT_ROOT:h:h:h}"
 source "$REPOSITORY_ROOT/platform/macos/shared-ui-sources.sh"
 BUILD_ROOT="$SCRIPT_ROOT/.build"
-APP_BUNDLE="$BUILD_ROOT/Shared UI Verification.app"
+APP_BUNDLE="$BUILD_ROOT/Photara Shell Lab.app"
 RESOURCES="$APP_BUNDLE/Contents/Resources"
 mkdir -p "$RESOURCES" "$APP_BUNDLE/Contents/MacOS" "$BUILD_ROOT/module-cache"
-cp -p "$REPOSITORY_ROOT/platform/macos/photara-shell/Resources/photara-application-presentation-v1.json" "$RESOURCES/"
-cp -p "$UI_ROOT/photara-gallery-lab/Resources/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c 'Set :CFBundleExecutable SharedUIChecks' "$APP_BUNDLE/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.photara.shared-ui-verification' "$APP_BUNDLE/Contents/Info.plist"
+cp -p "$SCRIPT_ROOT/Resources/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 cp -p "$UI_ROOT/photara-theme/Resources/photara-default.json" "$RESOURCES/"
+cp -p "$UI_ROOT/photara-shell/Resources/photara-application-presentation-v1.json" "$RESOURCES/"
 cp -p "$UI_ROOT/photara-gallery/Resources/photara-gallery-presentation-v1.json" "$RESOURCES/"
 cp -p "$UI_ROOT/photara-graph/Resources/photara-graph-presentation-v1.json" "$RESOURCES/"
 ditto "$UI_ROOT/photara-graph/Resources/NodeIcons" "$RESOURCES/NodeIcons"
 ditto "$UI_ROOT/photara-graph/Resources/ToolIcons" "$RESOURCES/ToolIcons"
 xcrun swiftc -swift-version 6 -parse-as-library -module-cache-path "$BUILD_ROOT/module-cache" \
   "${SHARED_UI_SOURCES[@]}" "$UI_ROOT"/photara-lab-support/Sources/*.swift \
-  "$SCRIPT_ROOT/Capture.swift" "$SCRIPT_ROOT/SharedUIChecks.swift" \
-  -framework SwiftUI -framework AppKit -o "$APP_BUNDLE/Contents/MacOS/SharedUIChecks"
+  "$SCRIPT_ROOT"/Sources/*.swift -framework SwiftUI -framework AppKit \
+  -o "$APP_BUNDLE/Contents/MacOS/PhotaraShellLab"
+xattr -cr "$APP_BUNDLE"
 codesign --force --deep --sign - "$APP_BUNDLE"
-if [[ "${1:-}" != --build-only ]]; then
-  "$APP_BUNDLE/Contents/MacOS/SharedUIChecks" "$BUILD_ROOT/snapshots"
-fi
+print -r -- "$APP_BUNDLE"

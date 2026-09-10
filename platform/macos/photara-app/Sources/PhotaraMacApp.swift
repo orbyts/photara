@@ -38,10 +38,13 @@ struct PhotaraMacApp: App {
                 }
                 .keyboardShortcut("0", modifiers: [.command, .option])
                 Divider()
-                ForEach(WorkspacePanelID.allCases) { panel in
+                ForEach(ApplicationShellAvailability(presentation: app.applicationPresentation(workspace)).panels.filter { $0 != .graph && $0 != .nodeWorkSurface }) { panel in
                     Toggle(panel.title, isOn: Binding(
-                        get: { workspace.isVisible(panel) },
-                        set: { _ in workspace.toggle(panel) }
+                        get: { WorkspaceRegion.allCases.contains {
+                            ApplicationShellAvailability(presentation: app.applicationPresentation(workspace))
+                                .visiblePanels(in: $0, workspace: workspace).contains(panel)
+                        } },
+                        set: { visible in if visible { workspace.show(panel) } else { workspace.toggle(panel) } }
                     ))
                 }
             }

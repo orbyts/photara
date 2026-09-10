@@ -112,10 +112,12 @@ struct ProductionInspectorView: View {
 }
 
 struct ProductionLayoutView: View {
+    var nodeID: String? = nil
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var workspace: WorkspaceModel
     private var node: BridgeNodeDto? {
-        let layouts = app.snapshot?.nodes.filter { $0.layout != nil } ?? []
+        let layouts = app.snapshot?.nodes.filter { $0.hasLayoutWorkSurface } ?? []
+        if let nodeID { return layouts.first { $0.nodeId == nodeID } }
         if let active = layouts.first(where: { $0.nodeId == workspace.activeWorkspaceNodeID }) { return active }
         return layouts.first { $0.nodeId == workspace.selectedNodeID } ?? layouts.first
     }

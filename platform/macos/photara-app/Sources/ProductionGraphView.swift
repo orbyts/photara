@@ -56,12 +56,17 @@ struct ProductionGraphView: View {
                 .position(catalogAnchor).popover(isPresented: $showsCatalog, arrowEdge: .top) { catalog }
                 .allowsHitTesting(false)
         }
-        .onAppear { configure(); installTabMonitor() }
+        .onAppear { configure(); installTabMonitor(); if workspace.consumeNodeMenuRequest() { showsCatalog = true } }
         .onDisappear { if let tabMonitor { NSEvent.removeMonitor(tabMonitor); self.tabMonitor = nil } }
         .onChange(of: app.snapshot?.graph.revision) { synchronize() }
-        .onChange(of: workspace.nodeMenuRequest) { showsCatalog = true }
+        .onChange(of: workspace.selectedNodeID) {
+            if let id = workspace.selectedNodeID, controller.document.nodes.contains(where: { $0.id == id }),
+               controller.selection != .node(id) { controller.select(.node(id)) }
+        }
+        .onChange(of: workspace.nodeMenuRequest) { if workspace.consumeNodeMenuRequest() { showsCatalog = true } }
         .onChange(of: controller.selection) {
             if case .node(let id) = controller.selection { workspace.selectedNodeID = id }
+            else { workspace.selectedNodeID = nil }
         }
         .onChange(of: overviewRaw) { controller.overviewPolicy = .init(savedValue: overviewRaw) }
         .onChange(of: overviewPositionRaw) { controller.overviewPosition = .init(savedValue: overviewPositionRaw) }
@@ -116,7 +121,7 @@ struct ProductionGraphView: View {
         controller.activateNode = { id in
             workspace.selectedNodeID = id
             if let node = app.snapshot?.nodes.first(where: { $0.nodeId == id }) {
-                if node.hasWorkspace { workspace.activateWorkspace(for: id) } else { app.performDefaultActivation(for: node) }
+                if ProductionWorkSurfaceRegistry.presentation(for: node) != nil { workspace.activateWorkspace(for: id) } else { app.performDefaultActivation(for: node) }
             }
         }
         controller.configure(.init(portOffset: preset.portOffset, noodleStyle: .curved))
@@ -125,6 +130,7 @@ struct ProductionGraphView: View {
         controller.overviewPolicy = .init(savedValue: overviewRaw)
         controller.overviewPosition = .init(savedValue: overviewPositionRaw)
         synchronize()
+        if let id = workspace.selectedNodeID { controller.select(.node(id)) }
     }
     private func synchronize() {
         guard let snapshot = app.snapshot else { return }
@@ -135,7 +141,14 @@ struct ProductionGraphView: View {
         guard let definition = app.nodeDefinitions.first(where: { $0.definitionId == id }) else { return }
         let point = controller.camera.world(controller.pointerLocation ?? CGPoint(x: controller.viewport.width / 2,
             y: controller.viewport.height / 2), in: controller.viewport)
+        let previous = Set(app.snapshot?.nodes.map(\.nodeId) ?? [])
         app.addNode(definition, graphPosition: .init(point)); synchronize()
+        if let added = app.snapshot?.nodes.first(where: { !previous.contains($0.nodeId) }) {
+            // Public Graph interaction API; renderer and Graph-owned state remain unchanged.
+            controller.select(.node(added.nodeId))
+            workspace.selectedNodeID = added.nodeId
+            workspace.show(.inspector)
+        }
     }
     private func installTabMonitor() {
         guard tabMonitor == nil else { return }

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "launcherTitleSize": 38,
+  "launcherTitleWeight": "semibold",
+  "heroSize": 112,
+  "heroIconSize": 58,
+  "launcherSpacing": 30,
+  "heroSpacing": 22,
+  "contentInset": 28,
+  "leadingIdealWidth": 280,
+  "trailingIdealWidth": 360,
+  "panelHeaderHeight": 34,
+  "statusBarHeight": 28,
+  "toolbarIdentityWidth": 180
+}

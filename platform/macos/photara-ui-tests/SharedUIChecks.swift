@@ -15,6 +15,69 @@ struct SharedUIChecks {
             do { _ = try GalleryPreset.decode(JSONEncoder().encode(invalid)); fatalError("Accepted invalid preset") }
             catch { }
         }
+        let shellPreset = ApplicationShellPreset.shipped
+        let shellDecoded = try ApplicationShellPreset.decode(shellPreset.encoded())
+        require(shellDecoded == shellPreset, "Shell preset round trip")
+        var badVersion = shellPreset; badVersion.schemaVersion = 2
+        var badSize = shellPreset; badSize.launcherTitleSize = -1
+        var badRatio = shellPreset; badRatio.heroSize = 72; badRatio.heroIconSize = 88
+        var badPane = shellPreset; badPane.trailingIdealWidth = 999
+        for invalid in [badVersion, badSize, badRatio, badPane] {
+            do { _ = try ApplicationShellPreset.decode(JSONEncoder().encode(invalid)); fatalError("Accepted invalid shell preset") }
+            catch { }
+        }
+        let shellModel = ShellLabModel()
+        shellModel.scenario = .opening
+        require(ApplicationShellAvailability(presentation: shellModel.presentation).panels.isEmpty, "Opening exposed project commands")
+        shellModel.scenario = .emptyProject
+        func visible() -> [WorkspacePanelID] {
+            let policy = ApplicationShellAvailability(presentation: shellModel.presentation)
+            return WorkspaceRegion.allCases.flatMap { policy.visiblePanels(in: $0, workspace: shellModel.workspace) }
+        }
+        require(visible() == [.graph], "Empty project reserved a pane")
+        require(ApplicationShellAvailability(presentation: shellModel.presentation).modes == [.graph], "Empty project exposed unavailable modes")
+        shellModel.addNode()
+        require(shellModel.workspace.selectedNodeID == "disk" && visible().contains(.inspector), "First node did not reveal Inspector")
+        shellModel.workspace.selectedNodeID = nil
+        require(visible().contains(.inspector), "Clearing selection collapsed Inspector")
+        require(!visible().contains(.assetGallery), "Gallery opened without context")
+        shellModel.workspace.show(.assetGallery)
+        require(visible().contains(.assetGallery), "Explicit Gallery request ignored")
+        shellModel.workspace.show(.diagnostics)
+        require(visible().contains(.diagnostics), "Explicit diagnostics request ignored")
+        shellModel.scenario = .emptyProject
+        require(visible() == [.graph], "New empty project leaked previous session disclosure")
+        shellModel.scenario = .layout
+        require(ApplicationShellAvailability(presentation: shellModel.presentation).modes == [.graph, .nodeWorkSurface], "Layout capability unavailable")
+        var otherSurface = ShellScenario.layoutSurface
+        otherSurface.nodeID = "another-node"; otherSurface.contributionID = "example.other.workspace"
+        otherSurface.iconResourceID = "example.other.icon"
+        shellModel.presentation.workSurfaces.append(otherSurface)
+        require(shellModel.presentation.workSurfaces.count == 2 && shellModel.presentation.workSurfaces.last?.iconResourceID == "example.other.icon",
+                "Shell lost a second node-owned work-surface contribution")
+        shellModel.presentation.workSurfaces = []
+        require(ApplicationShellAvailability(presentation: shellModel.presentation).modes == [.graph], "Removed surfaces left navigation behind")
+        shellModel.scenario = .review
+        require(ApplicationShellAvailability(presentation: shellModel.presentation).modes.contains(.review), "Review result unavailable")
+        shellModel.workspace.toggle(.assetGallery)
+        require(shellModel.workspace.mode == .graph, "Hiding the active review surface did not return to Graph")
+        shellModel.workspace.activateWorkspace(for: "layout")
+        shellModel.workspace.requestNodeMenu()
+        require(shellModel.workspace.mode == .graph && shellModel.workspace.consumeNodeMenuRequest(), "Catalog request lost while switching surfaces")
+        require(!shellModel.workspace.consumeNodeMenuRequest(), "Catalog request replayed")
+        shellModel.scenario = .saved
+        require(ApplicationShellAvailability(presentation: shellModel.presentation).hasStatus, "Save status hidden")
+        shellModel.scenario = .evaluating
+        shellModel.send(.cancel)
+        require(!shellModel.presentation.isEvaluating, "Cancel did not clear progress")
+        for dark in [false, true] {
+            for scenario in ShellScenario.allCases {
+                shellModel.scenario = scenario; shellModel.dark = dark
+                try await capture(ShellLabPreview(model: shellModel, workspace: shellModel.workspace),
+                    name: "shell-\(scenario.rawValue)-\(dark)",
+                    size: .init(width: scenario == .compact ? 820 : 1440, height: scenario == .compact ? 720 : 900), directory: directory)
+            }
+        }
         let assets = GalleryFixtures.assets()
         require(assets.contains { $0.aspectRatio < 1 } && assets.contains { $0.aspectRatio > 1 }
                 && assets.contains { $0.aspectRatio == 1 }, "Gallery aspect coverage")
@@ -85,6 +148,6 @@ struct SharedUIChecks {
                 InspectorView(presentation: fixture.presentation, actions: actions, section: section)
             }, name: "section-\(section.rawValue)", size: .init(width: 320, height: 820), directory: directory)
         }
-        print("PASS: shared contracts, Gallery preset, float HDR/native policy, workspace preferences, Inspector targets, 26 rendered states")
+        print("PASS: shared contracts, Gallery preset, float HDR/native policy, workspace preferences, Inspector targets, 54 rendered states including Shell disclosure")
     }
 }

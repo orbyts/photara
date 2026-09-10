@@ -7,11 +7,12 @@ struct WorkspaceView: View {
 
     var body: some View {
         ApplicationShell(presentation: app.applicationPresentation(workspace),
-                         actions: .init(send: app.performApplicationAction)) { panel in
+                         actions: .init(send: app.performApplicationAction),
+                         workSurface: { ProductionWorkSurfaceRegistry.view(for: $0) }) { panel in
             switch panel {
             case .assetGallery: ProductionGalleryView()
             case .graph: ProductionGraphView()
-            case .layoutAuthoring: ProductionLayoutView()
+            case .nodeWorkSurface: EmptyView() // Hosted through the node contribution registry.
             case .inspector: ProductionInspectorView()
             case .diagnostics:
                 DiagnosticsView(diagnostics: (app.snapshot?.diagnostics ?? []).map {
@@ -23,11 +24,5 @@ struct WorkspaceView: View {
             get: { app.presentedError != nil }, set: { if !$0 { app.presentedError = nil } }
         )) { Button("OK") { app.presentedError = nil } }
         message: { Text(app.presentedError ?? "Unknown error") }
-        .task(id: app.snapshot?.graph.digest) {
-            let nodes = app.snapshot?.nodes ?? []
-            if workspace.selectedNodeID.flatMap({ selected in nodes.first { $0.nodeId == selected } }) == nil {
-                workspace.selectedNodeID = nodes.first { $0.layout != nil }?.nodeId ?? nodes.first?.nodeId
-            }
-        }
     }
 }

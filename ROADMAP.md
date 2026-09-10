@@ -950,6 +950,24 @@ recover safely from interruption without external legacy state.
 
 ## After 0.2.0
 
+- Restore the generation-one reusable production libraries as versioned,
+  user-owned domain records: **People** (including the `model` role, aliases,
+  and social identities), **Clients**, **Locations**, and **Scenes**. Projects
+  assign stable library identities and retain the portable snapshots needed to
+  remain intelligible offline or when a global record later changes.
+- Add a separately authorable native **Library** module (`photara-library`) and
+  **Library Lab** (`photara-library-lab`), parallel to Gallery, Inspector, and
+  Graph. It owns browsing, searching, and editing those global records and
+  project-assignment controls; Core-owned services own identity, validation,
+  revisions, and persistence. Keep this library distinct from both the visual
+  asset Gallery and the node Catalog.
+- Support both local-only and authenticated cloud-synchronized library modes
+  behind the same backend-neutral state-service contracts. The local adapter is
+  fully usable offline; a PostgreSQL service such as Neon may implement the
+  cloud adapter, but Neon, SQL, and connection strings never enter Core domain
+  contracts or node packages. Define versioned schemas, incremental sync,
+  conflicts, tombstones, account ownership, export, backup, and recovery before
+  making cloud state authoritative for user libraries.
 - Portable metadata-query expressions and ordinary selection nodes for
   intersection/AND, union/OR, difference/NOT, XOR, match/join, sort, and group.
   Add provider query pushdown, incremental/paged result contracts, and the first
