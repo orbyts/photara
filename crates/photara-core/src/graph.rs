@@ -7,6 +7,15 @@ use crate::{
     ConnectionId, GraphId, NodeDefinitionRef, NodeInstanceId, PortId, SchemaValue, SchemaVersion,
 };
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GraphRoutingPoint {
+    pub id: String,
+    pub x: i64,
+    pub y: i64,
+    #[serde(default)]
+    pub is_junction: bool,
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(transparent)]
 pub struct GraphRevision(u64);

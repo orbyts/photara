@@ -120,7 +120,7 @@ private enum PhotaraBridgeVerification {
             canvas: .portrait3x4(longEdgePixels: 4000)
         )
         try require(added.applied, "Layout Core command was rejected")
-        let withLayout = try requireSnapshot(added)
+        var withLayout = try requireSnapshot(added)
         try require(withLayout.nodes.count == 2, "Layout slice did not include AssetSet source")
         guard let layoutNode = withLayout.nodes.first(where: { $0.layout != nil }) else {
             throw VerificationFailure.failed("typed node inspection did not return Layout")
@@ -143,6 +143,42 @@ private enum PhotaraBridgeVerification {
             } == true,
             "generic output inspection did not summarize the Layout plan"
         )
+        let mapped = PhotaraProductionGraphAdapter.document(withLayout)
+        try require(mapped.nodes.count == withLayout.nodes.count, "production graph adapter lost nodes")
+        try require(mapped.nodes.first(where: { $0.id == layoutNode.nodeId })?.ports(.input).first?.label == "Assets",
+                    "production graph adapter did not map DTO port labels")
+
+        let moved = project.setGraphNodePosition(expectedGraphRevision: withLayout.graph.revision,
+            nodeId: layoutNode.nodeId, x: 125_000, y: -75_000)
+        try require(moved.applied, "graph position command was rejected")
+        let movedSnapshot = try requireSnapshot(moved)
+        try require(PhotaraProductionGraphAdapter.document(movedSnapshot).nodes
+            .first(where: { $0.id == layoutNode.nodeId })?.position == .init(x: 125, y: -75),
+            "production graph adapter did not map committed node position")
+        let moveUndone = project.undoLayout(expectedGraphRevision: movedSnapshot.graph.revision)
+        try require(moveUndone.applied, "graph position was not undoable")
+        let moveRedone = project.redoLayout(expectedGraphRevision: try requireSnapshot(moveUndone).graph.revision)
+        try require(moveRedone.applied, "graph position was not redoable")
+        var graphEdited = try requireSnapshot(moveRedone)
+
+        let edge = graphEdited.graph.connections[0]
+        let routed = project.setGraphConnectionRouting(expectedGraphRevision: graphEdited.graph.revision,
+            connectionId: edge.connectionId, routingId: "verification-route", routingX: 0,
+            routingY: 35_000, routingIsJunction: false)
+        try require(routed.applied, "graph routing command was rejected")
+        graphEdited = try requireSnapshot(routed)
+        try require(PhotaraProductionGraphAdapter.document(graphEdited).routingPoints.first?.id == "verification-route",
+                    "production graph adapter lost committed routing")
+        let disconnected = project.disconnectGraphConnections(expectedGraphRevision: graphEdited.graph.revision,
+            connectionIds: [edge.connectionId])
+        let disconnectedSnapshot = try requireSnapshot(disconnected)
+        try require(disconnected.applied && disconnectedSnapshot.graph.connections.isEmpty,
+                    "graph disconnect did not remove the edge")
+        let disconnectUndone = project.undoLayout(expectedGraphRevision: disconnectedSnapshot.graph.revision)
+        try require(disconnectUndone.applied, "graph disconnect was not undoable")
+        withLayout = try requireSnapshot(disconnectUndone)
+        try require(withLayout.graph.connections.first?.routingId == "verification-route",
+                    "disconnect undo did not restore routing metadata")
 
         let stale = project.addLayoutNode(
             expectedGraphRevision: initial.graph.revision,

@@ -3,9 +3,9 @@ use thiserror::Error;
 
 use crate::{
     CommandId, Connection, ConnectionId, DefinitionResolver, Diagnostic, DiagnosticSeverity,
-    GraphDocument, GraphId, GraphRevision, NodeDefinition, NodeDefinitionRef, NodeInstance,
-    NodeInstanceId, PortCardinality, PortCompatibilityError, PortId, SchemaRef, SchemaValue,
-    ValueTypeRegistry, validate_port_connection,
+    GraphDocument, GraphId, GraphRevision, GraphRoutingPoint, NodeDefinition, NodeDefinitionRef,
+    NodeInstance, NodeInstanceId, PortCardinality, PortCompatibilityError, PortId, SchemaRef,
+    SchemaValue, ValueTypeRegistry, validate_port_connection,
 };
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -28,6 +28,18 @@ pub enum GraphCommand {
     },
     Connect {
         connection: Connection,
+    },
+    Disconnect {
+        connection_ids: Vec<ConnectionId>,
+    },
+    SetNodePosition {
+        node_id: NodeInstanceId,
+        x: i64,
+        y: i64,
+    },
+    SetConnectionRouting {
+        connection_id: ConnectionId,
+        routing: Option<GraphRoutingPoint>,
     },
     SetConfiguration {
         node_id: NodeInstanceId,
@@ -114,6 +126,18 @@ fn apply_command_operations<R: DefinitionResolver>(
         GraphCommand::Connect { connection } => {
             connect(updated, connection.clone(), definitions, value_types)?;
         }
+        GraphCommand::Disconnect { connection_ids } => {
+            disconnect(updated, connection_ids)?;
+        }
+        GraphCommand::SetNodePosition { node_id, x, y } => {
+            set_node_position(updated, *node_id, *x, *y)?;
+        }
+        GraphCommand::SetConnectionRouting {
+            connection_id,
+            routing,
+        } => {
+            set_connection_routing(updated, *connection_id, routing.as_ref())?;
+        }
         GraphCommand::SetConfiguration {
             node_id,
             configuration,
@@ -136,6 +160,83 @@ fn apply_command_operations<R: DefinitionResolver>(
             let definition = resolve_definition(definitions, node)?;
             validate_authored_state(*node_id, definition, authored_state.as_ref())?;
             node.authored_state.clone_from(authored_state);
+        }
+    }
+    Ok(())
+}
+
+fn disconnect(
+    graph: &mut GraphDocument,
+    connection_ids: &[ConnectionId],
+) -> Result<(), GraphCommandError> {
+    if connection_ids.is_empty() {
+        return Err(GraphCommandError::EmptyConnectionSet);
+    }
+    for id in connection_ids {
+        if !graph
+            .connections
+            .iter()
+            .any(|connection| connection.id == *id)
+        {
+            return Err(GraphCommandError::UnknownConnection(*id));
+        }
+    }
+    graph
+        .connections
+        .retain(|connection| !connection_ids.contains(&connection.id));
+    Ok(())
+}
+
+fn set_node_position(
+    graph: &mut GraphDocument,
+    node_id: NodeInstanceId,
+    x: i64,
+    y: i64,
+) -> Result<(), GraphCommandError> {
+    node_mut(graph, node_id)?.extensions.insert(
+        "photara.graph-position".to_owned(),
+        serde_json::json!({ "x": x, "y": y }),
+    );
+    Ok(())
+}
+
+fn set_connection_routing(
+    graph: &mut GraphDocument,
+    connection_id: ConnectionId,
+    routing: Option<&GraphRoutingPoint>,
+) -> Result<(), GraphCommandError> {
+    let existing_id = graph
+        .connections
+        .iter()
+        .find(|value| value.id == connection_id)
+        .ok_or(GraphCommandError::UnknownConnection(connection_id))?
+        .extensions
+        .get("photara.graph-routing")
+        .and_then(|value| value.get("id"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned);
+    let targets = graph.connections.iter_mut().filter(|value| {
+        value.id == connection_id
+            || existing_id.as_ref().is_some_and(|id| {
+                value
+                    .extensions
+                    .get("photara.graph-routing")
+                    .and_then(|route| route.get("id"))
+                    .and_then(serde_json::Value::as_str)
+                    == Some(id.as_str())
+            })
+    });
+    if let Some(routing) = routing {
+        let value =
+            serde_json::to_value(routing).expect("routing point serialization is infallible");
+        for connection in targets {
+            connection
+                .extensions
+                .insert("photara.graph-routing".to_owned(), value.clone());
+        }
+    } else {
+        for connection in targets {
+            connection.extensions.remove("photara.graph-routing");
         }
     }
     Ok(())
@@ -328,6 +429,8 @@ pub enum GraphCommandError {
     RevisionExhausted,
     #[error("graph command batch must contain at least one operation")]
     EmptyBatch,
+    #[error("graph disconnect command must contain at least one connection")]
+    EmptyConnectionSet,
     #[error("node {0} already exists")]
     DuplicateNode(NodeInstanceId),
     #[error("node {0} does not exist")]
@@ -350,6 +453,8 @@ pub enum GraphCommandError {
     AuthoredStateUnsupported { node_id: NodeInstanceId },
     #[error("connection {0} already exists")]
     DuplicateConnection(ConnectionId),
+    #[error("connection {0} does not exist")]
+    UnknownConnection(ConnectionId),
     #[error(
         "connection from {output_node}:{output_port} to {input_node}:{input_port} already exists"
     )]
@@ -397,7 +502,9 @@ impl GraphCommandError {
             | Self::RevisionConflict { .. }
             | Self::RevisionExhausted
             | Self::EmptyBatch
+            | Self::EmptyConnectionSet
             | Self::DuplicateConnection(_)
+            | Self::UnknownConnection(_)
             | Self::DuplicateEndpoints { .. }
             | Self::PortCompatibility { .. } => (None, None),
         };
@@ -417,12 +524,14 @@ impl GraphCommandError {
             Self::RevisionConflict { .. } => "revision-conflict",
             Self::RevisionExhausted => "revision-exhausted",
             Self::EmptyBatch => "empty-batch",
+            Self::EmptyConnectionSet => "empty-connection-set",
             Self::DuplicateNode(_) => "duplicate-node",
             Self::UnknownNode(_) => "unknown-node",
             Self::DefinitionUnavailable { .. } => "definition-unavailable",
             Self::SchemaMismatch { .. } => "schema-mismatch",
             Self::AuthoredStateUnsupported { .. } => "authored-state-unsupported",
             Self::DuplicateConnection(_) => "duplicate-connection",
+            Self::UnknownConnection(_) => "unknown-connection",
             Self::DuplicateEndpoints { .. } => "duplicate-endpoints",
             Self::UnknownPort { .. } => "unknown-port",
             Self::PortCompatibility { .. } => "port-incompatible",
