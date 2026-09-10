@@ -19,6 +19,7 @@ GENERATED_ROOT="$PHOTARA_APP_BUILD/generated"
 
 mkdir -p "$MODULE_CACHE" "$MACOS" "$FRAMEWORKS" "$RESOURCES"
 cp -p "$SCRIPT_ROOT/Resources/ThemeLab-Info.plist" "$CONTENTS/Info.plist"
+ditto "$PHOTARA_APP_BUNDLE/Contents/Resources" "$RESOURCES"
 cp -p "$SCRIPT_ROOT/Resources/photara-default.json" "$RESOURCES/photara-default.json"
 cp -p \
   "$PHOTARA_APP_BUNDLE/Contents/Frameworks/libphotara_bridge.dylib" \
@@ -27,20 +28,27 @@ cp -p \
   "$PHOTARA_APP_BUNDLE/Contents/MacOS/photara-proxy-imageio" \
   "$MACOS/photara-proxy-imageio"
 
+source "$REPOSITORY_ROOT/platform/macos/shared-ui-sources.sh"
+THEME_EXPERIMENT_SOURCES=()
+if [[ -f "$SCRIPT_ROOT/Sources/GlassTestScene.swift" ]]; then
+  THEME_EXPERIMENT_SOURCES+=("$SCRIPT_ROOT/Sources/GlassTestScene.swift")
+fi
+
 xcrun swiftc \
   -swift-version 6 \
   -parse-as-library \
   -module-cache-path "$MODULE_CACHE" \
   "$GENERATED_ROOT/PhotaraBridge.swift" \
-  "$SCRIPT_ROOT/Sources/PhotaraTheme.swift" \
-  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphPresentation.swift" \
+  "${SHARED_UI_SOURCES[@]}" \
+  "$PHOTARA_APP_ROOT"/Sources/AppModel*.swift \
   "$PHOTARA_APP_ROOT/Sources/GalleryPresentationState.swift" \
-  "$PHOTARA_APP_ROOT/Sources/ThemeStore.swift" \
-  "$PHOTARA_APP_ROOT/Sources/AppModel.swift" \
-  "$PHOTARA_APP_ROOT/Sources/AppModel+Gallery.swift" \
-  "$PHOTARA_APP_ROOT/Sources/WorkspaceModel.swift" \
-  "$PHOTARA_APP_ROOT/Sources/GalleryView.swift" \
+  "$PHOTARA_APP_ROOT/Sources/ProductionGalleryView.swift" \
+  "$PHOTARA_APP_ROOT/Sources/GraphAdapter.swift" \
+  "$PHOTARA_APP_ROOT/Sources/ProductionGraphView.swift" \
+  "$PHOTARA_APP_ROOT/Sources/InspectionAdapter.swift" \
+  "$PHOTARA_APP_ROOT/Sources/ApplicationAdapter.swift" \
   "$PHOTARA_APP_ROOT/Sources/WorkspaceView.swift" \
+  "${THEME_EXPERIMENT_SOURCES[@]}" \
   "$SCRIPT_ROOT/Sources/ThemeLabView.swift" \
   "$SCRIPT_ROOT/Sources/ThemeLabApp.swift" \
   -Xcc "-fmodule-map-file=$GENERATED_ROOT/PhotaraBridgeFFI.modulemap" \

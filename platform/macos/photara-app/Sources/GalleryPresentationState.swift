@@ -1,12 +1,5 @@
 import AppKit
 
-enum GalleryPreviewActivity: Equatable, Sendable {
-    case loading
-    case updating
-    case ready
-    case failed
-}
-
 /// Client-only Gallery presentation and request state.
 ///
 /// None of these values are authoritative project semantics or graph inputs.

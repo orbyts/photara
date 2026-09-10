@@ -1,5 +1,8 @@
 # Photara macOS application
 
+See [shared components and labs](../SHARED_UI.md) for the current module topology,
+independent authoring workflow and verification commands.
+
 This directory is the native-client root. The production-shaped Rust
 facade is generated into Swift with workspace-pinned UniFFI and verified before
 the SwiftUI/AppKit workspace grows around it.
@@ -49,7 +52,7 @@ hide, and restore independently of project state.
 Graph is a primitive spatial canvas with node cards, typed ports, connections,
 selection, pan, and zoom. Selection drives one generic Inspector shell from
 typed bridge summaries. `Tab` or the graph add control opens the node menu;
-Layout is its sole current entry, without making the graph shell Layout-only.
+Available nodes come from the installed package catalog, including Disk and Layout.
 Double-click activates Layout's optional Workspace.
 The standard Inspector remains available for every node definition. Versioned
 definitions may later augment it with custom semantic controls independently of
