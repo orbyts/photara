@@ -143,9 +143,18 @@ platform/macos/photara-graph-lab/build-graph-lab.sh
 open "platform/macos/photara-graph-lab/.build/Photara Graph Lab.app"
 ```
 
-Shared primitives live in `platform/macos/photara-graph/Sources`. Production
-Photara currently consumes the shared procedural background with its existing
-defaults; further node integration waits for an accepted Graph Lab treatment.
+The complete production canvas and node renderer live in
+`platform/macos/photara-graph/Sources`; Graph Lab and Photara both compile and
+render those same sources. After saving an accepted visual iteration, explicitly
+promote it into their versioned shipped preset with:
+
+```console
+swift platform/macos/photara-graph-lab/export-shared-preset.swift
+```
+
+Review and commit the resulting `photara-graph-presentation-v1.json`. Rail
+visibility/placement, overview policy/position, pinned shortcuts, and cursor
+size remain per-application user preferences and are never exported.
 
 ## Interaction engineering and verification
 

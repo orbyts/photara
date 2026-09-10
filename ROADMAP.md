@@ -87,6 +87,196 @@ presentation surfaces without becoming their semantic owner. Optional future
 source spans, recovery actions, and log references must extend the diagnostic
 contract compatibly.
 
+### Future asset discovery and query guardrail
+
+Photara must eventually support Lightroom/Capture One-style smart collections,
+provider selections, and very large local, NAS, catalog, or cloud archives
+without turning filenames into asset identity or copying an archive listing
+into a Project Document. This is an after-`0.2.0` product capability, but work
+before then must preserve the following route:
+
+- Provider/source nodes expose semantic assets and normalized portable metadata
+  where available. Standard fields such as capture time, camera, lens, rating,
+  label, keywords, dimensions, media kind, and representation capabilities use
+  typed common vocabulary; provider-specific fields remain namespaced.
+- Selection-import nodes may emit external selection evidence such as Pixieset
+  CSV keys. A separate explicit match/join node resolves that evidence against
+  an upstream `AssetSet`; filenames and provider keys are matching evidence,
+  never universal asset identity.
+- Query/filter authored state is a portable typed expression, not SQL or a
+  provider API payload. Intersection/AND, union/OR, difference/NOT, symmetric
+  difference/XOR, query, sort, group, and match remain ordinary independently
+  versioned node packages over typed ports.
+- Runtime query planning pushes supported predicates into the source provider
+  or a Core-owned derived index before materializing results. Unsupported
+  predicates may be evaluated by Photara after provider filtering. Results are
+  incremental, cancellable, paged, and capable of reporting partial/updating
+  status; the bridge and Gallery must not require one enormous in-memory array.
+- Local/NAS metadata indexes are rebuildable device/runtime data, logically
+  scoped by provider/source through the Core-owned state service. They are not
+  authoritative project state and generally do not sync. Saved queries and
+  user preferences may later sync through explicit user-scoped services.
+- Selecting a graph node may make Gallery present a visualizable `AssetSet`
+  output from that node. Gallery exposes an explicit scope choice between that
+  selected-node result and the entire Project Asset Context, then allows a
+  disposable quick filter or metadata-expression filter inside the chosen
+  scope. These are native workspace viewing lenses only: graph selection,
+  Gallery scope/filter expressions, and Gallery item selection never change the
+  Project Document or graph digest. Connecting, assigning, capturing, or
+  promoting the expression to a Query node requires an explicit revision-checked
+  Core command.
+
+Do not implement the generalized index/query subsystem for `0.2.0`. The current
+Disk and Gallery work should retain stable asset identity, incremental discovery,
+virtualized presentation, cancellation, and explicit semantic commands so the
+future capability does not require replacing their ownership boundaries.
+
+### Future project-variable guardrail
+
+Projects may eventually define typed, named values for reuse by node
+configuration and portable expressions. A reference such as
+`$PROJECT_PATH/masters` expresses a location relative to the currently opened
+project; it must never serialize one machine's absolute project path or grant a
+node ambient filesystem access. The exact expression syntax is not frozen by
+this roadmap, but the ownership rules are:
+
+- Project variables are authored Core state with stable names, declared types,
+  validation, revision-checked commands, undo/redo, deterministic resolution,
+  and appropriate dirty propagation. They are distinct from process environment
+  variables, user preferences, node-private state, and runtime provider data.
+- Read-only built-ins such as project identity or project-relative location are
+  supplied by the application host through explicit portable evaluation
+  context. Device paths, security-scoped bookmarks, credentials, and mounts
+  remain runtime bindings behind scoped capabilities.
+- User-defined variables may hold portable scalar/configuration values and
+  relative resource references. Secrets and credentials use host secret handles,
+  never Project Document values or expression interpolation.
+- Unknown variables, type mismatches, cycles, unavailable bindings, and attempts
+  to escape an authorized root produce structured diagnostics rather than
+  falling back to ambient machine state.
+- Native clients may provide a project-variable editor, but Core remains the
+  parser, validator, resolver, and semantic owner. Windows and macOS resolve the
+  same portable references through their own scoped host adapters.
+
+Do not build a general expression language or variable editor during the current
+Graph visual slice. Preserve generic node configuration and evaluation context
+so the smallest concrete cross-node workflow can introduce this contract later
+without adding path substitution to Swift or individual node packages.
+
+### Planned node catalog
+
+This catalog is the product inventory for the node browser, not a promise that
+every listed node ships in `0.2.0`. The implementation sequence and its gates
+remain authoritative for release timing. A node's **category** describes what it
+does; its **provenance** describes who supplies it. “Built-in,” “Photara,”
+“Adobe,” and “third-party” are therefore badges or filters, not categories.
+
+The Tab node browser groups nodes by functional category and searches titles,
+aliases, providers, and keywords. First-party nodes use a category-colored icon
+with a neutral title. Provider nodes keep a neutral title and may use the
+provider's recognizable icon color. Exact colors are adaptive native UI theme
+roles and presentation preferences; they are not serialized graph semantics.
+The normative icon construction, header sizing, and provenance rules live in
+[`platform/macos/photara-graph/NODE_DESIGN_LANGUAGE.md`](platform/macos/photara-graph/NODE_DESIGN_LANGUAGE.md).
+
+| Functional category | Native icon role | Intended contents |
+| --- | --- | --- |
+| Sources & Import | teal | Bring assets, selections, or external records into a graph. |
+| Selection & Logic | purple | Filter, combine, compare, order, and group asset sets. |
+| Transform | orange | Change geometry, orientation, dimensions, or representation. |
+| Application Actions | pink | Invoke or exchange work with external creative applications. |
+| Layout & Composition | blue | Arrange, mask, and composite visual content. |
+| AI & Automation | indigo | Learned, generative, and automated workflow operations. |
+| Metadata & Organization | yellow | Read or author descriptive and organizational data. |
+| Output & Delivery | green | Render, export, publish, or deliver results. |
+| Utilities & Control | gray | Inspect, annotate, route, cache, or control a workflow. |
+
+#### Bundled first-party nodes
+
+These use the same package and runtime contracts as downloadable nodes. “Now”
+means the node is already part of the active vertical slice; “planned” records
+an intended product node; “candidate” preserves a useful direction whose exact
+definition and port contract still require a concrete workflow.
+
+| Node | Category | Purpose | Horizon |
+| --- | --- | --- | --- |
+| Project Assets | Sources & Import | Emit the project's explicit ordered asset context. | Now |
+| Disk Folder (`photara.disk.folder`) | Sources & Import | Discover assets from an authorized local or NAS folder incrementally. | Now |
+| Query / Filter | Selection & Logic | Evaluate a portable typed metadata expression over an `AssetSet`. | Planned after `0.2.0` |
+| Union / Append | Selection & Logic | Combine asset sets while defining stable identity and ordering behavior. | Planned after `0.2.0` |
+| Intersection | Selection & Logic | Keep assets present in every input set. | Planned after `0.2.0` |
+| Difference | Selection & Logic | Remove assets found in another set. | Planned after `0.2.0` |
+| Symmetric Difference / XOR | Selection & Logic | Keep assets present in only one of two sets. | Planned after `0.2.0` |
+| Match / Join | Selection & Logic | Resolve external selection evidence against semantic asset identity. | Planned after `0.2.0` |
+| Sort | Selection & Logic | Produce a deterministically ordered asset set from typed keys. | Planned after `0.2.0` |
+| Group | Selection & Logic | Partition assets by typed metadata keys without changing identity. | Planned after `0.2.0` |
+| Rotate | Transform | Apply a non-destructive orientation transform. | Candidate |
+| Crop | Transform | Apply a non-destructive crop independent of Layout cell framing. | Candidate |
+| Resize / Scale | Transform | Produce a representation with explicit target dimensions or scale. | Candidate |
+| Flip / Orientation | Transform | Apply explicit horizontal, vertical, or normalized orientation. | Candidate |
+| Layout (`photara.layout`) | Layout & Composition | Resolve ordered assets into authored pages, cells, and output geometry. | Now; production UI in progress |
+| Composite | Layout & Composition | Combine typed visual inputs using explicit order and blend semantics. | Candidate |
+| Mask | Layout & Composition | Supply or apply a typed mask without implicit UI state. | Candidate |
+| Read / Inspect Metadata | Metadata & Organization | Expose normalized and namespaced metadata for inspection or downstream logic. | Candidate |
+| Set Metadata | Metadata & Organization | Author explicit metadata changes with receipts and diagnostics. | Planned after `0.2.0` |
+| Keywords | Metadata & Organization | Add, remove, or normalize keywords as authored metadata operations. | Candidate |
+| Rating / Color Label | Metadata & Organization | Apply portable rating and label changes where providers support them. | Candidate |
+| Rename | Metadata & Organization | Plan deterministic representation renames without changing asset identity. | Candidate |
+| XMP Sidecar Read / Write | Metadata & Organization | Exchange supported develop and metadata values through explicit sidecar artifacts. | Candidate |
+| Render / Export | Output & Delivery | Materialize a typed result using an explicit format and destination contract. | Required boundary for `0.2.0`; exact node split TBD |
+| Disk Delivery | Output & Delivery | Deliver rendered artifacts into an authorized filesystem destination. | Candidate pending the `0.2.0` export decision |
+| Inspect / Preview | Utilities & Control | Surface a value, artifact, or diagnostic without changing graph semantics. | Candidate |
+| Note | Utilities & Control | Add human-authored graph documentation with no evaluation behavior. | Candidate |
+| Cache | Utilities & Control | Declare an explicit reusable evaluation boundary without making cache authoritative. | Candidate |
+| Project Value | Utilities & Control | Emit a typed project variable once the Core-owned variable contract exists. | Planned after `0.2.0` |
+
+Photara is a workflow automation and orchestration tool, not a replacement raw
+developer or pixel editor. Authoring and updating metadata remains directly in
+scope for Photara and its bundled nodes. The first-party Transform nodes above
+cover narrow, deterministic workflow operations such as geometry and output
+preparation; they do not imply a native Lightroom-, Capture One-, or
+Photoshop-style adjustment engine.
+
+A node may make photographic or pixel adjustments. That behavior belongs to
+the independently versioned node package, its registered runtime, or an
+external application/service—not to Photara Core or the native graph UI. Core
+orchestrates typed inputs and outputs, capabilities, evaluation, artifacts,
+diagnostics, provenance, and durable receipts without interpreting the
+adjustment itself. This allows Lightroom, Capture One, Photoshop, Lureva,
+Stable Diffusion, and future first- or third-party adjustment nodes to
+participate without turning Photara into an editor.
+
+Knots/reroutes are graph-routing primitives rather than evaluation nodes. They
+belong to the shared graph interaction model and remain distinct from the
+Utilities & Control packages above. Likewise, Graph Lab's current Source,
+Transform, and Composite specimen labels exercise one-, three-, and six-port
+presentation and interaction; they do not register product nodes by themselves.
+
+#### Planned provider and extension nodes
+
+Provider packages appear in the same functional categories as first-party
+nodes. A package may contribute more than one node when source, edit, and
+delivery operations have different capabilities or side effects.
+
+| Provider or extension | Functional placement | Intended nodes |
+| --- | --- | --- |
+| Adobe Lightroom Classic | Sources & Import; Application Actions | Catalog/collection source, selection exchange, and explicit develop/XMP round trips performed by Lightroom. |
+| Adobe Lightroom Desktop/Cloud | Sources & Import; Application Actions | Cloud-library source and supported Lightroom actions behind scoped authorization. |
+| Adobe Photoshop | Application Actions | External edit with explicit input/output artifacts and receipts. |
+| Capture One | Sources & Import; Application Actions | Catalog/session source, selection exchange, and supported Capture One actions. |
+| Pixieset | Sources & Import | CSV selection import whose evidence is resolved by a separate Match / Join node. |
+| Lureva | AI & Automation | Learn from editing examples and create or update XMP sidecars; optionally apply them to supplied DNG representations. |
+| Stable Diffusion | AI & Automation | Generative or image-to-image operations with explicit model, prompt, seed, and artifact provenance. |
+| Cloudinary | Output & Delivery | Upload and delivery operations with scoped credentials and durable receipts. |
+| Dropbox, Google Drive, Box, and iCloud/File Provider | Sources & Import; Output & Delivery | Independently branded source and destination nodes over ordinary semantic assets. |
+| Photos / PhotoKit and studio DAMs | Sources & Import | Authorized provider sources with stable provider identity and scoped materialization. |
+
+Before implementation, each catalog entry still needs an exact package and
+definition identity, typed ports, authored configuration/state boundary,
+capabilities, deterministic behavior, diagnostics, and migration policy. New
+ideas should be added to this inventory first, then promoted into the staged
+implementation plan only when a concrete vertical slice owns them.
+
 ## Implementation sequence
 
 ### 0. Repository foundation — complete
@@ -538,6 +728,50 @@ the production UniFFI facade remain unchanged.
   Theme choice and node color roles never enter Core, a Project Document, or a
   graph digest; node catalog taxonomy remains independent from color role.
 
+#### Remaining Stage 9 UI sequence
+
+Work through these slices in order. Each slice is a usable first draft whose
+architecture can support later refinement; `0.2.0` does not require the final
+marketplace-era visual language.
+
+1. **Graph nodes and wiring.** Complete a working first draft of spatial nodes,
+   typed input/output ports, connection creation/removal, selection, movement,
+   camera interaction, and readable connection feedback. Derive node height and
+   port rows from definition-provided typed ports rather than hard-coded node
+   kinds. Keep node movement and graph edits distinct: transient drag is native
+   presentation state and commits an intentional Core command at the gesture
+   boundary. Preserve revision checking, undo/redo, graph zoom, minimap, theme,
+   and the package catalog. Advanced routing, groups, macros, and final graph
+   polish remain after `0.2.0`.
+2. **Finish the Gallery design draft.** Retain Photo Grid and Square Grid, then
+   add the minimum full-image proxy-backed view. Remove Layout-specific actions
+   when there is no explicit compatible Layout target; contextual actions must
+   derive from the active capability/command context rather than assuming the
+   bundled Layout node. Make the status footer report meaningful discovery,
+   verification, proxy, stale-preview, and failure state. Let users choose the
+   compact primary label from available presentation metadata (for example file
+   name, camera, lens, capture time, or another supported field). Add an explicit
+   Project/Selected Node viewing scope and allow quick text plus metadata-
+   expression filtering within it. Scope, filter expression, primary label,
+   selection, and full-image presentation remain disposable workspace state;
+   making a reusable semantic result requires an explicit Query node or Core
+   command.
+3. **Inspector design draft.** Establish the production first-draft hierarchy
+   for identity, typed ports and connections, parameters, status, diagnostics,
+   progress, and node-contributed controls. Inspector content follows the
+   selected exact definition through immutable presentation DTOs and semantic
+   commands; it must not become a Swift interpretation of node-authored JSON or
+   assume every node owns a canvas Workspace.
+4. **Usable Layout authoring.** Complete the real Layout Workspace and controls
+   required by the Stage 9 gate: multiple Layout nodes, explicit asset placement,
+   frame/cell structure, Fit/Fill/Crop, focal alignment, rotation, crop commits,
+   resolved proxy-backed preview, validation, save/reopen, and coherent
+   undo/redo. Layout remains an ordinary node with explicit `AssetSet` input and
+   project-owned proxies.
+
+Completing these four slices closes **Stage 9**, not a product version numbered
+`0.9.0`.
+
 **Gate:** a real project can be authored visually without the old manual Layout
 worksheet/crop-authoring process, including multiple independent Layout nodes,
 explicit asset placement, frame/cell editing, Fit/Fill/Crop, rotation, crop
@@ -571,6 +805,16 @@ through the cheapest measured provider/native/profile path. The generated
 Swift gate now exercises assignment undo/redo, resolved geometry,
 cell insertion/arrangement, focal Fill, rotation undo/redo, and two independent
 Layout nodes through the production facade on Quasar.
+
+The accepted Graph Lab node-and-wiring draft is now promoted into one shared
+macOS graph canvas and node renderer used by both Graph Lab and Photara. The
+production adapter consumes immutable bridge DTOs, preserves package-authored
+SVG icons and accent colors, and commits connection, disconnection, routing,
+and node-position commands only at gesture boundaries. Selection uses the
+authored neutral node fill with a perimeter stroke; camera, overview, catalog,
+and tool-rail choices remain native workspace preferences. This completes the
+first Graph nodes-and-wiring slice; Stage 9 remains open for Gallery, Inspector,
+and Layout refinement.
 
 Real 60 MP Photoshop TIFF testing supersedes part of that first attempt:
 Quick Look exceeded 60 seconds for one 761 MiB 32-bit float LZW TIFF, while the
@@ -691,6 +935,11 @@ compatibility fallbacks. Themes remain client preference state.
   before relying on it for production work.
 - Exercise several real projects and refine workflow, performance, diagnostics,
   recovery, and native interaction.
+- Validate the complete Graph → Gallery → Inspector → Layout workflow with live
+  local and NAS data at realistic scale. A Layout result must be usable output,
+  not only an on-screen worksheet: its resolved plan/artifact must survive
+  save/reopen, expose actionable diagnostics, and be consumable by the explicit
+  `0.2.0` export/delivery boundary selected for the release slice.
 - Document install, backup, update, rollback, crash recovery, and the explicit
   supported contract.
 - Choose release branding only if it is ready; code-name presentation is valid.
@@ -701,6 +950,22 @@ recover safely from interruption without external legacy state.
 
 ## After 0.2.0
 
+- Portable metadata-query expressions and ordinary selection nodes for
+  intersection/AND, union/OR, difference/NOT, XOR, match/join, sort, and group.
+  Add provider query pushdown, incremental/paged result contracts, and the first
+  Core-owned rebuildable per-device metadata index only through concrete large-
+  library vertical slices.
+- Selection-import nodes such as a Pixieset CSV reader, followed by explicit
+  matching against assets from Disk, Lightroom, cloud, or other providers.
+- Gallery viewing of a selected node's visualizable asset output as disposable
+  workspace context, with an explicit whole-project/selected-node scope and
+  disposable metadata-expression filter. Explicit commands remain required to
+  connect, capture, or promote that expression into a Query node.
+- Typed project variables and portable expression references, including a
+  host-resolved project-relative root comparable to `$PROJECT_PATH`. Add them
+  through Core-owned authored state and scoped runtime binding resolution—not
+  Swift string substitution, process environment variables, or serialized
+  absolute paths.
 - Photoshop, Lightroom Classic, Lightroom Desktop/Cloud, Cloudinary, delivery,
   metadata, ML, and other independently installable nodes.
 - Independently branded asset-provider nodes for Dropbox, Google Drive, Box,

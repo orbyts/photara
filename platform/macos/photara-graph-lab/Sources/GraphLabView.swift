@@ -550,48 +550,33 @@ struct GraphLabView: View {
         connectedInputs: Set<Int>,
         connectedOutputs: Set<Int>
     ) -> some View {
-        let glassTreatment = isSelected ? selectedGlassTreatment : idleGlassTreatment
-        return
-            GraphLabNodeSpecimen(
-                title: node.title,
-                subtitle: node.subtitle,
-                presentation: GraphLabFixtures.presentation(for: node.kind),
-                inputs: node.ports(.input),
-                outputs: node.ports(.output),
-                style: nodeStyle(),
-                glassTreatment: nodeSurfaceStyle == .glass ? glassTreatment : nil,
-                flatFillColor: activeColor(\.idleNodeFill) ?? defaultFlatNodeColor,
-                flatStrokeColor: isSelected
-                    ? (activeColor(\.selectedNodeStroke) ?? defaultSelectedStrokeColor)
-                    : nil,
-                flatStrokeWidth: isSelected ? selectedStrokeWidth : 0.5,
-                titleColor: activeColor(\.titleText) ?? defaultTitleTextColor,
-                detailColor: activeColor(\.detailText) ?? defaultDetailTextColor,
-                glassTintColor: isSelected
-                    ? (activeColor(\.selectedGlassTint) ?? theme?.color(.nodeNative) ?? .accentColor)
-                    : (activeColor(\.idleGlassTint) ?? theme?.color(.nodeNative) ?? .accentColor),
-                glassTintOpacity: isSelected ? selectedGlassTintOpacity : idleGlassTintOpacity,
-                glassOpacity: isSelected
-                    ? (appearance == .dark ? darkSelectedGlassOpacity : lightSelectedGlassOpacity)
-                    : (appearance == .dark ? darkIdleGlassOpacity : lightIdleGlassOpacity),
-                portGlassTreatment: portGlassTreatment,
-                portGlassTintColor: activeColor(\.portGlassTint) ?? theme?.color(.borderFocus) ?? .accentColor,
-                portGlassTintOpacity: portGlassTintOpacity,
-                inactivePortCoreBrightness: appearance == .dark ? darkPortCoreBrightness : lightPortCoreBrightness,
-                activePortCoreBrightness: appearance == .dark
-                    ? darkActivePortCoreBrightness
-                    : lightActivePortCoreBrightness,
-                portCoreSize: portCoreSize,
-                inactivePortSaturation: inactivePortSaturation,
-                inactivePortShowsStroke: inactivePortShowsStroke,
-                inactivePortStrokeWidth: inactivePortStrokeWidth,
-                activePortShowsShadow: activePortShowsShadow,
-                activePortShadowOpacity: activePortShadowOpacity,
-                activePortShadowBlur: activePortShadowBlur,
-                activePortShadowOffsetY: activePortShadowOffsetY,
-                connectedInputs: connectedInputs,
-                connectedOutputs: connectedOutputs
-            )
+        PhotaraGraphNodeView(node: node, presentation: GraphLabFixtures.presentation(for: node.kind),
+            selected: isSelected, connectedInputs: connectedInputs, connectedOutputs: connectedOutputs,
+            preset: liveSharedPreset)
+    }
+
+    private var liveSharedPreset: PhotaraGraphPresentationPreset {
+        var value = PhotaraGraphPresentationPreset.fallback
+        value.pattern = pattern; value.gridSpacing = gridSpacing; value.minorOpacity = minorOpacity
+        value.minorLineWidth = minorLineWidth; value.majorInterval = majorInterval
+        value.majorOpacity = majorOpacity; value.majorLineWidth = majorLineWidth
+        value.light = lightColors.sharedPalette; value.dark = darkColors.sharedPalette
+        value.selectedStrokeWidth = selectedStrokeWidth; value.cornerRadius = cornerRadius
+        value.portOffset = portOffset; value.portGlassTintOpacity = portGlassTintOpacity
+        value.portCoreSize = portCoreSize; value.inactivePortSaturation = inactivePortSaturation
+        value.inactivePortShowsStroke = inactivePortShowsStroke; value.inactivePortStrokeWidth = inactivePortStrokeWidth
+        value.activePortShowsShadow = activePortShowsShadow; value.activePortShadowOpacity = activePortShadowOpacity
+        value.activePortShadowBlur = activePortShadowBlur; value.activePortShadowOffsetY = activePortShadowOffsetY
+        value.lightPortCoreBrightness = lightPortCoreBrightness; value.darkPortCoreBrightness = darkPortCoreBrightness
+        value.lightActivePortCoreBrightness = lightActivePortCoreBrightness
+        value.darkActivePortCoreBrightness = darkActivePortCoreBrightness
+        value.nodeShadowBlur = nodeShadowBlur; value.nodeShadowOffsetY = nodeShadowOffsetY
+        value.lightNodeShadowOpacity = lightNodeShadowOpacity; value.darkNodeShadowOpacity = darkNodeShadowOpacity
+        value.overviewSizeFraction = controller.overviewSizeFraction; value.overviewCornerRadius = controller.overviewCornerRadius
+        value.toolRailCornerRadius = toolRailCornerRadius; value.toolRailLightShadowOpacity = toolRailLightShadowOpacity
+        value.toolRailDarkShadowOpacity = toolRailDarkShadowOpacity; value.toolRailShadowBlur = toolRailShadowBlur
+        value.toolRailShadowOffsetY = toolRailShadowOffsetY
+        return value
     }
 
     private var connectionForKnotEditingID: String? {
@@ -733,7 +718,7 @@ struct GraphLabView: View {
         didLoadPreferences = true
         guard let data = UserDefaults.standard.data(forKey: Self.preferencesKey),
               let preferences = try? JSONDecoder().decode(GraphLabSavedPreferences.self, from: data)
-        else { return }
+        else { applyShippedPreset(); return }
 
         appearance = PhotaraThemeAppearance(rawValue: preferences.appearance) ?? appearance
         pattern = PhotaraGraphPattern(rawValue: preferences.pattern) ?? pattern
@@ -796,6 +781,33 @@ struct GraphLabView: View {
         lightNodeShadowOpacity = preferences.lightRestingShadowOpacity ?? preferences.shadowOpacity
         darkNodeShadowOpacity = preferences.darkRestingShadowOpacity ?? preferences.shadowOpacity
         preferencesStatus = "Loaded saved preferences."
+    }
+
+    private func applyShippedPreset() {
+        let preset = PhotaraGraphPresentationPreset.shipped
+        pattern = preset.pattern; gridSpacing = preset.gridSpacing; minorOpacity = preset.minorOpacity
+        minorLineWidth = preset.minorLineWidth; majorInterval = preset.majorInterval
+        majorOpacity = preset.majorOpacity; majorLineWidth = preset.majorLineWidth
+        lightColors = .init(preset.light); darkColors = .init(preset.dark)
+        selectedStrokeWidth = preset.selectedStrokeWidth; cornerRadius = preset.cornerRadius
+        portOffset = preset.portOffset; portGlassTintOpacity = preset.portGlassTintOpacity
+        portCoreSize = preset.portCoreSize; inactivePortSaturation = preset.inactivePortSaturation
+        inactivePortShowsStroke = preset.inactivePortShowsStroke
+        inactivePortStrokeWidth = preset.inactivePortStrokeWidth
+        activePortShowsShadow = preset.activePortShowsShadow
+        activePortShadowOpacity = preset.activePortShadowOpacity
+        activePortShadowBlur = preset.activePortShadowBlur
+        activePortShadowOffsetY = preset.activePortShadowOffsetY
+        lightPortCoreBrightness = preset.lightPortCoreBrightness
+        darkPortCoreBrightness = preset.darkPortCoreBrightness
+        lightActivePortCoreBrightness = preset.lightActivePortCoreBrightness
+        darkActivePortCoreBrightness = preset.darkActivePortCoreBrightness
+        nodeShadowBlur = preset.nodeShadowBlur; nodeShadowOffsetY = preset.nodeShadowOffsetY
+        lightNodeShadowOpacity = preset.lightNodeShadowOpacity
+        darkNodeShadowOpacity = preset.darkNodeShadowOpacity
+        controller.overviewSizeFraction = preset.overviewSizeFraction
+        controller.overviewCornerRadius = preset.overviewCornerRadius
+        preferencesStatus = "Loaded shipped graph preset."
     }
 
     private func loadSavedColors(_ preferences: GraphLabSavedPreferences) {
@@ -990,6 +1002,40 @@ struct GraphLabAppearanceColors {
     var portGlassTint: Color?
     var titleText: Color?
     var detailText: Color?
+
+    init(graphBackground: Color? = nil, minor: Color? = nil, major: Color? = nil,
+         noodle: Color? = nil, idleNodeFill: Color? = nil, selectedNodeFill: Color? = nil,
+         selectedNodeStroke: Color? = nil, idleGlassTint: Color? = nil,
+         selectedGlassTint: Color? = nil, portGlassTint: Color? = nil,
+         titleText: Color? = nil, detailText: Color? = nil) {
+        self.graphBackground = graphBackground; self.minor = minor; self.major = major
+        self.noodle = noodle; self.idleNodeFill = idleNodeFill; self.selectedNodeFill = selectedNodeFill
+        self.selectedNodeStroke = selectedNodeStroke; self.idleGlassTint = idleGlassTint
+        self.selectedGlassTint = selectedGlassTint; self.portGlassTint = portGlassTint
+        self.titleText = titleText; self.detailText = detailText
+    }
+    init(_ palette: PhotaraGraphPalettePreset) {
+        graphBackground = palette.graphBackground?.color; minor = palette.minor?.color
+        major = palette.major?.color; noodle = palette.noodle?.color
+        idleNodeFill = palette.idleNodeFill?.color; selectedNodeFill = palette.selectedNodeFill?.color
+        selectedNodeStroke = palette.selectedNodeStroke?.color; portGlassTint = palette.portGlassTint?.color
+        titleText = palette.titleText?.color; detailText = palette.detailText?.color
+    }
+
+    var sharedPalette: PhotaraGraphPalettePreset {
+        .init(graphBackground: graphBackground.graphValue, minor: minor.graphValue, major: major.graphValue,
+              noodle: noodle.graphValue, idleNodeFill: idleNodeFill.graphValue,
+              selectedNodeFill: selectedNodeFill.graphValue, selectedNodeStroke: selectedNodeStroke.graphValue,
+              portGlassTint: portGlassTint.graphValue, titleText: titleText.graphValue, detailText: detailText.graphValue)
+    }
+}
+
+private extension Optional where Wrapped == Color {
+    var graphValue: PhotaraGraphColorValue? {
+        guard let self, let color = NSColor(self).usingColorSpace(.sRGB) else { return nil }
+        return .init(red: color.redComponent, green: color.greenComponent,
+                     blue: color.blueComponent, opacity: color.alphaComponent)
+    }
 }
 
 struct GraphLabSavedPalette: Codable {
@@ -1057,245 +1103,5 @@ struct GraphLabSavedColor: Codable {
 
     var color: Color {
         Color(.sRGB, red: red, green: green, blue: blue, opacity: opacity)
-    }
-}
-
-private struct GraphLabNodeSpecimen: View {
-    @Environment(\.photaraTheme) private var theme
-    @Environment(\.photaraGraphPresentationZoom) private var zoom
-    let title: String
-    let subtitle: String
-    let presentation: PhotaraGraphNodePresentationMetadata
-    let inputs: [PhotaraGraphPortDefinition]
-    let outputs: [PhotaraGraphPortDefinition]
-    let style: PhotaraGraphNodeStyle
-    let glassTreatment: PhotaraGraphGlassTreatment?
-    let flatFillColor: Color
-    let flatStrokeColor: Color?
-    let flatStrokeWidth: Double
-    let titleColor: Color
-    let detailColor: Color
-    let glassTintColor: Color
-    let glassTintOpacity: Double
-    let glassOpacity: Double
-    let portGlassTreatment: PhotaraGraphGlassTreatment
-    let portGlassTintColor: Color
-    let portGlassTintOpacity: Double
-    let inactivePortCoreBrightness: Double
-    let activePortCoreBrightness: Double
-    let portCoreSize: Double
-    let inactivePortSaturation: Double
-    let inactivePortShowsStroke: Bool
-    let inactivePortStrokeWidth: Double
-    let activePortShowsShadow: Bool
-    let activePortShadowOpacity: Double
-    let activePortShadowBlur: Double
-    let activePortShadowOffsetY: Double
-    let connectedInputs: Set<Int>
-    let connectedOutputs: Set<Int>
-    private var width: CGFloat { PhotaraGraphGeometry.nodeWidth * zoom }
-    private var rowCount: Int { max(1, max(inputs.count, outputs.count)) }
-    private var height: CGFloat {
-        (74 + CGFloat(rowCount) * PhotaraGraphGeometry.rowHeight) * zoom
-    }
-
-    private var scaledStyle: PhotaraGraphNodeStyle {
-        PhotaraGraphNodeStyle(
-            cornerRadius: style.cornerRadius * zoom,
-            portShape: style.portShape,
-            portOffset: style.portOffset * zoom,
-            shadowBlur: style.shadowBlur * zoom,
-            shadowOpacity: style.shadowOpacity,
-            shadowOffsetY: style.shadowOffsetY * zoom
-        )
-    }
-
-    var body: some View {
-        PhotaraGraphNodeSurface(
-            style: scaledStyle,
-            glassTreatment: glassTreatment,
-            glassTint: glassTintColor.opacity(glassTintOpacity),
-            glassOpacity: glassOpacity,
-            flatFill: flatFillColor,
-            flatStroke: flatStrokeColor,
-            flatStrokeWidth: flatStrokeWidth * zoom
-        ) {
-            VStack(spacing: 0) {
-                HStack(spacing: 9 * zoom) {
-                    PhotaraGraphNodeIcon(
-                        resource: presentation.iconResource,
-                        color: presentation.category.color,
-                        size: 28 * zoom
-                    )
-                    .frame(width: 32 * zoom, height: 32 * zoom)
-
-                    VStack(alignment: .leading, spacing: 1 * zoom) {
-                        Text(title)
-                            .font(.system(size: 13 * zoom, weight: .semibold))
-                            .foregroundStyle(titleColor)
-                        Text(subtitle)
-                            .font(.system(size: 11 * zoom))
-                            .foregroundStyle(detailColor)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14 * zoom)
-                .padding(.vertical, 10 * zoom)
-                Divider()
-                HStack(alignment: .top) {
-                    labelColumn(inputs, alignment: .leading)
-                    Spacer(minLength: 16 * zoom)
-                    labelColumn(outputs, alignment: .trailing)
-                }
-                .padding(.horizontal, 14 * zoom)
-                .padding(.vertical, 8 * zoom)
-            }
-            .frame(width: width, height: height, alignment: .top)
-            .clipShape(RoundedRectangle(cornerRadius: style.cornerRadius * zoom, style: .continuous))
-        } ports: {
-            GeometryReader { geometry in
-                ZStack {
-                    GlassEffectContainer(spacing: 0) {
-                        ForEach(0..<inputs.count, id: \.self) { index in
-                            portShell(label: inputs[index].label, at: index, isConnected: connectedInputs.contains(index))
-                                .position(x: -style.portOffset * zoom, y: portY(index))
-                        }
-                        ForEach(0..<outputs.count, id: \.self) { index in
-                            portShell(label: outputs[index].label, at: index, isConnected: connectedOutputs.contains(index))
-                                .position(x: geometry.size.width + style.portOffset * zoom, y: portY(index))
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                    ForEach(0..<inputs.count, id: \.self) { index in
-                        portCore(
-                            label: inputs[index].label,
-                            edge: .leading,
-                            at: index,
-                            isConnected: connectedInputs.contains(index)
-                        )
-                            .position(x: -style.portOffset * zoom, y: portY(index))
-                    }
-                    ForEach(0..<outputs.count, id: \.self) { index in
-                        portCore(
-                            label: outputs[index].label,
-                            edge: .trailing,
-                            at: index,
-                            isConnected: connectedOutputs.contains(index)
-                        )
-                            .position(x: geometry.size.width + style.portOffset * zoom, y: portY(index))
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-        .frame(width: width, height: height)
-        .contentShape(RoundedRectangle(cornerRadius: style.cornerRadius * zoom, style: .continuous))
-    }
-
-    private func labelColumn(_ ports: [PhotaraGraphPortDefinition], alignment: HorizontalAlignment) -> some View {
-        VStack(alignment: alignment, spacing: 0) {
-            ForEach(ports) { port in
-                Text(port.label)
-                    .font(.system(size: 10.5 * zoom))
-                    .foregroundStyle(detailColor)
-                    .frame(height: PhotaraGraphGeometry.rowHeight * zoom)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func portShell(label: String, at index: Int, isConnected: Bool) -> some View {
-        Group {
-            if isConnected {
-                PhotaraGraphPort(
-                    shape: style.portShape,
-                    width: 14 * zoom,
-                    height: 14 * zoom,
-                    glassTreatment: portGlassTreatment,
-                    glassTint: portGlassTintColor.opacity(portGlassTintOpacity),
-                    coreColor: semanticPortColor(for: label),
-                    coreBrightness: activePortCoreBrightness,
-                    showsCore: false
-                )
-                .shadow(
-                    color: semanticPortColor(for: label).opacity(
-                        activePortShowsShadow ? activePortShadowOpacity : 0
-                    ),
-                    radius: activePortShowsShadow ? activePortShadowBlur * zoom : 0,
-                    y: activePortShowsShadow ? activePortShadowOffsetY * zoom : 0
-                )
-            } else {
-                Color.clear
-                    .frame(width: (style.portShape == .pill ? 21.7 : 14) * zoom, height: 14 * zoom)
-                    .contentShape(Rectangle().inset(by: -6 * zoom))
-            }
-        }
-        .accessibilityHidden(true)
-    }
-
-    @ViewBuilder
-    private func portCore(
-        label: String,
-        edge: PhotaraGraphNodeEdge,
-        at index: Int,
-        isConnected: Bool
-    ) -> some View {
-        let color = semanticPortColor(for: label)
-        Group {
-            if isConnected {
-                portShape
-                    .fill(color)
-                    .brightness(activePortCoreBrightness)
-                    .frame(width: portCoreWidth * zoom, height: portCoreSize * zoom)
-                    .allowedDynamicRange(.standard)
-            } else {
-                ZStack {
-                    portShape.fill(color)
-                    if inactivePortShowsStroke {
-                        portShape.stroke(color, lineWidth: inactivePortStrokeWidth * zoom)
-                    }
-                }
-                .saturation(inactivePortSaturation)
-                .brightness(inactivePortCoreBrightness)
-                .frame(width: portCoreWidth * zoom, height: portCoreSize * zoom)
-                .allowedDynamicRange(.standard)
-            }
-        }
-        .frame(width: 36 * zoom, height: 22 * zoom)
-        .contentShape(Rectangle())
-        .accessibilityLabel("\(label) port \(index + 1)")
-        .accessibilityValue(isConnected ? "Connected" : "Not connected")
-        .accessibilityHint("Drag to create or reconnect a noodle")
-    }
-
-    private var portCoreWidth: CGFloat {
-        style.portShape == .pill ? portCoreSize * 1.55 : portCoreSize
-    }
-
-    private var portShape: AnyShape {
-        switch style.portShape {
-        case .round: AnyShape(Circle())
-        case .pill: AnyShape(Capsule())
-        }
-    }
-
-    private func semanticPortColor(for label: String) -> Color {
-        switch label {
-        case "Control":
-            theme?.color(.nodeAutomation) ?? .purple
-        case "Mask", "Depth":
-            theme?.color(.nodeCompute) ?? .orange
-        case "Metadata":
-            theme?.color(.nodeIntegration) ?? .green
-        case "Preview":
-            theme?.color(.nodeCreative) ?? .pink
-        default:
-            theme?.color(.nodeIO) ?? .blue
-        }
-    }
-
-    private func portY(_ index: Int) -> CGFloat {
-        (PhotaraGraphGeometry.firstPortY + CGFloat(index) * PhotaraGraphGeometry.rowHeight) * zoom
     }
 }

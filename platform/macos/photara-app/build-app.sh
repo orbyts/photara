@@ -19,8 +19,12 @@ PROXY_HELPER="$MACOS/photara-proxy-imageio"
 
 mkdir -p "$GENERATED_ROOT" "$MODULE_CACHE" "$MACOS" "$FRAMEWORKS" "$RESOURCES"
 cp -p "$SCRIPT_ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
+cp -p "$REPOSITORY_ROOT/platform/macos/photara-gallery/Resources/photara-gallery-presentation-v1.json" "$RESOURCES/"
 mkdir -p "$RESOURCES/Themes"
 cp -p "$THEME_ROOT/Resources/photara-default.json" "$RESOURCES/Themes/photara-default.json"
+cp -p "$REPOSITORY_ROOT/platform/macos/photara-graph/Resources/photara-graph-presentation-v1.json" "$RESOURCES/photara-graph-presentation-v1.json"
+ditto "$REPOSITORY_ROOT/platform/macos/photara-graph/Resources/NodeIcons" "$RESOURCES/NodeIcons"
+ditto "$REPOSITORY_ROOT/platform/macos/photara-graph/Resources/ToolIcons" "$RESOURCES/ToolIcons"
 
 swift build \
   --package-path "$REPOSITORY_ROOT/platform/macos/photara-proxy-imageio" \
@@ -43,19 +47,21 @@ CARGO_TARGET_DIR="$RUST_TARGET" cargo run \
 
 cp -p "$RUST_TARGET/debug/libphotara_bridge.dylib" "$FRAMEWORKS/libphotara_bridge.dylib"
 
+source "$REPOSITORY_ROOT/platform/macos/shared-ui-sources.sh"
+
 xcrun swiftc \
   -swift-version 6 \
   -parse-as-library \
   -module-cache-path "$MODULE_CACHE" \
   "$GENERATED_ROOT/PhotaraBridge.swift" \
-  "$THEME_ROOT/Sources/PhotaraTheme.swift" \
-  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphPresentation.swift" \
+  "${SHARED_UI_SOURCES[@]}" \
+  "$SCRIPT_ROOT"/Sources/AppModel*.swift \
   "$SCRIPT_ROOT/Sources/GalleryPresentationState.swift" \
-  "$SCRIPT_ROOT/Sources/ThemeStore.swift" \
-  "$SCRIPT_ROOT/Sources/AppModel.swift" \
-  "$SCRIPT_ROOT/Sources/AppModel+Gallery.swift" \
-  "$SCRIPT_ROOT/Sources/WorkspaceModel.swift" \
-  "$SCRIPT_ROOT/Sources/GalleryView.swift" \
+  "$SCRIPT_ROOT/Sources/ProductionGalleryView.swift" \
+  "$SCRIPT_ROOT/Sources/GraphAdapter.swift" \
+  "$SCRIPT_ROOT/Sources/ProductionGraphView.swift" \
+  "$SCRIPT_ROOT/Sources/InspectionAdapter.swift" \
+  "$SCRIPT_ROOT/Sources/ApplicationAdapter.swift" \
   "$SCRIPT_ROOT/Sources/WorkspaceView.swift" \
   "$SCRIPT_ROOT/Sources/PhotaraMacApp.swift" \
   -Xcc "-fmodule-map-file=$GENERATED_ROOT/PhotaraBridgeFFI.modulemap" \
@@ -76,8 +82,13 @@ install_name_tool \
   -id "@rpath/libphotara_bridge.dylib" \
   "$FRAMEWORKS/libphotara_bridge.dylib"
 
+# Cloud-backed working directories may attach Finder/resource-fork metadata to
+# generated bundle contents. That metadata is not part of the product and makes
+# codesign reject an otherwise valid development build.
+xattr -cr "$APP_BUNDLE"
 codesign --force --sign - "$PROXY_HELPER"
 codesign --force --sign - "$FRAMEWORKS/libphotara_bridge.dylib"
+xattr -cr "$APP_BUNDLE"
 codesign --force --deep --sign - "$APP_BUNDLE"
 
 print -r -- "$APP_BUNDLE"

@@ -11,12 +11,12 @@ use photara_asset_set_node::{AssetSetNodePackage, AssetSetNodeRuntime, asset_set
 use photara_core::{
     AssetId, AssetSet, CommandId, Connection, ConnectionId, DefinitionResolver, Diagnostic,
     DiagnosticSeverity, GraphCommand, GraphCommandEnvelope, GraphDocument, GraphId,
-    NodeDefinitionRef, NodeInstance, NodeInstanceId, PackageRequirement, PortDirection,
-    PortEndpoint, PortId, ProjectAsset, ProjectCommand, ProjectCommandEnvelope, ProjectDocument,
-    ProjectId, ProjectRelativePath, REPRESENTATION_FORMAT_EXTENSION_KEY, RepresentationBinding,
-    RepresentationDescriptor, RepresentationRevisionEvidence, RepresentationStorageBindingId,
-    RequestId, SchemaValue, ValueTypeRegistry, apply_graph_command, apply_project_command,
-    asset_set_value_type_descriptor, canonical_digest,
+    GraphRoutingPoint, NodeDefinitionRef, NodeInstance, NodeInstanceId, PackageRequirement,
+    PortDirection, PortEndpoint, PortId, ProjectAsset, ProjectCommand, ProjectCommandEnvelope,
+    ProjectDocument, ProjectId, ProjectRelativePath, REPRESENTATION_FORMAT_EXTENSION_KEY,
+    RepresentationBinding, RepresentationDescriptor, RepresentationRevisionEvidence,
+    RepresentationStorageBindingId, RequestId, SchemaValue, ValueTypeRegistry, apply_graph_command,
+    apply_project_command, asset_set_value_type_descriptor, canonical_digest,
 };
 use photara_disk_node::{
     DiskFolderProvider, DiskFolderState, DiskNodePackage, DiskNodeRuntime, DiskRevisionMode,
@@ -88,6 +88,10 @@ pub struct BridgeConnectionDto {
     pub output_port_id: String,
     pub input_node_id: String,
     pub input_port_id: String,
+    pub routing_id: Option<String>,
+    pub routing_x: Option<i64>,
+    pub routing_y: Option<i64>,
+    pub routing_is_junction: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, uniffi::Enum)]
@@ -105,6 +109,7 @@ pub struct BridgeInspectionFieldDto {
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
 pub struct BridgePortInspectionDto {
     pub port_id: String,
+    pub display_name: String,
     pub direction: BridgePortDirection,
     pub value_type_id: String,
     pub value_type_version: u32,
@@ -116,6 +121,8 @@ pub struct BridgePortInspectionDto {
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
 pub struct BridgeNodeDto {
     pub node_id: String,
+    pub graph_x: i64,
+    pub graph_y: i64,
     pub display_name: String,
     pub package_id: String,
     pub package_version: String,
@@ -769,7 +776,7 @@ impl PhotaraApplication {
 }
 
 #[derive(Clone)]
-struct LayoutUndoEntry {
+struct GraphUndoEntry {
     undo: GraphCommand,
     redo: GraphCommand,
 }
@@ -782,8 +789,8 @@ struct PreparedLayoutEdit {
 struct ProjectSessionState {
     project: ProjectDocument,
     dirty: bool,
-    undo: Vec<LayoutUndoEntry>,
-    redo: Vec<LayoutUndoEntry>,
+    undo: Vec<GraphUndoEntry>,
+    redo: Vec<GraphUndoEntry>,
 }
 
 #[derive(uniffi::Object)]
@@ -1845,6 +1852,340 @@ impl PhotaraProject {
         )
     }
 
+    /// Atomically creates, replaces, or rewires one connection at a gesture boundary.
+    #[allow(
+        clippy::too_many_arguments,
+        clippy::too_many_lines,
+        clippy::needless_pass_by_value
+    )]
+    pub fn commit_graph_connection(
+        &self,
+        expected_graph_revision: u64,
+        output_node_id: String,
+        output_port_id: String,
+        input_node_id: String,
+        input_port_id: String,
+        replacing_connection_id: Option<String>,
+        routing_id: Option<String>,
+        routing_x: Option<i64>,
+        routing_y: Option<i64>,
+        routing_is_junction: bool,
+    ) -> BridgeCommandResponseDto {
+        let command_id = CommandId::new();
+        let parsed = (
+            parse_uuid_id(&output_node_id, "output node ID"),
+            PortId::parse(output_port_id),
+            parse_uuid_id(&input_node_id, "input node ID"),
+            PortId::parse(input_port_id),
+        );
+        let (Ok(output_node_id), Ok(output_port_id), Ok(input_node_id), Ok(input_port_id)) = parsed
+        else {
+            return rejected_command(
+                command_id,
+                expected_graph_revision,
+                "photara.bridge.invalid-connection",
+                "connection contains an invalid node or port identity".to_owned(),
+            );
+        };
+        let replacement = match replacing_connection_id.as_deref() {
+            Some(value) => match parse_uuid_id(value, "connection ID") {
+                Ok(id) => Some(id),
+                Err(error) => {
+                    return rejected_command(
+                        command_id,
+                        expected_graph_revision,
+                        "photara.bridge.invalid-connection",
+                        error.to_string(),
+                    );
+                }
+            },
+            None => None,
+        };
+        let (removed, exact) = match self.lock_state() {
+            Ok(state) => {
+                let exact = state
+                    .project
+                    .graph
+                    .connections
+                    .iter()
+                    .find(|edge| {
+                        edge.output.node_id == output_node_id
+                            && edge.output.port_id == output_port_id
+                            && edge.input.node_id == input_node_id
+                            && edge.input.port_id == input_port_id
+                    })
+                    .cloned();
+                let removed = state
+                    .project
+                    .graph
+                    .connections
+                    .iter()
+                    .filter(|edge| {
+                        Some(edge.id) == replacement
+                            || (edge.input.node_id == input_node_id
+                                && edge.input.port_id == input_port_id)
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                (removed, exact)
+            }
+            Err(error) => {
+                return rejected_command(
+                    command_id,
+                    expected_graph_revision,
+                    "photara.bridge.lock-poisoned",
+                    error.to_string(),
+                );
+            }
+        };
+        if exact.is_some() && replacement.is_none() {
+            return match self.snapshot() {
+                Ok(snapshot) => BridgeCommandResponseDto {
+                    command_id: command_id.to_string(),
+                    applied: true,
+                    previous_graph_revision: expected_graph_revision,
+                    snapshot: Some(snapshot),
+                    error: None,
+                },
+                Err(error) => rejected_command(
+                    command_id,
+                    expected_graph_revision,
+                    "photara.bridge.snapshot-failed",
+                    error.to_string(),
+                ),
+            };
+        }
+        let connection_id = replacement.unwrap_or_else(ConnectionId::new);
+        let connection = Connection {
+            id: connection_id,
+            output: PortEndpoint {
+                node_id: output_node_id,
+                port_id: output_port_id,
+            },
+            input: PortEndpoint {
+                node_id: input_node_id,
+                port_id: input_port_id,
+            },
+            extensions: BTreeMap::new(),
+        };
+        let mut forward = Vec::new();
+        if !removed.is_empty() {
+            forward.push(GraphCommand::Disconnect {
+                connection_ids: removed.iter().map(|edge| edge.id).collect(),
+            });
+        }
+        forward.push(GraphCommand::Connect {
+            connection: connection.clone(),
+        });
+        if let (Some(id), Some(x), Some(y)) = (routing_id, routing_x, routing_y) {
+            forward.push(GraphCommand::SetConnectionRouting {
+                connection_id,
+                routing: Some(GraphRoutingPoint {
+                    id,
+                    x,
+                    y,
+                    is_junction: routing_is_junction,
+                }),
+            });
+        }
+        let mut reverse = vec![GraphCommand::Disconnect {
+            connection_ids: vec![connection_id],
+        }];
+        reverse.extend(
+            removed
+                .into_iter()
+                .map(|connection| GraphCommand::Connect { connection }),
+        );
+        self.apply_graph_edit_with_history(
+            command_id,
+            expected_graph_revision,
+            GraphCommand::Batch { commands: forward },
+            GraphCommand::Batch { commands: reverse },
+        )
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn disconnect_graph_connections(
+        &self,
+        expected_graph_revision: u64,
+        connection_ids: Vec<String>,
+    ) -> BridgeCommandResponseDto {
+        let command_id = CommandId::new();
+        let parsed = connection_ids
+            .iter()
+            .map(|id| parse_uuid_id(id, "connection ID"))
+            .collect::<Result<Vec<ConnectionId>, _>>();
+        let Ok(ids) = parsed else {
+            return rejected_command(
+                command_id,
+                expected_graph_revision,
+                "photara.bridge.invalid-connection",
+                "disconnect contains an invalid connection identity".to_owned(),
+            );
+        };
+        let removed = match self.lock_state() {
+            Ok(state) => state
+                .project
+                .graph
+                .connections
+                .iter()
+                .filter(|edge| ids.contains(&edge.id))
+                .cloned()
+                .collect::<Vec<_>>(),
+            Err(error) => {
+                return rejected_command(
+                    command_id,
+                    expected_graph_revision,
+                    "photara.bridge.lock-poisoned",
+                    error.to_string(),
+                );
+            }
+        };
+        let reverse = GraphCommand::Batch {
+            commands: removed
+                .into_iter()
+                .map(|connection| GraphCommand::Connect { connection })
+                .collect(),
+        };
+        self.apply_graph_edit_with_history(
+            command_id,
+            expected_graph_revision,
+            GraphCommand::Disconnect {
+                connection_ids: ids,
+            },
+            reverse,
+        )
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn set_graph_node_position(
+        &self,
+        expected_graph_revision: u64,
+        node_id: String,
+        x: i64,
+        y: i64,
+    ) -> BridgeCommandResponseDto {
+        let command_id = CommandId::new();
+        let Ok(node_id) = parse_uuid_id(&node_id, "node ID") else {
+            return rejected_command(
+                command_id,
+                expected_graph_revision,
+                "photara.bridge.invalid-node",
+                "invalid node identity".to_owned(),
+            );
+        };
+        let old = match self.lock_state() {
+            Ok(state) => state
+                .project
+                .graph
+                .nodes
+                .iter()
+                .enumerate()
+                .find(|(_, node)| node.id == node_id)
+                .map_or((x, y), |(index, node)| {
+                    node.extensions
+                        .get("photara.graph-position")
+                        .and_then(|value| {
+                            Some((value.get("x")?.as_i64()?, value.get("y")?.as_i64()?))
+                        })
+                        .unwrap_or((
+                            if index.is_multiple_of(2) {
+                                -220_000
+                            } else {
+                                220_000
+                            },
+                            i64::try_from(index / 2).unwrap_or(i64::MAX / 180_000) * 180_000,
+                        ))
+                }),
+            Err(error) => {
+                return rejected_command(
+                    command_id,
+                    expected_graph_revision,
+                    "photara.bridge.lock-poisoned",
+                    error.to_string(),
+                );
+            }
+        };
+        self.apply_graph_edit_with_history(
+            command_id,
+            expected_graph_revision,
+            GraphCommand::SetNodePosition { node_id, x, y },
+            GraphCommand::SetNodePosition {
+                node_id,
+                x: old.0,
+                y: old.1,
+            },
+        )
+    }
+
+    #[allow(clippy::too_many_arguments, clippy::needless_pass_by_value)]
+    pub fn set_graph_connection_routing(
+        &self,
+        expected_graph_revision: u64,
+        connection_id: String,
+        routing_id: Option<String>,
+        routing_x: Option<i64>,
+        routing_y: Option<i64>,
+        routing_is_junction: bool,
+    ) -> BridgeCommandResponseDto {
+        let command_id = CommandId::new();
+        let Ok(connection_id) = parse_uuid_id(&connection_id, "connection ID") else {
+            return rejected_command(
+                command_id,
+                expected_graph_revision,
+                "photara.bridge.invalid-connection",
+                "invalid connection identity".to_owned(),
+            );
+        };
+        let routing = match (routing_id, routing_x, routing_y) {
+            (Some(id), Some(x), Some(y)) => Some(GraphRoutingPoint {
+                id,
+                x,
+                y,
+                is_junction: routing_is_junction,
+            }),
+            (None, None, None) => None,
+            _ => {
+                return rejected_command(
+                    command_id,
+                    expected_graph_revision,
+                    "photara.bridge.invalid-routing",
+                    "routing requires an id and both coordinates".to_owned(),
+                );
+            }
+        };
+        let old = match self.lock_state() {
+            Ok(state) => state
+                .project
+                .graph
+                .connections
+                .iter()
+                .find(|edge| edge.id == connection_id)
+                .and_then(|edge| edge.extensions.get("photara.graph-routing"))
+                .and_then(|value| serde_json::from_value::<GraphRoutingPoint>(value.clone()).ok()),
+            Err(error) => {
+                return rejected_command(
+                    command_id,
+                    expected_graph_revision,
+                    "photara.bridge.lock-poisoned",
+                    error.to_string(),
+                );
+            }
+        };
+        self.apply_graph_edit_with_history(
+            command_id,
+            expected_graph_revision,
+            GraphCommand::SetConnectionRouting {
+                connection_id,
+                routing,
+            },
+            GraphCommand::SetConnectionRouting {
+                connection_id,
+                routing: old,
+            },
+        )
+    }
+
     /// Returns a leased, verified shared SDR thumbnail for one project asset.
     ///
     /// # Errors
@@ -2129,6 +2470,27 @@ impl PhotaraProject {
                 )),
             },
         }
+    }
+
+    fn apply_graph_edit_with_history(
+        &self,
+        command_id: CommandId,
+        expected_graph_revision: u64,
+        forward: GraphCommand,
+        reverse: GraphCommand,
+    ) -> BridgeCommandResponseDto {
+        let response =
+            self.apply_core_command(command_id, expected_graph_revision, forward.clone());
+        if response.applied
+            && let Ok(mut state) = self.lock_state()
+        {
+            state.undo.push(GraphUndoEntry {
+                undo: reverse,
+                redo: forward,
+            });
+            state.redo.clear();
+        }
+        response
     }
 
     #[allow(clippy::too_many_lines)]
@@ -2439,7 +2801,7 @@ impl PhotaraProject {
         if response.applied
             && let Ok(mut state) = self.lock_state()
         {
-            state.undo.push(LayoutUndoEntry {
+            state.undo.push(GraphUndoEntry {
                 undo: prepared.reverse,
                 redo: prepared.forward,
             });
@@ -2526,7 +2888,10 @@ fn project_snapshot(
         .graph
         .nodes
         .iter()
-        .map(|node| node_snapshot(node, &state.project, definitions, &mut diagnostics))
+        .enumerate()
+        .map(|(index, node)| {
+            node_snapshot(node, index, &state.project, definitions, &mut diagnostics)
+        })
         .collect();
     Ok(BridgeProjectSnapshotDto {
         project_id: state.project.project_id.to_string(),
@@ -2541,12 +2906,25 @@ fn project_snapshot(
                 .graph
                 .connections
                 .iter()
-                .map(|connection| BridgeConnectionDto {
-                    connection_id: connection.id.to_string(),
-                    output_node_id: connection.output.node_id.to_string(),
-                    output_port_id: connection.output.port_id.to_string(),
-                    input_node_id: connection.input.node_id.to_string(),
-                    input_port_id: connection.input.port_id.to_string(),
+                .map(|connection| {
+                    let routing =
+                        connection
+                            .extensions
+                            .get("photara.graph-routing")
+                            .and_then(|value| {
+                                serde_json::from_value::<GraphRoutingPoint>(value.clone()).ok()
+                            });
+                    BridgeConnectionDto {
+                        connection_id: connection.id.to_string(),
+                        output_node_id: connection.output.node_id.to_string(),
+                        output_port_id: connection.output.port_id.to_string(),
+                        input_node_id: connection.input.node_id.to_string(),
+                        input_port_id: connection.input.port_id.to_string(),
+                        routing_id: routing.as_ref().map(|value| value.id.clone()),
+                        routing_x: routing.as_ref().map(|value| value.x),
+                        routing_y: routing.as_ref().map(|value| value.y),
+                        routing_is_junction: routing.is_some_and(|value| value.is_junction),
+                    }
                 })
                 .collect(),
         },
@@ -2615,10 +2993,22 @@ fn representation_format_label(representation: &RepresentationDescriptor) -> Opt
 
 fn node_snapshot(
     node: &NodeInstance,
+    index: usize,
     project: &ProjectDocument,
     definitions: &NodePackageRegistry,
     project_diagnostics: &mut Vec<BridgeDiagnosticDto>,
 ) -> BridgeNodeDto {
+    let default_x = if index.is_multiple_of(2) {
+        -220_000
+    } else {
+        220_000
+    };
+    let default_y = i64::try_from(index / 2).unwrap_or(i64::MAX / 180_000) * 180_000;
+    let (graph_x, graph_y) = node
+        .extensions
+        .get("photara.graph-position")
+        .and_then(|value| Some((value.get("x")?.as_i64()?, value.get("y")?.as_i64()?)))
+        .unwrap_or((default_x, default_y));
     let definition = definitions.resolve(&node.definition);
     let display_name = definition.map_or_else(
         || node.definition.definition_id.to_string(),
@@ -2651,6 +3041,8 @@ fn node_snapshot(
     project_diagnostics.extend(diagnostics.iter().cloned());
     BridgeNodeDto {
         node_id: node.id.to_string(),
+        graph_x,
+        graph_y,
         display_name,
         package_id: node.definition.package_id.to_string(),
         package_version: node.definition.package_version.to_string(),
@@ -2767,6 +3159,18 @@ fn node_port_inspections(
             });
             BridgePortInspectionDto {
                 port_id: port.id.to_string(),
+                display_name: port
+                    .id
+                    .as_str()
+                    .split(['-', '_'])
+                    .map(|part| {
+                        let mut chars = part.chars();
+                        chars.next().map_or_else(String::new, |first| {
+                            first.to_uppercase().collect::<String>() + chars.as_str()
+                        })
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" "),
                 direction: match port.direction {
                     PortDirection::Input => BridgePortDirection::Input,
                     PortDirection::Output => BridgePortDirection::Output,

@@ -5,6 +5,7 @@ struct ThemeLabView: View {
     @EnvironmentObject private var previewApp: AppModel
     @EnvironmentObject private var previewWorkspace: WorkspaceModel
     @State private var showsRoleDetails = true
+    @State private var previewSurface = ThemeLabPreviewSurface.glass
 
     var body: some View {
         NavigationSplitView {
@@ -14,6 +15,13 @@ struct ThemeLabView: View {
             productionPreview
         }
         .toolbar {
+            Picker("Preview", selection: $previewSurface) {
+                ForEach(ThemeLabPreviewSurface.allCases) { surface in
+                    Text(surface.title).tag(surface)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 220)
             Picker("Appearance", selection: $model.appearance) {
                 Text("Light").tag(PhotaraThemeAppearance.light)
                 Text("Dark").tag(PhotaraThemeAppearance.dark)
@@ -96,13 +104,20 @@ struct ThemeLabView: View {
 
     private var productionPreview: some View {
         let theme = model.resolved
-        return WorkspaceView()
-            .environment(\.photaraTheme, theme)
-            .tint(theme.color(.borderFocus))
-            .preferredColorScheme(model.appearance == .dark ? .dark : .light)
-            .task {
-                prepareLayoutFixture()
+        return Group {
+            switch previewSurface {
+            case .glass:
+                GlassTestScene(theme: theme)
+            case .production:
+                WorkspaceView()
+                    .task {
+                        prepareLayoutFixture()
+                    }
             }
+        }
+        .environment(\.photaraTheme, theme)
+        .tint(theme.color(.borderFocus))
+        .preferredColorScheme(model.appearance == .dark ? .dark : .light)
     }
 
     private func prepareLayoutFixture() {
@@ -140,6 +155,20 @@ struct ThemeLabView: View {
     }
 }
 
+private enum ThemeLabPreviewSurface: String, CaseIterable, Identifiable {
+    case glass
+    case production
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .glass: "Glass Test Scene"
+        case .production: "Production UI"
+        }
+    }
+}
+
 private enum ThemeLabCoverage {
     case live
     case partial
@@ -171,7 +200,7 @@ private extension PhotaraThemeRole {
         case .selectionForeground: "Content displayed on selection fill"
         case .graphBackground: "Graph canvas"
         case .graphGrid: "Graph canvas dot grid"
-        case .graphNode: "Graph node Reduce Transparency fallback and overview body"
+        case .graphNode: "Opaque/Reduce Transparency Graph-node fallback only; native glass has no fill slot"
         case .graphNodeSelected: "Selected Graph node outline"
         case .galleryBackground: "Assets Gallery panel"
         case .galleryCell: "Square Gallery cells and unloaded thumbnail wells"
@@ -194,20 +223,21 @@ private extension PhotaraThemeRole {
 
     var themeLabCoverage: ThemeLabCoverage {
         switch self {
-        case .surfaceCanvas, .surfacePanel, .surfaceElevated,
+        case .surfaceCanvas, .surfacePanel, .surfaceElevated, .surfaceControl,
+             .textPrimary, .textSecondary,
              .borderFocus, .selectionBackground, .selectionForeground,
-             .graphBackground, .graphGrid, .graphNodeSelected,
+             .graphBackground, .graphGrid, .graphNode, .graphNodeSelected,
              .galleryBackground, .galleryCell, .statusTextSuccess,
-             .statusTextWarning, .statusTextError, .nodeNative:
+             .statusTextWarning, .statusTextError, .nodeNative, .nodeIO,
+             .nodeCreative, .nodeAutomation:
             .live
-        case .textPrimary, .textSecondary, .textDisabled, .borderSubtle,
-             .borderStrong, .graphNode, .statusTextNeutral, .statusTextRunning,
+        case .textDisabled, .borderSubtle,
+             .borderStrong, .statusTextNeutral, .statusTextRunning,
              .statusTextCancelled:
             .partial
         case .workspaceSurround:
             .live
-        case .surfaceControl, .nodeIO, .nodeTransform, .nodeCreative,
-             .nodeAutomation, .nodeIntegration, .nodeCompute:
+        case .nodeTransform, .nodeIntegration, .nodeCompute:
             .reserved
         }
     }

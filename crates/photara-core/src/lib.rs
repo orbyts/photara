@@ -35,7 +35,9 @@ pub use evaluation::{
     EvaluationRequest, NodeEvaluationOutput, NodeEvaluationRecord, NodeEvaluationRequest,
     NodeExecutionError, NodeRuntime, evaluate_graph,
 };
-pub use graph::{Connection, GraphDocument, GraphRevision, NodeInstance, PortEndpoint};
+pub use graph::{
+    Connection, GraphDocument, GraphRevision, GraphRoutingPoint, NodeInstance, PortEndpoint,
+};
 pub use identity::{
     AssetId, AssetRepresentationId, CanonicalIdError, CapabilityId, ColorSpaceId, CommandId,
     ConnectionId, EvaluationId, GraphId, NodeDefinitionId, NodeDefinitionVersion, NodeInstanceId,
