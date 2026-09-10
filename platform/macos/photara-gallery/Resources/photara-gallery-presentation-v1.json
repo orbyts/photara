@@ -3,5 +3,41 @@
   "defaultThumbnailSize": 112,
   "photoSpacing": 2,
   "squareRowSpacing": 10,
-  "selectionStrokeWidth": 1.5
+  "selectionStrokeWidth": 1.5,
+  "noSourceState": {
+    "icon": "photo.on.rectangle.angled",
+    "title": "Your project assets will appear here",
+    "message": "Add a source node to your workflow to bring photos and other media into this project.",
+    "actionTitle": "Add Source Node",
+    "iconSize": 38,
+    "titleSize": 20,
+    "messageSize": 14,
+    "spacing": 12,
+    "verticalOffset": 0,
+    "maximumTextWidth": 380
+  },
+  "awaitingAssetsState": {
+    "icon": "photo.stack",
+    "title": "No assets yet",
+    "message": "Run the workflow to load assets from your source nodes.",
+    "actionTitle": "Run Workflow",
+    "iconSize": 38,
+    "titleSize": 20,
+    "messageSize": 14,
+    "spacing": 12,
+    "verticalOffset": 0,
+    "maximumTextWidth": 380
+  },
+  "noMatchesState": {
+    "icon": "magnifyingglass",
+    "title": "No matching assets",
+    "message": "Try changing your search or filters.",
+    "actionTitle": "Clear Filter",
+    "iconSize": 38,
+    "titleSize": 20,
+    "messageSize": 14,
+    "spacing": 12,
+    "verticalOffset": 0,
+    "maximumTextWidth": 380
+  }
 }

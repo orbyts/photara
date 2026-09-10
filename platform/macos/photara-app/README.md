@@ -101,3 +101,12 @@ Gallery appears for asset context or an explicit request. Layout requires capabi
 Diagnostics are available from Workspace and actionable status without reserving an
 empty pane. Compact windows stack active regions. See [Shell Lab](../photara-shell-lab/README.md)
 for independent shell authoring and the versioned presentation preset shared here.
+
+The local Library first model adds independently restorable People, Locations,
+Scenes and Project Info surfaces. New Project reveals Project Info for searchable
+Library assignment or create-and-assign. Person/client, location and scene records
+have selectable thumbnails; Library media stays separate from Gallery HDR proxies.
+Account and Settings show Library & Sync with On This Mac active and cloud modes
+planned. The actor/UniFFI adapters live in `AppModelLibrary.swift`; shared views
+contain no database or credential access. See `docs/LIBRARY_ARCHITECTURE.md` for
+portable snapshots, SQLite paths, limits and deferred cloud implementation.

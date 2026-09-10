@@ -8,8 +8,24 @@ enum WorkspacePanelID: String, CaseIterable, Codable, Identifiable, Sendable {
     static var layoutAuthoring: Self { .nodeWorkSurface } // Existing client preference/API compatibility.
     case inspector
     case diagnostics
+    case people, locations, scenes, projectInfo, account
 
     var id: String { rawValue }
+
+    var symbol: String {
+        switch self {
+        case .graph: "point.3.connected.trianglepath.dotted"
+        case .assetGallery: "photo.on.rectangle.angled"
+        case .inspector: "slider.horizontal.3"
+        case .nodeWorkSurface: "rectangle.3.group"
+        case .diagnostics: "exclamationmark.triangle"
+        case .people: "person.2"
+        case .locations: "mappin.and.ellipse"
+        case .scenes: "rectangle.stack"
+        case .projectInfo: "doc.text.image"
+        case .account: "person.crop.circle"
+        }
+    }
 
     var title: String {
         switch self {
@@ -18,6 +34,11 @@ enum WorkspacePanelID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .nodeWorkSurface: "Work Surface"
         case .inspector: "Inspector"
         case .diagnostics: "Diagnostics"
+        case .people: "People"
+        case .locations: "Locations"
+        case .scenes: "Scenes"
+        case .projectInfo: "Project Info"
+        case .account: "Library & Sync"
         }
     }
 }
@@ -54,6 +75,7 @@ struct PanelPlacement: Codable, Equatable, Identifiable, Sendable {
 
 @MainActor
 final class WorkspaceModel: ObservableObject {
+    @Published var focusedPanel: WorkspacePanelID?
     @Published private(set) var placements: [PanelPlacement]
     @Published var selectedNodeID: String? {
         didSet { if selectedNodeID != nil { inspectorActivated = true } }
@@ -82,9 +104,9 @@ final class WorkspaceModel: ObservableObject {
         self.defaults = defaults
         if persists, let data = defaults.data(forKey: Self.persistenceKey),
            let saved = try? JSONDecoder().decode([PanelPlacement].self, from: data),
-           Set(saved.map(\.id)) == Set(WorkspacePanelID.allCases)
+           Set(saved.map(\.id)).count == saved.count
         {
-            placements = saved
+            placements = saved + Self.layoutAuthoringPreset.filter { fallback in !saved.contains { $0.id == fallback.id } }
         } else {
             placements = Self.layoutAuthoringPreset
         }
@@ -110,6 +132,9 @@ final class WorkspaceModel: ObservableObject {
     }
 
     func show(_ panel: WorkspacePanelID) {
+        focusedPanel = panel
+        if panel == .nodeWorkSurface { mode = .nodeWorkSurface }
+        if panel == .graph { mode = .graph }
         if panel == .assetGallery { galleryExplicitlyOpened = true }
         if panel == .inspector { inspectorActivated = true }
         if panel == .diagnostics { diagnosticsExplicitlyOpened = true }
@@ -119,16 +144,16 @@ final class WorkspaceModel: ObservableObject {
     func activateWorkspace(for nodeID: String) {
         activeWorkspaceNodeID = nodeID
         mode = .nodeWorkSurface
-        setPrimarySurface(.nodeWorkSurface)
+        show(.nodeWorkSurface)
     }
 
     func activateGraph() {
         mode = .graph
-        setPrimarySurface(.graph)
+        show(.graph)
     }
 
     func activateReview() {
-        setPrimarySurface(.graph)
+        show(.graph)
         mode = .review
         show(.assetGallery)
     }
@@ -161,6 +186,10 @@ final class WorkspaceModel: ObservableObject {
     func restoreLayoutAuthoringPreset() {
         placements = Self.layoutAuthoringPreset
         mode = .graph
+        focusedPanel = .graph
+        inspectorActivated = false
+        galleryExplicitlyOpened = false
+        diagnosticsExplicitlyOpened = false
         persist()
     }
 
@@ -177,26 +206,16 @@ final class WorkspaceModel: ObservableObject {
             diagnosticsExplicitlyOpened = false
             selectedAssetID = nil; selectedFrameID = nil; selectedCellID = nil
             activeWorkspaceNodeID = nil
-            activateGraph()
+            mode = .graph
         }
         let added = ids.subtracting(knownNodeIDs)
         if let first = nodeIDs.first(where: { added.contains($0) }) {
             selectedNodeID = first
-            show(.inspector)
+            if isVisible(.inspector) { inspectorActivated = true }
         } else if let selectedNodeID, !ids.contains(selectedNodeID) {
             self.selectedNodeID = nil
         }
         knownNodeIDs = ids
-    }
-
-    private func setPrimarySurface(_ activePanel: WorkspacePanelID) {
-        for index in placements.indices where [
-            WorkspacePanelID.graph,
-            WorkspacePanelID.nodeWorkSurface,
-        ].contains(placements[index].id) {
-            placements[index].isVisible = placements[index].id == activePanel
-        }
-        persist()
     }
 
     private func update(_ panel: WorkspacePanelID, mutation: (inout PanelPlacement) -> Void) {
@@ -215,6 +234,11 @@ final class WorkspaceModel: ObservableObject {
         PanelPlacement(id: .graph, region: .content, order: 0, isVisible: true),
         PanelPlacement(id: .layoutAuthoring, region: .content, order: 1, isVisible: false),
         PanelPlacement(id: .assetGallery, region: .trailing, order: 0, isVisible: true),
+        PanelPlacement(id: .people, region: .trailing, order: 2, isVisible: false),
+        PanelPlacement(id: .locations, region: .trailing, order: 3, isVisible: false),
+        PanelPlacement(id: .scenes, region: .trailing, order: 4, isVisible: false),
+        PanelPlacement(id: .projectInfo, region: .leading, order: 1, isVisible: false),
+        PanelPlacement(id: .account, region: .trailing, order: 5, isVisible: false),
         PanelPlacement(id: .diagnostics, region: .trailing, order: 1, isVisible: false),
     ]
 }

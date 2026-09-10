@@ -277,6 +277,47 @@ capabilities, deterministic behavior, diagnostics, and migration policy. New
 ideas should be added to this inventory first, then promoted into the staged
 implementation plan only when a concrete vertical slice owns them.
 
+### User Library, project context, and surface-frame guardrail
+
+Before production Layout authoring expands, establish the user/studio data and
+workspace composition that Layout must inhabit. Keep three catalogs distinct:
+the Node Catalog contains installed node definitions, Gallery presents visual
+project/node assets, and the user Library stores reusable People, Clients,
+Locations, and Scenes.
+
+- Every Mac uses a local SQLite Library working copy created lazily on first
+  use. **On This Mac** is local-only. **Photara Cloud** and a future **iCloud**
+  option synchronize the same local-first domain; they are not mutually
+  exclusive replacements for the local store.
+- Accounts and People are separate. Authenticated users belong to an owner or
+  future studio/workspace scope; People represent models, photographers,
+  stylists, and other collaborators. Clients may be individuals or
+  organizations. Locations may be hierarchical. Scenes are reusable semantic
+  definitions; their project assignments are unique occurrences.
+- Projects reference stable Library identities and retain display-name/revision
+  snapshots for portability and offline historical meaning.
+- People, Locations, Scenes, and Project Info are independently identified,
+  closable, restorable workspace modules. Each has a lab compiling its
+  production sources. Project Info composes Library assignments rather than
+  duplicating records.
+- The Spotify reference defines composition, not branding: a semantic
+  Light/Dark application canvas behind rounded filled module surfaces, visible
+  gutters, contained headers, and independent scrolling. Shell Lab authors the
+  canvas/surface roles, gutter, inset, radius, border/elevation, active emphasis,
+  compact behavior, and status treatment; feature labs own surface content.
+- Photara Cloud authenticates the native client with Auth0 Authorization Code
+  Flow with PKCE, then calls a Photara service that enforces workspace ownership,
+  subscription, validation, migration, and conflict policy before Neon. Never
+  ship a privileged Neon connection string in the desktop application.
+- Sync-ready records require revisions, timestamps, tombstones, change cursors,
+  idempotent mutations, and a deterministic conflict policy. CloudKit is a
+  later adapter over the same contracts. Legacy `0.1.x` Neon migration waits
+  until the new identity model can represent it without loss.
+
+The detailed contract lives in
+[`docs/LIBRARY_ARCHITECTURE.md`](docs/LIBRARY_ARCHITECTURE.md). This groundwork
+does not authorize nodes to access SQL, credentials, or ambient cloud services.
+
 ## Implementation sequence
 
 ### 0. Repository foundation — complete
@@ -762,14 +803,22 @@ marketplace-era visual language.
    selected exact definition through immutable presentation DTOs and semantic
    commands; it must not become a Swift interpretation of node-authored JSON or
    assume every node owns a canvas Workspace.
-4. **Usable Layout authoring.** Complete the real Layout Workspace and controls
+4. **Application frame and Library foundation.** Replace the wireframe pane
+   treatment with the authorable Light/Dark canvas and rounded filled module
+   surfaces defined by Shell Lab. Freeze the backend-neutral Library vocabulary,
+   SQLite migration policy, portable project references, and immutable native
+   presentation/action contracts. Add separately closable/restorable People,
+   Locations, Scenes, and Project Info modules and labs. Make **On This Mac**
+   functional first and expose **Photara Cloud** and future **iCloud** under
+   Library & Sync without making network service availability block the app.
+5. **Usable Layout authoring.** Complete the real Layout Workspace and controls
    required by the Stage 9 gate: multiple Layout nodes, explicit asset placement,
    frame/cell structure, Fit/Fill/Crop, focal alignment, rotation, crop commits,
    resolved proxy-backed preview, validation, save/reopen, and coherent
    undo/redo. Layout remains an ordinary node with explicit `AssetSet` input and
    project-owned proxies.
 
-Completing these four slices closes **Stage 9**, not a product version numbered
+Completing these five slices closes **Stage 9**, not a product version numbered
 `0.9.0`.
 
 **Gate:** a real project can be authored visually without the old manual Layout
@@ -914,12 +963,35 @@ Photara while retaining the last valid palette. Built-in definitions now
 request `node.native` through presentation metadata and keep literal accents as
 compatibility fallbacks. Themes remain client preference state.
 
-### 10. Scoped runtime persistence and 0.2.0 stabilization
+The application-frame and Library first model is implemented. Shell now hosts
+unchanged Graph content inside independently rounded module surfaces with
+semantic Light/Dark fills, gutters, icons, contained headers and authorable
+frame values. Workspace controls close/restore every surface and preserve
+existing placement preferences. People, Locations, Scenes and Project Info
+have independent production-source labs with thumbnail, empty/loading/error
+fixtures. New Project reveals Project Info to search/assign Library records or
+create and assign a missing record through the same feature editors.
 
-- Introduce the first database-backed implementation of the Core-owned state
-  service only after the Stage 9 Disk/live-project workflow proves a concrete
-  runtime-state need. Preserve the portable Project Document as authored
-  authority.
+On This Mac uses a lazily opened owner-scoped SQLite repository with explicit
+migration, revisions, tombstones, change cursors and hierarchy validation.
+Thumbnails use portable digest identities with local managed PNG media.
+Project Info publishes stable Library references and unique scene occurrences
+through a generic Core extension command, preserving snapshots, save/reopen and
+session undo without changing graph digests. Library & Sync honestly marks
+Photara Cloud and iCloud unavailable. Cloud service/auth/subscription integration,
+media sync, backup/recovery UI, cross-project indexes and Library paging remain
+Stage 10 work; this does not close the remaining usable Layout authoring gate.
+
+### 10. Cloud synchronization, scoped runtime persistence, and 0.2.0 stabilization
+
+- Harden the pre-Layout local SQLite Library and its migrations, backup,
+  recovery, deletion, and export behavior while preserving the portable Project
+  Document as authority for graph-authored state.
+- Implement Photara Cloud behind the backend-neutral Library contract. Auth0
+  authenticates the native client; a Photara API owns authorization,
+  subscription enforcement, validation, sync cursors/conflicts, and Neon access.
+  The client and node packages receive neither privileged database credentials
+  nor arbitrary SQL.
 - Define explicit state scopes: syncable `user + exact definition` libraries
   and preferences; private `project + node instance` operational state;
   device-only grants, credentials, and paths; and portable authored Project
@@ -950,24 +1022,13 @@ recover safely from interruption without external legacy state.
 
 ## After 0.2.0
 
-- Restore the generation-one reusable production libraries as versioned,
-  user-owned domain records: **People** (including the `model` role, aliases,
-  and social identities), **Clients**, **Locations**, and **Scenes**. Projects
-  assign stable library identities and retain the portable snapshots needed to
-  remain intelligible offline or when a global record later changes.
-- Add a separately authorable native **Library** module (`photara-library`) and
-  **Library Lab** (`photara-library-lab`), parallel to Gallery, Inspector, and
-  Graph. It owns browsing, searching, and editing those global records and
-  project-assignment controls; Core-owned services own identity, validation,
-  revisions, and persistence. Keep this library distinct from both the visual
-  asset Gallery and the node Catalog.
-- Support both local-only and authenticated cloud-synchronized library modes
-  behind the same backend-neutral state-service contracts. The local adapter is
-  fully usable offline; a PostgreSQL service such as Neon may implement the
-  cloud adapter, but Neon, SQL, and connection strings never enter Core domain
-  contracts or node packages. Define versioned schemas, incremental sync,
-  conflicts, tombstones, account ownership, export, backup, and recovery before
-  making cloud state authoritative for user libraries.
+- Add iCloud/CloudKit as an Apple-only Library synchronization adapter after
+  Photara Cloud proves the shared local-first sync contract. Keep On This Mac
+  and Photara Cloud available rather than making iCloud an application-wide
+  storage fork.
+- Import generation-one People/models, Clients, Locations, and Scenes from the
+  legacy Neon schema only after the new identities, ownership, relationships,
+  and snapshots can represent those records without loss.
 - Portable metadata-query expressions and ordinary selection nodes for
   intersection/AND, union/OR, difference/NOT, XOR, match/join, sort, and group.
   Add provider query pushdown, incremental/paged result contracts, and the first

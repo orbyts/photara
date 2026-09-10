@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "noSelectionState": {
+    "icon": "sidebar.trailing",
+    "title": "Select a node",
+    "message": "Choose a node in the Graph to view and edit its settings.",
+    "actionTitle": "",
+    "iconSize": 34,
+    "titleSize": 19,
+    "messageSize": 13,
+    "spacing": 11,
+    "verticalOffset": 0,
+    "maximumTextWidth": 280
+  },
+  "graphHiddenState": {
+    "icon": "point.3.connected.trianglepath.dotted",
+    "title": "Select a node",
+    "message": "Show the Graph to choose a node and inspect its settings.",
+    "actionTitle": "Show Graph",
+    "iconSize": 34,
+    "titleSize": 19,
+    "messageSize": 13,
+    "spacing": 11,
+    "verticalOffset": 0,
+    "maximumTextWidth": 280
+  },
+  "noSettingsState": {
+    "icon": "slider.horizontal.3",
+    "title": "No editable settings",
+    "message": "This node doesn’t require configuration.",
+    "actionTitle": "",
+    "iconSize": 34,
+    "titleSize": 19,
+    "messageSize": 13,
+    "spacing": 11,
+    "verticalOffset": 0,
+    "maximumTextWidth": 280
+  }
+}

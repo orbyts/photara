@@ -100,14 +100,28 @@ extension AppModel {
 struct ProductionInspectorView: View {
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var workspace: WorkspaceModel
+    @State private var preset = InspectorPreset.developmentOrShipped
     var body: some View {
         let node = app.snapshot?.nodes.first { $0.nodeId == workspace.selectedNodeID }
         InspectorView(presentation: .init(node: node.map(NodeInspection.init),
             selectedFrameID: workspace.selectedFrameID, selectedCellID: workspace.selectedCellID,
             previews: app.layoutCellProxies.mapValues { .init($0.descriptor()) },
             isScanning: node.map { app.scanningDiskNodeIDs.contains($0.nodeId) } ?? false,
-            graphRevision: app.snapshot?.graph.revision ?? 0, progressLabel: app.progressLabel),
-            actions: app.inspectorActions)
+            graphRevision: app.snapshot?.graph.revision ?? 0, progressLabel: app.progressLabel,
+            showsGraph: workspace.isVisible(.graph)),
+            actions: InspectorActions(chooseFolder: app.inspectorActions.chooseFolder,
+                scanDisk: app.inspectorActions.scanDisk, connectDisk: app.inspectorActions.connectDisk,
+                structure: app.inspectorActions.structure, cell: app.inspectorActions.cell,
+                showGraph: { workspace.activateGraph() }), preset: preset)
+            .task { await reloadDevelopmentPreset() }
+    }
+
+    private func reloadDevelopmentPreset() async {
+        while !Task.isCancelled {
+            let latest = InspectorPreset.developmentOrShipped
+            if latest != preset { preset = latest }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
     }
 }
 

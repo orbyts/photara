@@ -4,12 +4,17 @@ import SwiftUI
 struct ProductionGalleryView: View {
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var workspace: WorkspaceModel
+    @State private var preset = GalleryPreset.developmentOrShipped
 
     var body: some View {
         AssetGalleryView(presentation: presentation,
             actions: .init(open: { app.openGalleryAsset(assetID: $0) }, assign: assign,
-                           requestPreview: { app.requestGalleryThumbnail(assetID: $0) }),
+                           requestPreview: { app.requestGalleryThumbnail(assetID: $0) },
+                           addSourceNode: addSourceNode,
+                           runWorkflow: { app.performApplicationAction(.evaluate) }),
+            preset: preset,
             filter: $workspace.galleryFilter, selectedAssetID: $workspace.selectedAssetID)
+            .task { await reloadDevelopmentPreset() }
     }
 
     private var selectedLayout: BridgeNodeDto? {
@@ -30,7 +35,26 @@ struct ProductionGalleryView: View {
                 preview: app.galleryProxyDescriptors[id].map(ImagePreviewMetadata.init),
                 proxyImage: app.galleryProxyImages[id], nativeThumbnail: app.galleryNativeThumbnails[id],
                 activity: app.galleryPreviewActivities[id], previewError: app.galleryPreviewErrors[id])
-        }, canAssign: selectedLayout != nil)
+        }, canAssign: selectedLayout != nil, hasSourceNodes: hasSourceNodes)
+    }
+
+    private var hasSourceNodes: Bool {
+        app.snapshot?.nodes.contains { node in
+            node.ports.contains { $0.direction == .output && $0.valueTypeId == "photara.asset-set" }
+        } == true
+    }
+
+    private func addSourceNode() {
+        workspace.activateGraph()
+        workspace.requestNodeMenu()
+    }
+
+    private func reloadDevelopmentPreset() async {
+        while !Task.isCancelled {
+            let latest = GalleryPreset.developmentOrShipped
+            if latest != preset { preset = latest }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
     }
 
     private func assign(_ assetID: String) {

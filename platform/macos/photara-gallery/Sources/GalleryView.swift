@@ -118,12 +118,7 @@ struct AssetGalleryView: View {
                 }
                 .padding(8)
             } else {
-                ContentUnavailableView(
-                    filter.isEmpty ? "No Assets" : "No Matching Assets",
-                    systemImage: "photo.on.rectangle.angled",
-                    description: Text("Gallery reflects project Asset Context only.")
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                emptyState
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -152,6 +147,20 @@ struct AssetGalleryView: View {
             {
                 GalleryFullImageView(asset: asset, descriptor: descriptor, image: image)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var emptyState: some View {
+        if !filter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            PhotaraEmptyStateView(preset: preset.noMatchesState) {
+                filter = ""
+                actions.clearFilter()
+            }
+        } else if presentation.hasSourceNodes {
+            PhotaraEmptyStateView(preset: preset.awaitingAssetsState, action: actions.runWorkflow)
+        } else {
+            PhotaraEmptyStateView(preset: preset.noSourceState, action: actions.addSourceNode)
         }
     }
 

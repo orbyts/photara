@@ -2,11 +2,17 @@ import Foundation
 
 /// Exact, portable presentation specimens. These are lab data, never Core node registrations.
 enum InspectorFixture: String, CaseIterable, Identifiable {
-    case disk, scanning, layout, singleCell, missingPackage, diagnostics, noSelection
+    case disk, scanning, layout, singleCell, missingPackage, diagnostics
+    case noSelection, graphHidden, noSettings
     var id: String { rawValue }
     var presentation: InspectorPresentation {
         switch self {
         case .noSelection: return .init(node: nil)
+        case .graphHidden: return .init(node: nil, showsGraph: false)
+        case .noSettings:
+            var value = InspectorFixture.disk.presentation
+            value.hasEditableSettings = false
+            return value
         case .disk, .scanning:
             return .init(node: .init(nodeId: "disk", displayName: "Disk Folder",
                 packageId: "photara.disk", packageVersion: "1.0.0", definitionId: "photara.disk.folder",

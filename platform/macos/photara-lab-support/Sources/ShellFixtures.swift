@@ -32,20 +32,100 @@ enum ShellScenario: String, CaseIterable, Identifiable {
 final class ShellLabModel: ObservableObject {
     @Published var scenario: ShellScenario = .opening { didSet { reset() } }
     @Published var presentation = ShellScenario.opening.presentation
-    @Published var preset = ApplicationShellPreset.shipped
+    @Published var fixtureProjectTitle = "Coastal Studies" {
+        didSet { presentation.title = fixtureProjectTitle }
+    }
+    @Published var preset: ApplicationShellPreset {
+        didSet {
+            guard persistsDraft, let data = try? preset.encoded() else { return }
+            draftDefaults.set(data, forKey: Self.draftKey)
+        }
+    }
+    @Published var themeDocument: PhotaraThemeDocument {
+        didSet {
+            guard persistsDraft, (try? themeDocument.validate()) != nil,
+                  let data = try? JSONEncoder().encode(themeDocument) else { return }
+            draftDefaults.set(data, forKey: Self.themeDraftKey)
+        }
+    }
     @Published var dark = false
     @Published var lastAction = "Choose a scenario to author the shell."
     let workspace = WorkspaceModel(persists: false)
     let assets = GalleryFixtures.assets()
+    private static let draftKey = "photara.shell-lab.authoring-draft.v1"
+    private static let themeDraftKey = "photara.shell-lab.theme-draft.v1"
+    private let persistsDraft: Bool
+    private let draftDefaults: UserDefaults
+
+    init(persistsDraft: Bool = false, draftDefaults: UserDefaults = .standard) {
+        self.persistsDraft = persistsDraft
+        self.draftDefaults = draftDefaults
+        let shippedTheme = Self.loadShippedTheme()
+        if persistsDraft, let data = draftDefaults.data(forKey: Self.themeDraftKey),
+           let saved = try? JSONDecoder().decode(PhotaraThemeDocument.self, from: data),
+           (try? saved.validate()) != nil {
+            themeDocument = saved
+        } else {
+            themeDocument = shippedTheme
+        }
+        if persistsDraft,
+           let data = draftDefaults.data(forKey: Self.draftKey),
+           let saved = try? ApplicationShellPreset.decode(data)
+        {
+            preset = saved
+            lastAction = "Restored the automatically saved Shell Lab draft."
+        } else {
+            preset = .shipped
+        }
+    }
+
+    func applyPresetToPhotara() {
+        do {
+            try PhotaraShellDevelopmentSettings.setOverride(preset)
+            let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appending(path: "Photara/Developer", directoryHint: .isDirectory)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            let url = root.appending(path: "ShellLabTheme.json")
+            try themeDocument.write(to: url)
+            PhotaraThemeDevelopmentSettings.setOverrideURL(url)
+            lastAction = "Applied Shell and shared Theme to Photara. The open app updates automatically."
+        } catch {
+            lastAction = "Could not apply to Photara: \(error.localizedDescription)"
+        }
+    }
+
+    func removePhotaraOverride() {
+        do {
+            try PhotaraShellDevelopmentSettings.setOverride(nil)
+            PhotaraThemeDevelopmentSettings.setOverrideURL(nil)
+            lastAction = "Removed the Photara Shell and Theme overrides."
+        } catch {
+            lastAction = "Could not remove override: \(error.localizedDescription)"
+        }
+    }
+
+    func restoreShippedPreset() {
+        preset = .shipped
+        themeDocument = Self.loadShippedTheme()
+        lastAction = "Restored the shipped preset in Shell Lab."
+    }
     func reset() {
         workspace.synchronizeProject(id: nil, nodeIDs: [])
         workspace.restoreLayoutAuthoringPreset()
         presentation = scenario.presentation
+        presentation.title = fixtureProjectTitle
         workspace.synchronizeProject(id: presentation.projectID, nodeIDs: presentation.nodeIDs)
         workspace.showsRecentProjects = scenario == .recentsExpanded
         if scenario == .selectionCleared { workspace.selectedNodeID = nil }
         if scenario == .layout { workspace.selectedNodeID = "layout"; workspace.activateWorkspace(for: "layout") }
         if scenario == .review { workspace.activateReview() }
+    }
+
+    private static func loadShippedTheme() -> PhotaraThemeDocument {
+        guard let url = Bundle.main.url(forResource: "photara-default", withExtension: "json"),
+              let theme = try? PhotaraThemeDocument.load(from: url)
+        else { fatalError("Shell Lab is missing the shipped Theme") }
+        return theme
     }
     func send(_ action: ApplicationAction) {
         lastAction = String(describing: action)
@@ -74,23 +154,33 @@ struct ShellLabPreview: View {
     @ObservedObject var model: ShellLabModel
     @ObservedObject var workspace: WorkspaceModel
     var body: some View {
-        LabAppearance(dark: model.dark) {
-            ApplicationShell(presentation: model.presentation, actions: .init(send: model.send), preset: model.preset,
+        let appearance: PhotaraThemeAppearance = model.dark ? .dark : .light
+        let theme = model.themeDocument.resolved(for: appearance)
+        ApplicationShell(presentation: model.presentation, actions: .init(send: model.send), preset: model.preset,
                 workSurface: { surface in
                     AnyView(LayoutAuthoringSurfaceView(presentation: .init(node: InspectorFixture.layout.presentation.node),
                         actions: .init(requestPreviews: { _ in }, cell: { id, _, _, _ in model.lastAction = "Layout \(id)" })))
                 }) { id in
                 switch id {
+                case .people: PeopleView(presentation: LibraryFixtures.presentation(.populated), actions: .init(send: { model.lastAction = String(describing: $0) }))
+                case .locations: LocationsView(presentation: LibraryFixtures.presentation(.populated), actions: .init(send: { model.lastAction = String(describing: $0) }))
+                case .scenes: ScenesView(presentation: LibraryFixtures.presentation(.populated), actions: .init(send: { model.lastAction = String(describing: $0) }))
+                case .projectInfo: ProjectInfoView(presentation: .init(title: model.presentation.title, revision: 1, assignments: LibraryFixtures.assignments, library: LibraryFixtures.presentation(.populated), phase: .ready, hasProject: true), actions: .init(send: { model.lastAction = String(describing: $0) }))
+                case .account: LibrarySyncView()
                 case .graph: ShellFixtureGraph(model: model, workspace: workspace).id(model.scenario)
                 case .assetGallery:
-                    AssetGalleryView(presentation: .init(assets: model.presentation.hasAssets ? model.assets : [], canAssign: false),
-                        actions: .init(open: { model.lastAction = "Open \($0)" }, assign: { model.lastAction = "Assign \($0)" }, requestPreview: { _ in }),
+                    AssetGalleryView(presentation: .init(assets: model.presentation.hasAssets ? model.assets : [],
+                        canAssign: false, hasSourceNodes: model.presentation.hasAssetProducingContext),
+                        actions: .init(open: { model.lastAction = "Open \($0)" }, assign: { model.lastAction = "Assign \($0)" },
+                            requestPreview: { _ in }, addSourceNode: { workspace.activateGraph(); workspace.requestNodeMenu() },
+                            runWorkflow: { model.send(.evaluate) }),
                         filter: $workspace.galleryFilter, selectedAssetID: $workspace.selectedAssetID)
                 case .inspector:
                     InspectorView(presentation: inspection, actions: .init(
                         chooseFolder: { model.lastAction = "Choose folder \($0)" }, scanDisk: { model.lastAction = "Scan \($0)" },
                         connectDisk: { model.lastAction = "Connect \($0)" }, structure: { id, _ in model.lastAction = "Structure \(id)" },
-                        cell: { id, _, _, _ in model.lastAction = "Cell \(id)" }))
+                        cell: { id, _, _, _ in model.lastAction = "Cell \(id)" },
+                        showGraph: { workspace.activateGraph() }))
                 case .nodeWorkSurface: EmptyView() // Hosted by the fixture contribution adapter.
                 case .diagnostics:
                     DiagnosticsView(diagnostics: model.presentation.diagnosticCount > 0
@@ -98,7 +188,9 @@ struct ShellLabPreview: View {
                            .init(code: "asset.unavailable", message: "One source image needs to be located.")] : [])
                 }
             }.environmentObject(workspace)
-        }
+            .environment(\.photaraTheme, theme)
+            .tint(theme.color(.borderFocus))
+            .preferredColorScheme(model.dark ? .dark : .light)
     }
     private var inspection: InspectorPresentation {
         guard let id = workspace.selectedNodeID else { return .init(node: nil) }

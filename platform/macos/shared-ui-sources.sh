@@ -9,4 +9,9 @@ SHARED_UI_SOURCES=(
   "$UI_ROOT"/photara-inspector/Sources/*.swift
   "$UI_ROOT"/photara-shell/Sources/*.swift
   "$UI_ROOT"/photara-layout/Sources/*.swift
+  "$UI_ROOT"/photara-library-ui/Sources/*.swift
+  "$UI_ROOT"/photara-people/Sources/*.swift
+  "$UI_ROOT"/photara-locations/Sources/*.swift
+  "$UI_ROOT"/photara-scenes/Sources/*.swift
+  "$UI_ROOT"/photara-project-info/Sources/*.swift
 )

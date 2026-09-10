@@ -8,3 +8,6 @@
 .DS_Store
 *.xcuserstate
 nvim.log
+
+/platform/macos/photara-*-lab/.build
+/platform/macos/photara-ui-tests/.build

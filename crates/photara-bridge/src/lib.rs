@@ -4,7 +4,9 @@ uniffi::setup_scaffolding!();
 
 mod asset_materializer;
 mod evaluation;
+mod library;
 mod production;
+pub use library::*;
 mod runtime_registry;
 
 pub use evaluation::EvaluationHandle;

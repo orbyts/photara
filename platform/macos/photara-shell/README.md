@@ -10,9 +10,29 @@ shared Inspector; optional Layout authoring requires a capability. Session state
 resets per project and never enters Project Documents or graph digests.
 
 `ApplicationShellPreset` (also named `ApplicationShellPresentation`) validates the
-versioned JSON in Resources. It holds bounded typography and dimensions, no colors
-or behavior. Both Photara and [Shell Lab](../photara-shell-lab/README.md) compile these
+versioned JSON in Resources. It holds bounded typography, dimensions, and launcher-
+specific adaptive colors, but no availability or project behavior. Both Photara and
+[Shell Lab](../photara-shell-lab/README.md) compile these
 exact files through `shared-ui-sources.sh`.
+
+Typography stores portable family intent (`display`, `rounded`, `serif`, or
+`monospaced`), not an installed font name. macOS resolves those roles through native
+system fonts; the shipped launcher default is SF Display. A future Windows shell can
+map the same roles to its native families while consuming the same design decision.
+
+The preset also owns the launcher hero icon-tile treatment and individual action
+tints as paired Light/Dark sRGB values, plus portable tile, stroke, corner and glow
+geometry. It separately stores symbol alignment within the tile, tile positioning,
+launcher edge insets, hero-to-recents spacing and the opening content's vertical
+position. Project Chrome geometry includes project-title typography, panel headers,
+semantic dividers and the status bar; their colors remain shared Theme roles.
+Launcher background material is stored as a semantic native role with an
+adaptive tint, allowing macOS to use system frost and other clients to map the same
+intent to their native backdrop material. Shell Lab saves an authoring draft in
+`com.photara.shell-lab` preferences.
+Its explicit Apply action places a validated development override in the
+`com.photara.desktop` preferences domain; Photara live-reloads it. Removing the
+override restores the bundled resource. Neither preference enters project state.
 
 Build all hosts with `platform/macos/build-ui.sh`. Verify with the shared UI,
 production UI and bridge scripts; run full Graph interactions after assembly changes.
@@ -29,3 +49,9 @@ removing the active node returns to Graph. Production registers supported surfac
 in `ProductionWorkSurfaceRegistry`; Layout is its first entry. The saved client pane
 key remains `layoutAuthoring` for compatibility, while its Swift identity is now the
 generic `nodeWorkSurface`.
+
+The `frame` preset wraps each module in a filled rounded surface with visible
+canvas gutters and an icon/header. New Library modules and Account are peers.
+Graph and the optional Work Surface have independent visibility; neither's
+renderer owns Shell clipping or insets. Existing saved placements migrate by
+adding only missing identities, and Restore Workspace remains recoverable.

@@ -13,6 +13,8 @@ struct InspectorPresentation {
     var graphRevision: UInt64 = 0
     var progressLabel = "Idle"
     var actionsEnabled = true
+    var showsGraph = true
+    var hasEditableSettings = true
     var selectedFrame: LayoutFrameInspection? {
         let frames = node?.layout?.frames ?? []
         return frames.first { $0.frameId == selectedFrameID } ?? frames.first
@@ -28,6 +30,7 @@ struct InspectorActions {
     var connectDisk: (String) -> Void
     var structure: (String, LayoutStructureAction) -> Void
     var cell: (String, String, String, LayoutCellAction) -> Void
+    var showGraph: () -> Void = {}
 
     func editStructure(node: String, edit: LayoutStructureAction) { structure(node, edit) }
     func editCell(node: String, frameID: String, cellID: String, edit: LayoutCellAction) {

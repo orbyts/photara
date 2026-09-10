@@ -35,6 +35,7 @@ enum GalleryPreviewActivity: Equatable, Sendable {
 struct GalleryPresentation {
     var assets: [GalleryAsset]
     var canAssign: Bool
+    var hasSourceNodes = false
     func asset(_ id: String) -> GalleryAsset? { assets.first { $0.assetId == id } }
 }
 
@@ -42,4 +43,7 @@ struct GalleryActions {
     var open: (String) -> Void
     var assign: (String) -> Void
     var requestPreview: (String) -> Void
+    var addSourceNode: () -> Void = {}
+    var runWorkflow: () -> Void = {}
+    var clearFilter: () -> Void = {}
 }

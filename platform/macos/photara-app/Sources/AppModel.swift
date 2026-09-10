@@ -55,6 +55,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var scanningDiskNodeIDs: Set<String> = []
     @Published var presentedError: String?
 
+    @Published private(set) var projectSetupRequest: UInt64 = 0
+    let library: LibraryModel
+
     private var application: PhotaraApplication?
     var project: PhotaraProject?
     private var evaluation: EvaluationHandle?
@@ -74,6 +77,7 @@ final class AppModel: ObservableObject {
         supportRootOverride: URL? = nil
     ) {
         self.defaults = defaults
+        library = LibraryModel(defaults: defaults, supportRoot: supportRootOverride)
         let configuredLongEdge = defaults.integer(
             forKey: "photara.layout-authoring-preview-long-edge.v1"
         )
@@ -126,6 +130,10 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func refreshAfterLibraryEdit() {
+        do { snapshot = try project?.snapshot() } catch { presentedError = error.localizedDescription }
+    }
+
     var hasOpenProject: Bool { project != nil }
     var galleryProxies: [String: BridgeProxyReference] { gallery.proxies }
     var galleryProxyDescriptors: [String: BridgeProxyDescriptorDto] { gallery.proxyDescriptors }
@@ -154,6 +162,7 @@ final class AppModel: ObservableObject {
         guard let application else { return }
         do {
             let project = try application.createProject(title: "Untitled Project")
+            projectSetupRequest &+= 1
             self.project = project
             snapshot = try project.snapshot()
             gallery.reset()

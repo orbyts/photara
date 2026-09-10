@@ -13,6 +13,7 @@ cp -p "$UI_ROOT/photara-gallery-lab/Resources/Info.plist" "$APP_BUNDLE/Contents/
 /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.photara.shared-ui-verification' "$APP_BUNDLE/Contents/Info.plist"
 cp -p "$UI_ROOT/photara-theme/Resources/photara-default.json" "$RESOURCES/"
 cp -p "$UI_ROOT/photara-gallery/Resources/photara-gallery-presentation-v1.json" "$RESOURCES/"
+cp -p "$UI_ROOT/photara-inspector/Resources/photara-inspector-presentation-v1.json" "$RESOURCES/"
 cp -p "$UI_ROOT/photara-graph/Resources/photara-graph-presentation-v1.json" "$RESOURCES/"
 ditto "$UI_ROOT/photara-graph/Resources/NodeIcons" "$RESOURCES/NodeIcons"
 ditto "$UI_ROOT/photara-graph/Resources/ToolIcons" "$RESOURCES/ToolIcons"

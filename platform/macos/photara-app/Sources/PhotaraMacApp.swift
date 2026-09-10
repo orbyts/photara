@@ -38,14 +38,17 @@ struct PhotaraMacApp: App {
                 }
                 .keyboardShortcut("0", modifiers: [.command, .option])
                 Divider()
-                ForEach(ApplicationShellAvailability(presentation: app.applicationPresentation(workspace)).panels.filter { $0 != .graph && $0 != .nodeWorkSurface }) { panel in
-                    Toggle(panel.title, isOn: Binding(
+                ForEach(ApplicationShellAvailability(presentation: app.applicationPresentation(workspace)).panels) { panel in
+                    Toggle(isOn: Binding(
                         get: { WorkspaceRegion.allCases.contains {
                             ApplicationShellAvailability(presentation: app.applicationPresentation(workspace))
                                 .visiblePanels(in: $0, workspace: workspace).contains(panel)
                         } },
-                        set: { visible in if visible { workspace.show(panel) } else { workspace.toggle(panel) } }
-                    ))
+                        set: { visible in if visible {
+                            if panel == .nodeWorkSurface, workspace.activeWorkspaceNodeID == nil { workspace.activeWorkspaceNodeID = app.applicationPresentation(workspace).workSurfaces.first?.nodeID }
+                            workspace.show(panel)
+                        } else { workspace.toggle(panel) } }
+                    )) { Label(panel.title, systemImage: panel.symbol) }
                 }
             }
             CommandMenu("Graph") {
@@ -56,18 +59,27 @@ struct PhotaraMacApp: App {
                 .disabled(!app.hasOpenProject || !workspace.isVisible(.graph))
             }
         }
+        Settings { LibrarySyncView().frame(width: 460, height: 500) }
     }
 }
 
 private struct ThemedWorkspaceRoot: View {
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var theme: PhotaraThemeStore
+    @State private var shellPreset = ApplicationShellPreset.developmentOrShipped
 
     var body: some View {
         let appearance: PhotaraThemeAppearance = colorScheme == .dark ? .dark : .light
         let resolved = theme.document.resolved(for: appearance)
-        WorkspaceView()
+        WorkspaceView(shellPreset: shellPreset)
             .environment(\.photaraTheme, resolved)
             .tint(resolved.color(.borderFocus))
+            .task {
+                while !Task.isCancelled {
+                    let latest = ApplicationShellPreset.developmentOrShipped
+                    if latest != shellPreset { shellPreset = latest }
+                    try? await Task.sleep(for: .milliseconds(500))
+                }
+            }
     }
 }

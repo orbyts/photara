@@ -6,11 +6,19 @@ struct InspectorLabApp: App {
 }
 
 struct InspectorLabView: View {
+    private static let draftKey = "photara.inspector-lab.authoring-draft.v1"
     @State private var fixture = InspectorFixture.disk
     @State private var presentation = InspectorFixture.disk.presentation
     @State private var section = InspectorSection.all
     @State private var dark = true
     @State private var action = "Actions are recorded by this fixture adapter."
+    @State private var preset: InspectorPreset
+
+    init() {
+        let saved = UserDefaults.standard.data(forKey: Self.draftKey)
+            .flatMap { try? InspectorPreset.decode($0) }
+        _preset = State(initialValue: saved ?? .shipped)
+    }
 
     var body: some View {
         LabAppearance(dark: dark) {
@@ -41,14 +49,76 @@ struct InspectorLabView: View {
                         }
                     }
                     Text("Drag the divider to inspect production behavior at narrow widths. Section spacing and colors come from shared code and theme roles.").font(.caption)
+                    if [.noSelection, .graphHidden, .noSettings].contains(fixture) {
+                        Section("Empty state") { emptyStateEditor }
+                    }
+                    Section("Handoff") {
+                        Button("Apply to Photara") { applyToPhotara() }
+                        Button("Remove Photara Override") { removeOverride() }
+                        Button("Export Inspector Preset…") {
+                            do { try LabPresetExport.save(preset.encoded(), filename: "photara-inspector-presentation-v1.json") }
+                            catch { action = error.localizedDescription }
+                        }
+                        Button("Restore Shipped") { preset = .shipped }
+                        Text("Lab edits are saved automatically as a local draft.").font(.caption).foregroundStyle(.secondary)
+                    }
                     Text(action).font(.caption.monospaced())
                 }.formStyle(.grouped).frame(minWidth: 260, idealWidth: 290, maxWidth: 340)
-                InspectorView(presentation: presentation, actions: actions, section: section)
+                InspectorView(presentation: presentation, actions: actions, section: section, preset: preset)
                     .frame(minWidth: 230, idealWidth: 360, maxWidth: .infinity)
             }
         }
         .frame(minWidth: 620, minHeight: 680)
         .onChange(of: fixture) { presentation = fixture.presentation }
+        .onChange(of: preset) {
+            if let data = try? preset.encoded() { UserDefaults.standard.set(data, forKey: Self.draftKey) }
+        }
+    }
+
+    @ViewBuilder private var emptyStateEditor: some View {
+        let state = emptyStateBinding
+        TextField("SF Symbol", text: state.icon)
+        TextField("Title", text: state.title)
+        TextField("Description", text: state.message, axis: .vertical)
+        TextField("Action title", text: state.actionTitle)
+        valueSlider("Icon size", state.iconSize, 20...72)
+        valueSlider("Title size", state.titleSize, 13...32)
+        valueSlider("Description size", state.messageSize, 10...22)
+        valueSlider("Spacing", state.spacing, 4...32)
+        valueSlider("Vertical position", state.verticalOffset, -240...240)
+        valueSlider("Maximum text width", state.maximumTextWidth, 160...520)
+    }
+
+    private var emptyStateBinding: Binding<PhotaraEmptyStatePreset> {
+        Binding(get: {
+            switch fixture {
+            case .graphHidden: preset.graphHiddenState
+            case .noSettings: preset.noSettingsState
+            default: preset.noSelectionState
+            }
+        }, set: { value in
+            switch fixture {
+            case .graphHidden: preset.graphHiddenState = value
+            case .noSettings: preset.noSettingsState = value
+            default: preset.noSelectionState = value
+            }
+        })
+    }
+
+    private func valueSlider(_ title: String, _ value: Binding<Double>, _ range: ClosedRange<Double>) -> some View {
+        VStack(alignment: .leading) {
+            Text("\(title) · \(Int(value.wrappedValue))").font(.caption)
+            Slider(value: value, in: range, step: 1)
+        }
+    }
+
+    private func applyToPhotara() {
+        do { try PhotaraInspectorDevelopmentSettings.setOverride(preset); action = "Applied to Photara." }
+        catch { action = error.localizedDescription }
+    }
+    private func removeOverride() {
+        do { try PhotaraInspectorDevelopmentSettings.setOverride(nil); action = "Removed Photara Inspector override." }
+        catch { action = error.localizedDescription }
     }
 
     private var actions: InspectorActions {
@@ -70,6 +140,6 @@ struct InspectorLabView: View {
                     presentation.node?.layout?.frames[f].cells[c].cropRect = .init(x: x, y: y, width: w, height: h)
                 case .setQuarterTurn(let turn): presentation.node?.layout?.frames[f].cells[c].quarterTurn = turn
                 }
-            })
+            }, showGraph: { action = "showGraph()" })
     }
 }

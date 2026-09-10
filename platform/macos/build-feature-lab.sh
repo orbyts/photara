@@ -16,6 +16,8 @@ cp -p "$LAB_ROOT/Resources/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 cp -p "$UI_ROOT/photara-theme/Resources/photara-default.json" "$RESOURCES/"
 if [[ "$FEATURE" == gallery ]]; then
   cp -p "$UI_ROOT/photara-gallery/Resources/photara-gallery-presentation-v1.json" "$RESOURCES/"
+else
+  cp -p "$UI_ROOT/photara-inspector/Resources/photara-inspector-presentation-v1.json" "$RESOURCES/"
 fi
 xcrun swiftc -swift-version 6 -parse-as-library -module-cache-path "$BUILD_ROOT/module-cache" \
   "$UI_ROOT/photara-theme/Sources/PhotaraTheme.swift" \

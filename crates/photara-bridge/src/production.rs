@@ -1,3 +1,5 @@
+mod library_project;
+
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
@@ -791,6 +793,7 @@ struct ProjectSessionState {
     dirty: bool,
     undo: Vec<GraphUndoEntry>,
     redo: Vec<GraphUndoEntry>,
+    library_undo: Vec<Option<serde_json::Value>>,
 }
 
 #[derive(uniffi::Object)]
@@ -867,6 +870,7 @@ impl PhotaraProject {
                 dirty: false,
                 undo: Vec::new(),
                 redo: Vec::new(),
+                library_undo: Vec::new(),
             }),
         }))
     }

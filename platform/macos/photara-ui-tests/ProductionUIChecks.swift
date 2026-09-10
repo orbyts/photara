@@ -12,7 +12,9 @@ struct ProductionUIChecks {
         let defaults = UserDefaults(suiteName: suite)!
         defaults.set(Data("[]".utf8), forKey: "photara.recent-projects.v1")
         defer { defaults.removePersistentDomain(forName: suite) }
-        let app = AppModel(defaults: defaults, supportRootOverride: root.appending(path: "store-\(UUID().uuidString)"))
+        let support = root.appending(path: "store-\(UUID().uuidString)")
+        let app = AppModel(defaults: defaults, supportRootOverride: support)
+        require(!FileManager.default.fileExists(atPath: support.appending(path: "Library/library.sqlite").path), "Library was not lazy")
         let workspace = WorkspaceModel(defaults: defaults)
         require(app.presentedError == nil, "Production host failed to open")
         for dark in [false, true] {
@@ -30,7 +32,7 @@ struct ProductionUIChecks {
         }
         require(app.snapshot!.graph.digest == emptyDigest, "Empty shell mutated graph")
         let emptyPolicy = ApplicationShellAvailability(presentation: app.applicationPresentation(workspace))
-        require(WorkspaceRegion.allCases.flatMap { emptyPolicy.visiblePanels(in: $0, workspace: workspace) } == [.graph], "Production empty project reserved panes")
+        require(Set(WorkspaceRegion.allCases.flatMap { emptyPolicy.visiblePanels(in: $0, workspace: workspace) }) == Set([.graph, .projectInfo]), "New Project did not disclose Project Info setup alongside Graph")
         require(emptyPolicy.modes == [.graph], "Layout icon appeared before a Layout node existed")
         require(app.recentProjects.isEmpty, "Untitled draft leaked into Recent Projects")
         // The fixture uses the bridge's explicit Layout + Project Assets setup;
@@ -108,8 +110,66 @@ struct ProductionUIChecks {
             workspace.activateGraph()
         }
         require(app.snapshot!.graph.digest == digest, "Presentation mutated the graph")
+        // Exercise the exact production actor, thumbnail preparation, Library facade and portable assignments.
+        var personDraft = LibraryDraft(kind: .person)
+        personDraft.name = "Maya Chen"; personDraft.labels = "model"; personDraft.thumbnailSource = sdr
+        let person = try await app.library.session.save(personDraft)
+        require(person.thumbnailDigest != nil, "Record lost its thumbnail identity")
+        await app.library.load()
+        require(app.library.presentation.items.first?.thumbnailData != nil, "Thumbnail failed to reopen")
+        let library = try await app.library.session.library()
+        var info = try app.project!.assignLibraryRecord(library: library, recordId: person.recordId, expectedRevision: 0, relationship: "model")
+        for kind in [LibraryKind.client, .location, .scene] {
+            var draft = LibraryDraft(kind: kind); draft.name = "Fixture \(kind.title)"
+            let record = try await app.library.session.save(draft)
+            info = try app.project!.assignLibraryRecord(library: library, recordId: record.recordId, expectedRevision: info.revision, relationship: kind.rawValue)
+            if kind == .scene {
+                info = try app.project!.assignLibraryRecord(library: library, recordId: record.recordId, expectedRevision: info.revision, relationship: "second occurrence")
+            }
+        }
+        require(info.assignments.count == 5, "Project assignments lost a category or scene occurrence")
+        require(Set(info.assignments.map(\.assignmentId)).count == 5, "Project occurrences are not unique")
+        do {
+            _ = try app.project!.editLibraryAssignment(assignmentId: info.assignments[0].assignmentId, expectedRevision: 0, date: "", notes: "stale", remove: false)
+            fatalError("Accepted stale Project Info edit")
+        } catch { }
+        let first = info.assignments[0]
+        info = try app.project!.editLibraryAssignment(assignmentId: first.assignmentId, expectedRevision: info.revision, date: "2026-09-12", notes: "Call time 18:00", remove: false)
+        info = try app.project!.editLibraryAssignment(assignmentId: first.assignmentId, expectedRevision: info.revision, date: "", notes: "", remove: true)
+        info = try app.project!.undoLibraryAssignment(expectedRevision: info.revision)
+        require(info.assignments.first?.notes == "Call time 18:00", "Assignment undo lost occurrence details")
+        var rename = LibraryDraft(LibraryItem(person)); rename.name = "Maya Rivera"
+        let renamed = try await app.library.session.save(rename)
+        _ = try await app.library.session.save(.init(LibraryItem(renamed)), deleted: true)
+        let contextAfterDelete = try app.project!.libraryContext()
+        require(contextAfterDelete.assignments[0].displayName == "Maya Chen", "Library edits changed project snapshots")
+        app.refreshAfterLibraryEdit()
+        require(app.snapshot!.dirty && app.snapshot!.graph.digest == digest, "Project context did not stay separate from graph semantics")
+        app.save()
+        require(app.snapshot?.dirty == false, "Project Info failed to save")
+        let reopenedHost = try PhotaraApplication.open(storeRoot: support.appending(path: "GenerationTwo").path,
+            proxyCacheRoot: support.appending(path: "ProxyCache").path,
+            proxyHelperExecutable: Bundle.main.executableURL!.deletingLastPathComponent().appending(path: "photara-proxy-imageio").path,
+            proxyGenerationConcurrency: 1)
+        let reopened = try reopenedHost.openProject(projectId: app.snapshot!.projectId)
+        let reopenedInfo = try reopened.libraryContext()
+        require(reopenedInfo.assignments.count == 5 && reopenedInfo.assignments[0].displayName == "Maya Chen", "Portable Library references failed save/reopen")
+        await app.library.load()
+        for panel in [WorkspacePanelID.people, .locations, .scenes, .projectInfo, .account] {
+            workspace.show(panel)
+            workspace.move(panel, to: .trailing)
+            workspace.toggle(panel)
+            require(!workspace.isVisible(panel), "Library module cannot close")
+        }
+        workspace.show(.projectInfo); workspace.show(.people)
+        for dark in [false, true] {
+            try await capture(LabAppearance(dark: dark) {
+                WorkspaceView().environmentObject(app).environmentObject(workspace)
+            }, name: "production-library-\(dark)", size: .init(width: 1440, height: 1000), directory: root)
+        }
+        require(app.snapshot?.dirty == false && app.snapshot?.graph.digest == digest, "Module preferences dirtied project semantics")
         let projectID = app.snapshot!.projectId
-        print("PASS: production composition, inspection adapter, Core action/undo/redo, HDR proxy, save, presentation purity")
+        print("PASS: production composition, inspection adapter, Core action/undo/redo, HDR proxy, SQLite Library, thumbnails, project snapshots, save/reopen, presentation purity")
         print("Verification project ID: \(projectID)")
         app.closeProject()
     }

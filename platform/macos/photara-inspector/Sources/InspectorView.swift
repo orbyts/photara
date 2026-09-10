@@ -4,6 +4,7 @@ struct InspectorView: View {
     let presentation: InspectorPresentation
     let actions: InspectorActions
     var section: InspectorSection = .all
+    var preset: InspectorPreset = .shipped
     @Environment(\.photaraTheme) var theme
 
     var selectedNode: NodeInspection? { presentation.node }
@@ -11,7 +12,7 @@ struct InspectorView: View {
     var selectedCell: LayoutCellInspection? { presentation.selectedCell }
 
     var body: some View {
-        if let node = selectedNode {
+        if let node = selectedNode, presentation.hasEditableSettings {
             Form {
                 if section == .all || section == .identity { identity(node) }
                 if section == .all || section == .disk { disk(node) }
@@ -26,12 +27,12 @@ struct InspectorView: View {
             .formStyle(.grouped)
             .scrollContentBackground(.hidden)
             .background(theme?.color(.surfacePanel) ?? Color(nsColor: .windowBackgroundColor))
+        } else if selectedNode != nil {
+            PhotaraEmptyStateView(preset: preset.noSettingsState)
+        } else if presentation.showsGraph {
+            PhotaraEmptyStateView(preset: preset.noSelectionState)
         } else {
-            ContentUnavailableView(
-                "No Selection",
-                systemImage: "sidebar.trailing",
-                description: Text("Select a node in Graph to inspect it.")
-            )
+            PhotaraEmptyStateView(preset: preset.graphHiddenState, action: actions.showGraph)
         }
     }
 

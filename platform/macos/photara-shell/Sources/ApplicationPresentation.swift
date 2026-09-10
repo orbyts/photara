@@ -27,9 +27,8 @@ struct ApplicationActions { var send: (ApplicationAction) -> Void }
 struct ApplicationShellAvailability {
     let presentation: ApplicationPresentation
     var panels: [WorkspacePanelID] {
-        guard presentation.hasOpenProject else { return [] }
-        var result: [WorkspacePanelID] = [.graph, .assetGallery, .diagnostics]
-        if presentation.nodeCount > 0 { result.append(.inspector) }
+        guard presentation.hasOpenProject else { return [.people, .locations, .scenes, .account] }
+        var result: [WorkspacePanelID] = [.graph, .assetGallery, .diagnostics, .inspector, .people, .locations, .scenes, .projectInfo, .account]
         if !presentation.workSurfaces.isEmpty { result.append(.nodeWorkSurface) }
         return result
     }

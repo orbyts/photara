@@ -10,28 +10,60 @@ these directories are not independent Swift binary frameworks.
 | --- | --- | --- |
 | `photara-ui-foundation` + `photara-theme` | Native theme environment/resolver, Apple HDR image view, lightweight native inspection and preview values | Map bridge values and retain proxy references |
 | `photara-graph` | Existing canvas, nodes, event surface, interaction controller, authored preset | Graph Lab fixtures; production bridge adapter |
-| `photara-gallery` | Photo/square grids, cards, activity badges, selection treatment, filter, sizing, full-image sheet, authored preset | Assets/images, selection/filter bindings, open/assign/request callbacks |
-| `photara-inspector` | Assembled Inspector and individually previewable identity, Disk, ports, parameters, frame/cell, evaluation and diagnostic sections | Immutable typed inspection values and semantic action callbacks |
+| `photara-gallery` | Photo/square grids, cards, activity badges, selection treatment, filter, sizing, full-image sheet, authored visual and empty-state preset | Assets/images, source/result context, selection/filter bindings and semantic callbacks |
+| `photara-inspector` | Assembled Inspector, authored empty-state preset, and individually previewable identity, Disk, ports, parameters, frame/cell, evaluation and diagnostic sections | Immutable typed inspection values and semantic action callbacks |
 | `photara-layout` | Layout-node-owned optional work surface, canvas and cells, transient crop gesture | Resolved Layout inspection, proxy images, selection state, request and edit callbacks |
+| `photara-people` | User/studio People and Clients browser/editor | Immutable Library projections and semantic create/edit/select actions |
+| `photara-locations` | Hierarchical Locations and sub-locations browser/editor | Immutable Library projections and semantic create/edit/select actions |
+| `photara-scenes` | Reusable Scene browser/editor | Immutable Library projections and semantic create/edit/select actions |
+| `photara-project-info` | Project assignments for clients, people, locations, and scene occurrences | Portable project references plus Library lookup/assignment actions |
 | `photara-shell` | Application chrome/launcher/status, capability-driven split regions, panel headers/placement/visibility, client workspace preferences | Project summary, application actions, feature composition |
 | `photara-app` | Thin `WorkspaceView` composition and production adapters | Core, bridge, persistence, file dialogs, source grants, evaluation, proxy ownership |
 | `photara-lab-support` | Deterministic fixtures and lab appearance/export helpers | Compiled only by labs and verification, never Photara |
 
-### Planned user Library
+### User Library and project context
 
-The user-level production catalog will be a distinct `photara-library` UI
-module with its own `photara-library-lab`, parallel to Gallery, Inspector, and
-Graph. It will browse, search, edit, and assign global People (including the
-model role), Clients, Locations, and Scenes. It is not the visual asset Gallery
-and it is not the node Catalog.
+The user-level Library is distinct from both the visual asset Gallery and the
+node Catalog. Its shared production UI is divided by workflow into separately
+authorable People, Locations, Scenes, and Project Info modules. Each has its own
+lab and compiles the same source used by Photara. Clients begin as a category in
+People because client contacts and organizations share the same discovery and
+assignment workflow; that boundary can be split later without changing stable
+record identity.
 
-The shared native module will consume immutable presentation values and emit
-semantic actions. Core-owned backend-neutral services will own record identity,
-validation, revisions, local persistence, and optional authenticated cloud
-sync. Projects will reference stable library identities while retaining the
-portable snapshots required for offline and historical meaning. The module and
-lab are planned after `0.2.0`; do not scaffold placeholder views or bind them to
-a specific database before that vertical slice defines its contracts.
+Each module is an independently identified workspace surface. Users may close,
+restore, dock, tab, or move it; those choices are native workspace preferences
+and never project semantics. Project Info composes assignments from the global
+Library and stores portable project references with display/revision snapshots.
+It does not duplicate the Library records.
+
+The shared modules consume immutable presentation values and emit semantic
+actions. The backend-neutral `photara-library` Rust service owns record
+identity, validation, revisions, tombstones, queries, and local SQLite
+persistence. Every mode retains this offline local working copy. Photara Cloud
+and future iCloud options add synchronization through host-owned adapters;
+native views and node packages never receive SQL or credentials. See
+[`docs/LIBRARY_ARCHITECTURE.md`](../../docs/LIBRARY_ARCHITECTURE.md).
+
+These module and lab boundaries are now pre-Layout groundwork. Their first
+slice should establish contracts, empty/loading/error states, close/restore,
+and On This Mac storage; full cloud subscription and legacy migration do not
+block visual authoring.
+
+### Application surface frame
+
+Shell Lab owns the Spotify-reference composition language: an application
+canvas behind independent rounded, filled module surfaces separated by gutters,
+with each surface carrying its own header and scrolling region. It authors
+semantic Light/Dark canvas and surface roles, gutter, inset, corner radius,
+border/elevation, active emphasis, compact stacking, and status treatment.
+Feature labs own the content within those surfaces. This is a layout and
+hierarchy reference, not a copy of Spotify's branding or dark-only palette.
+
+The title bar remains native and system-managed. Account, People, Locations,
+and Scenes shortcuts may reveal or focus their corresponding module from the
+top-right application area. Project Info is a peer workspace module; optional
+node Work Surfaces remain opt-in node contributions.
 
 `shared-ui-sources.sh` is the production assembly manifest. Feature labs compile
 only foundation, theme, their feature and their lab fixtures. They do not build
@@ -70,18 +102,20 @@ a clean checkout.
    diff, and rebuild Gallery Lab and Photara. Both decode that exact resource.
    Graph retains its existing Graph Lab export/preset workflow unchanged.
 4. Shell Lab exports validated `photara-shell/Resources/photara-application-presentation-v1.json`.
-   Promote that file and rebuild to share launcher typography, spacing, pane sizes
-   and chrome dimensions. Availability remains typed Swift. Inspector hierarchy
-   stays in its component; colors stay in Theme.
+   Promote that file and rebuild to share launcher typography, hero icon-tile
+   treatment, launcher action tints, spacing, pane sizes and chrome dimensions.
+   The Lab automatically saves its draft and can apply a validated development
+   override that Photara live-reloads. Availability remains typed Swift. Inspector
+   hierarchy stays in its component; the general application palette stays in Theme.
 5. Gallery filter, current grid style/size, selection and focused image are
    disposable native viewing state. Workspace panel visibility and placement
    retain the existing `photara.workspace.layout-authoring.v1` UserDefaults
    payload. Theme and Graph user preferences retain their current domains.
    None of these presentation settings enter Project Documents or graph digests.
 
-Production is not hot-patched from lab-local experiments: source/preset promotion
-and rebuild are explicit. Theme development overrides retain their existing live
-reload mechanism.
+Production is not hot-patched from ordinary lab-local experiments. Theme and Shell
+have explicit development-override actions with live reload; source/preset promotion
+and rebuild remain the deliberate path to shipped defaults.
 
 ## Universal Inspector, optional node authoring
 
@@ -121,8 +155,8 @@ Gallery/Layout request `.constrainedHigh`; focused Gallery uses `.high` through
 
 Gallery continues the accepted design and selection/layout behavior. Its context
 assignment now uses the same target-availability flag as the footer button.
-Core, Project Documents, bridge declarations, proxy generation and evaluation
-implementations have not changed. Existing Gallery scope/metadata filtering,
+Library integration adds an independent facade and portable Project Info extension.
+Graph, proxy generation and evaluation implementations remain unchanged. Existing Gallery scope/metadata filtering,
 capability-driven action discovery, scalable paging/virtualization and further
 Layout behaviors are separate roadmap work, not introduced by this extraction.
 
@@ -156,7 +190,7 @@ edits in `photara-inspector` and Inspector Lab. Read this document and the
 feature's lab README first. Shared foundation/contract changes require checking
 the other consumers and should be called out in that task's handoff.
 
-One command assembles the four labs and production:
+One command assembles the eight labs and production:
 
 ```sh
 platform/macos/build-ui.sh
@@ -178,9 +212,40 @@ leaving renderer ownership in the shared component directories. Keep all node
 inspectors universal and dedicated node authoring surfaces optional.
 
 Shell tasks own `photara-shell`, its presentation preset, and `photara-shell-lab`.
-Read [Shell Lab](photara-shell-lab/README.md) before authoring. Empty projects show
+Read [Shell Lab](photara-shell-lab/README.md) before authoring. New projects reveal Project Info for Library assignment; an otherwise empty workspace shows
 Graph alone. Inspector stays disclosed after first selection; Gallery requires
 assets, an asset-producing context, or an explicit request. Layout navigation
 requires Layout capability; Review requires reviewable content. Diagnostics use
 no space until requested. Compact windows stack disclosed regions. All this is
 client state and never changes Core digests.
+
+## Module frame and Library labs
+
+People, Locations, Scenes and Project Info now have build scripts at
+`photara-<module>-lab/build-<module>-lab.sh` (`project-info` keeps the hyphen).
+Their app bundles are `.build/Photara People Lab.app`, `Photara Locations Lab.app`,
+`Photara Scenes Lab.app` and `Photara Project Info Lab.app` within each lab directory.
+Each README documents its exact build and run commands. Shared browser/editor
+chrome and thumbnail primitives live in `photara-library-ui`; feature field
+editors remain in their feature directory. Fixtures and lab controls remain in
+`photara-lab-support`, never in production.
+
+Every surface has an icon and close control. Workspace toolbar/menu toggles
+restore Graph, Assets, Inspector, Work Surface, People, Locations, Scenes,
+Project Info, Diagnostics and Library & Sync. Graph and a node Work Surface can
+coexist. Old placement payloads gain new hidden module identities without losing
+existing positions. Restoring the default recovers Graph and progressive
+disclosure. Native split resizing remains; advanced tabs/floating geometry are
+future work. If more than two panels share a region, the region scrolls and a
+shortcut scrolls to its revealed module.
+
+Shell preset `frame` owns semantic/custom Light/Dark canvas and module fills,
+canvas material, gutter, outer/content inset, radius, border, elevation, active
+emphasis, header treatment, compact breakpoint and separate bottom/status shape.
+The native title bar stays system-managed. Shell Lab's existing automatic draft,
+Apply to Photara, Remove Override and validated export paths include these fields.
+Production polls overrides every 500 ms. Promote the JSON resource and rebuild
+for shipped defaults; ordinary Library lab fixture edits remain local.
+
+See [Library architecture](../../docs/LIBRARY_ARCHITECTURE.md) for actual SQLite,
+thumbnail and portable project-reference behavior and deferred cloud work.

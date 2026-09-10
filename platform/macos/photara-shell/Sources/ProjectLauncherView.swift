@@ -5,6 +5,7 @@ struct ProjectLauncherView: View {
     let actions: ApplicationActions
     var preset: ApplicationShellPreset = .shipped
     @EnvironmentObject private var workspace: WorkspaceModel
+    @Environment(\.colorScheme) private var colorScheme
     private var showsRecentProjects: Bool { workspace.showsRecentProjects }
 
     private let cardColumns = [
@@ -13,6 +14,7 @@ struct ProjectLauncherView: View {
 
     var body: some View {
         ZStack {
+            launcherBackground
             launcherBackdrop
 
             VStack(spacing: preset.launcherSpacing) {
@@ -26,30 +28,59 @@ struct ProjectLauncherView: View {
 
                 Spacer(minLength: 32)
             }
-            .padding(.horizontal, 44)
+            .padding(.horizontal, preset.contentHorizontalInset)
             .padding(.vertical, preset.contentInset)
+            .offset(y: preset.launcherVerticalOffset)
         }
-        .background(.background)
         .animation(.snappy(duration: 0.28), value: showsRecentProjects)
+    }
+
+    @ViewBuilder
+    private var launcherBackground: some View {
+        ZStack {
+            switch preset.launcherBackgroundStyle {
+            case .theme:
+                Color(nsColor: .windowBackgroundColor)
+            case .ultraThin:
+                Rectangle().fill(.ultraThinMaterial)
+            case .thin:
+                Rectangle().fill(.thinMaterial)
+            case .regular:
+                Rectangle().fill(.regularMaterial)
+            case .thick:
+                Rectangle().fill(.thickMaterial)
+            }
+            preset.launcherBackgroundTint.color(colorScheme)
+        }
+        .ignoresSafeArea()
     }
 
     private var hero: some View {
         VStack(spacing: preset.heroSpacing) {
             ZStack {
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(Color.accentColor.opacity(0.11))
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
+                if preset.heroShowsTile {
+                    RoundedRectangle(cornerRadius: preset.heroTileCornerRadius, style: .continuous)
+                        .fill(preset.heroTileBackgroundColor.color(colorScheme))
+                    RoundedRectangle(cornerRadius: preset.heroTileCornerRadius, style: .continuous)
+                        .stroke(preset.heroTileStrokeColor.color(colorScheme), lineWidth: preset.heroTileStrokeWidth)
+                }
                 Image(systemName: "point.3.connected.trianglepath.dotted")
                     .font(.system(size: preset.heroIconSize, weight: .light))
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(preset.heroSymbolColor.color(colorScheme))
+                    .offset(y: preset.heroSymbolOffsetY)
             }
             .frame(width: preset.heroSize, height: preset.heroSize)
-            .shadow(color: .black.opacity(0.08), radius: 22, y: 10)
+            .shadow(color: preset.heroShowsTile ? preset.heroGlowColor.color(colorScheme) : .clear,
+                    radius: preset.heroGlowRadius,
+                    x: preset.heroGlowOffsetX,
+                    y: preset.heroGlowOffsetY)
+            .offset(x: preset.heroTileOffsetX, y: preset.heroTileOffsetY)
 
             VStack(spacing: 7) {
                 Text("Photara")
-                    .font(.system(size: preset.launcherTitleSize, weight: preset.launcherTitleWeight.fontWeight, design: .rounded))
+                    .font(.system(size: preset.launcherTitleSize,
+                                  weight: preset.launcherTitleWeight.fontWeight,
+                                  design: preset.launcherTitleFont.fontDesign))
                 Text("Build visual workflows around your creative projects.")
                     .font(.title3)
                     .foregroundStyle(.secondary)
@@ -62,12 +93,14 @@ struct ProjectLauncherView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .tint(preset.launcherCreateButtonTint.color(colorScheme))
 
                 Button("Open Project…", systemImage: "folder") {
                     actions.send(.openProject)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
+                .tint(preset.launcherOpenButtonTint.color(colorScheme))
 
                 Button {
                     workspace.showsRecentProjects.toggle()
@@ -79,6 +112,7 @@ struct ProjectLauncherView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
+                .tint(preset.launcherRecentButtonTint.color(colorScheme))
             }
 
             if !showsRecentProjects, !presentation.recentProjects.isEmpty {

@@ -10,7 +10,7 @@ platform/macos/photara-ui-tests/verify-shared-ui.sh
 ```
 
 Choose Disk, scanning Disk, Layout, single-cell Layout, missing package,
-diagnostics or no selection. Preview the assembled Inspector or an isolated
+diagnostics, no selection, Graph hidden or no editable settings. Preview the assembled Inspector or an isolated
 section; change appearance, evaluation label, enabled state, frame and cell.
 Resize the divider to inspect constrained widths. Semantic callbacks are
 recorded in the sidebar. The fixture adapter also reflects cell mode/crop/rotation
@@ -18,9 +18,11 @@ and scan-state changes; it is not a substitute implementation of Core's node
 semantics. Structural commands are recorded only.
 
 Hierarchy, spacing and controls are shared Swift sources; colors use semantic
-theme roles. There is no second Inspector implementation and no redundant
-Inspector preset. Change the shared component and rebuild this lab and Photara.
-Lab selections and scenario controls are transient.
+theme roles. The Inspector preset owns its empty-state copy, SF Symbols, typography,
+spacing, vertical position and maximum text width. Lab drafts are saved automatically.
+**Apply to Photara** installs a validated local development override that the running
+production Inspector reloads; Remove returns to the bundled default. There is no
+second Inspector implementation. Lab selections and scenario controls are transient.
 
 Every node has a contract Inspector. Node-specific authoring workspaces are
 optional; Layout's authoring canvas lives separately in `../photara-layout`.

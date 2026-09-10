@@ -1,15 +1,91 @@
 {
   "schemaVersion": 1,
   "launcherTitleSize": 38,
+  "launcherTitleFont": "display",
   "launcherTitleWeight": "semibold",
+  "launcherBackgroundStyle": "theme",
+  "launcherBackgroundTint": {
+    "light": "#FFFFFF00",
+    "dark": "#00000000"
+  },
+  "heroShowsTile": true,
   "heroSize": 112,
   "heroIconSize": 58,
+  "heroSymbolOffsetY": 0,
+  "heroTileOffsetX": 0,
+  "heroTileOffsetY": 0,
+  "heroSymbolColor": {
+    "light": "#007AFF",
+    "dark": "#0A84FF"
+  },
+  "heroTileBackgroundColor": {
+    "light": "#007AFF1C",
+    "dark": "#0A84FF1C"
+  },
+  "heroTileStrokeColor": {
+    "light": "#007AFF33",
+    "dark": "#0A84FF33"
+  },
+  "heroTileStrokeWidth": 1,
+  "heroTileCornerRadius": 28,
+  "heroGlowColor": {
+    "light": "#00000014",
+    "dark": "#00000014"
+  },
+  "heroGlowRadius": 22,
+  "heroGlowOffsetX": 0,
+  "heroGlowOffsetY": 10,
+  "launcherCreateButtonTint": {
+    "light": "#007AFF",
+    "dark": "#0A84FF"
+  },
+  "launcherOpenButtonTint": {
+    "light": "#007AFF",
+    "dark": "#0A84FF"
+  },
+  "launcherRecentButtonTint": {
+    "light": "#007AFF",
+    "dark": "#0A84FF"
+  },
   "launcherSpacing": 30,
   "heroSpacing": 22,
   "contentInset": 28,
+  "contentHorizontalInset": 44,
+  "launcherVerticalOffset": 0,
   "leadingIdealWidth": 280,
   "trailingIdealWidth": 360,
+  "toolbarShowsProjectTitle": true,
+  "toolbarTitleSize": 13,
+  "toolbarTitleWeight": "semibold",
   "panelHeaderHeight": 34,
+  "panelHeaderTitleSize": 13,
+  "panelHeaderHorizontalInset": 10,
+  "dividerThickness": 1,
   "statusBarHeight": 28,
-  "toolbarIdentityWidth": 180
+  "statusTextSize": 11,
+  "statusHorizontalInset": 12,
+  "statusItemSpacing": 12,
+  "toolbarIdentityWidth": 180,
+  "frame": {
+    "canvasMaterial": "theme",
+    "usesThemeFills": true,
+    "canvasFill": {
+      "light": "#E9EBEE",
+      "dark": "#141518"
+    },
+    "surfaceFill": {
+      "light": "#FFFFFF",
+      "dark": "#242529"
+    },
+    "gutter": 12,
+    "outerInset": 12,
+    "contentInset": 6,
+    "cornerRadius": 16,
+    "borderWidth": 0,
+    "elevation": 3,
+    "activeEmphasis": 1.5,
+    "elevatedHeader": false,
+    "separateStatusSurface": true,
+    "compactBreakpoint": 1100
+  }
 }

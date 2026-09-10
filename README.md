@@ -42,6 +42,7 @@ remain intentionally undecided while the working application evolves.
 crates/
 ├── photara-bridge/     immutable DTO facade for native clients
 ├── photara-core/       semantic IDs, graph state, node definitions, diagnostics
+├── photara-library/    user Library contracts and local SQLite working copy
 ├── photara-node-sdk/   package manifest and node registration contracts
 ├── photara-proxy/      shared derived proxy generation and cache service
 └── photara-store/      backend-neutral authoritative persistence boundaries
@@ -64,6 +65,10 @@ project-level Assets without introducing a database dependency.
 The immutable node catalog now drives branded hierarchical creation metadata,
 and the first live provider is an ordinary Disk node whose macOS folder grant
 stays outside the portable project.
+
+See [shared native modules and labs](platform/macos/SHARED_UI.md) and the
+[Library architecture](docs/LIBRARY_ARCHITECTURE.md) for the modular application
+frame, local Library and project assignment workflow.
 
 ## Development
 

@@ -6,9 +6,15 @@ struct ProjectStatusBar: View {
     @EnvironmentObject private var workspace: WorkspaceModel
     @Environment(\.photaraTheme) private var theme
     var body: some View {
-        HStack(spacing: 12) {
-            if presentation.isDirty { Text("Unsaved changes") }
-            if let sync = presentation.syncLabel { Text(sync).foregroundStyle(.secondary) }
+        HStack(spacing: preset.statusItemSpacing) {
+            if presentation.isDirty {
+                Text("Unsaved changes").foregroundStyle(theme?.color(.statusTextWarning) ?? Color.orange)
+            }
+            if let sync = presentation.syncLabel {
+                Text(sync).foregroundStyle(sync.localizedCaseInsensitiveContains("sync")
+                    ? (theme?.color(.statusTextRunning) ?? Color.blue)
+                    : (theme?.color(.statusTextSuccess) ?? Color.green))
+            }
             if presentation.diagnosticCount > 0 {
                 Button { workspace.show(.diagnostics) } label: {
                     Label("\(presentation.diagnosticCount) diagnostics", systemImage: "exclamationmark.triangle")
@@ -17,12 +23,16 @@ struct ProjectStatusBar: View {
             Spacer(minLength: 8)
             if presentation.isEvaluating {
                 ProgressView().controlSize(.mini)
-                Text(presentation.progressLabel).lineLimit(1)
+                Text(presentation.progressLabel)
+                    .foregroundStyle(theme?.color(.statusTextRunning) ?? Color.blue)
+                    .lineLimit(1)
             } else if let context = presentation.surfaceContext {
-                Text(context).foregroundStyle(.secondary).lineLimit(1)
+                Text(context).foregroundStyle(theme?.color(.statusTextNeutral) ?? Color.secondary).lineLimit(1)
             }
         }
-        .font(.caption).padding(.horizontal, 12).frame(height: preset.statusBarHeight)
+        .font(.system(size: preset.statusTextSize))
+        .foregroundStyle(theme?.color(.statusTextNeutral) ?? Color.secondary)
+        .padding(.horizontal, preset.statusHorizontalInset).frame(height: preset.statusBarHeight)
         .background(theme?.color(.surfaceElevated) ?? Color(nsColor: .windowBackgroundColor))
     }
 }
@@ -32,13 +42,16 @@ struct PanelHeader: View {
     @Environment(\.photaraTheme) private var theme
     let panel: WorkspacePanelID
     var height: Double = 34
+    var titleSize: Double = 13
+    var horizontalPadding: Double = 10
+    var elevated = true
     var allowsPlacement = true
     var title: String? = nil
 
     var body: some View {
         HStack(spacing: 7) {
-            Text(title ?? panel.title)
-                .font(.subheadline.weight(.semibold))
+            Label(title ?? panel.title, systemImage: panel.symbol)
+                .font(.system(size: titleSize, weight: .semibold))
             Spacer()
             if allowsPlacement {
             Menu {
@@ -54,7 +67,7 @@ struct PanelHeader: View {
             .menuStyle(.borderlessButton)
             .help("Move \(panel.title)")
             }
-            if allowsPlacement && panel != .graph && panel != .nodeWorkSurface {
+            if allowsPlacement {
             Button {
                 workspace.toggle(panel)
             } label: {
@@ -65,8 +78,8 @@ struct PanelHeader: View {
             .help("Hide \(panel.title)")
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, horizontalPadding)
         .frame(height: height)
-        .background(theme?.color(.surfaceElevated) ?? Color(nsColor: .windowBackgroundColor))
+        .background(elevated ? (theme?.color(.surfaceElevated) ?? Color(nsColor: .windowBackgroundColor)) : Color.clear)
     }
 }

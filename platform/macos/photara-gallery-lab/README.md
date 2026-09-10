@@ -14,13 +14,18 @@ platform/macos/photara-ui-tests/verify-shared-ui.sh
 Fixtures cover portrait/landscape/square, SDR and true float HDR highlights,
 multiple representations, loading/updating/failed previews and selection. Use
 the production controls to change grid style, filter, resize, select and View.
-The sidebar switches appearance, compatible assignment context and empty state.
+The sidebar switches appearance, compatible assignment context and the populated,
+no-source, awaiting-results and no-filter-match states.
 Open/Assign callbacks are recorded rather than touching real files or projects.
 
 The sidebar's authored thumbnail default, gaps and selection stroke update the
-shared view live. **Export Shipped Preset** validates and exports JSON; promote
+shared view live. Each Gallery empty state owns its copy, SF Symbol, typography,
+spacing, vertical position, maximum text width and semantic action. Lab drafts are
+saved automatically. **Apply to Photara** installs a validated local development
+override that the running production Gallery reloads; Remove returns to the bundled
+default. **Export Gallery Preset** validates and exports JSON; promote
 to `../photara-gallery/Resources/photara-gallery-presentation-v1.json` and rebuild
-both hosts. Unsaved experiments are local to this lab session. Colors are shared
+both hosts. Colors are shared
 theme roles. Inspector and shell do not need copies of this preset.
 
 On an HDR display, select **Portrait HDR** or **Landscape HDR** and press **View**.

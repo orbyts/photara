@@ -18,6 +18,12 @@ pub struct ProjectCommandEnvelope {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum ProjectCommand {
+    /// Compare-and-swap a portable extension without interpreting its owner schema.
+    SetExtension {
+        key: String,
+        expected_value: Option<serde_json::Value>,
+        value: Option<serde_json::Value>,
+    },
     AddAsset {
         asset: ProjectAsset,
         resources: Vec<ProjectResourceRef>,
@@ -65,6 +71,22 @@ pub fn apply_project_command(
     }
     let mut updated = project.clone();
     match &envelope.command {
+        ProjectCommand::SetExtension {
+            key,
+            expected_value,
+            value,
+        } => {
+            if updated.extensions.get(key) != expected_value.as_ref() {
+                return Err(ProjectCommandError::InvalidProject {
+                    message: "project extension revision conflict".into(),
+                });
+            }
+            if let Some(value) = value {
+                updated.extensions.insert(key.clone(), value.clone());
+            } else {
+                updated.extensions.remove(key);
+            }
+        }
         ProjectCommand::AddAsset { asset, resources } => {
             updated.resources.extend(resources.iter().cloned());
             updated.asset_context.assets.push(asset.clone());
