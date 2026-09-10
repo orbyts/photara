@@ -6,6 +6,13 @@ enum PhotaraGraphSelection: Equatable {
     case node(String), noodle(String), knot(String)
 }
 
+enum PhotaraGraphMutation {
+    case connect(source: PhotaraGraphPortID, destination: PhotaraGraphPortID, replacing: String?, routingPointID: String?)
+    case moveNode(id: String, position: PhotaraGraphPoint)
+    case removeConnections(Set<String>)
+    case setRouting(connectionID: String, point: PhotaraGraphPoint?)
+}
+
 enum PhotaraGraphHit: Equatable {
     case port(PhotaraGraphPortID), node(String), noodle(String), knot(String), canvas
 }
@@ -38,6 +45,7 @@ final class PhotaraGraphInteractionController {
     private(set) var selection: PhotaraGraphSelection?
     private(set) var camera = PhotaraGraphCamera()
     private(set) var knifeMode = false
+    private(set) var pointerLocation: CGPoint?
     private(set) var geometry = PhotaraGraphGeometry()
     var viewport = CGSize.zero
     var overviewSizeFraction = 0.16
@@ -84,11 +92,17 @@ final class PhotaraGraphInteractionController {
         zoomActive = false
     }
     @ObservationIgnored private var knifePaths: [(String, Path)] = []
+    @ObservationIgnored var commitMutation: ((PhotaraGraphMutation) -> PhotaraGraphDocument?)?
+    @ObservationIgnored var activateNode: ((String) -> Void)?
 
-    init(document: PhotaraGraphDocument, selection: PhotaraGraphSelection? = nil) {
+    func notePointer(at point: CGPoint) { pointerLocation = point }
+
+    init(document: PhotaraGraphDocument, selection: PhotaraGraphSelection? = nil,
+         commitMutation: ((PhotaraGraphMutation) -> PhotaraGraphDocument?)? = nil) {
         precondition((try? document.validate()) != nil, "Invalid graph document")
         self.document = document
         self.selection = selection
+        self.commitMutation = commitMutation
     }
 
     var wire: PhotaraGraphWireDrag? {
@@ -292,11 +306,13 @@ final class PhotaraGraphInteractionController {
         case .wire(let wire):
             // The release position is authoritative. Never fall back to the
             // previous hover target when a release lands on empty canvas.
-            if let target = wire.target, let id = document.connect(from: wire.source, to: target, replacing: wire.originalConnection, via: wire.routingPointID) {
-                selection = .noodle(id)
+            if let target = wire.target {
+                commitConnect(wire.source, target, replacing: wire.originalConnection, routingPointID: wire.routingPointID)
             }
         case .node(let id, _, _, let current):
-            if let index = document.nodes.firstIndex(where: { $0.id == id }) { document.nodes[index].position = .init(current) }
+            let point = PhotaraGraphPoint(current)
+            if let committed = commitMutation?(.moveNode(id: id, position: point)) { document = committed }
+            else if commitMutation == nil, let index = document.nodes.firstIndex(where: { $0.id == id }) { document.nodes[index].position = point }
         case .knot(let id, _, _, let current): setKnot(current, connectionID: id)
         case .knife(_, let crossed): removeConnections(crossed)
         default: break
@@ -325,14 +341,26 @@ final class PhotaraGraphInteractionController {
     }
     func connect(_ source: PhotaraGraphPortID, to destination: PhotaraGraphPortID) {
         cancel()
-        if let id = document.connect(from: source, to: destination) { selection = .noodle(id) }
+        commitConnect(source, destination, replacing: nil, routingPointID: nil)
+    }
+    private func commitConnect(_ source: PhotaraGraphPortID, _ destination: PhotaraGraphPortID,
+                               replacing: String?, routingPointID: String?) {
+        if let committed = commitMutation?(.connect(source: source, destination: destination,
+                                                     replacing: replacing, routingPointID: routingPointID)) {
+            document = committed
+            selection = committed.connections.first { $0.source == source && $0.destination == destination }.map { .noodle($0.id) }
+        } else if commitMutation == nil,
+                  let id = document.connect(from: source, to: destination, replacing: replacing, via: routingPointID) {
+            selection = .noodle(id)
+        }
     }
     func disconnect(port: PhotaraGraphPortID) {
         removeConnections(Set(document.connections.filter { $0.source == port || $0.destination == port }.map(\.id)))
     }
     func removeConnections(_ ids: Set<String>) {
         cancel()
-        document.removeConnections(ids)
+        if let committed = commitMutation?(.removeConnections(ids)) { document = committed }
+        else if commitMutation == nil { document.removeConnections(ids) }
         switch selection {
         case .noodle(let id), .knot(let id): if ids.contains(id) { selection = nil }
         default: break
@@ -341,7 +369,9 @@ final class PhotaraGraphInteractionController {
     func setKnot(_ point: CGPoint?, connectionID: String) {
         cancel()
         guard document.connections.contains(where: { $0.id == connectionID }) else { return }
-        document.setKnot(point.map(PhotaraGraphPoint.init), connectionID: connectionID)
+        let graphPoint = point.map(PhotaraGraphPoint.init)
+        if let committed = commitMutation?(.setRouting(connectionID: connectionID, point: graphPoint)) { document = committed }
+        else if commitMutation == nil { document.setKnot(graphPoint, connectionID: connectionID) }
         selection = point == nil ? .noodle(connectionID) : .knot(connectionID)
     }
     @discardableResult func deleteSelection() -> Bool {
@@ -387,6 +417,12 @@ final class PhotaraGraphInteractionController {
         cancel(resetTool: true)
         self.document = document
         selection = nil
+    }
+    func synchronizeDocument(_ document: PhotaraGraphDocument) throws {
+        try document.validate()
+        guard interaction == .idle else { return }
+        self.document = document
+        if case .node(let id) = selection, !document.nodes.contains(where: { $0.id == id }) { selection = nil }
     }
     func center(positions: [String: PhotaraGraphPoint], selectedNode: String?) {
         cancel(resetTool: true)

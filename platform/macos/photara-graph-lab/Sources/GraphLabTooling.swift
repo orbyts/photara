@@ -177,7 +177,7 @@ struct GraphLabToolPalette: View {
                     addNativeNode(shortcut.rawValue)
                 } label: {
                     PhotaraGraphNodeIcon(resource: shortcut.presentation.iconResource,
-                                         color: shortcut.presentation.category.color, size: 18)
+                                         color: shortcut.presentation.iconColor, size: 18)
                         .frame(width: 30, height: 30)
                         .contentShape(Rectangle())
                 }

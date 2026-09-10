@@ -21,6 +21,9 @@ mkdir -p "$GENERATED_ROOT" "$MODULE_CACHE" "$MACOS" "$FRAMEWORKS" "$RESOURCES"
 cp -p "$SCRIPT_ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
 mkdir -p "$RESOURCES/Themes"
 cp -p "$THEME_ROOT/Resources/photara-default.json" "$RESOURCES/Themes/photara-default.json"
+cp -p "$REPOSITORY_ROOT/platform/macos/photara-graph/Resources/photara-graph-presentation-v1.json" "$RESOURCES/photara-graph-presentation-v1.json"
+ditto "$REPOSITORY_ROOT/platform/macos/photara-graph/Resources/NodeIcons" "$RESOURCES/NodeIcons"
+ditto "$REPOSITORY_ROOT/platform/macos/photara-graph/Resources/ToolIcons" "$RESOURCES/ToolIcons"
 
 swift build \
   --package-path "$REPOSITORY_ROOT/platform/macos/photara-proxy-imageio" \
@@ -50,11 +53,23 @@ xcrun swiftc \
   "$GENERATED_ROOT/PhotaraBridge.swift" \
   "$THEME_ROOT/Sources/PhotaraTheme.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphPresentation.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphPreset.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphDocument.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphOverview.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphToolIcons.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphGeometry.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphInteraction.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphEventSurface.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphToolRail.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphNodeView.swift" \
+  "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphCanvas.swift" \
   "$SCRIPT_ROOT/Sources/GalleryPresentationState.swift" \
   "$SCRIPT_ROOT/Sources/ThemeStore.swift" \
   "$SCRIPT_ROOT/Sources/AppModel.swift" \
   "$SCRIPT_ROOT/Sources/AppModel+Gallery.swift" \
   "$SCRIPT_ROOT/Sources/WorkspaceModel.swift" \
+  "$SCRIPT_ROOT/Sources/GraphAdapter.swift" \
+  "$SCRIPT_ROOT/Sources/ProductionGraphView.swift" \
   "$SCRIPT_ROOT/Sources/GalleryView.swift" \
   "$SCRIPT_ROOT/Sources/WorkspaceView.swift" \
   "$SCRIPT_ROOT/Sources/PhotaraMacApp.swift" \

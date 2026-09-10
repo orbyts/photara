@@ -244,9 +244,10 @@ final class AppModel: ObservableObject {
         addNode(definition)
     }
 
-    func addNode(_ definition: BridgeAvailableNodeDefinitionDto) {
+    func addNode(_ definition: BridgeAvailableNodeDefinitionDto, graphPosition: PhotaraGraphPoint? = nil) {
         guard let project, let snapshot else { return }
-        accept(project.addNode(
+        let existing = Set(snapshot.nodes.map(\.nodeId))
+        let added = project.addNode(
             expectedGraphRevision: snapshot.graph.revision,
             definition: BridgeNodeDefinitionRefDto(
                 packageId: definition.packageId,
@@ -254,7 +255,36 @@ final class AppModel: ObservableObject {
                 definitionId: definition.definitionId,
                 definitionVersion: definition.definitionVersion
             )
-        ))
+        )
+        accept(added)
+        if let graphPosition, added.applied,
+           let node = self.snapshot?.nodes.first(where: { !existing.contains($0.nodeId) }),
+           let revision = self.snapshot?.graph.revision {
+            let document = self.snapshot.map(PhotaraProductionGraphAdapter.document)
+            let inserted = document?.nodes.first { $0.id == node.nodeId }
+            var position = graphPosition
+            if let document, let inserted {
+                let size = PhotaraGraphGeometry.size(of: inserted)
+                func overlaps(_ point: PhotaraGraphPoint) -> Bool {
+                    let candidate = CGRect(x: point.x - size.width / 2, y: point.y - size.height / 2,
+                        width: size.width, height: size.height).insetBy(dx: -10, dy: -10)
+                    return document.nodes.filter { $0.id != inserted.id }.contains {
+                        candidate.intersects(PhotaraGraphGeometry.rect(of: $0, at: $0.position.cgPoint))
+                    }
+                }
+                if overlaps(position) {
+                    let step = max(size.width, size.height) + 24
+                    for ring in 1...12 {
+                        let candidates = [PhotaraGraphPoint(x: graphPosition.x + Double(ring) * step, y: graphPosition.y),
+                            .init(x: graphPosition.x, y: graphPosition.y + Double(ring) * step),
+                            .init(x: graphPosition.x - Double(ring) * step, y: graphPosition.y)]
+                        if let candidate = candidates.first(where: { !overlaps($0) }) { position = candidate; break }
+                    }
+                }
+            }
+            accept(project.setGraphNodePosition(expectedGraphRevision: revision, nodeId: node.nodeId,
+                x: Int64((position.x * 1_000).rounded()), y: Int64((position.y * 1_000).rounded())))
+        }
     }
 
     func chooseFolder(for node: BridgeNodeDto) {
@@ -392,6 +422,38 @@ final class AppModel: ObservableObject {
             inputNodeId: layout.nodeId,
             inputPortId: "assets"
         ))
+    }
+
+    func commitGraphMutation(_ mutation: PhotaraGraphMutation, document: PhotaraGraphDocument) -> PhotaraGraphDocument? {
+        guard let project, let snapshot else { return nil }
+        let response: BridgeCommandResponseDto
+        switch mutation {
+        case .moveNode(let id, let position):
+            response = project.setGraphNodePosition(expectedGraphRevision: snapshot.graph.revision,
+                nodeId: id, x: Int64((position.x * 1_000).rounded()), y: Int64((position.y * 1_000).rounded()))
+        case .removeConnections(let ids):
+            response = project.disconnectGraphConnections(expectedGraphRevision: snapshot.graph.revision,
+                connectionIds: Array(ids).sorted())
+        case .setRouting(let connectionID, let point):
+            let existing = document.connections.first { $0.id == connectionID }
+                .flatMap { edge in document.routingPoint(for: edge) }
+            response = project.setGraphConnectionRouting(expectedGraphRevision: snapshot.graph.revision,
+                connectionId: connectionID, routingId: point == nil ? nil : (existing?.id ?? UUID().uuidString),
+                routingX: point.map { Int64(($0.x * 1_000).rounded()) },
+                routingY: point.map { Int64(($0.y * 1_000).rounded()) },
+                routingIsJunction: existing?.isJunction == true)
+        case .connect(let source, let destination, let replacing, let routingPointID):
+            let route = routingPointID.flatMap { id in document.routingPoints.first { $0.id == id } }
+            response = project.commitGraphConnection(expectedGraphRevision: snapshot.graph.revision,
+                outputNodeId: source.node, outputPortId: source.key,
+                inputNodeId: destination.node, inputPortId: destination.key,
+                replacingConnectionId: replacing, routingId: route?.id,
+                routingX: route.map { Int64(($0.position.x * 1_000).rounded()) },
+                routingY: route.map { Int64(($0.position.y * 1_000).rounded()) },
+                routingIsJunction: route != nil)
+        }
+        accept(response)
+        return response.applied ? self.snapshot.map(PhotaraProductionGraphAdapter.document) : nil
     }
 
     func save() {
@@ -609,7 +671,7 @@ final class AppModel: ObservableObject {
         evaluation?.cancel()
     }
 
-    private func accept(_ response: BridgeCommandResponseDto) {
+    @discardableResult private func accept(_ response: BridgeCommandResponseDto) -> Bool {
         if let snapshot = response.snapshot, response.applied {
             self.snapshot = snapshot
             let liveCellIDs = Set(
@@ -624,6 +686,7 @@ final class AppModel: ObservableObject {
         } else {
             presentedError = response.error?.message ?? "Semantic command was rejected"
         }
+        return response.applied
     }
 
     private func restoreDiskFolderGrants() {

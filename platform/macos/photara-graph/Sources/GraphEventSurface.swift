@@ -87,6 +87,10 @@ final class PhotaraGraphEventView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         if event.modifierFlags.contains(.control) { showMenu(event); return }
+        if event.clickCount == 2, case .node(let id) = controller.hitTest(point(event)) {
+            controller.activateNode?(id)
+            return
+        }
         begin(event)
     }
     override func otherMouseDown(with event: NSEvent) { if event.buttonNumber == 2 { begin(event) } }
@@ -98,9 +102,11 @@ final class PhotaraGraphEventView: NSView {
         refreshCursor()
     }
     override func mouseDragged(with event: NSEvent) { drag(event) }
+    override func mouseMoved(with event: NSEvent) { controller.notePointer(at: point(event)) }
     override func otherMouseDragged(with event: NSEvent) { drag(event) }
     private func drag(_ event: NSEvent) {
         guard capturedButton == event.buttonNumber else { return }
+        controller.notePointer(at: point(event))
         controller.pointerDragged(to: point(event))
         refreshCursor()
     }
@@ -148,7 +154,7 @@ final class PhotaraGraphEventView: NSView {
 
     override func updateTrackingAreas() {
         if let tracking { removeTrackingArea(tracking) }
-        tracking = NSTrackingArea(rect: .zero, options: [.activeInKeyWindow, .inVisibleRect, .mouseEnteredAndExited, .cursorUpdate], owner: self)
+        tracking = NSTrackingArea(rect: .zero, options: [.activeInKeyWindow, .inVisibleRect, .mouseEnteredAndExited, .mouseMoved, .cursorUpdate], owner: self)
         addTrackingArea(tracking!)
         super.updateTrackingAreas()
     }

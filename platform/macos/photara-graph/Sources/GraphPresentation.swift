@@ -63,6 +63,16 @@ enum PhotaraGraphNodeCategory: String, CaseIterable, Identifiable {
 struct PhotaraGraphNodePresentationMetadata: Equatable {
     let category: PhotaraGraphNodeCategory
     let iconResource: String
+    let accentColor: PhotaraGraphColorValue?
+
+    init(category: PhotaraGraphNodeCategory, iconResource: String,
+         accentColor: PhotaraGraphColorValue? = nil) {
+        self.category = category
+        self.iconResource = iconResource
+        self.accentColor = accentColor
+    }
+
+    var iconColor: Color { accentColor?.color ?? category.color }
 }
 
 @MainActor
@@ -111,7 +121,7 @@ struct PhotaraGraphNodeIcon: View {
 
 /// Reusable, presentation-only Graph appearance values. These do not enter a
 /// Photara project, graph digest, or node package contract.
-enum PhotaraGraphPattern: String, CaseIterable, Identifiable {
+enum PhotaraGraphPattern: String, CaseIterable, Codable, Identifiable {
     case dots
     case lines
     case crosses

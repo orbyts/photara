@@ -572,6 +572,16 @@ Swift gate now exercises assignment undo/redo, resolved geometry,
 cell insertion/arrangement, focal Fill, rotation undo/redo, and two independent
 Layout nodes through the production facade on Quasar.
 
+The accepted Graph Lab node-and-wiring draft is now promoted into one shared
+macOS graph canvas and node renderer used by both Graph Lab and Photara. The
+production adapter consumes immutable bridge DTOs, preserves package-authored
+SVG icons and accent colors, and commits connection, disconnection, routing,
+and node-position commands only at gesture boundaries. Selection uses the
+authored neutral node fill with a perimeter stroke; camera, overview, catalog,
+and tool-rail choices remain native workspace preferences. This completes the
+first Graph nodes-and-wiring slice; Stage 9 remains open for Gallery, Inspector,
+and Layout refinement.
+
 Real 60 MP Photoshop TIFF testing supersedes part of that first attempt:
 Quick Look exceeded 60 seconds for one 761 MiB 32-bit float LZW TIFF, while the
 bounded 384 px F16 ImageIO helper returned in 2.91 seconds. TIFF Gallery requests
