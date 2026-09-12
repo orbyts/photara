@@ -5,6 +5,7 @@ REPOSITORY_ROOT="${SCRIPT_ROOT:h:h:h}"
 source "$REPOSITORY_ROOT/platform/macos/shared-ui-sources.sh"
 PRODUCTION_ROOT="$UI_ROOT/photara-app"
 PRODUCTION_BUILD="$PRODUCTION_ROOT/.build/app"
+PRODUCTION_RUST_TARGET="${PHOTARA_APP_RUST_TARGET:-$PRODUCTION_BUILD/rust-target}"
 GENERATED_ROOT="$PRODUCTION_BUILD/generated"
 BUILD_ROOT="$SCRIPT_ROOT/.build"
 APP_BUNDLE="$BUILD_ROOT/Production UI Verification.app"
@@ -34,7 +35,7 @@ xcrun swiftc -swift-version 6 -parse-as-library -module-cache-path "$BUILD_ROOT/
   -framework SwiftUI -framework AppKit -framework QuickLookThumbnailing \
   -Xlinker -rpath -Xlinker '@executable_path/../Frameworks' \
   -o "$APP_BUNDLE/Contents/MacOS/ProductionUIChecks"
-install_name_tool -change "$PRODUCTION_BUILD/rust-target/debug/deps/libphotara_bridge.dylib" \
+install_name_tool -change "$PRODUCTION_RUST_TARGET/debug/deps/libphotara_bridge.dylib" \
   '@rpath/libphotara_bridge.dylib' "$APP_BUNDLE/Contents/MacOS/ProductionUIChecks"
 codesign --force --deep --sign - "$APP_BUNDLE"
 if [[ "${1:-}" != --build-only ]]; then

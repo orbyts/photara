@@ -5,6 +5,8 @@
 //! providers synchronize records through a host-owned service; node packages
 //! never receive SQL, credentials, or network authority.
 
+pub mod gen2;
+
 use std::{fs, path::Path};
 
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};

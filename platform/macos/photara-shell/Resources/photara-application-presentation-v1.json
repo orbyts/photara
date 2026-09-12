@@ -57,34 +57,25 @@
   "toolbarShowsProjectTitle": true,
   "toolbarTitleSize": 13,
   "toolbarTitleWeight": "semibold",
+  "toolbarApplicationTitle": "Photara",
+  "toolbarApplicationTitleSize": 13,
+  "toolbarShowsProjectThumbnail": true,
+  "toolbarProjectThumbnailSize": 24,
+  "toolbarProjectThumbnailCornerRadius": 6,
   "panelHeaderHeight": 34,
   "panelHeaderTitleSize": 13,
   "panelHeaderHorizontalInset": 10,
-  "dividerThickness": 1,
   "statusBarHeight": 28,
   "statusTextSize": 11,
   "statusHorizontalInset": 12,
   "statusItemSpacing": 12,
   "toolbarIdentityWidth": 180,
   "frame": {
-    "canvasMaterial": "theme",
-    "usesThemeFills": true,
-    "canvasFill": {
-      "light": "#E9EBEE",
-      "dark": "#141518"
-    },
-    "surfaceFill": {
-      "light": "#FFFFFF",
-      "dark": "#242529"
-    },
     "gutter": 12,
     "outerInset": 12,
     "contentInset": 6,
     "cornerRadius": 16,
-    "borderWidth": 0,
     "elevation": 3,
-    "activeEmphasis": 1.5,
-    "elevatedHeader": false,
     "separateStatusSurface": true,
     "compactBreakpoint": 1100
   }

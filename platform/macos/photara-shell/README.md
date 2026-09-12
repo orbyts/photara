@@ -24,8 +24,12 @@ The preset also owns the launcher hero icon-tile treatment and individual action
 tints as paired Light/Dark sRGB values, plus portable tile, stroke, corner and glow
 geometry. It separately stores symbol alignment within the tile, tile positioning,
 launcher edge insets, hero-to-recents spacing and the opening content's vertical
-position. Project Chrome geometry includes project-title typography, panel headers,
-semantic dividers and the status bar; their colors remain shared Theme roles.
+position. Project Chrome geometry includes project-title typography, panel headers
+and the status bar; their colors remain shared Theme roles.
+The native toolbar keeps project identity and its optional thumbnail at the leading
+edge, centers the application identity, and supplies semantic groups of operational
+controls at the trailing edge. macOS owns its Liquid Glass, grouping, shadow, blur,
+contrast, accessibility fallback and overflow; the Shell exposes no optical controls.
 Launcher background material is stored as a semantic native role with an
 adaptive tint, allowing macOS to use system frost and other clients to map the same
 intent to their native backdrop material. Shell Lab saves an authoring draft in
@@ -50,8 +54,9 @@ in `ProductionWorkSurfaceRegistry`; Layout is its first entry. The saved client 
 key remains `layoutAuthoring` for compatibility, while its Swift identity is now the
 generic `nodeWorkSurface`.
 
-The `frame` preset wraps each module in a filled rounded surface with visible
-canvas gutters and an icon/header. New Library modules and Account are peers.
+The `frame` preset wraps each module in one borderless rounded surface with visible
+canvas gutters and an integrated icon/header. Theme owns the application base,
+module base, optional inset-content surface and selection tint. New Library modules and Account are peers.
 Graph and the optional Work Surface have independent visibility; neither's
 renderer owns Shell clipping or insets. Existing saved placements migrate by
 adding only missing identities, and Restore Workspace remains recoverable.

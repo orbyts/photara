@@ -14,7 +14,6 @@ extension InspectorView {
           }
         }
       }
-      .listRowBackground(inspectorGroupBackground)
     }
   }
 }

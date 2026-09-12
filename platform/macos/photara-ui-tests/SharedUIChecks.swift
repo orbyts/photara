@@ -54,7 +54,6 @@ struct SharedUIChecks {
         legacyShellJSON.removeValue(forKey: "toolbarTitleWeight")
         legacyShellJSON.removeValue(forKey: "panelHeaderTitleSize")
         legacyShellJSON.removeValue(forKey: "panelHeaderHorizontalInset")
-        legacyShellJSON.removeValue(forKey: "dividerThickness")
         legacyShellJSON.removeValue(forKey: "statusTextSize")
         legacyShellJSON.removeValue(forKey: "statusHorizontalInset")
         legacyShellJSON.removeValue(forKey: "statusItemSpacing")
@@ -66,7 +65,7 @@ struct SharedUIChecks {
                 "Legacy shell preset did not preserve launcher positioning")
         require(legacyShellPreset.toolbarShowsProjectTitle && legacyShellPreset.toolbarTitleSize == 13,
                 "Legacy shell preset did not preserve project identity defaults")
-        require(legacyShellPreset.dividerThickness == 1 && legacyShellPreset.statusTextSize == 11,
+        require(legacyShellPreset.statusTextSize == 11,
                 "Legacy shell preset did not preserve Project Chrome defaults")
         var badVersion = shellPreset; badVersion.schemaVersion = 2
         var badSize = shellPreset; badSize.launcherTitleSize = -1
@@ -77,9 +76,8 @@ struct SharedUIChecks {
         var badSymbolOffset = shellPreset; badSymbolOffset.heroSymbolOffsetY = 999
         var badTileOffset = shellPreset; badTileOffset.heroTileOffsetX = 999
         var badLauncherOffset = shellPreset; badLauncherOffset.launcherVerticalOffset = 999
-        var badDivider = shellPreset; badDivider.dividerThickness = 999
         for invalid in [badVersion, badSize, badRatio, badPane, badColor, badGlow,
-                        badSymbolOffset, badTileOffset, badLauncherOffset, badDivider] {
+                        badSymbolOffset, badTileOffset, badLauncherOffset] {
             do { _ = try ApplicationShellPreset.decode(JSONEncoder().encode(invalid)); fatalError("Accepted invalid shell preset") }
             catch { }
         }

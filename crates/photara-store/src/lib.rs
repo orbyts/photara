@@ -1,6 +1,7 @@
 //! Backend-neutral persistence contracts and the minimum durable adapter.
 
 mod local_assets;
+pub mod package;
 
 pub use local_assets::{
     LocalAssetAdapterError, LocalProjectAssetAdapter, LocalTiffPairImport, import_local_tiff_pair,

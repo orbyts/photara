@@ -36,10 +36,6 @@ struct InspectorView: View {
         }
     }
 
-    var inspectorGroupBackground: Color {
-        theme?.color(.surfaceElevated) ?? Color(nsColor: .controlBackgroundColor)
-    }
-
     func canvasDescription(_ node: NodeInspection) -> String {
         guard let canvas = node.layout?.canvas else { return "Unknown" }
         return "\(canvas.widthPixels) × \(canvas.heightPixels)"

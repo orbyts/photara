@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 enum ShellScenario: String, CaseIterable, Identifiable {
@@ -49,6 +50,7 @@ final class ShellLabModel: ObservableObject {
         }
     }
     @Published var dark = false
+    @Published var identifiesControls = false
     @Published var lastAction = "Choose a scenario to author the shell."
     let workspace = WorkspaceModel(persists: false)
     let assets = GalleryFixtures.assets()
@@ -191,10 +193,123 @@ struct ShellLabPreview: View {
             .environment(\.photaraTheme, theme)
             .tint(theme.color(.borderFocus))
             .preferredColorScheme(model.dark ? .dark : .light)
+            .overlay {
+                if model.identifiesControls {
+                    ShellControlInspectorOverlay(preset: model.preset,
+                                                 hasProject: model.presentation.hasOpenProject)
+                }
+            }
     }
     private var inspection: InspectorPresentation {
         guard let id = workspace.selectedNodeID else { return .init(node: nil) }
         return id == "layout" ? InspectorFixture.layout.presentation : InspectorFixture.disk.presentation
+    }
+}
+
+private struct ShellControlInspectorOverlay: View {
+    let preset: ApplicationShellPreset
+    let hasProject: Bool
+    @State private var location: CGPoint?
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .topLeading) {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case let .active(point): location = point
+                        case .ended: location = nil
+                        }
+                    }
+                    .onHover { hovering in
+                        if hovering { NSCursor.crosshair.push() } else { NSCursor.pop() }
+                    }
+
+                if let location {
+                    Image(systemName: "scope")
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundStyle(.tint)
+                        .position(location)
+                        .allowsHitTesting(false)
+
+                    Text(controlName(at: location, in: geometry.size))
+                        .font(.system(size: 12, weight: .medium))
+                        .multilineTextAlignment(.leading)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(.primary.opacity(0.14), lineWidth: 1)
+                        }
+                        .fixedSize(horizontal: true, vertical: true)
+                        .position(labelPosition(for: location, in: geometry.size))
+                        .allowsHitTesting(false)
+                }
+            }
+        }
+        .accessibilityLabel("Shell control identifier")
+    }
+
+    private func controlName(at point: CGPoint, in size: CGSize) -> String {
+        if !hasProject {
+            return launcherControlName(at: point, in: size)
+        }
+
+        let outer = preset.frame.outerInset
+        let statusTop = size.height - outer - preset.statusBarHeight - preset.frame.gutter / 2
+        if point.y >= statusTop {
+            return "Workspace Chrome → Status bar height, text size, inset and spacing\nProject Chrome Colors → Header and status background"
+        }
+
+        let nearOuterEdge = point.x < outer + preset.frame.gutter
+            || point.x > size.width - outer - preset.frame.gutter
+            || point.y < outer + preset.frame.gutter / 2
+        let leadingDivider = outer + preset.leadingIdealWidth
+        let trailingDivider = size.width - outer - preset.trailingIdealWidth
+        let nearDivider = abs(point.x - leadingDivider) < max(10, preset.frame.gutter)
+            || abs(point.x - trailingDivider) < max(10, preset.frame.gutter)
+        if nearOuterEdge || nearDivider {
+            return "Shared Visual System → Application base\nShared Visual System → Gutter and Outer inset"
+        }
+
+        let moduleTop = outer + preset.frame.gutter / 2
+        if point.y <= moduleTop + preset.panelHeaderHeight {
+            return "Advanced Shared Geometry → Module title bar metrics\nShared Visual System → Selection tint"
+        }
+
+        let nearCardEdge = point.y < moduleTop + preset.panelHeaderHeight + preset.frame.contentInset + 10
+        if nearCardEdge {
+            return "Shared Visual System → Module base and Module content\nShared Visual System → Corner radius and Content inset"
+        }
+
+        return "Shared Visual System → Module base and Content inset\nFeature Lab → Content inside this module"
+    }
+
+    private func launcherControlName(at point: CGPoint, in size: CGSize) -> String {
+        let center = CGPoint(x: size.width / 2, y: size.height / 2 + preset.launcherVerticalOffset)
+        if hypot(point.x - center.x, point.y - (center.y - 105)) < 95 {
+            return "Hero Icon Tile → Size, color, stroke, corner radius, glow and position"
+        }
+        if abs(point.y - center.y) < 55 {
+            return "Launcher → Title size, font, weight and spacing"
+        }
+        if point.y > center.y + 45 && point.y < center.y + 145 {
+            return "Launcher Buttons → Create, Open and Recent tints\nLauncher → Hero-to-recents gap"
+        }
+        return "Launcher Background → Material and Tint\nLauncher → Edge insets and vertical position"
+    }
+
+    private func labelPosition(for point: CGPoint, in size: CGSize) -> CGPoint {
+        let estimatedWidth = 390.0
+        let proposedX = point.x + estimatedWidth / 2 + 24 < size.width
+            ? point.x + estimatedWidth / 2 + 24
+            : point.x - estimatedWidth / 2 - 24
+        let x = max(estimatedWidth / 2 + 8,
+                    min(proposedX, size.width - estimatedWidth / 2 - 8))
+        let y = min(max(point.y + 44, 44), size.height - 44)
+        return CGPoint(x: x, y: y)
     }
 }
 

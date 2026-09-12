@@ -5,6 +5,7 @@ struct ApplicationPresentation {
     var hasOpenProject: Bool
     var title: String
     var subtitle: String
+    var projectThumbnailURL: URL? = nil
     var isDirty = false
     var nodeCount = 0
     var diagnosticCount = 0

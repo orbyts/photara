@@ -32,6 +32,14 @@ private struct ShellControls: View {
                     ForEach(ShellScenario.allCases) { Text($0.rawValue).tag($0) }
                 }
                 Toggle("Dark appearance", isOn: $model.dark)
+                Toggle(isOn: $model.identifiesControls) {
+                    Label("Identify controls in preview", systemImage: "scope")
+                }
+                if model.identifiesControls {
+                    Text("Move the crosshair over the preview to see which authoring controls own that area. Preview interaction is paused while identifying.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 HStack {
                     Button("Compact") { resize(width: 820, height: 720) }
                     Button("Standard") { resize(width: 1440, height: 900) }
@@ -91,57 +99,60 @@ private struct ShellControls: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Section("Application surfaces") {
-                Toggle("Use semantic Theme fills", isOn: $model.preset.frame.usesThemeFills)
-                Picker("Canvas material", selection: $model.preset.frame.canvasMaterial) {
-                    ForEach(ApplicationShellPreset.LauncherBackgroundStyle.allCases, id: \.self) { Text($0.label).tag($0) }
-                }
-                adaptiveColorPicker("Canvas fill", \.frame.canvasFill)
-                adaptiveColorPicker("Module fill", \.frame.surfaceFill)
+            Section("Shared visual system") {
+                themeColorPicker("Application base", .surfaceCanvas)
+                themeColorPicker("Module base", .surfacePanel)
+                themeColorPicker("Module content", .surfaceElevated)
+                themeColorPicker("Selection tint", .selectionBackground)
                 slider("Gutter", \.frame.gutter, 4...32)
                 slider("Outer inset", \.frame.outerInset, 0...40)
                 slider("Content inset", \.frame.contentInset, 0...24)
-                slider("Global module corner radius", \.frame.cornerRadius, 0...40)
-                slider("Optional border", \.frame.borderWidth, 0...3)
-                slider("Elevation", \.frame.elevation, 0...16)
-                slider("Active emphasis", \.frame.activeEmphasis, 0...4)
-                Toggle("Elevated header", isOn: $model.preset.frame.elevatedHeader)
-                Toggle("Separate status surface", isOn: $model.preset.frame.separateStatusSurface)
-                slider("Compact breakpoint", \.frame.compactBreakpoint, 800...1400)
+                slider("Module corner radius", \.frame.cornerRadius, 0...40)
+                Text("These semantic Light/Dark roles and dimensions belong to every module. Borders and resting dividers are intentionally absent.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Workspace chrome") {
                 TextField("Fixture project name", text: $model.fixtureProjectTitle)
+                TextField("Centered application name", text: $model.preset.toolbarApplicationTitle)
+                slider("Application name size", \.toolbarApplicationTitleSize, 10...24)
                 Toggle("Show project title", isOn: $model.preset.toolbarShowsProjectTitle)
+                Toggle("Show project thumbnail", isOn: $model.preset.toolbarShowsProjectThumbnail)
+                if model.preset.toolbarShowsProjectThumbnail {
+                    slider("Project thumbnail size", \.toolbarProjectThumbnailSize, 18...40)
+                    slider("Project thumbnail corner radius", \.toolbarProjectThumbnailCornerRadius, 0...16)
+                }
                 Picker("Project title weight", selection: $model.preset.toolbarTitleWeight) {
                     ForEach(ApplicationShellPreset.TitleWeight.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                 }
                 slider("Project title size", \.toolbarTitleSize, 10...24)
                 slider("Project title width", \.toolbarIdentityWidth, 120...320)
-                slider("Leading pane", \.leadingIdealWidth, 230...360)
-                slider("Trailing pane", \.trailingIdealWidth, 280...440)
-                slider("Panel header height", \.panelHeaderHeight, 28...60)
-                slider("Panel header title size", \.panelHeaderTitleSize, 10...22)
-                slider("Panel header horizontal inset", \.panelHeaderHorizontalInset, 4...32)
-                slider("Frame divider thickness", \.dividerThickness, 0...4)
-                slider("Status bar height", \.statusBarHeight, 20...52)
-                slider("Status text size", \.statusTextSize, 9...20)
-                slider("Status horizontal inset", \.statusHorizontalInset, 4...32)
-                slider("Status item spacing", \.statusItemSpacing, 4...28)
-            }
-            Section("Project chrome colors") {
-                themeColorPicker("Workspace frame", .surfaceCanvas)
-                themeColorPicker("Panel background", .surfacePanel)
-                themeColorPicker("Header and status background", .surfaceElevated)
-                themeColorPicker("Frame and dividers", .borderSubtle)
-                themeColorPicker("Primary text", .textPrimary)
-                themeColorPicker("Secondary text", .textSecondary)
-                themeColorPicker("Status neutral", .statusTextNeutral)
-                themeColorPicker("Status running", .statusTextRunning)
-                themeColorPicker("Status success", .statusTextSuccess)
-                themeColorPicker("Status warning", .statusTextWarning)
-                themeColorPicker("Status error", .statusTextError)
-                Text("These are shared Theme roles, so the same colors flow into every module that consumes them.")
+                Text("macOS owns toolbar glass, adaptive blur, shadow and control grouping. Photara supplies semantic groups only.")
                     .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Advanced shared geometry") {
+                DisclosureGroup("Pane, header and status metrics") {
+                    slider("Leading pane", \.leadingIdealWidth, 230...360)
+                    slider("Trailing pane", \.trailingIdealWidth, 280...440)
+                    slider("Module title bar height", \.panelHeaderHeight, 28...72)
+                    slider("Panel header title size", \.panelHeaderTitleSize, 10...22)
+                    slider("Panel header horizontal inset", \.panelHeaderHorizontalInset, 4...32)
+                    slider("Elevation", \.frame.elevation, 0...16)
+                    Toggle("Separate status surface", isOn: $model.preset.frame.separateStatusSurface)
+                    slider("Status bar height", \.statusBarHeight, 20...52)
+                    slider("Status text size", \.statusTextSize, 9...20)
+                    slider("Status horizontal inset", \.statusHorizontalInset, 4...32)
+                    slider("Status item spacing", \.statusItemSpacing, 4...28)
+                    slider("Compact breakpoint", \.frame.compactBreakpoint, 800...1400)
+                }
+                DisclosureGroup("Shared text and status colors") {
+                    themeColorPicker("Primary text", .textPrimary)
+                    themeColorPicker("Secondary text", .textSecondary)
+                    themeColorPicker("Status neutral", .statusTextNeutral)
+                    themeColorPicker("Status running", .statusTextRunning)
+                    themeColorPicker("Status success", .statusTextSuccess)
+                    themeColorPicker("Status warning", .statusTextWarning)
+                    themeColorPicker("Status error", .statusTextError)
+                }
             }
             Section("Handoff") {
                 Button("Apply to Photara") { model.applyPresetToPhotara() }
@@ -182,9 +193,18 @@ private struct ShellControls: View {
         ), supportsOpacity: true)
     }
     private func slider(_ title: String, _ key: WritableKeyPath<ApplicationShellPreset, Double>, _ range: ClosedRange<Double>) -> some View {
+        slider(title, key, range, step: 1)
+    }
+    private func slider(
+        _ title: String,
+        _ key: WritableKeyPath<ApplicationShellPreset, Double>,
+        _ range: ClosedRange<Double>,
+        step: Double
+    ) -> some View {
         VStack(alignment: .leading) {
-            Text("\(title) · \(Int(model.preset[keyPath: key]))").font(.caption)
-            Slider(value: Binding(get: { model.preset[keyPath: key] }, set: { model.preset[keyPath: key] = $0 }), in: range, step: 1)
+            Text("\(title) · \(model.preset[keyPath: key].formatted(.number.precision(.fractionLength(step < 1 ? 2 : 0))))")
+                .font(.caption)
+            Slider(value: Binding(get: { model.preset[keyPath: key] }, set: { model.preset[keyPath: key] = $0 }), in: range, step: step)
                 .accessibilityLabel(title)
         }
     }

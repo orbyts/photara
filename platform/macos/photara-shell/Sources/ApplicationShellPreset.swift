@@ -66,27 +66,49 @@ struct ApplicationShellPreset: Codable, Equatable {
             switch self { case .regular: .regular; case .medium: .medium; case .semibold: .semibold; case .bold: .bold }
         }
     }
+
     struct SurfaceFrame: Codable, Equatable {
-        var canvasMaterial: LauncherBackgroundStyle = .theme
-        var usesThemeFills = true
-        var canvasFill = AdaptiveColor(light: "#E9EBEE", dark: "#141518")
-        var surfaceFill = AdaptiveColor(light: "#FFFFFF", dark: "#242529")
         var gutter: Double = 12
         var outerInset: Double = 12
         var contentInset: Double = 6
         var cornerRadius: Double = 16
-        var borderWidth: Double = 0
         var elevation: Double = 3
-        var activeEmphasis: Double = 1.5
-        var elevatedHeader = false
         var separateStatusSurface = true
         var compactBreakpoint: Double = 1100
         var isValid: Bool {
-            canvasFill.isValid && surfaceFill.isValid && (4...32).contains(gutter)
+            (4...32).contains(gutter)
                 && (0...40).contains(outerInset) && (0...24).contains(contentInset)
-                && (0...40).contains(cornerRadius) && (0...3).contains(borderWidth)
-                && (0...16).contains(elevation) && (0...4).contains(activeEmphasis)
+                && (0...40).contains(cornerRadius) && (0...16).contains(elevation)
                 && (800...1400).contains(compactBreakpoint)
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case gutter, outerInset, contentInset, cornerRadius, elevation
+            case separateStatusSurface, compactBreakpoint
+        }
+
+        init() {}
+
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            gutter = try values.decodeIfPresent(Double.self, forKey: .gutter) ?? 12
+            outerInset = try values.decodeIfPresent(Double.self, forKey: .outerInset) ?? 12
+            contentInset = try values.decodeIfPresent(Double.self, forKey: .contentInset) ?? 6
+            cornerRadius = try values.decodeIfPresent(Double.self, forKey: .cornerRadius) ?? 16
+            elevation = try values.decodeIfPresent(Double.self, forKey: .elevation) ?? 3
+            separateStatusSurface = try values.decodeIfPresent(Bool.self, forKey: .separateStatusSurface) ?? true
+            compactBreakpoint = try values.decodeIfPresent(Double.self, forKey: .compactBreakpoint) ?? 1100
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var values = encoder.container(keyedBy: CodingKeys.self)
+            try values.encode(gutter, forKey: .gutter)
+            try values.encode(outerInset, forKey: .outerInset)
+            try values.encode(contentInset, forKey: .contentInset)
+            try values.encode(cornerRadius, forKey: .cornerRadius)
+            try values.encode(elevation, forKey: .elevation)
+            try values.encode(separateStatusSurface, forKey: .separateStatusSurface)
+            try values.encode(compactBreakpoint, forKey: .compactBreakpoint)
         }
     }
     var frame: SurfaceFrame
@@ -124,10 +146,14 @@ struct ApplicationShellPreset: Codable, Equatable {
     var toolbarShowsProjectTitle: Bool
     var toolbarTitleSize: Double
     var toolbarTitleWeight: TitleWeight
+    var toolbarApplicationTitle: String
+    var toolbarApplicationTitleSize: Double
+    var toolbarShowsProjectThumbnail: Bool
+    var toolbarProjectThumbnailSize: Double
+    var toolbarProjectThumbnailCornerRadius: Double
     var panelHeaderHeight: Double
     var panelHeaderTitleSize: Double
     var panelHeaderHorizontalInset: Double
-    var dividerThickness: Double
     var statusBarHeight: Double
     var statusTextSize: Double
     var statusHorizontalInset: Double
@@ -146,8 +172,9 @@ struct ApplicationShellPreset: Codable, Equatable {
         case launcherRecentButtonTint, launcherSpacing, heroSpacing, contentInset
         case contentHorizontalInset, launcherVerticalOffset
         case leadingIdealWidth, trailingIdealWidth, toolbarShowsProjectTitle
-        case toolbarTitleSize, toolbarTitleWeight, panelHeaderHeight
-        case panelHeaderTitleSize, panelHeaderHorizontalInset, dividerThickness, statusBarHeight
+        case toolbarTitleSize, toolbarTitleWeight, toolbarApplicationTitle, toolbarApplicationTitleSize
+        case toolbarShowsProjectThumbnail, toolbarProjectThumbnailSize, toolbarProjectThumbnailCornerRadius
+        case panelHeaderHeight, panelHeaderTitleSize, panelHeaderHorizontalInset, statusBarHeight
         case statusTextSize, statusHorizontalInset, statusItemSpacing
         case toolbarIdentityWidth
     }
@@ -200,10 +227,14 @@ struct ApplicationShellPreset: Codable, Equatable {
         toolbarShowsProjectTitle = try values.decodeIfPresent(Bool.self, forKey: .toolbarShowsProjectTitle) ?? true
         toolbarTitleSize = try values.decodeIfPresent(Double.self, forKey: .toolbarTitleSize) ?? 13
         toolbarTitleWeight = try values.decodeIfPresent(TitleWeight.self, forKey: .toolbarTitleWeight) ?? .semibold
+        toolbarApplicationTitle = try values.decodeIfPresent(String.self, forKey: .toolbarApplicationTitle) ?? "Photara"
+        toolbarApplicationTitleSize = try values.decodeIfPresent(Double.self, forKey: .toolbarApplicationTitleSize) ?? 13
+        toolbarShowsProjectThumbnail = try values.decodeIfPresent(Bool.self, forKey: .toolbarShowsProjectThumbnail) ?? true
+        toolbarProjectThumbnailSize = try values.decodeIfPresent(Double.self, forKey: .toolbarProjectThumbnailSize) ?? 24
+        toolbarProjectThumbnailCornerRadius = try values.decodeIfPresent(Double.self, forKey: .toolbarProjectThumbnailCornerRadius) ?? 6
         panelHeaderHeight = try values.decode(Double.self, forKey: .panelHeaderHeight)
         panelHeaderTitleSize = try values.decodeIfPresent(Double.self, forKey: .panelHeaderTitleSize) ?? 13
         panelHeaderHorizontalInset = try values.decodeIfPresent(Double.self, forKey: .panelHeaderHorizontalInset) ?? 10
-        dividerThickness = try values.decodeIfPresent(Double.self, forKey: .dividerThickness) ?? 1
         statusBarHeight = try values.decode(Double.self, forKey: .statusBarHeight)
         statusTextSize = try values.decodeIfPresent(Double.self, forKey: .statusTextSize) ?? 11
         statusHorizontalInset = try values.decodeIfPresent(Double.self, forKey: .statusHorizontalInset) ?? 12
@@ -233,8 +264,12 @@ struct ApplicationShellPreset: Codable, Equatable {
               (230...360).contains(p.leadingIdealWidth),
               (280...440).contains(p.trailingIdealWidth),
               (10...24).contains(p.toolbarTitleSize),
-              (28...60).contains(p.panelHeaderHeight), (10...22).contains(p.panelHeaderTitleSize),
-              (4...32).contains(p.panelHeaderHorizontalInset), (0...4).contains(p.dividerThickness),
+              !p.toolbarApplicationTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              (10...24).contains(p.toolbarApplicationTitleSize),
+              (18...40).contains(p.toolbarProjectThumbnailSize),
+              (0...16).contains(p.toolbarProjectThumbnailCornerRadius),
+              (28...72).contains(p.panelHeaderHeight), (10...22).contains(p.panelHeaderTitleSize),
+              (4...32).contains(p.panelHeaderHorizontalInset),
               (20...52).contains(p.statusBarHeight), (9...20).contains(p.statusTextSize),
               (4...32).contains(p.statusHorizontalInset), (4...28).contains(p.statusItemSpacing),
               (120...320).contains(p.toolbarIdentityWidth)

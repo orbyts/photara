@@ -2,6 +2,8 @@
 
 See [shared components and labs](../SHARED_UI.md) for the current module topology,
 independent authoring workflow and verification commands.
+See [the native design language](../DESIGN_LANGUAGE.md) for the shared surface,
+toolbar, Liquid Glass, scrolling and lab-ownership rules.
 
 This directory is the native-client root. The production-shaped Rust
 facade is generated into Swift with workspace-pinned UniFFI and verified before

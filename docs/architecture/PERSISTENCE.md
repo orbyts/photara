@@ -1,7 +1,54 @@
 # Persistence
 
+## Current exact review packet — 2026-09-12
+
+The [D19 exact static delta](D19_STATIC_SCHEMA_DELTA.md) now distinguishes package 1.1 authority, additive Library/access/storage/context tables, device recovery and v2 scoped transport. Physical Workspace/StorageRoot identifiers remain compatibility names. Current store implementation below is retained; R1–R8 were accepted as proposed 2026-09-12. CXT2 inert DDL is complete; CXT1a and CXT3 still require separate scope selection.
+
+## D19 persistence amendment — contracts pending, no DDL
+
+[D19](LIBRARY_AND_NODE_WORK_SURFACES.md) makes Library the durable catalog and
+collaboration boundary and assigns each Project exactly one Library. Library
+records include People/Organizations/SocialProfiles/Locations/kinds, policies,
+variables, memberships and catalog. ProjectAccessGrant/invitations and restricted
+versus library-visible policies require explicit authorization contracts; Library
+membership is not automatic Project access. Package/SMB grants remain device state.
+
+A package may retain a private identity/provenance/representation/artifact ledger
+for Graphs/Runs; nodes see explicit AssetSet ports and declared frozen context,
+not a semantic project asset union or `$project.assets`. Typed metadata enrichment
+produces AssetSet/MetadataPatch; effect nodes materialize outputs and retain typed
+receipts. Connector secrets/device paths remain host/account capabilities.
+
+Existing S2–S6 Workspace/ProjectAsset names and six L2 migrations are retained as
+physical compatibility baselines, conceptually superseded where D19 conflicts.
+No new grant table, rename, nullable-origin reinterpretation, schema or format is
+approved here. Logical/package/NodeSDK freeze and static exact SQLite/PostgreSQL/
+sync deltas precede revised CXT1/CXT3 and L3. The implementation account below is
+historical/current store evidence, not the amended target's access contract.
+
+The Stage 4A implementation below remains the current store. The reviewable
+[S2 project package schema](PROJECT_PACKAGE_SCHEMA.md) proposes its evolution
+into immutable objects/commits with separate authored and durable-history roots.
+Package publication is a Photara contract, separate from Storexa transactions;
+S7 approved the design on 2026-09-11. The additive read-only
+`photara-store::package` codec/validator now checks disposable S6 packages; see
+[its exact boundary](PROJECT_PACKAGE_CODEC.md). It does not replace this store,
+switch application authority, convert documents or publish packages. Storexa
+adoption now exists in the separate [L2 adapter](LOCAL_LIBRARY_IMPLEMENTATION.md),
+not a cutover of this Stage 4A store.
+
+The pending [D18 amendment](TYPED_CONTEXT_AND_EXPRESSIONS.md) pauses L3. Library
+variables are typed Library aggregates; Project/Graph/node variables are authored
+package records; Run overrides/context/metadata evidence are immutable history.
+Account scope is preferences only, superseding any implication below of ambient
+user-scope semantic variables. Reusable presets become authored values only by
+explicit application. CXT2 will review additive physical/package fields, required
+features and apply/idempotency receipts; existing L2 migrations stay unchanged.
+One command covers one Library transaction or one package commit, never a
+distributed transaction across both. Private grants/SecretRefs remain host-only.
+
 One Core-owned state service provides the authoritative transaction and revision
-boundary for a workspace.
+boundary for its explicit Library or Project scope.
 
 The portable Project Document is the authoritative serialized project and graph
 contract. Backend tables, indexes, search records, and materialized evaluation
@@ -37,12 +84,12 @@ authored-state fields remain preserved by the Project Document contract. A
 missing package does not prevent the project from loading or make Core erase an
 unresolved node instance.
 
-Runtime/evaluation records, caches, credentials, and native workspace layout
+Runtime/evaluation records, caches, credentials, and native Window Layout
 remain outside the Project Document even when a backend persists them for local
 operation. Deleting those records cannot delete portable authored semantics.
 
 Stage 4A does not persist runtime/evaluation/evidence/artifact/receipt records,
-workspace layout, credentials, or node-private state outside the portable
+Window Layout, credentials, or node-private state outside the portable
 document because none is required by its gate. When a concrete later node needs
 private durable state, it receives a scoped namespace rather than database
 access. Credentials likewise remain behind future scoped host handles.
@@ -71,5 +118,14 @@ portable project aggregate; deleting them cannot delete assets, representation
 descriptors, fingerprints, authored state, or evidence.
 
 No PostgreSQL, Storexa, environment-variable, or `v0.1.0` schema dependency is
-present. A future backend may reuse those lessons without changing the
-repository contracts or replacing the portable authoritative format.
+present in the implemented Stage 4A adapter. The generation-two target now
+selects the sibling [`storexa`](../../../storexa/README.md) crate as the
+domain-agnostic database mechanics layer. Photara's repository contracts,
+application SQL/migrations, package publication, and portable authoritative
+format remain owned here; adopting Storexa must not replace or weaken them.
+
+Storexa 0.2.0 supports explicit PostgreSQL and SQLite SQLx capabilities.
+CloudKit, if later coordinated through Storexa, is a record/change
+sync capability or platform-hosted adapter—not a SQL backend. Cross-store work
+uses staged operations, an outbox, idempotency, and recovery rather than a
+distributed transaction claim.

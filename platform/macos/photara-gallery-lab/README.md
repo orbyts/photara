@@ -5,6 +5,11 @@ Gallery view, cards, justified photo layout, square grid, activity badges and
 full-image sheet used by Photara, with the shared native HDR renderer. No bridge,
 project, NAS or network is required.
 
+Follow the shared [`DESIGN_LANGUAGE.md`](../DESIGN_LANGUAGE.md). This lab owns Gallery
+content, HDR presentation, layout, cards, filtering, selection and Gallery states.
+Shell/Theme own the module base, title, shared geometry and any top-level glass; do not
+author or duplicate them here.
+
 ```sh
 platform/macos/photara-gallery-lab/build-gallery-lab.sh
 open 'platform/macos/photara-gallery-lab/.build/Photara Gallery Lab.app'

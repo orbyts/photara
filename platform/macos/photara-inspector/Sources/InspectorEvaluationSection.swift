@@ -11,6 +11,5 @@ extension InspectorView {
       )
       LabeledContent("Progress", value: presentation.progressLabel)
     }
-    .listRowBackground(inspectorGroupBackground)
   }
 }

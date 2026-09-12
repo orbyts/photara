@@ -1,5 +1,17 @@
 # Photara
 
+**2026-09-12: CXT1b pure context contracts complete.** [Implementation and verification](docs/architecture/CXT1B_CONTEXT_CONTRACTS.md) cover explicit field parsing, ID-bound typed ASTs, variables, frozen captures, metadata queries, cache v2 and proposal planning. CXT1a/CXT2, old APIs/cache keys and all previous fixture/migration bytes are preserved. Next eligible slice is separately selected CXT3a; CXT3b/c and L3 remain unstarted.
+
+> Current planning entry point: [active handoff](docs/ACTIVE_HANDOFF.md) and
+> [Photara 0.2 execution roadmap](docs/ROADMAP_0_2_EXECUTION.md).
+
+The current conceptual amendment is [D19](docs/architecture/LIBRARY_AND_NODE_WORK_SURFACES.md):
+named Libraries (local My Library on first install), one owning Library per Project,
+explicit Project access, typed node AssetSets and shared node Work Surface components.
+Layout and Gallery are proposed built-ins. Contract/schema review precedes further
+implementation; the current implementation summary below retains pre-D19 source
+names and behavior. No runtime or migration change is implied by the amendment.
+
 Photara is the current code name for a native creative-media workflow
 application. It combines a portable Rust Core with independently versioned,
 typed node packages and polished platform-native clients.
@@ -36,7 +48,7 @@ The repository is building generation two from a clean foundation toward
 Brand name, icons, website, marketplace presentation, and final visual language
 remain intentionally undecided while the working application evolves.
 
-## Workspace
+## Cargo workspace
 
 ```text
 crates/

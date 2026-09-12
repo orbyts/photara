@@ -12,7 +12,6 @@ extension InspectorView {
             .font(.caption.monospaced())
         }
       }
-      .listRowBackground(inspectorGroupBackground)
     }
   }
 }

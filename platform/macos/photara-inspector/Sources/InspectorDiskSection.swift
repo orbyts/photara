@@ -31,7 +31,6 @@ extension InspectorView {
           actions.connectDisk(node.nodeId)
         }
       }
-      .listRowBackground(inspectorGroupBackground)
     }
   }
 }

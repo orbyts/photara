@@ -6,6 +6,10 @@ database, project, account, NAS or network is required. Project Info also compil
 People/Locations/Scenes field editors because creating a missing record uses
 those exact editors in production.
 
+Follow the shared [`DESIGN_LANGUAGE.md`](../DESIGN_LANGUAGE.md). This lab owns Scenes
+browser/editor content and states only; Shell/Theme own its module frame, shared
+geometry, selection treatment and top-level glass.
+
 ```sh
 platform/macos/photara-scenes-lab/build-scenes-lab.sh
 open 'platform/macos/photara-scenes-lab/.build/Photara Scenes Lab.app'
@@ -22,7 +26,7 @@ a renamed scene snapshot. File exports, cloud sync and live account sign-in are
 not simulated as successful operations.
 
 Author the module's shared view/fields and common thumbnail primitives as needed;
-there is no second production implementation or copied view to promote. Shell
-Lab owns frame geometry, fill/material and header treatment. Build all hosts
+there is no second production implementation or copied view to promote. Theme Lab
+owns the shared palette; Shell Lab owns frame geometry and module chrome. Build all hosts
 with `platform/macos/build-ui.sh`; verify with the shared and production UI
 scripts in `photara-ui-tests`. Generated bundles and module caches are ignored.

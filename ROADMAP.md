@@ -1,5 +1,24 @@
 # Roadmap to Photara 0.2.0
 
+**2026-09-12: CXT1b pure context contracts complete.** [Implementation and verification](docs/architecture/CXT1B_CONTEXT_CONTRACTS.md) cover explicit field parsing, ID-bound typed ASTs, variables, frozen captures, metadata queries, cache v2 and proposal planning. CXT1a/CXT2, old APIs/cache keys and all previous fixture/migration bytes are preserved. Next eligible slice is separately selected CXT3a; CXT3b/c and L3 remain unstarted.
+
+> **Current execution plan:** [`docs/ROADMAP_0_2_EXECUTION.md`](docs/ROADMAP_0_2_EXECUTION.md)
+> defines active version milestones, bounded sub-slices, approval gates, and the
+> task/model handoff protocol. It supersedes older stage ordering when they conflict.
+> S7 D1–D17 and bounded L1/L2 are complete. The current conceptual amendment is
+> [D19](docs/architecture/LIBRARY_AND_NODE_WORK_SURFACES.md), approved 2026-09-12.
+> CXT2, CXT1a and CXT1b are complete. Next: separately select CXT3a, then CXT3b/c; L3 remains gated. Applied migrations remain unchanged.
+
+D19 supersedes earlier Workspace, whole-project Gallery/Project Asset Context
+and sole-built-in assumptions in the historical stages and catalog below. Library
+is the durable named boundary; each Project belongs to one Library with explicit
+Project policy/grants. First launch opens local My Library. Node Work Surfaces
+compose host-owned Browsers/pickers and consume explicit typed ports/frozen context.
+There is no `$project.assets` or ambient semantic project-wide Gallery. Layout and
+Gallery are proposed built-ins; other distribution remains separate. Existing
+stage outcomes and source names below describe implemented pre-D19 behavior, not
+authorization to carry that behavior into the amended target.
+
 ## Product target
 
 `0.2.0` is the first daily-usable generation-two application, not an
@@ -50,7 +69,7 @@ kind.
 
 The architecture is successful only if a materially new node normally arrives
 as an exact package definition plus a host-registered runtime, declared typed
-ports/values, scoped capabilities, and optional Inspector/Workspace
+ports/values, scoped capabilities, and optional Inspector/Work Surface
 contributions. Adding a provider, editor, automation, compute, or future
 scripting node must not require a new Core node kind, definition-ID switch in
 the bridge, platform semantics in the Project Document, ambient database or
@@ -116,15 +135,12 @@ before then must preserve the following route:
   scoped by provider/source through the Core-owned state service. They are not
   authoritative project state and generally do not sync. Saved queries and
   user preferences may later sync through explicit user-scoped services.
-- Selecting a graph node may make Gallery present a visualizable `AssetSet`
-  output from that node. Gallery exposes an explicit scope choice between that
-  selected-node result and the entire Project Asset Context, then allows a
-  disposable quick filter or metadata-expression filter inside the chosen
-  scope. These are native workspace viewing lenses only: graph selection,
-  Gallery scope/filter expressions, and Gallery item selection never change the
-  Project Document or graph digest. Connecting, assigning, capturing, or
-  promoting the expression to a Query node requires an explicit revision-checked
-  Core command.
+- Gallery is a built-in inspection node displaying exactly its connected
+  `AssetSet`; Layout and metadata Work Surfaces reuse the same Gallery component
+  for their explicit inputs. There is no whole-project inventory scope. Disposable
+  viewing/filtering/selection does not alter outputs; promoting a selection or
+  filter to authored state requires an explicit revision-checked Core command
+  under the exact definition contract.
 
 Do not implement the generalized index/query subsystem for `0.2.0`. The current
 Disk and Gallery work should retain stable asset identity, incremental discovery,
@@ -133,12 +149,12 @@ future capability does not require replacing their ownership boundaries.
 
 ### Future project-variable guardrail
 
-Projects may eventually define typed, named values for reuse by node
-configuration and portable expressions. A reference such as
-`$PROJECT_PATH/masters` expresses a location relative to the currently opened
-project; it must never serialize one machine's absolute project path or grant a
-node ambient filesystem access. The exact expression syntax is not frozen by
-this roadmap, but the ownership rules are:
+D18/D19 put typed context before L3 package creation. Opted-in single-backtick
+expressions use `$library.*`, `$project.*` and explicit `$input.<port>`; resource
+placement uses `path.join($project.root, "masters")`, not a process environment
+variable. Closed uppercase HostPlace symbols retain native resolution and scoped
+grants. The exact contracts remain subject to the revised freeze/review gates;
+the ownership rules are:
 
 - Project variables are authored Core state with stable names, declared types,
   validation, revision-checked commands, undo/redo, deterministic resolution,
@@ -157,6 +173,12 @@ this roadmap, but the ownership rules are:
 - Native clients may provide a project-variable editor, but Core remains the
   parser, validator, resolver, and semantic owner. Windows and macOS resolve the
   same portable references through their own scoped host adapters.
+- Library storage slots resolve stable logical Storage Location IDs through a
+  separate device Host Binding. Project packages keep portable references to the
+  encountered subset, not absolute paths or the whole archive. External source,
+  managed Project resource, external artifact and transient cache retention are
+  distinct; see
+  [storage locations and host bindings](docs/architecture/STORAGE_LOCATIONS_AND_HOST_BINDINGS.md).
 
 Do not build a general expression language or variable editor during the current
 Graph visual slice. Preserve generic node configuration and evaluation context
@@ -164,6 +186,14 @@ so the smallest concrete cross-node workflow can introduce this contract later
 without adding path substitution to Swift or individual node packages.
 
 ### Planned node catalog
+
+[D19's stable hierarchical CategoryIds](docs/architecture/LIBRARY_AND_NODE_WORK_SURFACES.md#stable-discovery-taxonomy)
+supersede the coarse categories below for the next NodeSDK freeze. One primary
+category plus provider/capability/search tags separates read sources, enrichment,
+inspection and effects. These historical product candidates and icon roles do
+not establish final distribution or exact port contracts. Layout/Gallery are the
+proposed built-ins; the current Project Assets registration is compatibility
+evidence and must not become an ambient inventory input in D19.
 
 This catalog is the product inventory for the node browser, not a promise that
 every listed node ships in `0.2.0`. The implementation sequence and its gates
@@ -282,8 +312,8 @@ implementation plan only when a concrete vertical slice owns them.
 Before production Layout authoring expands, establish the user/studio data and
 workspace composition that Layout must inhabit. Keep three catalogs distinct:
 the Node Catalog contains installed node definitions, Gallery presents visual
-project/node assets, and the user Library stores reusable People, Clients,
-Locations, and Scenes.
+project/node assets, and the user Library stores reusable People, Organizations,
+Location Kinds, and Locations.
 
 - Every Mac uses a local SQLite Library working copy created lazily on first
   use. **On This Mac** is local-only. **Photara Cloud** and a future **iCloud**
@@ -292,27 +322,34 @@ Locations, and Scenes.
 - Accounts and People are separate. Authenticated users belong to an owner or
   future studio/workspace scope; People represent models, photographers,
   stylists, and other collaborators. Clients may be individuals or
-  organizations. Locations may be hierarchical. Scenes are reusable semantic
-  definitions; their project assignments are unique occurrences.
+  organizations. Location Kinds are workspace-unique semantic concepts such as
+  Beach or Home Studio, with descriptions and aliases; case or plural variants
+  cannot create duplicate concepts. Locations are concrete places, may be
+  hierarchical, and must reference one Location Kind. Project uses of Locations
+  carry project-specific snapshots and occurrence details.
 - Projects reference stable Library identities and retain display-name/revision
   snapshots for portability and offline historical meaning.
-- People, Locations, Scenes, and Project Info are independently identified,
+- People, Location Kinds, Locations, and Project Info are independently identified,
   closable, restorable workspace modules. Each has a lab compiling its
   production sources. Project Info composes Library assignments rather than
   duplicating records.
 - The Spotify reference defines composition, not branding: a semantic
   Light/Dark application canvas behind rounded filled module surfaces, visible
-  gutters, contained headers, and independent scrolling. Shell Lab authors the
-  canvas/surface roles, gutter, inset, radius, border/elevation, active emphasis,
-  compact behavior, and status treatment; feature labs own surface content.
+  gutters, integrated title areas, and independent scrolling. Theme Lab authors
+  the shared adaptive palette. Shell Lab authors gutter, inset, radius, restrained
+  elevation, selection treatment, compact behavior, toolbar identity, and status
+  geometry; feature labs own surface content. Resting module borders and split
+  rules are absent. Native toolbar glass and grouping remain system-owned.
 - Photara Cloud authenticates the native client with Auth0 Authorization Code
   Flow with PKCE, then calls a Photara service that enforces workspace ownership,
   subscription, validation, migration, and conflict policy before Neon. Never
   ship a privileged Neon connection string in the desktop application.
 - Sync-ready records require revisions, timestamps, tombstones, change cursors,
   idempotent mutations, and a deterministic conflict policy. CloudKit is a
-  later adapter over the same contracts. Legacy `0.1.x` Neon migration waits
-  until the new identity model can represent it without loss.
+  later Apple-client adapter over the same contracts and remains unavailable
+  until an Apple Developer account and CloudKit container exist. Legacy `0.1.x`
+  Neon data may later be imported through an explicit adapter after the new
+  identity model can represent it without loss; it does not block generation two.
 
 The detailed contract lives in
 [`docs/LIBRARY_ARCHITECTURE.md`](docs/LIBRARY_ARCHITECTURE.md). This groundwork
@@ -429,8 +466,12 @@ free of macOS 27 APIs; later SDK-27 UI experiments belong above it.
 - Preserve unknown or newer state where practical so save/reopen does not erase
   data merely because the current application cannot interpret it.
 - Keep credentials behind scoped host handles.
-- Use the existing PostgreSQL/Storexa experience when useful, but keep the
-  repository boundary backend-neutral.
+- Keep the completed filesystem adapter independent of any database. For
+  database-backed slices, use Storexa as the intended domain-agnostic mechanics
+  layer while Photara retains typed repositories, SQL/schema, authorization,
+  package publication, and sync policy. Storexa 0.2.0 now supports PostgreSQL
+  and SQLite explicitly; later add CloudKit record synchronization
+  without pretending every backend is one SQL transaction system.
 
 **Gate:** `photara-layout` registers through the ordinary registry; Core has no
 Layout dependency; a graph pins the exact Layout package/definition versions;
@@ -804,12 +845,14 @@ marketplace-era visual language.
    commands; it must not become a Swift interpretation of node-authored JSON or
    assume every node owns a canvas Workspace.
 4. **Application frame and Library foundation.** Replace the wireframe pane
-   treatment with the authorable Light/Dark canvas and rounded filled module
-   surfaces defined by Shell Lab. Freeze the backend-neutral Library vocabulary,
+   treatment with the shared Light/Dark canvas and rounded filled module
+   surfaces defined by Theme and Shell Labs. Keep Liquid Glass confined to native
+   functional controls above content and allow macOS to own its optics. Freeze the backend-neutral Library vocabulary,
    SQLite migration policy, portable project references, and immutable native
    presentation/action contracts. Add separately closable/restorable People,
-   Locations, Scenes, and Project Info modules and labs. Make **On This Mac**
-   functional first and expose **Photara Cloud** and future **iCloud** under
+   Location Kinds, Locations, and Project Info modules and labs. The existing
+   Scenes module/lab is transitional pending terminology and schema migration.
+   Make **On This Mac** functional first and expose **Photara Cloud** and future **iCloud** under
    Library & Sync without making network service availability block the app.
 5. **Usable Layout authoring.** Complete the real Layout Workspace and controls
    required by the Stage 9 gate: multiple Layout nodes, explicit asset placement,
@@ -967,16 +1010,17 @@ The application-frame and Library first model is implemented. Shell now hosts
 unchanged Graph content inside independently rounded module surfaces with
 semantic Light/Dark fills, gutters, icons, contained headers and authorable
 frame values. Workspace controls close/restore every surface and preserve
-existing placement preferences. People, Locations, Scenes and Project Info
-have independent production-source labs with thumbnail, empty/loading/error
-fixtures. New Project reveals Project Info to search/assign Library records or
+existing placement preferences. People, Locations, the transitional Scenes
+module, and Project Info have independent production-source labs with thumbnail,
+empty/loading/error fixtures. New Project reveals Project Info to search/assign Library records or
 create and assign a missing record through the same feature editors.
 
 On This Mac uses a lazily opened owner-scoped SQLite repository with explicit
 migration, revisions, tombstones, change cursors and hierarchy validation.
 Thumbnails use portable digest identities with local managed PNG media.
-Project Info publishes stable Library references and unique scene occurrences
-through a generic Core extension command, preserving snapshots, save/reopen and
+Project Info currently publishes stable Library references and unique scene
+occurrences through a generic Core extension command. This is migration input,
+not the target Location Kind/Location-assignment model; it preserves snapshots, save/reopen and
 session undo without changing graph digests. Library & Sync honestly marks
 Photara Cloud and iCloud unavailable. Cloud service/auth/subscription integration,
 media sync, backup/recovery UI, cross-project indexes and Library paging remain
@@ -1022,13 +1066,15 @@ recover safely from interruption without external legacy state.
 
 ## After 0.2.0
 
-- Add iCloud/CloudKit as an Apple-only Library synchronization adapter after
+- Add iCloud/CloudKit as an Apple-client-only Library synchronization adapter after
   Photara Cloud proves the shared local-first sync contract. Keep On This Mac
   and Photara Cloud available rather than making iCloud an application-wide
-  storage fork.
+  storage fork. Keep it visibly planned/unavailable until an Apple Developer
+  account, container, entitlements, and test environment are available.
 - Import generation-one People/models, Clients, Locations, and Scenes from the
   legacy Neon schema only after the new identities, ownership, relationships,
-  and snapshots can represent those records without loss.
+  and snapshots can represent those records without loss. Legacy Scenes map to
+  Location Kinds only through an explicit migration with ambiguity reporting.
 - Portable metadata-query expressions and ordinary selection nodes for
   intersection/AND, union/OR, difference/NOT, XOR, match/join, sort, and group.
   Add provider query pushdown, incremental/paged result contracts, and the first
@@ -1036,17 +1082,16 @@ recover safely from interruption without external legacy state.
   library vertical slices.
 - Selection-import nodes such as a Pixieset CSV reader, followed by explicit
   matching against assets from Disk, Lightroom, cloud, or other providers.
-- Gallery viewing of a selected node's visualizable asset output as disposable
-  workspace context, with an explicit whole-project/selected-node scope and
-  disposable metadata-expression filter. Explicit commands remain required to
-  connect, capture, or promote that expression into a Query node.
-- Typed project variables and portable expression references, including a
-  host-resolved project-relative root comparable to `$PROJECT_PATH`. Add them
-  through Core-owned authored state and scoped runtime binding resolution—not
-  Swift string substitution, process environment variables, or serialized
-  absolute paths.
+- Gallery as a built-in inspection node over exactly its connected AssetSet,
+  sharing its component with Layout and metadata Work Surfaces. Disposable
+  viewing filters remain separate from explicit authored selection/filter outputs.
+- Typed Library/Project/Graph/node context and portable expressions are now D18/D19
+  gates before L3, using `$library.*`, `$input.<port>` and capability-backed
+  `$project.root` with closed uppercase HostPlaces. Exact contracts precede code.
 - Photoshop, Lightroom Classic, Lightroom Desktop/Cloud, Cloudinary, delivery,
-  metadata, ML, and other independently installable nodes.
+  metadata, ML, and other independently installable nodes. Layout and Gallery are
+  D19's proposed built-ins; LrC, Lr, and Ps are planned free first-party
+  Node Store downloads.
 - Independently branded asset-provider nodes for Dropbox, Google Drive, Box,
   iCloud/File Provider, Photos/PhotoKit, and studio DAMs. Each emits ordinary
   semantic assets while authorization and remote materialization remain scoped
@@ -1056,7 +1101,9 @@ recover safely from interruption without external legacy state.
 - Explicit legacy-data importer only after new identity and evidence contracts
   can represent the source faithfully.
 - Polished graph language, subgraphs/macros, third-party isolation, signing,
-  permissions, marketplace, and public SDK stabilization.
+  permissions, Node Store/marketplace, and public NodeSDK stabilization. Every
+  node carries a stable catalog category and search metadata; free/paid status is
+  distribution metadata rather than graph semantics.
 - Full package download, update, rollback, disable/uninstall, publishing, and
   official/community/private distribution lifecycle from Stage 4B.
 - Windows-native client over the portable application facade.

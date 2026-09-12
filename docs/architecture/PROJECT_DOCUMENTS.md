@@ -1,5 +1,25 @@
 # Portable project and node-graph documents
 
+## Current exact review packet — 2026-09-12
+
+The [D19 compatibility plan](D19_STATIC_SCHEMA_DELTA.md#compatibility-mappings-and-activation) now specifies explicit association/conversion into package 1.1 while preserving these one-JSON bytes, IDs and opaque state. No old extension is reinterpreted as context or implicit input membership. R1–R8 were accepted as proposed 2026-09-12; this page still describes implemented v1 documents.
+
+**D19 supersession note (2026-09-12):** [Libraries and node Work Surfaces](LIBRARY_AND_NODE_WORK_SURFACES.md)
+is the current conceptual target. Library replaces durable Workspace; each Project
+has one Library and explicit Project access. Graphs use connected AssetSets and
+declared frozen context; a private package ledger is not an ambient Gallery/asset
+union. Library management is app-owned; node Work Surfaces embed authorized host
+pickers/components. First install opens local My Library. The pre-D19 implementation,
+physical identifiers, examples and fixture contracts below remain baseline evidence,
+not approval to reinterpret stored bytes. Exact contract/static schema review and
+revised CXT1/CXT3 precede L3; no migration, source or fixture bytes change here.
+
+This page describes the implemented single-JSON generation-two contract.
+The proposed multi-document `.photara` package, immutable history, publication
+and compatibility mapping are specified in
+[Project package schema — S2](PROJECT_PACKAGE_SCHEMA.md). That proposal does
+not imply the runtime already reads or writes packages.
+
 Photara has two small, human-inspectable JSON document boundaries built from
 the same semantic graph vocabulary.
 

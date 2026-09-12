@@ -1,0 +1,272 @@
+{
+  "fixture_schema": "photara.fixture.records.v1",
+  "synthetic": true,
+  "ids": {
+    "account": "60000000-0000-4000-8000-000000000001",
+    "workspace": "60000000-0000-4000-8000-000000000002",
+    "other_workspace": "60000000-0000-4000-8000-000000000003",
+    "device": "60000000-0000-4000-8000-000000000004",
+    "person": "60000000-0000-4000-8000-000000000005",
+    "organization": "60000000-0000-4000-8000-000000000006",
+    "beach": "60000000-0000-4000-8000-000000000007",
+    "studio": "60000000-0000-4000-8000-000000000008",
+    "location": "60000000-0000-4000-8000-000000000009",
+    "parent_location": "60000000-0000-4000-8000-000000000010",
+    "project": "60000000-0000-4000-8000-000000000011",
+    "graph": "60000000-0000-4000-8000-000000000012",
+    "review_graph": "60000000-0000-4000-8000-000000000013",
+    "node": "60000000-0000-4000-8000-000000000014",
+    "asset": "60000000-0000-4000-8000-000000000015",
+    "external_asset": "60000000-0000-4000-8000-000000000016",
+    "unselected_asset": "60000000-0000-4000-8000-000000000017",
+    "representation": "60000000-0000-4000-8000-000000000018",
+    "external_representation": "60000000-0000-4000-8000-000000000019",
+    "content_revision": "60000000-0000-4000-8000-000000000020",
+    "external_content_revision": "60000000-0000-4000-8000-000000000021",
+    "resource": "60000000-0000-4000-8000-000000000022",
+    "root": "60000000-0000-4000-8000-000000000023",
+    "binding": "60000000-0000-4000-8000-000000000024",
+    "run": "60000000-0000-4000-8000-000000000025",
+    "attempt": "60000000-0000-4000-8000-000000000026",
+    "operation": "60000000-0000-4000-8000-000000000027",
+    "evidence": "60000000-0000-4000-8000-000000000028",
+    "receipt": "60000000-0000-4000-8000-000000000029",
+    "party": "60000000-0000-4000-8000-000000000030",
+    "client_party": "60000000-0000-4000-8000-000000000031",
+    "location_assignment": "60000000-0000-4000-8000-000000000032",
+    "epoch": "60000000-0000-4000-8000-000000000033"
+  },
+  "account": {
+    "account_id": "60000000-0000-4000-8000-000000000001",
+    "state": "active",
+    "auth0_identity": {
+      "issuer": "https://fixtures.invalid/",
+      "subject": "fixture|owner"
+    }
+  },
+  "workspace": {
+    "workspace_id": "60000000-0000-4000-8000-000000000002",
+    "mode": "local-first",
+    "display_name": "Fixture Workspace",
+    "revision": "1"
+  },
+  "membership": {
+    "workspace_id": "60000000-0000-4000-8000-000000000002",
+    "account_id": "60000000-0000-4000-8000-000000000001",
+    "role": "owner",
+    "state": "active"
+  },
+  "people": [
+    {
+      "kind": "person",
+      "id": "60000000-0000-4000-8000-000000000005",
+      "workspace_id": "60000000-0000-4000-8000-000000000002",
+      "revision": "1",
+      "created_at": "2026-09-11T18:00:00.000Z",
+      "updated_at": "2026-09-11T18:00:00.000Z",
+      "state": "active",
+      "tombstoned_at": null,
+      "merged_into_id": null,
+      "display_name": "Alex Rivera",
+      "description": "Synthetic fixture person",
+      "aliases": [],
+      "capabilities": [
+        "photara.photographer",
+        "photara.stylist"
+      ],
+      "labels": [
+        "photara.fixture.team"
+      ],
+      "thumbnail": null,
+      "extensions": {
+        "photara.fixture.note": "preserve me"
+      }
+    }
+  ],
+  "organizations": [
+    {
+      "kind": "organization",
+      "id": "60000000-0000-4000-8000-000000000006",
+      "workspace_id": "60000000-0000-4000-8000-000000000002",
+      "revision": "1",
+      "created_at": "2026-09-11T18:00:00.000Z",
+      "updated_at": "2026-09-11T18:00:00.000Z",
+      "state": "active",
+      "tombstoned_at": null,
+      "merged_into_id": null,
+      "display_name": "North Coast Client",
+      "description": "Synthetic client identity; not an Account",
+      "labels": [
+        "photara.fixture.client"
+      ],
+      "thumbnail": null,
+      "extensions": {}
+    }
+  ],
+  "relationships": [
+    {
+      "id": "60000000-0000-4000-8000-000000000060",
+      "workspace_id": "60000000-0000-4000-8000-000000000002",
+      "person_id": "60000000-0000-4000-8000-000000000005",
+      "organization_id": "60000000-0000-4000-8000-000000000006",
+      "relationship": "photara.relationship.contractor",
+      "valid_from": "2026-09-11T18:00:00.000Z",
+      "valid_until": null,
+      "revision": "1"
+    }
+  ],
+  "location_kinds": [
+    {
+      "kind": "location_kind",
+      "id": "60000000-0000-4000-8000-000000000007",
+      "workspace_id": "60000000-0000-4000-8000-000000000002",
+      "revision": "1",
+      "created_at": "2026-09-11T18:00:00.000Z",
+      "updated_at": "2026-09-11T18:00:00.000Z",
+      "state": "active",
+      "tombstoned_at": null,
+      "merged_into_id": null,
+      "canonical_display": "Beach",
+      "canonical_key": "beach",
+      "normalization_version": 1,
+      "description": "Coastal sand or shingle",
+      "aliases": [
+        "beaches"
+      ],
+      "terms": [
+        {
+          "key": "beach",
+          "spelling": "Beach"
+        },
+        {
+          "key": "beaches",
+          "spelling": "beaches"
+        }
+      ],
+      "retirement_terms": null
+    },
+    {
+      "kind": "location_kind",
+      "id": "60000000-0000-4000-8000-000000000008",
+      "workspace_id": "60000000-0000-4000-8000-000000000002",
+      "revision": "1",
+      "created_at": "2026-09-11T18:00:00.000Z",
+      "updated_at": "2026-09-11T18:00:00.000Z",
+      "state": "active",
+      "tombstoned_at": null,
+      "merged_into_id": null,
+      "canonical_display": "Studio",
+      "canonical_key": "studio",
+      "normalization_version": 1,
+      "description": "Controlled indoor space",
+      "aliases": [
+        "studios"
+      ],
+      "terms": [
+        {
+          "key": "studio",
+          "spelling": "Studio"
+        },
+        {
+          "key": "studios",
+          "spelling": "studios"
+        }
+      ],
+      "retirement_terms": null
+    }
+  ],
+  "locations": [
+    {
+      "kind": "location",
+      "id": "60000000-0000-4000-8000-000000000009",
+      "workspace_id": "60000000-0000-4000-8000-000000000002",
+      "revision": "1",
+      "created_at": "2026-09-11T18:00:00.000Z",
+      "updated_at": "2026-09-11T18:00:00.000Z",
+      "state": "active",
+      "tombstoned_at": null,
+      "merged_into_id": null,
+      "display_name": "North Coast Cove",
+      "location_kind_id": "60000000-0000-4000-8000-000000000007",
+      "parent_location_id": "60000000-0000-4000-8000-000000000010",
+      "description": "Synthetic concrete location"
+    },
+    {
+      "kind": "location",
+      "id": "60000000-0000-4000-8000-000000000010",
+      "workspace_id": "60000000-0000-4000-8000-000000000002",
+      "revision": "1",
+      "created_at": "2026-09-11T18:00:00.000Z",
+      "updated_at": "2026-09-11T18:00:00.000Z",
+      "state": "active",
+      "tombstoned_at": null,
+      "merged_into_id": null,
+      "display_name": "North Coast",
+      "location_kind_id": "60000000-0000-4000-8000-000000000007",
+      "parent_location_id": null,
+      "description": "Synthetic parent place"
+    }
+  ],
+  "node_package_catalog": [
+    {
+      "package_id": "photara.fixture.effect",
+      "package_version": "0.0.0",
+      "definition_id": "photara.fixture.effect.observe",
+      "definition_version": 1,
+      "primary_category_id": "photara.category.automation",
+      "search_terms": [
+        "fixture",
+        "observation"
+      ],
+      "display_name": "Synthetic Effect Observer",
+      "availability": "fixture-metadata-only",
+      "manifest": null,
+      "installed": false,
+      "executable_included": false,
+      "trust": "not-granted"
+    }
+  ],
+  "catalog": {
+    "project_id": "60000000-0000-4000-8000-000000000011",
+    "workspace_id": "60000000-0000-4000-8000-000000000002",
+    "observation_id": "60000000-0000-4000-8000-000000000061",
+    "commit_id": "60000000-0000-4000-8000-000000000051",
+    "commit_sha256": "e0a938eaa8b8ee4a8ef8e9df81fceb4f10cc535552510f5e8edda29b3e543e7e",
+    "title": "North Coast Fixture",
+    "provenance": "locally-verified-package",
+    "cloud_provenance_if_uploaded": "client-reported",
+    "sharing_profile": "minimal"
+  },
+  "device_only": {
+    "device_id": "60000000-0000-4000-8000-000000000004",
+    "storage_roots": [
+      {
+        "storage_root_id": "60000000-0000-4000-8000-000000000023",
+        "uri": "smb://fixture.invalid/Pictures",
+        "mount_path": "/Volumes/FixturePictures",
+        "bookmark_reference": "fixture-bookmark-reference-only"
+      }
+    ],
+    "project_locator": {
+      "project_id": "60000000-0000-4000-8000-000000000011",
+      "storage_root_id": "60000000-0000-4000-8000-000000000023",
+      "relative_path": "Projects/North Coast Fixture.photara",
+      "state": "available"
+    },
+    "external_binding": {
+      "storage_binding_id": "60000000-0000-4000-8000-000000000024",
+      "storage_root_id": "60000000-0000-4000-8000-000000000023",
+      "relative_path": "Sessions/coast/source.jpg",
+      "state": "unavailable"
+    }
+  },
+  "discovery_candidates": [
+    "60000000-0000-4000-8000-000000000015",
+    "60000000-0000-4000-8000-000000000016",
+    "60000000-0000-4000-8000-000000000017"
+  ],
+  "project_membership": [
+    "60000000-0000-4000-8000-000000000015",
+    "60000000-0000-4000-8000-000000000016"
+  ]
+}

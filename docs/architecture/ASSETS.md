@@ -1,6 +1,54 @@
 # Project assets and representations
 
-## Ownership and identity
+## Current exact review packet — 2026-09-12
+
+The [D19 AssetSet contract](D19_CONTRACT_FREEZE.md#assetset-metadata-and-variables) now defines immutable v2 snapshots, exact ordered member/content/metadata dependencies, bounded pages and explicit patch/group targets. The package ledger supplies closure, never implicit node membership. Portable external/managed resources and device handles have distinct IDs. [CXT1a](CXT1A_CONTRACTS.md) implements these pure snapshot/resource contracts in `photara_core::contracts`; package closure and compatibility conversion remain CXT3a. [CXT1b](CXT1B_CONTEXT_CONTRACTS.md) adds pure metadata values/common/distinct over supplied immutable selections and observation references, with explicit negative facts and no extraction. Existing AssetSet v1/v2 digests remain unchanged. Implemented v1 behavior below remains compatibility evidence.
+
+## D19 explicit dataflow and private ledger — current conceptual authority
+
+[D19](LIBRARY_AND_NODE_WORK_SURFACES.md) replaces the ambient Project asset context
+as an input authority with explicit AssetSet graph ports. There is no semantic
+project-wide Gallery, implicit union or `$project.assets`. A package may keep a
+private asset identity/provenance/representation/artifact ledger required by Graphs
+and Runs, and devices maintain disposable cache indexes. Ledger presence never
+grants input membership or runtime access. Nodes receive connected ports and
+declared frozen context only; the accepted wire/ledger contract is implemented only to the bounded [CXT1a extent](CXT1A_CONTRACTS.md).
+
+Sources read explicit selections into AssetSet, MetadataSet, SourceDescriptor and
+ImportReport. Metadata enrichment emits enriched AssetSet and MetadataPatch without
+modifying original files/catalogs. A patch's authored target is one asset, an
+explicit selected subset, the full connected set, or a typed upstream grouping;
+transient Gallery selection is not an implicit target. EXIF, IPTC, XMP and
+Photara-typed Person/Location assertions remain namespaced. XMP sidecar,
+supported embedded metadata/DNG update, file output, application catalog updates,
+cloud delivery and social/web publishing are explicit effects producing typed
+ArtifactSet/EffectReceipt evidence. Lightroom source and update are separate nodes.
+Provider secrets and device paths stay in host/account capabilities.
+
+The shared Asset Browser/Gallery component appears inside Layout's Work Surface,
+the built-in Gallery inspection node and metadata authoring Work Surfaces. Each
+shows its explicit AssetSet; selection/filtering changes graph outputs only through
+a versioned authored command. Library pickers may capture authorized typed refs
+without a reference node, but every runtime dependency freezes exact IDs/revisions/
+projections. Existing Stage 5/6 implementation descriptions below are compatibility
+evidence, not permission to expose an implicit project union in the target model.
+
+## D18 typed metadata proposal — revised under D19, pending
+
+[D18](TYPED_CONTEXT_AND_EXPRESSIONS.md), as revised by D19, uses `$input.assets`
+for the current node's explicit `assets` port, never a directory string or an
+inventory fallback. Immutable metadata
+observations bind AssetId/RepresentationId to an exact fingerprint/content revision,
+namespaced schema/key, typed value, extractor/version and provenance. User
+assertions remain distinguishable from extracted/provider facts. EXIF camera/lens
+is not identity proof; GPS/serial/face fields require privacy policy. Discovery
+caches must be explicitly captured before becoming durable Run dependencies.
+Collection queries return per-asset missing/ambiguous/conflicting facts;
+`metadata.common` never selects an arbitrary first camera/lens, and representation
+selection is explicit. Package captures are authority, SQL search indexes only
+commit/checksum-qualified projections. This adds no extractor or runtime today.
+
+## Current implementation: ownership and identity
 
 The project owns asset context. An `AssetId` identifies the creative item a user
 recognizes; it is not a path, file, provider record, Gallery row, or host
@@ -57,6 +105,11 @@ resource. `RepresentationBinding::RuntimeResolved` carries only a stable
 account, or credential locator is resolved outside the Project Document. A
 runtime materialization returns a verified local path without making that path
 portable authority.
+
+The target model generalizes this into a Library-owned logical Storage Location
+plus a device-owned Host Binding. It also distinguishes external sources,
+managed Project resources, external output artifacts and transient cache. See
+[Storage locations and host bindings](STORAGE_LOCATIONS_AND_HOST_BINDINGS.md).
 
 Output placement is separate from representation identity and current binding.
 Configurable storage policy may choose targets per role. A useful default is:

@@ -77,7 +77,6 @@ extension InspectorView {
           .disabled(frame.index + 1 >= UInt64(node.layout?.frames.count ?? 0))
         }
       }
-      .listRowBackground(inspectorGroupBackground)
       Section("Cell") {
         if let descriptor = presentation.previews[cell.cellId] {
           LabeledContent(
@@ -143,7 +142,6 @@ extension InspectorView {
           }
         }
       }
-      .listRowBackground(inspectorGroupBackground)
     }
   }
 }

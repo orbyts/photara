@@ -1,0 +1,400 @@
+{
+  "fixture_schema": "photara.fixture.package-archive.v1",
+  "package_name": "North Coast Fixture.photara",
+  "synthetic": true,
+  "encoding": "Each utf8 field is the exact file content; JSON files have no trailing newline. This archive is inert, not an opened project.",
+  "ids": {
+    "account": "60000000-0000-4000-8000-000000000001",
+    "workspace": "60000000-0000-4000-8000-000000000002",
+    "other_workspace": "60000000-0000-4000-8000-000000000003",
+    "device": "60000000-0000-4000-8000-000000000004",
+    "person": "60000000-0000-4000-8000-000000000005",
+    "organization": "60000000-0000-4000-8000-000000000006",
+    "beach": "60000000-0000-4000-8000-000000000007",
+    "studio": "60000000-0000-4000-8000-000000000008",
+    "location": "60000000-0000-4000-8000-000000000009",
+    "parent_location": "60000000-0000-4000-8000-000000000010",
+    "project": "60000000-0000-4000-8000-000000000011",
+    "graph": "60000000-0000-4000-8000-000000000012",
+    "review_graph": "60000000-0000-4000-8000-000000000013",
+    "node": "60000000-0000-4000-8000-000000000014",
+    "asset": "60000000-0000-4000-8000-000000000015",
+    "external_asset": "60000000-0000-4000-8000-000000000016",
+    "unselected_asset": "60000000-0000-4000-8000-000000000017",
+    "representation": "60000000-0000-4000-8000-000000000018",
+    "external_representation": "60000000-0000-4000-8000-000000000019",
+    "content_revision": "60000000-0000-4000-8000-000000000020",
+    "external_content_revision": "60000000-0000-4000-8000-000000000021",
+    "resource": "60000000-0000-4000-8000-000000000022",
+    "root": "60000000-0000-4000-8000-000000000023",
+    "binding": "60000000-0000-4000-8000-000000000024",
+    "run": "60000000-0000-4000-8000-000000000025",
+    "attempt": "60000000-0000-4000-8000-000000000026",
+    "operation": "60000000-0000-4000-8000-000000000027",
+    "evidence": "60000000-0000-4000-8000-000000000028",
+    "receipt": "60000000-0000-4000-8000-000000000029",
+    "party": "60000000-0000-4000-8000-000000000030",
+    "client_party": "60000000-0000-4000-8000-000000000031",
+    "location_assignment": "60000000-0000-4000-8000-000000000032",
+    "epoch": "60000000-0000-4000-8000-000000000033"
+  },
+  "named_objects": {
+    "person_snapshot": {
+      "kind": "json",
+      "sha256": "52b7b51dac2e6f3512e16f7e06081ed9aa0c9596461ca6f7e442cd0589ecb2d7",
+      "byte_length": "531"
+    },
+    "organization_snapshot": {
+      "kind": "json",
+      "sha256": "34cbf1a9927579cda37eb03b8c6f06d6919b167ad87e33f781b0c9bde57a7218",
+      "byte_length": "493"
+    },
+    "kind_snapshot": {
+      "kind": "json",
+      "sha256": "0de270c7cc242ba6159adde2d0f7f8b9f4770b9159a62de87f0e3dfc73102486",
+      "byte_length": "585"
+    },
+    "location_snapshot": {
+      "kind": "json",
+      "sha256": "cf115bf3de280cab5e156d2c2029fff16c99623cc37fcf5773aee7ebe622c681",
+      "byte_length": "603"
+    },
+    "person_assignment": {
+      "kind": "json",
+      "sha256": "5bf385b3a497b9aba0448e23df4e5686f379d20c4ac82372ab2df7ead7a6ed20",
+      "byte_length": "467"
+    },
+    "client_assignment": {
+      "kind": "json",
+      "sha256": "a35c9284b1774e4f155ce5c3dba50aae5931dc86c7c9fa4955c580e137f42d63",
+      "byte_length": "438"
+    },
+    "party_assignments": {
+      "kind": "json",
+      "sha256": "9d3c7a4d210b641ff3446cff568e847167d30c8a8db78f5f1746d829c837f4a8",
+      "byte_length": "357"
+    },
+    "location_assignment": {
+      "kind": "json",
+      "sha256": "804748eb4d97065f3aea76232dde9b8ede0b9f2e34480b02775fe33f7e9f6f03",
+      "byte_length": "748"
+    },
+    "location_assignments": {
+      "kind": "json",
+      "sha256": "fe72dbb322eac92759bba9686780279c5b5314fed3140bca773a85449b7edc51",
+      "byte_length": "248"
+    },
+    "managed_content": {
+      "kind": "json",
+      "sha256": "d8e5dc9b2949771a31c25bebf97e8f30c104f8586ef8e6bd2a1996901c58f5ba",
+      "byte_length": "885"
+    },
+    "external_content": {
+      "kind": "json",
+      "sha256": "92f3bd31be5d64db0ab917b1a9bd32ffa9af8949be4f86d2c8106b8a0f97da37",
+      "byte_length": "717"
+    },
+    "resources": {
+      "kind": "json",
+      "sha256": "aa85135ab4588276079c97d0aa4f53be860fd52f421532f64f953d2b0e5cc0fd",
+      "byte_length": "353"
+    },
+    "assets": {
+      "kind": "json",
+      "sha256": "a45e447750fb6a0a38745ff44ee7e37d99e09d7c74e22b01f4239f90432dea05",
+      "byte_length": "1040"
+    },
+    "graph": {
+      "kind": "json",
+      "sha256": "be5e5cb69e081cebaf5277ab974766946dc4153dd2711c8eaee9b2da2e41ea06",
+      "byte_length": "885"
+    },
+    "review_graph": {
+      "kind": "json",
+      "sha256": "d28d8d2e7242d714120a6044a9eda857354e081f8e18ab201e47a27e2becd09b",
+      "byte_length": "449"
+    },
+    "authored": {
+      "kind": "json",
+      "sha256": "e1e5761e5fa457005a5b4cf533790a031a1ac2fbd6597652a5431ea1be478a89",
+      "byte_length": "1361"
+    },
+    "history_initial": {
+      "kind": "json",
+      "sha256": "8e3de41d6ad3336c2f9e04f0a31ef9ede473bd9042633249c133cf9ac79bffb2",
+      "byte_length": "147"
+    },
+    "run_start": {
+      "kind": "json",
+      "sha256": "33250391ffba545bfa42c55767f77b4bfbc6c6661be804a55f5bc06544fdcbd6",
+      "byte_length": "931"
+    },
+    "attempt_start": {
+      "kind": "json",
+      "sha256": "41a98139c1076ffcd525b4d594bc5545ee27a8158c9c79110b07aed31f06ee68",
+      "byte_length": "951"
+    },
+    "effect_intent": {
+      "kind": "json",
+      "sha256": "40c6165d61bf741283414328307fa858241d70a2dcef150b8c57bc4ab7b57f98",
+      "byte_length": "517"
+    },
+    "evidence": {
+      "kind": "json",
+      "sha256": "43c24ef85be3c0f8caa292a40bc8ce7f13378f2a20a7a74b8a6320248c7edbf8",
+      "byte_length": "501"
+    },
+    "receipt": {
+      "kind": "json",
+      "sha256": "50d964b12797df7ac75fb83fc073526c1b7a490eaafae9c0015f93804462de3d",
+      "byte_length": "576"
+    },
+    "attempt_outcome": {
+      "kind": "json",
+      "sha256": "4e73045f18df31308e0a2be8c7795989253f5c6c4764840469ad6aa1bbd0dd18",
+      "byte_length": "642"
+    },
+    "run_outcome": {
+      "kind": "json",
+      "sha256": "764dd1f96d7181b7867fd3db4288551d99d1c29c5357e7103762a6688a729e17",
+      "byte_length": "362"
+    },
+    "run": {
+      "kind": "json",
+      "sha256": "9730b134dacdb43392f93cd46e09f78dd83138356edeb71922bdc5627d756239",
+      "byte_length": "1079"
+    },
+    "history_final": {
+      "kind": "json",
+      "sha256": "ce07ec6931edede400ecaf1299d6db0da21ac18d5ff975994b938441e13b6c43",
+      "byte_length": "320"
+    },
+    "inventory_1": {
+      "kind": "json",
+      "sha256": "3dbdee9ba4e07b106711fe4332e56167bd6a9054f3eb392844b56be423abc36c",
+      "byte_length": "2138"
+    },
+    "inventory_2": {
+      "kind": "json",
+      "sha256": "cb4fe690c5f32040c8391927ff3736b0f0bd46c47d5be418118dc89650eb158c",
+      "byte_length": "3035"
+    }
+  },
+  "expected": {
+    "head": {
+      "commit_id": "60000000-0000-4000-8000-000000000051",
+      "sha256": "e0a938eaa8b8ee4a8ef8e9df81fceb4f10cc535552510f5e8edda29b3e543e7e"
+    },
+    "initial_commit": {
+      "commit_id": "60000000-0000-4000-8000-000000000050",
+      "sha256": "bc5828247712423bd2df8cb8bc5ca6cea5d5367ebb7ae31a263a9de95cce43f8"
+    },
+    "authored_digest_unchanged": true,
+    "asset_count": 2,
+    "unselected_asset_id": "60000000-0000-4000-8000-000000000017",
+    "graph_count": 2,
+    "missing_runtime_diagnostic": "photara.fixture.effect@0.0.0",
+    "effect_knowledge": "unknown",
+    "external_bytes_available": false
+  },
+  "files": [
+    {
+      "path": "commits/60000000-0000-4000-8000-000000000050.json",
+      "utf8": "{\"authored\":{\"byte_length\":\"1361\",\"kind\":\"json\",\"sha256\":\"e1e5761e5fa457005a5b4cf533790a031a1ac2fbd6597652a5431ea1be478a89\"},\"bootstrap_sha256\":\"4de35c75239930fe243055c9339a3523c953b772893b9a17a94fa5c7f8dafe53\",\"commit_id\":\"60000000-0000-4000-8000-000000000050\",\"created_at\":\"2026-09-11T18:00:00.000Z\",\"history\":{\"byte_length\":\"147\",\"kind\":\"json\",\"sha256\":\"8e3de41d6ad3336c2f9e04f0a31ef9ede473bd9042633249c133cf9ac79bffb2\"},\"inventory\":{\"byte_length\":\"2138\",\"kind\":\"json\",\"sha256\":\"3dbdee9ba4e07b106711fe4332e56167bd6a9054f3eb392844b56be423abc36c\"},\"minimum_reader\":{\"major\":1,\"minor\":0},\"package_revision\":\"1\",\"parent\":null,\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"required_features\":[\"photara.history.v1\"],\"schema\":{\"id\":\"photara.package.commit\",\"version\":1},\"write_id\":\"60000000-0000-4000-8000-000000000052\"}",
+      "byte_length": "823",
+      "sha256": "bc5828247712423bd2df8cb8bc5ca6cea5d5367ebb7ae31a263a9de95cce43f8"
+    },
+    {
+      "path": "commits/60000000-0000-4000-8000-000000000051.json",
+      "utf8": "{\"authored\":{\"byte_length\":\"1361\",\"kind\":\"json\",\"sha256\":\"e1e5761e5fa457005a5b4cf533790a031a1ac2fbd6597652a5431ea1be478a89\"},\"bootstrap_sha256\":\"4de35c75239930fe243055c9339a3523c953b772893b9a17a94fa5c7f8dafe53\",\"commit_id\":\"60000000-0000-4000-8000-000000000051\",\"created_at\":\"2026-09-11T18:06:00.000Z\",\"history\":{\"byte_length\":\"320\",\"kind\":\"json\",\"sha256\":\"ce07ec6931edede400ecaf1299d6db0da21ac18d5ff975994b938441e13b6c43\"},\"inventory\":{\"byte_length\":\"3035\",\"kind\":\"json\",\"sha256\":\"cb4fe690c5f32040c8391927ff3736b0f0bd46c47d5be418118dc89650eb158c\"},\"minimum_reader\":{\"major\":1,\"minor\":0},\"package_revision\":\"2\",\"parent\":{\"commit_id\":\"60000000-0000-4000-8000-000000000050\",\"sha256\":\"bc5828247712423bd2df8cb8bc5ca6cea5d5367ebb7ae31a263a9de95cce43f8\"},\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"required_features\":[\"photara.history.v1\"],\"schema\":{\"id\":\"photara.package.commit\",\"version\":1},\"write_id\":\"60000000-0000-4000-8000-000000000053\"}",
+      "byte_length": "947",
+      "sha256": "e0a938eaa8b8ee4a8ef8e9df81fceb4f10cc535552510f5e8edda29b3e543e7e"
+    },
+    {
+      "path": "HEAD.json",
+      "utf8": "{\"commit_id\":\"60000000-0000-4000-8000-000000000051\",\"commit_sha256\":\"e0a938eaa8b8ee4a8ef8e9df81fceb4f10cc535552510f5e8edda29b3e543e7e\",\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"schema\":{\"id\":\"photara.package.head\",\"version\":1}}",
+      "byte_length": "238",
+      "sha256": "7cd29a21906b580b74f04dde0f340d771b30cd8dc7a74102c60a269e733543ce"
+    },
+    {
+      "path": "manifest.json",
+      "utf8": "{\"canonical_json\":\"photara.canonical-json.v1\",\"created_at\":\"2026-09-11T18:00:00.000Z\",\"extensions\":{},\"format\":\"photara.project-package\",\"format_version\":{\"major\":1,\"minor\":0},\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"required_features\":[\"photara.history.v1\",\"photara.immutable-objects.v1\"]}",
+      "byte_length": "302",
+      "sha256": "4de35c75239930fe243055c9339a3523c953b772893b9a17a94fa5c7f8dafe53"
+    },
+    {
+      "path": "objects/blobs/sha256/83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86",
+      "utf8": "P3\n2 2\n255\n255 0 0  0 255 0\n0 0 255  255 255 255\n",
+      "byte_length": "49",
+      "sha256": "83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86"
+    },
+    {
+      "path": "objects/json/sha256/0de270c7cc242ba6159adde2d0f7f8b9f4770b9159a62de87f0e3dfc73102486.json",
+      "utf8": "{\"captured_at\":\"2026-09-11T18:00:00.000Z\",\"display_name\":\"Beach\",\"extensions\":{},\"payload\":{\"aliases\":[\"beaches\"],\"canonical_display\":\"Beach\",\"canonical_key\":\"beach\",\"description\":\"Coastal sand or shingle\",\"normalization_version\":1},\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"schema\":{\"id\":\"photara.project.library-snapshot\",\"version\":1},\"snapshot_id\":\"60000000-0000-4000-8000-000000000042\",\"source\":{\"kind\":\"location_kind\",\"record_id\":\"60000000-0000-4000-8000-000000000007\",\"revision\":{\"authority\":\"local\",\"value\":\"1\"},\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"}}",
+      "byte_length": "585",
+      "sha256": "0de270c7cc242ba6159adde2d0f7f8b9f4770b9159a62de87f0e3dfc73102486"
+    },
+    {
+      "path": "objects/json/sha256/33250391ffba545bfa42c55767f77b4bfbc6c6661be804a55f5bc06544fdcbd6.json",
+      "utf8": "{\"dependencies\":[{\"byte_length\":\"885\",\"kind\":\"json\",\"sha256\":\"d8e5dc9b2949771a31c25bebf97e8f30c104f8586ef8e6bd2a1996901c58f5ba\"}],\"implementations\":[{\"definition_id\":\"photara.fixture.effect.observe\",\"definition_version\":1,\"package_id\":\"photara.fixture.effect\",\"package_version\":\"0.0.0\"}],\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"queued_at\":\"2026-09-11T18:00:00.000Z\",\"request_id\":\"60000000-0000-4000-8000-000000000044\",\"run_id\":\"60000000-0000-4000-8000-000000000025\",\"schema\":{\"id\":\"photara.history.run-start\",\"version\":1},\"source_authored\":{\"byte_length\":\"1361\",\"kind\":\"json\",\"sha256\":\"e1e5761e5fa457005a5b4cf533790a031a1ac2fbd6597652a5431ea1be478a89\"},\"source_graph_digest\":\"368333abef873406037d6ed8a1596d8c9c56be35ffd9af704a7446973630201f\",\"source_graph_id\":\"60000000-0000-4000-8000-000000000012\",\"source_graph_revision\":\"0\",\"started_at\":\"2026-09-11T18:00:00.000Z\",\"targets\":[\"60000000-0000-4000-8000-000000000014\"]}",
+      "byte_length": "931",
+      "sha256": "33250391ffba545bfa42c55767f77b4bfbc6c6661be804a55f5bc06544fdcbd6"
+    },
+    {
+      "path": "objects/json/sha256/34cbf1a9927579cda37eb03b8c6f06d6919b167ad87e33f781b0c9bde57a7218.json",
+      "utf8": "{\"captured_at\":\"2026-09-11T18:00:00.000Z\",\"display_name\":\"North Coast Client\",\"extensions\":{},\"payload\":{\"display_name\":\"North Coast Client\"},\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"schema\":{\"id\":\"photara.project.library-snapshot\",\"version\":1},\"snapshot_id\":\"60000000-0000-4000-8000-000000000041\",\"source\":{\"kind\":\"organization\",\"record_id\":\"60000000-0000-4000-8000-000000000006\",\"revision\":{\"authority\":\"local\",\"value\":\"1\"},\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"}}",
+      "byte_length": "493",
+      "sha256": "34cbf1a9927579cda37eb03b8c6f06d6919b167ad87e33f781b0c9bde57a7218"
+    },
+    {
+      "path": "objects/json/sha256/3dbdee9ba4e07b106711fe4332e56167bd6a9054f3eb392844b56be423abc36c.json",
+      "utf8": "{\"objects\":[{\"byte_length\":\"49\",\"kind\":\"blob\",\"sha256\":\"83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86\"},{\"byte_length\":\"585\",\"kind\":\"json\",\"sha256\":\"0de270c7cc242ba6159adde2d0f7f8b9f4770b9159a62de87f0e3dfc73102486\"},{\"byte_length\":\"493\",\"kind\":\"json\",\"sha256\":\"34cbf1a9927579cda37eb03b8c6f06d6919b167ad87e33f781b0c9bde57a7218\"},{\"byte_length\":\"531\",\"kind\":\"json\",\"sha256\":\"52b7b51dac2e6f3512e16f7e06081ed9aa0c9596461ca6f7e442cd0589ecb2d7\"},{\"byte_length\":\"467\",\"kind\":\"json\",\"sha256\":\"5bf385b3a497b9aba0448e23df4e5686f379d20c4ac82372ab2df7ead7a6ed20\"},{\"byte_length\":\"748\",\"kind\":\"json\",\"sha256\":\"804748eb4d97065f3aea76232dde9b8ede0b9f2e34480b02775fe33f7e9f6f03\"},{\"byte_length\":\"147\",\"kind\":\"json\",\"sha256\":\"8e3de41d6ad3336c2f9e04f0a31ef9ede473bd9042633249c133cf9ac79bffb2\"},{\"byte_length\":\"717\",\"kind\":\"json\",\"sha256\":\"92f3bd31be5d64db0ab917b1a9bd32ffa9af8949be4f86d2c8106b8a0f97da37\"},{\"byte_length\":\"357\",\"kind\":\"json\",\"sha256\":\"9d3c7a4d210b641ff3446cff568e847167d30c8a8db78f5f1746d829c837f4a8\"},{\"byte_length\":\"438\",\"kind\":\"json\",\"sha256\":\"a35c9284b1774e4f155ce5c3dba50aae5931dc86c7c9fa4955c580e137f42d63\"},{\"byte_length\":\"1040\",\"kind\":\"json\",\"sha256\":\"a45e447750fb6a0a38745ff44ee7e37d99e09d7c74e22b01f4239f90432dea05\"},{\"byte_length\":\"353\",\"kind\":\"json\",\"sha256\":\"aa85135ab4588276079c97d0aa4f53be860fd52f421532f64f953d2b0e5cc0fd\"},{\"byte_length\":\"885\",\"kind\":\"json\",\"sha256\":\"be5e5cb69e081cebaf5277ab974766946dc4153dd2711c8eaee9b2da2e41ea06\"},{\"byte_length\":\"603\",\"kind\":\"json\",\"sha256\":\"cf115bf3de280cab5e156d2c2029fff16c99623cc37fcf5773aee7ebe622c681\"},{\"byte_length\":\"449\",\"kind\":\"json\",\"sha256\":\"d28d8d2e7242d714120a6044a9eda857354e081f8e18ab201e47a27e2becd09b\"},{\"byte_length\":\"885\",\"kind\":\"json\",\"sha256\":\"d8e5dc9b2949771a31c25bebf97e8f30c104f8586ef8e6bd2a1996901c58f5ba\"},{\"byte_length\":\"1361\",\"kind\":\"json\",\"sha256\":\"e1e5761e5fa457005a5b4cf533790a031a1ac2fbd6597652a5431ea1be478a89\"},{\"byte_length\":\"248\",\"kind\":\"json\",\"sha256\":\"fe72dbb322eac92759bba9686780279c5b5314fed3140bca773a85449b7edc51\"}],\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"schema\":{\"id\":\"photara.package.inventory\",\"version\":1}}",
+      "byte_length": "2138",
+      "sha256": "3dbdee9ba4e07b106711fe4332e56167bd6a9054f3eb392844b56be423abc36c"
+    },
+    {
+      "path": "objects/json/sha256/40c6165d61bf741283414328307fa858241d70a2dcef150b8c57bc4ab7b57f98.json",
+      "utf8": "{\"attempt_id\":\"60000000-0000-4000-8000-000000000026\",\"captured_at\":\"2026-09-11T18:00:00.000Z\",\"idempotency_key\":\"60000000-0000-4000-8000-000000000027\",\"operation_id\":\"60000000-0000-4000-8000-000000000027\",\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"request_digest\":\"26d8d51215b695365463254b53738cacecfb098501e030a4414029678a97cd32\",\"run_id\":\"60000000-0000-4000-8000-000000000025\",\"schema\":{\"id\":\"photara.history.effect-intent\",\"version\":1},\"target\":{\"provider\":\"photara.fixture\",\"resource\":\"synthetic-only\"}}",
+      "byte_length": "517",
+      "sha256": "40c6165d61bf741283414328307fa858241d70a2dcef150b8c57bc4ab7b57f98"
+    },
+    {
+      "path": "objects/json/sha256/41a98139c1076ffcd525b4d594bc5545ee27a8158c9c79110b07aed31f06ee68.json",
+      "utf8": "{\"attempt_id\":\"60000000-0000-4000-8000-000000000026\",\"configuration_digest\":\"7adf15c433931df3e3ef57c546d2e14b2f2b0c04da481984a262ded1a13acd4e\",\"environment_digest\":\"ffbc2dfc402782325da71132100e74ff511d1585dd80e4ea196ed4bcace3fef2\",\"implementation\":{\"definition_id\":\"photara.fixture.effect.observe\",\"definition_version\":1,\"fingerprint\":\"bf4a00875616477b445fe73fae6cb3fa3eddbf63d3d5cf59758b88f0edc006e8\",\"package_id\":\"photara.fixture.effect\",\"package_version\":\"0.0.0\"},\"input_digest\":\"65590070b05c84bc353bfa68cd7f8a237d5deb7513b97183e0bba3d5bcda3d63\",\"node_id\":\"60000000-0000-4000-8000-000000000014\",\"ordinal\":1,\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"representation_revisions\":[{\"byte_length\":\"885\",\"kind\":\"json\",\"sha256\":\"d8e5dc9b2949771a31c25bebf97e8f30c104f8586ef8e6bd2a1996901c58f5ba\"}],\"run_id\":\"60000000-0000-4000-8000-000000000025\",\"schema\":{\"id\":\"photara.history.attempt-start\",\"version\":1},\"started_at\":\"2026-09-11T18:00:00.000Z\"}",
+      "byte_length": "951",
+      "sha256": "41a98139c1076ffcd525b4d594bc5545ee27a8158c9c79110b07aed31f06ee68"
+    },
+    {
+      "path": "objects/json/sha256/43c24ef85be3c0f8caa292a40bc8ce7f13378f2a20a7a74b8a6320248c7edbf8.json",
+      "utf8": "{\"captured_at\":\"2026-09-11T18:06:00.000Z\",\"content\":{\"schema\":{\"id\":\"photara.fixture.transport-evidence\",\"version\":1},\"value\":{\"knowledge\":\"unknown\",\"response_received\":false}},\"evidence_id\":\"60000000-0000-4000-8000-000000000028\",\"extensions\":{},\"operation_id\":\"60000000-0000-4000-8000-000000000027\",\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"provenance\":{\"attempt_id\":\"60000000-0000-4000-8000-000000000026\",\"kind\":\"synthetic-fixture\"},\"schema\":{\"id\":\"photara.history.evidence\",\"version\":1}}",
+      "byte_length": "501",
+      "sha256": "43c24ef85be3c0f8caa292a40bc8ce7f13378f2a20a7a74b8a6320248c7edbf8"
+    },
+    {
+      "path": "objects/json/sha256/4e73045f18df31308e0a2be8c7795989253f5c6c4764840469ad6aa1bbd0dd18.json",
+      "utf8": "{\"attempt_id\":\"60000000-0000-4000-8000-000000000026\",\"diagnostics\":[{\"code\":\"photara.effect.response-unavailable\",\"message\":\"Synthetic provider outcome requires reconciliation.\",\"severity\":\"warning\"}],\"ended_at\":\"2026-09-11T18:06:00.000Z\",\"evidence\":[{\"byte_length\":\"501\",\"kind\":\"json\",\"sha256\":\"43c24ef85be3c0f8caa292a40bc8ce7f13378f2a20a7a74b8a6320248c7edbf8\"}],\"operations\":[{\"knowledge\":\"unknown\",\"operation_id\":\"60000000-0000-4000-8000-000000000027\"}],\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"run_id\":\"60000000-0000-4000-8000-000000000025\",\"schema\":{\"id\":\"photara.history.attempt-outcome\",\"version\":1},\"status\":\"interrupted\"}",
+      "byte_length": "642",
+      "sha256": "4e73045f18df31308e0a2be8c7795989253f5c6c4764840469ad6aa1bbd0dd18"
+    },
+    {
+      "path": "objects/json/sha256/50d964b12797df7ac75fb83fc073526c1b7a490eaafae9c0015f93804462de3d.json",
+      "utf8": "{\"evidence\":[{\"byte_length\":\"501\",\"kind\":\"json\",\"sha256\":\"43c24ef85be3c0f8caa292a40bc8ce7f13378f2a20a7a74b8a6320248c7edbf8\"}],\"observation\":{\"kind\":\"reconciliation-inconclusive\",\"knowledge\":\"unknown\"},\"observing_attempt_id\":\"60000000-0000-4000-8000-000000000026\",\"operation_id\":\"60000000-0000-4000-8000-000000000027\",\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"provider\":\"photara.fixture\",\"provider_receipt_id\":null,\"receipt_id\":\"60000000-0000-4000-8000-000000000029\",\"schema\":{\"id\":\"photara.history.receipt\",\"version\":1},\"verification_at\":\"2026-09-11T18:06:00.000Z\"}",
+      "byte_length": "576",
+      "sha256": "50d964b12797df7ac75fb83fc073526c1b7a490eaafae9c0015f93804462de3d"
+    },
+    {
+      "path": "objects/json/sha256/52b7b51dac2e6f3512e16f7e06081ed9aa0c9596461ca6f7e442cd0589ecb2d7.json",
+      "utf8": "{\"captured_at\":\"2026-09-11T18:00:00.000Z\",\"display_name\":\"Alex Rivera\",\"extensions\":{},\"payload\":{\"capabilities\":[\"photara.photographer\",\"photara.stylist\"],\"display_name\":\"Alex Rivera\"},\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"schema\":{\"id\":\"photara.project.library-snapshot\",\"version\":1},\"snapshot_id\":\"60000000-0000-4000-8000-000000000040\",\"source\":{\"kind\":\"person\",\"record_id\":\"60000000-0000-4000-8000-000000000005\",\"revision\":{\"authority\":\"local\",\"value\":\"1\"},\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"}}",
+      "byte_length": "531",
+      "sha256": "52b7b51dac2e6f3512e16f7e06081ed9aa0c9596461ca6f7e442cd0589ecb2d7"
+    },
+    {
+      "path": "objects/json/sha256/5bf385b3a497b9aba0448e23df4e5686f379d20c4ac82372ab2df7ead7a6ed20.json",
+      "utf8": "{\"assignment_id\":\"60000000-0000-4000-8000-000000000030\",\"created_at\":\"2026-09-11T18:00:00.000Z\",\"notes\":\"\",\"party_snapshot\":{\"byte_length\":\"531\",\"kind\":\"json\",\"sha256\":\"52b7b51dac2e6f3512e16f7e06081ed9aa0c9596461ca6f7e442cd0589ecb2d7\"},\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"revision\":\"1\",\"roles\":[\"photara.role.photographer\",\"photara.role.stylist\"],\"schema\":{\"id\":\"photara.project.party-assignment\",\"version\":1},\"updated_at\":\"2026-09-11T18:00:00.000Z\"}",
+      "byte_length": "467",
+      "sha256": "5bf385b3a497b9aba0448e23df4e5686f379d20c4ac82372ab2df7ead7a6ed20"
+    },
+    {
+      "path": "objects/json/sha256/764dd1f96d7181b7867fd3db4288551d99d1c29c5357e7103762a6688a729e17.json",
+      "utf8": "{\"diagnostics\":[],\"ended_at\":\"2026-09-11T18:06:00.000Z\",\"evidence\":[{\"byte_length\":\"501\",\"kind\":\"json\",\"sha256\":\"43c24ef85be3c0f8caa292a40bc8ce7f13378f2a20a7a74b8a6320248c7edbf8\"}],\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"run_id\":\"60000000-0000-4000-8000-000000000025\",\"schema\":{\"id\":\"photara.history.run-outcome\",\"version\":1},\"status\":\"interrupted\"}",
+      "byte_length": "362",
+      "sha256": "764dd1f96d7181b7867fd3db4288551d99d1c29c5357e7103762a6688a729e17"
+    },
+    {
+      "path": "objects/json/sha256/804748eb4d97065f3aea76232dde9b8ede0b9f2e34480b02775fe33f7e9f6f03.json",
+      "utf8": "{\"assignment_id\":\"60000000-0000-4000-8000-000000000032\",\"created_at\":\"2026-09-11T18:00:00.000Z\",\"location_kind_snapshot\":{\"byte_length\":\"585\",\"kind\":\"json\",\"sha256\":\"0de270c7cc242ba6159adde2d0f7f8b9f4770b9159a62de87f0e3dfc73102486\"},\"location_snapshot\":{\"byte_length\":\"603\",\"kind\":\"json\",\"sha256\":\"cf115bf3de280cab5e156d2c2029fff16c99623cc37fcf5773aee7ebe622c681\"},\"notes\":\"Synthetic morning session\",\"participants\":[{\"party_assignment_id\":\"60000000-0000-4000-8000-000000000030\",\"roles\":[\"photara.role.photographer\"]}],\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"revision\":\"1\",\"schedule\":{\"date\":\"2026-09-12\",\"kind\":\"calendar-date\"},\"schema\":{\"id\":\"photara.project.location-assignment\",\"version\":1},\"updated_at\":\"2026-09-11T18:00:00.000Z\"}",
+      "byte_length": "748",
+      "sha256": "804748eb4d97065f3aea76232dde9b8ede0b9f2e34480b02775fe33f7e9f6f03"
+    },
+    {
+      "path": "objects/json/sha256/8e3de41d6ad3336c2f9e04f0a31ef9ede473bd9042633249c133cf9ac79bffb2.json",
+      "utf8": "{\"evidence\":[],\"operations\":[],\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"runs\":[],\"schema\":{\"id\":\"photara.project.history\",\"version\":1}}",
+      "byte_length": "147",
+      "sha256": "8e3de41d6ad3336c2f9e04f0a31ef9ede473bd9042633249c133cf9ac79bffb2"
+    },
+    {
+      "path": "objects/json/sha256/92f3bd31be5d64db0ab917b1a9bd32ffa9af8949be4f86d2c8106b8a0f97da37.json",
+      "utf8": "{\"asset_id\":\"60000000-0000-4000-8000-000000000016\",\"binding\":{\"kind\":\"external\",\"relative_path\":\"Sessions/coast/source.jpg\",\"storage_binding_id\":\"60000000-0000-4000-8000-000000000024\",\"storage_root_id\":\"60000000-0000-4000-8000-000000000023\"},\"content_revision_id\":\"60000000-0000-4000-8000-000000000021\",\"fingerprint\":{\"evidence_strength\":\"observation-only\",\"kind\":\"file-observation\",\"value\":{\"byte_length\":\"12345\",\"observed_modified_at\":\"2026-09-11T18:00:00.000Z\"}},\"lineage\":[],\"media\":{\"byte_length\":\"12345\",\"media_type\":\"image/jpeg\"},\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"representation_id\":\"60000000-0000-4000-8000-000000000019\",\"schema\":{\"id\":\"photara.project.representation-content\",\"version\":1}}",
+      "byte_length": "717",
+      "sha256": "92f3bd31be5d64db0ab917b1a9bd32ffa9af8949be4f86d2c8106b8a0f97da37"
+    },
+    {
+      "path": "objects/json/sha256/9730b134dacdb43392f93cd46e09f78dd83138356edeb71922bdc5627d756239.json",
+      "utf8": "{\"attempts\":[{\"attempt_id\":\"60000000-0000-4000-8000-000000000026\",\"outcome\":{\"byte_length\":\"642\",\"kind\":\"json\",\"sha256\":\"4e73045f18df31308e0a2be8c7795989253f5c6c4764840469ad6aa1bbd0dd18\"},\"start\":{\"byte_length\":\"951\",\"kind\":\"json\",\"sha256\":\"41a98139c1076ffcd525b4d594bc5545ee27a8158c9c79110b07aed31f06ee68\"}}],\"evidence\":[{\"byte_length\":\"501\",\"kind\":\"json\",\"sha256\":\"43c24ef85be3c0f8caa292a40bc8ce7f13378f2a20a7a74b8a6320248c7edbf8\"}],\"operations\":[{\"byte_length\":\"517\",\"kind\":\"json\",\"sha256\":\"40c6165d61bf741283414328307fa858241d70a2dcef150b8c57bc4ab7b57f98\"}],\"outcome\":{\"byte_length\":\"362\",\"kind\":\"json\",\"sha256\":\"764dd1f96d7181b7867fd3db4288551d99d1c29c5357e7103762a6688a729e17\"},\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"receipts\":[{\"byte_length\":\"576\",\"kind\":\"json\",\"sha256\":\"50d964b12797df7ac75fb83fc073526c1b7a490eaafae9c0015f93804462de3d\"}],\"run_id\":\"60000000-0000-4000-8000-000000000025\",\"schema\":{\"id\":\"photara.history.run\",\"version\":1},\"start\":{\"byte_length\":\"931\",\"kind\":\"json\",\"sha256\":\"33250391ffba545bfa42c55767f77b4bfbc6c6661be804a55f5bc06544fdcbd6\"}}",
+      "byte_length": "1079",
+      "sha256": "9730b134dacdb43392f93cd46e09f78dd83138356edeb71922bdc5627d756239"
+    },
+    {
+      "path": "objects/json/sha256/9d3c7a4d210b641ff3446cff568e847167d30c8a8db78f5f1746d829c837f4a8.json",
+      "utf8": "{\"assignments\":[{\"byte_length\":\"467\",\"kind\":\"json\",\"sha256\":\"5bf385b3a497b9aba0448e23df4e5686f379d20c4ac82372ab2df7ead7a6ed20\"},{\"byte_length\":\"438\",\"kind\":\"json\",\"sha256\":\"a35c9284b1774e4f155ce5c3dba50aae5931dc86c7c9fa4955c580e137f42d63\"}],\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"schema\":{\"id\":\"photara.project.party-assignments\",\"version\":1}}",
+      "byte_length": "357",
+      "sha256": "9d3c7a4d210b641ff3446cff568e847167d30c8a8db78f5f1746d829c837f4a8"
+    },
+    {
+      "path": "objects/json/sha256/a35c9284b1774e4f155ce5c3dba50aae5931dc86c7c9fa4955c580e137f42d63.json",
+      "utf8": "{\"assignment_id\":\"60000000-0000-4000-8000-000000000031\",\"created_at\":\"2026-09-11T18:00:00.000Z\",\"notes\":\"\",\"party_snapshot\":{\"byte_length\":\"493\",\"kind\":\"json\",\"sha256\":\"34cbf1a9927579cda37eb03b8c6f06d6919b167ad87e33f781b0c9bde57a7218\"},\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"revision\":\"1\",\"roles\":[\"photara.role.client\"],\"schema\":{\"id\":\"photara.project.party-assignment\",\"version\":1},\"updated_at\":\"2026-09-11T18:00:00.000Z\"}",
+      "byte_length": "438",
+      "sha256": "a35c9284b1774e4f155ce5c3dba50aae5931dc86c7c9fa4955c580e137f42d63"
+    },
+    {
+      "path": "objects/json/sha256/a45e447750fb6a0a38745ff44ee7e37d99e09d7c74e22b01f4239f90432dea05.json",
+      "utf8": "{\"assets\":[{\"asset_id\":\"60000000-0000-4000-8000-000000000015\",\"created_at\":\"2026-09-11T18:00:00.000Z\",\"display_name\":\"Fixture color card\",\"representations\":[{\"capabilities\":[\"photara.image\"],\"current_content\":{\"byte_length\":\"885\",\"kind\":\"json\",\"sha256\":\"d8e5dc9b2949771a31c25bebf97e8f30c104f8586ef8e6bd2a1996901c58f5ba\"},\"representation_id\":\"60000000-0000-4000-8000-000000000018\",\"roles\":[\"photara.original\"]}],\"revision\":\"1\",\"updated_at\":\"2026-09-11T18:00:00.000Z\"},{\"asset_id\":\"60000000-0000-4000-8000-000000000016\",\"created_at\":\"2026-09-11T18:00:00.000Z\",\"display_name\":\"External coast image\",\"representations\":[{\"capabilities\":[\"photara.image\"],\"current_content\":{\"byte_length\":\"717\",\"kind\":\"json\",\"sha256\":\"92f3bd31be5d64db0ab917b1a9bd32ffa9af8949be4f86d2c8106b8a0f97da37\"},\"representation_id\":\"60000000-0000-4000-8000-000000000019\",\"roles\":[\"photara.original\"]}],\"revision\":\"1\",\"updated_at\":\"2026-09-11T18:00:00.000Z\"}],\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"schema\":{\"id\":\"photara.project.asset-inventory\",\"version\":1}}",
+      "byte_length": "1040",
+      "sha256": "a45e447750fb6a0a38745ff44ee7e37d99e09d7c74e22b01f4239f90432dea05"
+    },
+    {
+      "path": "objects/json/sha256/aa85135ab4588276079c97d0aa4f53be860fd52f421532f64f953d2b0e5cc0fd.json",
+      "utf8": "{\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"resources\":[{\"blob\":{\"byte_length\":\"49\",\"kind\":\"blob\",\"sha256\":\"83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86\"},\"original_filename\":\"fixture.ppm\",\"resource_id\":\"60000000-0000-4000-8000-000000000022\",\"version\":\"1\"}],\"schema\":{\"id\":\"photara.project.resource-inventory\",\"version\":1}}",
+      "byte_length": "353",
+      "sha256": "aa85135ab4588276079c97d0aa4f53be860fd52f421532f64f953d2b0e5cc0fd"
+    },
+    {
+      "path": "objects/json/sha256/be5e5cb69e081cebaf5277ab974766946dc4153dd2711c8eaee9b2da2e41ea06.json",
+      "utf8": "{\"created_at\":\"2026-09-11T18:00:00.000Z\",\"graph\":{\"connections\":[],\"id\":\"60000000-0000-4000-8000-000000000012\",\"nodes\":[{\"configuration\":{\"schema\":{\"id\":\"photara.fixture.effect.config\",\"version\":1},\"value\":{\"mode\":\"synthetic-unknown\"}},\"definition\":{\"definition_id\":\"photara.fixture.effect.observe\",\"definition_version\":1,\"package_id\":\"photara.fixture.effect\",\"package_version\":\"0.0.0\"},\"id\":\"60000000-0000-4000-8000-000000000014\",\"photara.fixture.opaque\":{\"preserve\":true}}],\"revision\":0,\"schema_version\":1},\"graph_id\":\"60000000-0000-4000-8000-000000000012\",\"metadata_revision\":\"1\",\"name\":\"Capture\",\"name_normalization_version\":1,\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"required_packages\":[{\"manifest\":null,\"package_id\":\"photara.fixture.effect\",\"package_version\":\"0.0.0\"}],\"schema\":{\"id\":\"photara.project.saved-graph\",\"version\":1},\"updated_at\":\"2026-09-11T18:00:00.000Z\"}",
+      "byte_length": "885",
+      "sha256": "be5e5cb69e081cebaf5277ab974766946dc4153dd2711c8eaee9b2da2e41ea06"
+    },
+    {
+      "path": "objects/json/sha256/cb4fe690c5f32040c8391927ff3736b0f0bd46c47d5be418118dc89650eb158c.json",
+      "utf8": "{\"objects\":[{\"byte_length\":\"49\",\"kind\":\"blob\",\"sha256\":\"83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86\"},{\"byte_length\":\"585\",\"kind\":\"json\",\"sha256\":\"0de270c7cc242ba6159adde2d0f7f8b9f4770b9159a62de87f0e3dfc73102486\"},{\"byte_length\":\"931\",\"kind\":\"json\",\"sha256\":\"33250391ffba545bfa42c55767f77b4bfbc6c6661be804a55f5bc06544fdcbd6\"},{\"byte_length\":\"493\",\"kind\":\"json\",\"sha256\":\"34cbf1a9927579cda37eb03b8c6f06d6919b167ad87e33f781b0c9bde57a7218\"},{\"byte_length\":\"517\",\"kind\":\"json\",\"sha256\":\"40c6165d61bf741283414328307fa858241d70a2dcef150b8c57bc4ab7b57f98\"},{\"byte_length\":\"951\",\"kind\":\"json\",\"sha256\":\"41a98139c1076ffcd525b4d594bc5545ee27a8158c9c79110b07aed31f06ee68\"},{\"byte_length\":\"501\",\"kind\":\"json\",\"sha256\":\"43c24ef85be3c0f8caa292a40bc8ce7f13378f2a20a7a74b8a6320248c7edbf8\"},{\"byte_length\":\"642\",\"kind\":\"json\",\"sha256\":\"4e73045f18df31308e0a2be8c7795989253f5c6c4764840469ad6aa1bbd0dd18\"},{\"byte_length\":\"576\",\"kind\":\"json\",\"sha256\":\"50d964b12797df7ac75fb83fc073526c1b7a490eaafae9c0015f93804462de3d\"},{\"byte_length\":\"531\",\"kind\":\"json\",\"sha256\":\"52b7b51dac2e6f3512e16f7e06081ed9aa0c9596461ca6f7e442cd0589ecb2d7\"},{\"byte_length\":\"467\",\"kind\":\"json\",\"sha256\":\"5bf385b3a497b9aba0448e23df4e5686f379d20c4ac82372ab2df7ead7a6ed20\"},{\"byte_length\":\"362\",\"kind\":\"json\",\"sha256\":\"764dd1f96d7181b7867fd3db4288551d99d1c29c5357e7103762a6688a729e17\"},{\"byte_length\":\"748\",\"kind\":\"json\",\"sha256\":\"804748eb4d97065f3aea76232dde9b8ede0b9f2e34480b02775fe33f7e9f6f03\"},{\"byte_length\":\"717\",\"kind\":\"json\",\"sha256\":\"92f3bd31be5d64db0ab917b1a9bd32ffa9af8949be4f86d2c8106b8a0f97da37\"},{\"byte_length\":\"1079\",\"kind\":\"json\",\"sha256\":\"9730b134dacdb43392f93cd46e09f78dd83138356edeb71922bdc5627d756239\"},{\"byte_length\":\"357\",\"kind\":\"json\",\"sha256\":\"9d3c7a4d210b641ff3446cff568e847167d30c8a8db78f5f1746d829c837f4a8\"},{\"byte_length\":\"438\",\"kind\":\"json\",\"sha256\":\"a35c9284b1774e4f155ce5c3dba50aae5931dc86c7c9fa4955c580e137f42d63\"},{\"byte_length\":\"1040\",\"kind\":\"json\",\"sha256\":\"a45e447750fb6a0a38745ff44ee7e37d99e09d7c74e22b01f4239f90432dea05\"},{\"byte_length\":\"353\",\"kind\":\"json\",\"sha256\":\"aa85135ab4588276079c97d0aa4f53be860fd52f421532f64f953d2b0e5cc0fd\"},{\"byte_length\":\"885\",\"kind\":\"json\",\"sha256\":\"be5e5cb69e081cebaf5277ab974766946dc4153dd2711c8eaee9b2da2e41ea06\"},{\"byte_length\":\"320\",\"kind\":\"json\",\"sha256\":\"ce07ec6931edede400ecaf1299d6db0da21ac18d5ff975994b938441e13b6c43\"},{\"byte_length\":\"603\",\"kind\":\"json\",\"sha256\":\"cf115bf3de280cab5e156d2c2029fff16c99623cc37fcf5773aee7ebe622c681\"},{\"byte_length\":\"449\",\"kind\":\"json\",\"sha256\":\"d28d8d2e7242d714120a6044a9eda857354e081f8e18ab201e47a27e2becd09b\"},{\"byte_length\":\"885\",\"kind\":\"json\",\"sha256\":\"d8e5dc9b2949771a31c25bebf97e8f30c104f8586ef8e6bd2a1996901c58f5ba\"},{\"byte_length\":\"1361\",\"kind\":\"json\",\"sha256\":\"e1e5761e5fa457005a5b4cf533790a031a1ac2fbd6597652a5431ea1be478a89\"},{\"byte_length\":\"248\",\"kind\":\"json\",\"sha256\":\"fe72dbb322eac92759bba9686780279c5b5314fed3140bca773a85449b7edc51\"}],\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"schema\":{\"id\":\"photara.package.inventory\",\"version\":1}}",
+      "byte_length": "3035",
+      "sha256": "cb4fe690c5f32040c8391927ff3736b0f0bd46c47d5be418118dc89650eb158c"
+    },
+    {
+      "path": "objects/json/sha256/ce07ec6931edede400ecaf1299d6db0da21ac18d5ff975994b938441e13b6c43.json",
+      "utf8": "{\"evidence\":[],\"operations\":[],\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"runs\":[{\"document\":{\"byte_length\":\"1079\",\"kind\":\"json\",\"sha256\":\"9730b134dacdb43392f93cd46e09f78dd83138356edeb71922bdc5627d756239\"},\"run_id\":\"60000000-0000-4000-8000-000000000025\"}],\"schema\":{\"id\":\"photara.project.history\",\"version\":1}}",
+      "byte_length": "320",
+      "sha256": "ce07ec6931edede400ecaf1299d6db0da21ac18d5ff975994b938441e13b6c43"
+    },
+    {
+      "path": "objects/json/sha256/cf115bf3de280cab5e156d2c2029fff16c99623cc37fcf5773aee7ebe622c681.json",
+      "utf8": "{\"captured_at\":\"2026-09-11T18:00:00.000Z\",\"display_name\":\"North Coast Cove\",\"extensions\":{},\"payload\":{\"display_name\":\"North Coast Cove\",\"location_kind_id\":\"60000000-0000-4000-8000-000000000007\",\"parent_location_id\":\"60000000-0000-4000-8000-000000000010\"},\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"schema\":{\"id\":\"photara.project.library-snapshot\",\"version\":1},\"snapshot_id\":\"60000000-0000-4000-8000-000000000043\",\"source\":{\"kind\":\"location\",\"record_id\":\"60000000-0000-4000-8000-000000000009\",\"revision\":{\"authority\":\"local\",\"value\":\"1\"},\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"}}",
+      "byte_length": "603",
+      "sha256": "cf115bf3de280cab5e156d2c2029fff16c99623cc37fcf5773aee7ebe622c681"
+    },
+    {
+      "path": "objects/json/sha256/d28d8d2e7242d714120a6044a9eda857354e081f8e18ab201e47a27e2becd09b.json",
+      "utf8": "{\"created_at\":\"2026-09-11T18:00:00.000Z\",\"graph\":{\"connections\":[],\"id\":\"60000000-0000-4000-8000-000000000013\",\"nodes\":[],\"revision\":0,\"schema_version\":1},\"graph_id\":\"60000000-0000-4000-8000-000000000013\",\"metadata_revision\":\"1\",\"name\":\"Review\",\"name_normalization_version\":1,\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"required_packages\":[],\"schema\":{\"id\":\"photara.project.saved-graph\",\"version\":1},\"updated_at\":\"2026-09-11T18:00:00.000Z\"}",
+      "byte_length": "449",
+      "sha256": "d28d8d2e7242d714120a6044a9eda857354e081f8e18ab201e47a27e2becd09b"
+    },
+    {
+      "path": "objects/json/sha256/d8e5dc9b2949771a31c25bebf97e8f30c104f8586ef8e6bd2a1996901c58f5ba.json",
+      "utf8": "{\"asset_id\":\"60000000-0000-4000-8000-000000000015\",\"binding\":{\"blob\":{\"byte_length\":\"49\",\"kind\":\"blob\",\"sha256\":\"83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86\"},\"kind\":\"managed\",\"path\":\"objects/blobs/sha256/83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86\",\"resource_id\":\"60000000-0000-4000-8000-000000000022\",\"resource_version\":\"1\"},\"content_revision_id\":\"60000000-0000-4000-8000-000000000020\",\"fingerprint\":{\"algorithm\":\"sha256\",\"evidence_strength\":\"verified-bytes\",\"kind\":\"content-digest\",\"value\":\"83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86\"},\"lineage\":[],\"media\":{\"byte_length\":\"49\",\"height\":2,\"media_type\":\"image/x-portable-pixmap\",\"width\":2},\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"representation_id\":\"60000000-0000-4000-8000-000000000018\",\"schema\":{\"id\":\"photara.project.representation-content\",\"version\":1}}",
+      "byte_length": "885",
+      "sha256": "d8e5dc9b2949771a31c25bebf97e8f30c104f8586ef8e6bd2a1996901c58f5ba"
+    },
+    {
+      "path": "objects/json/sha256/e1e5761e5fa457005a5b4cf533790a031a1ac2fbd6597652a5431ea1be478a89.json",
+      "utf8": "{\"asset_inventory\":{\"byte_length\":\"1040\",\"kind\":\"json\",\"sha256\":\"a45e447750fb6a0a38745ff44ee7e37d99e09d7c74e22b01f4239f90432dea05\"},\"authored_revision\":\"1\",\"created_at\":\"2026-09-11T18:00:00.000Z\",\"description\":\"Synthetic generation-two package; no user media\",\"extensions\":{\"photara.fixture.optional\":{\"nested\":[\"preserve\",\"exactly\"]}},\"graphs\":[{\"document\":{\"byte_length\":\"885\",\"kind\":\"json\",\"sha256\":\"be5e5cb69e081cebaf5277ab974766946dc4153dd2711c8eaee9b2da2e41ea06\"},\"graph_id\":\"60000000-0000-4000-8000-000000000012\"},{\"document\":{\"byte_length\":\"449\",\"kind\":\"json\",\"sha256\":\"d28d8d2e7242d714120a6044a9eda857354e081f8e18ab201e47a27e2becd09b\"},\"graph_id\":\"60000000-0000-4000-8000-000000000013\"}],\"lifecycle\":\"active\",\"location_assignments\":{\"byte_length\":\"248\",\"kind\":\"json\",\"sha256\":\"fe72dbb322eac92759bba9686780279c5b5314fed3140bca773a85449b7edc51\"},\"originating_workspace_id\":\"60000000-0000-4000-8000-000000000002\",\"party_assignments\":{\"byte_length\":\"357\",\"kind\":\"json\",\"sha256\":\"9d3c7a4d210b641ff3446cff568e847167d30c8a8db78f5f1746d829c837f4a8\"},\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"resource_inventory\":{\"byte_length\":\"353\",\"kind\":\"json\",\"sha256\":\"aa85135ab4588276079c97d0aa4f53be860fd52f421532f64f953d2b0e5cc0fd\"},\"schema\":{\"id\":\"photara.project.authored\",\"version\":1},\"title\":\"North Coast Fixture\",\"updated_at\":\"2026-09-11T18:00:00.000Z\"}",
+      "byte_length": "1361",
+      "sha256": "e1e5761e5fa457005a5b4cf533790a031a1ac2fbd6597652a5431ea1be478a89"
+    },
+    {
+      "path": "objects/json/sha256/fe72dbb322eac92759bba9686780279c5b5314fed3140bca773a85449b7edc51.json",
+      "utf8": "{\"assignments\":[{\"byte_length\":\"748\",\"kind\":\"json\",\"sha256\":\"804748eb4d97065f3aea76232dde9b8ede0b9f2e34480b02775fe33f7e9f6f03\"}],\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"schema\":{\"id\":\"photara.project.location-assignments\",\"version\":1}}",
+      "byte_length": "248",
+      "sha256": "fe72dbb322eac92759bba9686780279c5b5314fed3140bca773a85449b7edc51"
+    }
+  ]
+}

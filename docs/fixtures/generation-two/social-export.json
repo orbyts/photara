@@ -1,0 +1,211 @@
+{
+  "fixture_schema": "photara.fixture.social-export.v1",
+  "synthetic": true,
+  "status": "inert-proposal-not-an-importer",
+  "social_profiles": [
+    {
+      "social_profile_id": "62000000-0000-4000-8000-000000000001",
+      "workspace_id": "60000000-0000-4000-8000-000000000002",
+      "person_id": "60000000-0000-4000-8000-000000000005",
+      "organization_id": null,
+      "provider_id": "photara.provider.fixture",
+      "subject_namespace": null,
+      "provider_subject_id": null,
+      "handle": "alex.manual",
+      "display_name": "Synthetic Profile",
+      "profile_url": "https://social.fixtures.invalid/alex.manual",
+      "account_kind": "unknown",
+      "provider_account_kind": null,
+      "verification_kind": "unverified",
+      "verified_at": null,
+      "provenance": {
+        "schema": "photara.social-provenance.v1",
+        "source": "manual",
+        "synthetic": true
+      },
+      "fetched_at": null,
+      "refreshed_at": null,
+      "next_refresh_after": null,
+      "fetch_state": "never",
+      "avatar_policy": "none",
+      "avatar_consent_at": null,
+      "avatar_expires_at": null,
+      "avatar_media_sha256": null,
+      "record_schema": 1,
+      "revision": "1",
+      "created_at": "2026-09-11T18:00:00.000Z",
+      "updated_at": "2026-09-11T18:00:00.000Z",
+      "state": "active",
+      "retired_at": null,
+      "extensions": {}
+    },
+    {
+      "social_profile_id": "62000000-0000-4000-8000-000000000002",
+      "workspace_id": "60000000-0000-4000-8000-000000000002",
+      "person_id": "60000000-0000-4000-8000-000000000005",
+      "organization_id": null,
+      "provider_id": "photara.provider.fixture",
+      "subject_namespace": "fixture-global-v1",
+      "provider_subject_id": "fixture-subject-42",
+      "handle": "alex.observed",
+      "display_name": "Synthetic Profile",
+      "profile_url": null,
+      "account_kind": "creator",
+      "provider_account_kind": null,
+      "verification_kind": "provider-authorized",
+      "verified_at": "2026-09-11T18:00:00.000Z",
+      "provenance": {
+        "schema": "photara.social-provenance.v1",
+        "source": "provider-observation",
+        "synthetic": true,
+        "identity_proof": false,
+        "permission_grant": false
+      },
+      "fetched_at": "2026-09-11T18:00:00.000Z",
+      "refreshed_at": "2026-09-11T18:00:00.000Z",
+      "next_refresh_after": "2026-09-12T18:00:00.000Z",
+      "fetch_state": "available",
+      "avatar_policy": "cache-only",
+      "avatar_consent_at": "2026-09-11T18:00:00.000Z",
+      "avatar_expires_at": "2026-09-12T18:00:00.000Z",
+      "avatar_media_sha256": null,
+      "record_schema": 1,
+      "revision": "1",
+      "created_at": "2026-09-11T18:00:00.000Z",
+      "updated_at": "2026-09-11T18:00:00.000Z",
+      "state": "active",
+      "retired_at": null,
+      "extensions": {}
+    },
+    {
+      "social_profile_id": "62000000-0000-4000-8000-000000000003",
+      "workspace_id": "60000000-0000-4000-8000-000000000002",
+      "person_id": null,
+      "organization_id": "60000000-0000-4000-8000-000000000006",
+      "provider_id": "photara.provider.fixture",
+      "subject_namespace": "fixture-global-v1",
+      "provider_subject_id": "fixture-subject-84",
+      "handle": "north.coast.client",
+      "display_name": "Synthetic Profile",
+      "profile_url": null,
+      "account_kind": "business",
+      "provider_account_kind": null,
+      "verification_kind": "unverified",
+      "verified_at": null,
+      "provenance": {
+        "schema": "photara.social-provenance.v1",
+        "source": "manual-with-explicit-synthetic-media",
+        "synthetic": true,
+        "rights": {
+          "workspace_sync": true,
+          "project_snapshot": true,
+          "library_export": true
+        },
+        "identity_proof": false
+      },
+      "fetched_at": null,
+      "refreshed_at": null,
+      "next_refresh_after": null,
+      "fetch_state": "never",
+      "avatar_policy": "durable-consented",
+      "avatar_consent_at": "2026-09-11T18:00:00.000Z",
+      "avatar_expires_at": null,
+      "avatar_media_sha256": "83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86",
+      "record_schema": 1,
+      "revision": "1",
+      "created_at": "2026-09-11T18:00:00.000Z",
+      "updated_at": "2026-09-11T18:00:00.000Z",
+      "state": "active",
+      "retired_at": null,
+      "extensions": {}
+    }
+  ],
+  "manual_handle_rename": {
+    "profile_id": "62000000-0000-4000-8000-000000000001",
+    "from": "alex.manual",
+    "to": "alex.renamed",
+    "expected": {
+      "same_profile_id": true,
+      "revision": "2",
+      "oauth_required": false
+    }
+  },
+  "bound_subject_duplicate": {
+    "new_profile_id": "62000000-0000-4000-8000-000000000004",
+    "owner_organization_id": "60000000-0000-4000-8000-000000000006",
+    "provider_id": "photara.provider.fixture",
+    "subject_namespace": "fixture-global-v1",
+    "provider_subject_id": "fixture-subject-42",
+    "expected": "reject-workspace-subject-already-owned-even-after-source-tombstone"
+  },
+  "chosen_project_snapshot": {
+    "project_id": "60000000-0000-4000-8000-000000000011",
+    "party_assignment_id": "60000000-0000-4000-8000-000000000030",
+    "source_kind": "person",
+    "source_record_id": "60000000-0000-4000-8000-000000000005",
+    "captured_at": "2026-09-11T18:00:00.000Z",
+    "selected_social_profiles": [
+      {
+        "source_profile_id": "62000000-0000-4000-8000-000000000001",
+        "provider_label": "Fixture Social",
+        "handle": "alex.manual",
+        "display_name": "Synthetic Profile",
+        "profile_url": "https://social.fixtures.invalid/alex.manual"
+      }
+    ],
+    "excluded": [
+      "provider_subject_id",
+      "subject_namespace",
+      "OAuth tokens",
+      "provider connection identifiers",
+      "verification evidence",
+      "temporary avatar URLs"
+    ]
+  },
+  "export_bundle": {
+    "manifest_utf8": "{\"canonical_json\":\"photara.canonical-json.v1\",\"captured_at\":\"2026-09-11T18:00:00.000Z\",\"encryption\":\"none\",\"export_id\":\"62000000-0000-4000-8000-000000000010\",\"format\":\"photara.library-export\",\"format_version\":{\"major\":1,\"minor\":0},\"inclusion_policy\":{\"auth_and_sync_state\":false,\"device_bindings\":false,\"durable_media\":\"explicit-rights-only\",\"project_packages\":false},\"members\":[{\"byte_length\":\"531\",\"path\":\"catalog/discovery.json\",\"sha256\":\"49f3da35c71a80659fa1b1bab0d98f7912af10fbdee82283c1cdb3c2b4aa0f34\"},{\"byte_length\":\"6985\",\"path\":\"library/records.json\",\"sha256\":\"e2efde8305fc4f3dddfa44f8c467e84e6650b58514fcf401cd4717f575fca024\"},{\"byte_length\":\"49\",\"path\":\"media/sha256/83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86\",\"sha256\":\"83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86\"}],\"omissions\":[{\"kind\":\"project-package\",\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"reason\":\"separate-backup-required\"},{\"kind\":\"provider-avatar-cache\",\"reason\":\"cache-only-excluded\",\"social_profile_id\":\"62000000-0000-4000-8000-000000000002\"}],\"required_features\":[\"photara.social-profiles.v1\"],\"source_revisions\":\"per-record-provenance-not-sync-tokens\",\"source_workspace_id\":\"60000000-0000-4000-8000-000000000002\"}",
+    "manifest_sha256": "67e6745d94a79e9049242d8f45ed165b5968301cf827f2bcd39475cd5ef0c79e",
+    "members": [
+      {
+        "path": "catalog/discovery.json",
+        "utf8": "{\"projects\":[{\"observed_commit_id\":\"60000000-0000-4000-8000-000000000051\",\"observed_commit_sha256\":\"e0a938eaa8b8ee4a8ef8e9df81fceb4f10cc535552510f5e8edda29b3e543e7e\",\"package_included\":false,\"project_id\":\"60000000-0000-4000-8000-000000000011\",\"relative_hint\":\"Projects/North Coast Fixture.photara\",\"storage_root_id\":\"60000000-0000-4000-8000-000000000023\",\"title\":\"North Coast Fixture\",\"verification_on_import\":\"required\"}],\"storage_roots\":[{\"display_name\":\"Pictures root\",\"storage_root_id\":\"60000000-0000-4000-8000-000000000023\"}]}",
+        "byte_length": "531",
+        "sha256": "49f3da35c71a80659fa1b1bab0d98f7912af10fbdee82283c1cdb3c2b4aa0f34"
+      },
+      {
+        "path": "library/records.json",
+        "utf8": "{\"library_media\":[{\"byte_length\":\"49\",\"export_allowed\":true,\"media_type\":\"image/x-portable-pixmap\",\"sha256\":\"83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86\",\"source\":\"synthetic-user-authorized-fixture\",\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"}],\"location_kinds\":[{\"aliases\":[\"beaches\"],\"canonical_display\":\"Beach\",\"canonical_key\":\"beach\",\"created_at\":\"2026-09-11T18:00:00.000Z\",\"description\":\"Coastal sand or shingle\",\"id\":\"60000000-0000-4000-8000-000000000007\",\"kind\":\"location_kind\",\"merged_into_id\":null,\"normalization_version\":1,\"retirement_terms\":null,\"revision\":\"1\",\"state\":\"active\",\"terms\":[{\"key\":\"beach\",\"spelling\":\"Beach\"},{\"key\":\"beaches\",\"spelling\":\"beaches\"}],\"tombstoned_at\":null,\"updated_at\":\"2026-09-11T18:00:00.000Z\",\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"},{\"aliases\":[\"studios\"],\"canonical_display\":\"Studio\",\"canonical_key\":\"studio\",\"created_at\":\"2026-09-11T18:00:00.000Z\",\"description\":\"Controlled indoor space\",\"id\":\"60000000-0000-4000-8000-000000000008\",\"kind\":\"location_kind\",\"merged_into_id\":null,\"normalization_version\":1,\"retirement_terms\":null,\"revision\":\"1\",\"state\":\"active\",\"terms\":[{\"key\":\"studio\",\"spelling\":\"Studio\"},{\"key\":\"studios\",\"spelling\":\"studios\"}],\"tombstoned_at\":null,\"updated_at\":\"2026-09-11T18:00:00.000Z\",\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"}],\"locations\":[{\"created_at\":\"2026-09-11T18:00:00.000Z\",\"description\":\"Synthetic concrete location\",\"display_name\":\"North Coast Cove\",\"id\":\"60000000-0000-4000-8000-000000000009\",\"kind\":\"location\",\"location_kind_id\":\"60000000-0000-4000-8000-000000000007\",\"merged_into_id\":null,\"parent_location_id\":\"60000000-0000-4000-8000-000000000010\",\"revision\":\"1\",\"state\":\"active\",\"tombstoned_at\":null,\"updated_at\":\"2026-09-11T18:00:00.000Z\",\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"},{\"created_at\":\"2026-09-11T18:00:00.000Z\",\"description\":\"Synthetic parent place\",\"display_name\":\"North Coast\",\"id\":\"60000000-0000-4000-8000-000000000010\",\"kind\":\"location\",\"location_kind_id\":\"60000000-0000-4000-8000-000000000007\",\"merged_into_id\":null,\"parent_location_id\":null,\"revision\":\"1\",\"state\":\"active\",\"tombstoned_at\":null,\"updated_at\":\"2026-09-11T18:00:00.000Z\",\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"}],\"organizations\":[{\"created_at\":\"2026-09-11T18:00:00.000Z\",\"description\":\"Synthetic client identity; not an Account\",\"display_name\":\"North Coast Client\",\"extensions\":{},\"id\":\"60000000-0000-4000-8000-000000000006\",\"kind\":\"organization\",\"labels\":[\"photara.fixture.client\"],\"merged_into_id\":null,\"revision\":\"1\",\"state\":\"active\",\"thumbnail\":null,\"tombstoned_at\":null,\"updated_at\":\"2026-09-11T18:00:00.000Z\",\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"}],\"people\":[{\"aliases\":[],\"capabilities\":[\"photara.photographer\",\"photara.stylist\"],\"created_at\":\"2026-09-11T18:00:00.000Z\",\"description\":\"Synthetic fixture person\",\"display_name\":\"Alex Rivera\",\"extensions\":{\"photara.fixture.note\":\"preserve me\"},\"id\":\"60000000-0000-4000-8000-000000000005\",\"kind\":\"person\",\"labels\":[\"photara.fixture.team\"],\"merged_into_id\":null,\"revision\":\"1\",\"state\":\"active\",\"thumbnail\":null,\"tombstoned_at\":null,\"updated_at\":\"2026-09-11T18:00:00.000Z\",\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"}],\"relationships\":[{\"id\":\"60000000-0000-4000-8000-000000000060\",\"organization_id\":\"60000000-0000-4000-8000-000000000006\",\"person_id\":\"60000000-0000-4000-8000-000000000005\",\"relationship\":\"photara.relationship.contractor\",\"revision\":\"1\",\"valid_from\":\"2026-09-11T18:00:00.000Z\",\"valid_until\":null,\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"}],\"social_profiles\":[{\"account_kind\":\"unknown\",\"avatar_consent_at\":null,\"avatar_expires_at\":null,\"avatar_media_sha256\":null,\"avatar_policy\":\"none\",\"created_at\":\"2026-09-11T18:00:00.000Z\",\"display_name\":\"Synthetic Profile\",\"extensions\":{},\"fetch_state\":\"never\",\"fetched_at\":null,\"handle\":\"alex.manual\",\"next_refresh_after\":null,\"organization_id\":null,\"person_id\":\"60000000-0000-4000-8000-000000000005\",\"profile_url\":\"https://social.fixtures.invalid/alex.manual\",\"provenance\":{\"schema\":\"photara.social-provenance.v1\",\"source\":\"manual\",\"synthetic\":true},\"provider_account_kind\":null,\"provider_id\":\"photara.provider.fixture\",\"provider_subject_id\":null,\"record_schema\":1,\"refreshed_at\":null,\"retired_at\":null,\"revision\":\"1\",\"social_profile_id\":\"62000000-0000-4000-8000-000000000001\",\"state\":\"active\",\"subject_namespace\":null,\"updated_at\":\"2026-09-11T18:00:00.000Z\",\"verification_kind\":\"unverified\",\"verified_at\":null,\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"},{\"account_kind\":\"creator\",\"avatar_consent_at\":\"2026-09-11T18:00:00.000Z\",\"avatar_expires_at\":\"2026-09-12T18:00:00.000Z\",\"avatar_media_sha256\":null,\"avatar_policy\":\"cache-only\",\"created_at\":\"2026-09-11T18:00:00.000Z\",\"display_name\":\"Synthetic Profile\",\"extensions\":{},\"fetch_state\":\"available\",\"fetched_at\":\"2026-09-11T18:00:00.000Z\",\"handle\":\"alex.observed\",\"next_refresh_after\":\"2026-09-12T18:00:00.000Z\",\"organization_id\":null,\"person_id\":\"60000000-0000-4000-8000-000000000005\",\"profile_url\":null,\"provenance\":{\"identity_proof\":false,\"permission_grant\":false,\"schema\":\"photara.social-provenance.v1\",\"source\":\"provider-observation\",\"synthetic\":true},\"provider_account_kind\":null,\"provider_id\":\"photara.provider.fixture\",\"provider_subject_id\":\"fixture-subject-42\",\"record_schema\":1,\"refreshed_at\":\"2026-09-11T18:00:00.000Z\",\"retired_at\":null,\"revision\":\"1\",\"social_profile_id\":\"62000000-0000-4000-8000-000000000002\",\"state\":\"active\",\"subject_namespace\":\"fixture-global-v1\",\"updated_at\":\"2026-09-11T18:00:00.000Z\",\"verification_kind\":\"provider-authorized\",\"verified_at\":\"2026-09-11T18:00:00.000Z\",\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"},{\"account_kind\":\"business\",\"avatar_consent_at\":\"2026-09-11T18:00:00.000Z\",\"avatar_expires_at\":null,\"avatar_media_sha256\":\"83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86\",\"avatar_policy\":\"durable-consented\",\"created_at\":\"2026-09-11T18:00:00.000Z\",\"display_name\":\"Synthetic Profile\",\"extensions\":{},\"fetch_state\":\"never\",\"fetched_at\":null,\"handle\":\"north.coast.client\",\"next_refresh_after\":null,\"organization_id\":\"60000000-0000-4000-8000-000000000006\",\"person_id\":null,\"profile_url\":null,\"provenance\":{\"identity_proof\":false,\"rights\":{\"library_export\":true,\"project_snapshot\":true,\"workspace_sync\":true},\"schema\":\"photara.social-provenance.v1\",\"source\":\"manual-with-explicit-synthetic-media\",\"synthetic\":true},\"provider_account_kind\":null,\"provider_id\":\"photara.provider.fixture\",\"provider_subject_id\":\"fixture-subject-84\",\"record_schema\":1,\"refreshed_at\":null,\"retired_at\":null,\"revision\":\"1\",\"social_profile_id\":\"62000000-0000-4000-8000-000000000003\",\"state\":\"active\",\"subject_namespace\":\"fixture-global-v1\",\"updated_at\":\"2026-09-11T18:00:00.000Z\",\"verification_kind\":\"unverified\",\"verified_at\":null,\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"}],\"workspace\":{\"display_name\":\"Fixture Workspace\",\"workspace_id\":\"60000000-0000-4000-8000-000000000002\"}}",
+        "byte_length": "6985",
+        "sha256": "e2efde8305fc4f3dddfa44f8c467e84e6650b58514fcf401cd4717f575fca024"
+      },
+      {
+        "path": "media/sha256/83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86",
+        "utf8": "P3\n2 2\n255\n255 0 0  0 255 0\n0 0 255  255 255 255\n",
+        "byte_length": "49",
+        "sha256": "83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86"
+      }
+    ]
+  },
+  "expected_restore": {
+    "dry_run_first": true,
+    "default": "side-by-side-isolated-store",
+    "preserve_workspace_id": "60000000-0000-4000-8000-000000000002",
+    "preserve_project_id": "60000000-0000-4000-8000-000000000011",
+    "preserve_storage_root_id": "60000000-0000-4000-8000-000000000023",
+    "device_id_restored": false,
+    "root_rebind_required": true,
+    "package_verification_required": true,
+    "sync_or_provider_access_restored": false,
+    "media_digest": "83c1c13a32583e56e33eafaf162e210ddbdbc5da02399f8a0a0cafa636392a86",
+    "project_package_included": false
+  },
+  "expected_failures": [
+    "member-byte-corruption:reject-before-write",
+    "duplicate-kind-claim:report-not-overwrite",
+    "same-id-different-content:conflict",
+    "destination-revision-changed:replan",
+    "wrong-encryption-key:reject-before-decrypt-output",
+    "prohibited-auth-or-device-member:reject",
+    "provider-avatar-expired-or-export-disallowed:omit-with-report"
+  ]
+}

@@ -1,82 +1,83 @@
 # Photara Shell Lab
 
-A native two-window shell authoring app: **Photara — Shell Preview** contains the
-exact production `ApplicationShell`, Graph, Gallery, Inspector and optional Layout
-views; **Shell Authoring** contains scenarios, Light/Dark, sizing and visual controls.
-No Core, bridge, database, source folders or network are used. Fixtures are generated
-in memory; workspace preferences are not read or persisted. Bundled presets/theme
-are read-only resources; Export uses the native save panel.
+Native authoring host for Photara's shared application composition. **Photara —
+Shell Preview** renders the exact production `ApplicationShell` and feature views;
+**Shell Authoring** contains fixtures and shell-owned controls. No bridge, database,
+source folder, provider or network is required.
+
+Read [`../DESIGN_LANGUAGE.md`](../DESIGN_LANGUAGE.md) before changing shared chrome.
+It defines the authoritative surface hierarchy, Liquid Glass policy and lab ownership.
 
 ```sh
 platform/macos/photara-shell-lab/build-shell-lab.sh
 open 'platform/macos/photara-shell-lab/.build/Photara Shell Lab.app'
 ```
 
-Scenarios cover opening with/without recents, collapsed/expanded recents, empty
-project, first node, cleared selection, assets, Layout capability, reviewable
-content, evaluation/cancel, diagnostics, compact, saved and syncing. Add Node opens
-a fixture catalog; Create/Open/Save/Run/Cancel update fixture state. Feature editing
-callbacks are recorded in controls; production behavior remains in the app adapters.
-Review currently exposes the shared Gallery for reviewing available images; a
-specialized review workflow remains future work.
+## What this lab owns
 
-Use live controls for title font/size/weight, hero icon-tile visibility, symbol/tile/
-stroke/glow colors, tile and symbol size, stroke width, corner and glow geometry,
-symbol vertical alignment, tile position, individual launcher-button tints,
-hero-to-recents spacing, launcher edge insets and opening vertical position, pane
-ideal widths, header/status heights and toolbar identity width. The launcher
-background can use the Theme surface or a
-native Ultra Thin, Thin, Regular or Thick frosted material with its own tint. Light
-and Dark colors are authored independently. Export to
-`platform/macos/photara-shell/Resources/photara-application-presentation-v1.json`,
-review the diff and rebuild Photara. Schema v1 rejects unknown versions and invalid
-or nonfinite dimensions. Font choices are portable design roles: macOS maps Display,
-Rounded, Serif and Monospaced to SF Display, SF Rounded, New York and SF Mono.
-Other native clients map those same roles to their platform families. Behavior remains
-typed Swift. The general application palette remains Theme-owned; the explicitly
-authored launcher hero and action tints travel with the Shell preset.
+- Launcher composition, copy, typography, hero treatment and launcher actions.
+- Application and project identity in the native toolbar.
+- Module placement, visibility, sizing and compact behavior.
+- Shared module geometry: gutter, outer/content inset, corner radius, header metrics
+  and optional restrained elevation.
+- Shared status-bar geometry and integrated empty-project composition.
+- Scenarios showing Graph, Gallery, Inspector, Library modules and node work surfaces
+  inside the authoritative production frame.
 
-Project Chrome controls author the real project-title typography and visibility,
-panel-header geometry, semantic divider thickness, and status-bar typography and
-spacing. The fixture project name (initially `Coastal Studies`) is preview-only;
-production always supplies the open project's real name. Chrome color pickers edit
-the shared Theme roles for workspace, panel, elevated header/status surfaces,
-dividers, text and semantic status colors. Native macOS window material and traffic
-lights remain system-managed.
+Theme owns the adaptive application base, module base, optional inset-content surface,
+selection tint, text and status colors. Shell Lab exposes those shared semantic roles
+for convenient live authoring but does not duplicate them in the Shell preset.
 
-Shell Lab automatically retains the current draft in its `com.photara.shell-lab`
-preferences. **Apply to Photara** writes a validated development override to the
-`com.photara.desktop` preferences domain and a validated shared Theme override; a
-running development build polls both and updates without a rebuild. **Remove Photara
-Override** returns the app to its bundled Shell and Theme. These are local developer preferences and never enter a
-Project Document. Exporting and promoting the JSON resource remains the explicit
-step that changes the shipped default for all users and future platform builds.
-Graph's source, preset and interactions are unchanged.
+The native title bar and toolbar Liquid Glass are system-owned. Photara supplies a
+leading project thumbnail/title, centered application identity and at most three
+semantic trailing groups. macOS owns material, blur, shadow, item glass, overflow,
+contrast, accessibility behavior and future SDK appearance. Do not add title-bar blur,
+custom toolbar material or pill-shape controls to this lab.
 
-For an independent task, edit shell-owned source or this preset, run
-`platform/macos/build-ui.sh`, `photara-ui-tests/verify-shared-ui.sh`,
-`photara-ui-tests/verify-production-ui.sh`, `photara-app/verify-bridge.sh` and the full
-`photara-graph-lab/verify-interactions.sh` (paths relative to `platform/macos`).
-Handoff the commit, preset/source changes and verification results. Merge and
-rebuild assembles the change; no feature views are copied into production.
+Every module uses one borderless `surface.panel` frame. Its title is part of that base.
+Focused-pane feedback is the shared `selection.background` title tint. There are no
+resting module outlines, header separators or split rules; a resize guide appears only
+while dragging and fades afterward. Feature modules must not recreate this frame.
 
-Ownership: every node has an Inspector and may contribute its own optional work
-surface. The Layout surface is owned by the Layout node (`photara-layout`). Shell
-Lab previews that exact surface but does not author its internals. A future Layout
-Node Lab can independently author it; no new node-specific lab is created here.
+## What feature labs own
 
-The toolbar is driven by `[NodeWorkSurfacePresentation]`, not a fixed Layout tab.
-Each descriptor carries the node ID, contribution ID, title and node-provided icon.
-The host supplies the node-owned renderer. Multiple nodes have distinct buttons;
-removing the active node returns to Graph. Production registers supported surfaces
-in `ProductionWorkSurfaceRegistry`; Layout is its first entry. The saved client pane
-key remains `layoutAuthoring` for compatibility, while its Swift identity is now the
-generic `nodeWorkSurface`.
+Graph Lab owns Graph canvas, nodes, ports, connections and its already accepted
+floating tool rail/zoom controls. Gallery Lab owns Gallery content, HDR rendering,
+layout, cards and Gallery states. Inspector Lab owns Inspector sections, fields and
+Inspector states. People, Locations, Scenes and Project Info Labs own their respective
+browsers, editors and data-state presentations. Node labs own their optional work
+surfaces. Shell Lab hosts these exact sources but does not author their internals.
 
-Application Surfaces controls now author semantic/custom canvas and module fills,
-canvas material, gutters, outer/content insets, corner radius, optional border,
-elevation, active emphasis, elevated/flat headers, compact breakpoint and a
-separate bottom/status surface. They use the same draft, Apply and Export workflow.
-Use the top-right shortcuts or Workspace to reveal Library fixtures. Every module
-has an icon and can close/reopen, including Graph and the optional Work Surface.
-Graph's accepted shared sources, preset and interactions are untouched.
+## Scenarios and identification
+
+Scenarios cover opening/recents, empty project, first node, cleared selection, assets,
+Layout capability, Review, evaluation, diagnostics, compact, saved and syncing states.
+Fixture actions are recorded rather than touching production state.
+
+Enable **Identify controls in preview** to point at an area and see its owning authoring
+section. Preview interaction pauses while identification is active. This overlay is
+lab-only and never compiles into Photara.
+
+## Draft, Apply and Export
+
+The lab automatically stores a local authoring draft in `com.photara.shell-lab`.
+**Apply to Photara** writes validated Shell and Theme development overrides; a running
+development app reloads them. **Remove Photara Override** returns to bundled defaults.
+Neither preference enters a Project Document.
+
+**Export Shell Preset** produces the versioned Shell JSON for deliberate promotion to
+`../photara-shell/Resources/photara-application-presentation-v1.json`. **Export Shared
+Theme** produces the adaptive semantic palette. Review exported diffs and rebuild.
+
+## Verification
+
+```sh
+platform/macos/photara-shell-lab/build-shell-lab.sh
+platform/macos/photara-ui-tests/verify-shared-ui.sh
+platform/macos/photara-ui-tests/verify-production-ui.sh
+platform/macos/photara-app/verify-bridge.sh
+```
+
+Run Graph's interaction suite only when shared assembly changes touch its interaction
+surface. A completed Shell task hands off source/preset paths, visible behavior and
+verification results; production assembly never copies a lab view.

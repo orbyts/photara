@@ -1,0 +1,121 @@
+{
+  "fixture_schema": "photara.fixture.canonical-vectors.v1",
+  "codec": "photara.canonical-json.v1",
+  "reference": {
+    "crate": "photara-core",
+    "source": "crates/photara-core/src/canonical.rs",
+    "serde_json": "1.0.151",
+    "features": "current Core default; no arbitrary_precision"
+  },
+  "valid": [
+    {
+      "id": "ascii-order",
+      "byte_length": "37",
+      "canonical_utf8": "{\"nested\":{\"a\":false,\"b\":true},\"z\":2}",
+      "input_utf8": "{\"z\":2,\"nested\":{\"b\":true,\"a\":false}}",
+      "sha256": "eb8ed80b5dbca514493706fc7cb5c57061489812f7df7743c0f670ff4ded439d",
+      "canonical_hex": "7b226e6573746564223a7b2261223a66616c73652c2262223a747275657d2c227a223a327d"
+    },
+    {
+      "id": "unicode-order",
+      "byte_length": "33",
+      "canonical_utf8": "{\"é\":4,\"é\":3,\"\":2,\"😀\":1}",
+      "input_utf8": "{\"😀\":1,\"\":2,\"é\":3,\"é\":4}",
+      "sha256": "3b54a51a80b1528afe1a525a7505ca13b6c724cc90d1dfdd7a31f825cd293282",
+      "canonical_hex": "7b2265cc81223a342c22c3a9223a332c22ee8080223a322c22f09f9880223a317d"
+    },
+    {
+      "id": "escapes",
+      "byte_length": "60",
+      "canonical_utf8": "{\"s\":\"quote\\\" slash/ backslash\\\\ newline\\n tab\\t nul\\u0000\"}",
+      "input_utf8": "{\"s\":\"quote\\\" slash/ backslash\\\\ newline\\n tab\\t nul\\u0000\"}",
+      "sha256": "148a8fcb8334506a7a4f02114286d8f565fb60b126e3236d99791b324d8c5932",
+      "canonical_hex": "7b2273223a2271756f74655c2220736c6173682f206261636b736c6173685c5c206e65776c696e655c6e207461625c74206e756c5c7530303030227d"
+    },
+    {
+      "id": "array-order",
+      "byte_length": "19",
+      "canonical_utf8": "[3,{\"a\":2,\"z\":1},1]",
+      "input_utf8": "[3,{\"z\":1,\"a\":2},1]",
+      "sha256": "6f63abd774f263527deeffda7adeecf16c9ead00ea1d81868143e7a6652a6316",
+      "canonical_hex": "5b332c7b2261223a322c227a223a317d2c315d"
+    },
+    {
+      "id": "integer-range",
+      "byte_length": "87",
+      "canonical_utf8": "{\"counter\":\"9223372036854775807\",\"max\":18446744073709551615,\"min\":-9223372036854775808}",
+      "input_utf8": "{\"min\":-9223372036854775808,\"max\":18446744073709551615,\"counter\":\"9223372036854775807\"}",
+      "sha256": "f39cb205ca96f4d1ab4269a306c832c5c0349d97143a6ca309b09df008b2dbbe",
+      "canonical_hex": "7b22636f756e746572223a2239323233333732303336383534373735383037222c226d6178223a31383434363734343037333730393535313631352c226d696e223a2d393232333337323033363835343737353830387d"
+    },
+    {
+      "id": "negative-zero",
+      "byte_length": "17",
+      "canonical_utf8": "[-0.0,-0.0,0,0.0]",
+      "input_utf8": "[-0,-0.0,0,0.0]",
+      "sha256": "f647fcfbd112c444565e3dbccf57a214fa2f23e5fa47fc721641283fc6584545",
+      "canonical_hex": "5b2d302e302c2d302e302c302c302e305d"
+    },
+    {
+      "id": "float-format",
+      "byte_length": "72",
+      "canonical_utf8": "[1.0,1e-7,1e+20,1e+21,1.2345678901234567,5e-324,1.7976931348623157e+308]",
+      "input_utf8": "[1.0,1e-7,1e20,1e21,1.2345678901234567,5e-324,1.7976931348623157e308]",
+      "sha256": "80b6da19e42ea8d9cc133e2dc5812b948b8f0c83a67a2ce0becbe6ee7af39da2",
+      "canonical_hex": "5b312e302c31652d372c31652b32302c31652b32312c312e323334353637383930313233343536372c35652d3332342c312e37393736393331333438363233313537652b3330385d"
+    },
+    {
+      "id": "optional-extension",
+      "byte_length": "61",
+      "canonical_utf8": "{\"description\":\"\",\"extensions\":{\"example.future\":{\"x\":true}}}",
+      "input_utf8": "{\"extensions\":{\"example.future\":{\"x\":true}},\"description\":\"\"}",
+      "sha256": "113622fab51b4d6235013418ebf97be6b769649a8c1857f3c60f5b02795dda4f",
+      "canonical_hex": "7b226465736372697074696f6e223a22222c22657874656e73696f6e73223a7b226578616d706c652e667574757265223a7b2278223a747275657d7d7d"
+    },
+    {
+      "id": "s5-request",
+      "byte_length": "837",
+      "canonical_utf8": "{\"attachments\":{\"catalog_observations\":[],\"media\":[]},\"codec\":\"photara.canonical-json.v1\",\"command\":{\"entity_id\":\"50000000-0000-4000-8000-000000000001\",\"record_schema\":1,\"type\":\"photara.person.replace.v1\",\"value\":{\"aliases\":[],\"capabilities\":[\"photara.photographer\",\"photara.stylist\"],\"description\":\"\",\"display_name\":\"Alex\",\"extensions\":{},\"labels\":[],\"thumbnail\":null}},\"created_at\":\"2026-09-11T12:00:00.000Z\",\"device_id\":\"40000000-0000-4000-8000-000000000001\",\"extensions\":{},\"mutation_id\":\"30000000-0000-4000-8000-000000000001\",\"preconditions\":[{\"entity\":{\"id\":\"50000000-0000-4000-8000-000000000001\",\"kind\":\"person\"},\"expect\":{\"mode\":\"revision\",\"server_revision\":\"sr1:7\"}}],\"protocol\":\"photara.sync.v1\",\"required_features\":[],\"stream_epoch\":\"20000000-0000-4000-8000-000000000001\",\"workspace_id\":\"10000000-0000-4000-8000-000000000001\"}",
+      "input_utf8": "{\"protocol\":\"photara.sync.v1\",\"codec\":\"photara.canonical-json.v1\",\"workspace_id\":\"10000000-0000-4000-8000-000000000001\",\"stream_epoch\":\"20000000-0000-4000-8000-000000000001\",\"mutation_id\":\"30000000-0000-4000-8000-000000000001\",\"device_id\":\"40000000-0000-4000-8000-000000000001\",\"created_at\":\"2026-09-11T12:00:00.000Z\",\"required_features\":[],\"preconditions\":[{\"entity\":{\"kind\":\"person\",\"id\":\"50000000-0000-4000-8000-000000000001\"},\"expect\":{\"mode\":\"revision\",\"server_revision\":\"sr1:7\"}}],\"command\":{\"type\":\"photara.person.replace.v1\",\"entity_id\":\"50000000-0000-4000-8000-000000000001\",\"record_schema\":1,\"value\":{\"display_name\":\"Alex\",\"description\":\"\",\"aliases\":[],\"capabilities\":[\"photara.photographer\",\"photara.stylist\"],\"labels\":[],\"thumbnail\":null,\"extensions\":{}}},\"attachments\":{\"media\":[],\"catalog_observations\":[]},\"extensions\":{}}",
+      "sha256": "035103e3c2b8b4e4cf43ffd420c4361e86ff961057d34d73ce94c75ca0f40031",
+      "canonical_hex": "7b226174746163686d656e7473223a7b22636174616c6f675f6f62736572766174696f6e73223a5b5d2c226d65646961223a5b5d7d2c22636f646563223a2270686f746172612e63616e6f6e6963616c2d6a736f6e2e7631222c22636f6d6d616e64223a7b22656e746974795f6964223a2235303030303030302d303030302d343030302d383030302d303030303030303030303031222c227265636f72645f736368656d61223a312c2274797065223a2270686f746172612e706572736f6e2e7265706c6163652e7631222c2276616c7565223a7b22616c6961736573223a5b5d2c226361706162696c6974696573223a5b2270686f746172612e70686f746f67726170686572222c2270686f746172612e7374796c697374225d2c226465736372697074696f6e223a22222c22646973706c61795f6e616d65223a22416c6578222c22657874656e73696f6e73223a7b7d2c226c6162656c73223a5b5d2c227468756d626e61696c223a6e756c6c7d7d2c22637265617465645f6174223a22323032362d30392d31315431323a30303a30302e3030305a222c226465766963655f6964223a2234303030303030302d303030302d343030302d383030302d303030303030303030303031222c22657874656e73696f6e73223a7b7d2c226d75746174696f6e5f6964223a2233303030303030302d303030302d343030302d383030302d303030303030303030303031222c22707265636f6e646974696f6e73223a5b7b22656e74697479223a7b226964223a2235303030303030302d303030302d343030302d383030302d303030303030303030303031222c226b696e64223a22706572736f6e227d2c22657870656374223a7b226d6f6465223a227265766973696f6e222c227365727665725f7265766973696f6e223a227372313a37227d7d5d2c2270726f746f636f6c223a2270686f746172612e73796e632e7631222c2272657175697265645f6665617475726573223a5b5d2c2273747265616d5f65706f6368223a2232303030303030302d303030302d343030302d383030302d303030303030303030303031222c22776f726b73706163655f6964223a2231303030303030302d303030302d343030302d383030302d303030303030303030303031227d"
+    }
+  ],
+  "invalid": [
+    {
+      "id": "duplicate-key",
+      "input_utf8": "{\"x\":1,\"x\":2}",
+      "expected": "reject-duplicate-key-before-Value"
+    },
+    {
+      "id": "nonfinite",
+      "input_utf8": "NaN",
+      "expected": "reject-json"
+    },
+    {
+      "id": "overflow",
+      "input_utf8": "1e400",
+      "expected": "reject-number"
+    },
+    {
+      "id": "surrogate",
+      "input_utf8": "\"\\ud800\"",
+      "expected": "reject-unicode"
+    },
+    {
+      "id": "invalid-utf8",
+      "input_hex": "22ff22",
+      "expected": "reject-utf8"
+    },
+    {
+      "id": "bom",
+      "input_hex": "efbbbf7b7d",
+      "expected": "reject-bom"
+    },
+    {
+      "id": "noncanonical-body",
+      "input_utf8": "{ \"x\": 1 }\n",
+      "expected": "valid-semantic-JSON-but-reject-as-sealed-canonical-body"
+    }
+  ]
+}

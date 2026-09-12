@@ -5,6 +5,8 @@ are independently runnable authoring hosts around the **same source files**
 that Photara compiles. Shell Lab authors shared shell composition with deterministic fixtures in a separate controls window; Photara remains the production integration app. There is no duplicate Main App UI Lab.
 This is source-level modularization, matching the existing Graph pattern;
 these directories are not independent Swift binary frameworks.
+The shared visual hierarchy and Liquid Glass rules are normative in
+[`DESIGN_LANGUAGE.md`](DESIGN_LANGUAGE.md).
 
 | Boundary | Shared ownership | Host responsibility |
 | --- | --- | --- |
@@ -52,18 +54,18 @@ block visual authoring.
 
 ### Application surface frame
 
-Shell Lab owns the Spotify-reference composition language: an application
-canvas behind independent rounded, filled module surfaces separated by gutters,
-with each surface carrying its own header and scrolling region. It authors
-semantic Light/Dark canvas and surface roles, gutter, inset, corner radius,
-border/elevation, active emphasis, compact stacking, and status treatment.
-Feature labs own the content within those surfaces. This is a layout and
-hierarchy reference, not a copy of Spotify's branding or dark-only palette.
+Theme owns the adaptive application, module and optional inset-content colors.
+Shell Lab owns shared module geometry and composition: a neutral application base
+behind independent rounded module bases separated by gutters. The flat module title
+belongs to the same base. There are no resting borders, header rules or split lines;
+selection uses a subtle shared title tint and the resize guide exists only while
+dragging. Feature labs own only the content hosted inside this frame.
 
-The title bar remains native and system-managed. Account, People, Locations,
-and Scenes shortcuts may reveal or focus their corresponding module from the
-top-right application area. Project Info is a peer workspace module; optional
-node Work Surfaces remain opt-in node contributions.
+The title bar and its Liquid Glass remain native and system-managed. Photara supplies
+leading project identity, centered application identity, and semantic trailing item
+groups; macOS supplies glass, grouping, overflow, contrast and accessibility behavior.
+Account, People, Locations and Scenes reveal their modules. Project Info is a peer
+workspace module; optional node Work Surfaces remain opt-in node contributions.
 
 `shared-ui-sources.sh` is the production assembly manifest. Feature labs compile
 only foundation, theme, their feature and their lab fixtures. They do not build
@@ -103,10 +105,10 @@ a clean checkout.
    Graph retains its existing Graph Lab export/preset workflow unchanged.
 4. Shell Lab exports validated `photara-shell/Resources/photara-application-presentation-v1.json`.
    Promote that file and rebuild to share launcher typography, hero icon-tile
-   treatment, launcher action tints, spacing, pane sizes and chrome dimensions.
+   treatment, launcher action tints, spacing, pane sizes and shared chrome dimensions.
    The Lab automatically saves its draft and can apply a validated development
    override that Photara live-reloads. Availability remains typed Swift. Inspector
-   hierarchy stays in its component; the general application palette stays in Theme.
+   hierarchy stays in its component; all application/module surface colors stay in Theme.
 5. Gallery filter, current grid style/size, selection and focused image are
    disposable native viewing state. Workspace panel visibility and placement
    retain the existing `photara.workspace.layout-authoring.v1` UserDefaults
@@ -239,10 +241,10 @@ disclosure. Native split resizing remains; advanced tabs/floating geometry are
 future work. If more than two panels share a region, the region scrolls and a
 shortcut scrolls to its revealed module.
 
-Shell preset `frame` owns semantic/custom Light/Dark canvas and module fills,
-canvas material, gutter, outer/content inset, radius, border, elevation, active
-emphasis, header treatment, compact breakpoint and separate bottom/status shape.
-The native title bar stays system-managed. Shell Lab's existing automatic draft,
+Shell preset `frame` owns gutter, outer/content inset, radius, optional elevation,
+compact breakpoint and separate bottom/status shape. Theme owns all shared Light/Dark
+surface and selection colors. The native title bar and Liquid Glass stay system-managed.
+Shell Lab's existing automatic draft,
 Apply to Photara, Remove Override and validated export paths include these fields.
 Production polls overrides every 500 ms. Promote the JSON resource and rebuild
 for shipped defaults; ordinary Library lab fixture edits remain local.

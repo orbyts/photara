@@ -1,0 +1,592 @@
+{
+  "schema": "photara.d18-inert-proposal.v1",
+  "status": "detail-review-pending-not-runtime-conformance",
+  "date": "2026-09-12",
+  "notes": [
+    "Synthetic documentation inputs only; no database, project or provider access. Uppercase host places are a closed registry, never process environment.",
+    "Four proposed ASCII-only semantic byte vectors use unchanged canonical-json.v1. Not replacements for S6 codec vectors or complete final CXT2 storage schemas.",
+    "CXT2 must freeze final package/DDL/API field shapes; updating proposed semantic shapes requires new named vectors, never silently editing established hashes."
+  ],
+  "syntax": {
+    "language": "photara.expression.v1",
+    "ast_schema": "photara.expression-ast.v1",
+    "inline_delimiter": "`",
+    "field_modes": [
+      "literal-only",
+      "expression",
+      "template"
+    ],
+    "fence_tags": [
+      "photara-expr-v1",
+      "photara-template-v1"
+    ],
+    "literal_template_backtick": "\\`",
+    "literal_template_backslash": "\\\\",
+    "expression_string_backtick": "\\u0060",
+    "span_unit": "zero-based-half-open-utf8-byte-offset",
+    "casing": {
+      "uppercase": "closed-host-place-registry",
+      "lowercase": "qualified-photara-semantic-scopes",
+      "user_member_pattern": "[a-z][a-z0-9_]{0,63}",
+      "functions": "lowercase-qualified",
+      "case_sensitive": true,
+      "process_environment_fallback": false
+    },
+    "host_places": [
+      "HOME",
+      "DOWNLOADS",
+      "DESKTOP",
+      "DOCUMENTS",
+      "PICTURES",
+      "TEMP"
+    ]
+  },
+  "examples": {
+    "definition": {
+      "variable_id": "40000000-0000-4000-8000-000000000001",
+      "scope": {
+        "kind": "project",
+        "project_id": "20000000-0000-4000-8000-000000000001"
+      },
+      "namespace": "com.studio",
+      "name": "delivery",
+      "display_label": "Delivery label",
+      "revision": "3",
+      "lifecycle": "active",
+      "value_type": {
+        "id": "photara.string",
+        "version": 1
+      },
+      "schema_ref": {
+        "id": "photara.string",
+        "version": 1
+      },
+      "default_binding": {
+        "kind": "literal",
+        "value_type": {
+          "id": "photara.string",
+          "version": 1
+        },
+        "value": "draft"
+      },
+      "allowed_override_scopes": [
+        "run"
+      ],
+      "sensitivity": "ordinary",
+      "portability": "portable"
+    },
+    "explicit_value": {
+      "variable_value_id": "50000000-0000-4000-8000-000000000001",
+      "variable_id": "40000000-0000-4000-8000-000000000001",
+      "aggregate_revision": "3",
+      "binding": {
+        "kind": "literal",
+        "value_type": {
+          "id": "photara.string",
+          "version": 1
+        },
+        "value": "client-preview"
+      },
+      "provenance": {
+        "origin": "manual"
+      }
+    },
+    "run_override": {
+      "run_override_id": "60000000-0000-4000-8000-000000000001",
+      "variable_id": "40000000-0000-4000-8000-000000000001",
+      "value_type": {
+        "id": "photara.string",
+        "version": 1
+      },
+      "value": "proof-only",
+      "applies_to_run_id": "70000000-0000-4000-8000-000000000001",
+      "expected_result": "effective value proof-only; authored value remains client-preview"
+    },
+    "expression": {
+      "mode": "expression",
+      "source": "`$project.delivery`",
+      "ast": {
+        "schema": "photara.expression-ast.v1",
+        "body": {
+          "op": "reference",
+          "scope": {
+            "kind": "project",
+            "project_id": "20000000-0000-4000-8000-000000000001"
+          },
+          "variable_id": "40000000-0000-4000-8000-000000000001",
+          "value_type": {
+            "id": "photara.string",
+            "version": 1
+          }
+        }
+      }
+    },
+    "template": {
+      "mode": "template",
+      "source": "Delivery: `$project.delivery`",
+      "ast": {
+        "schema": "photara.expression-ast.v1",
+        "body": {
+          "op": "template",
+          "parts": [
+            {
+              "op": "text",
+              "text": "Delivery: "
+            },
+            {
+              "op": "reference",
+              "scope": {
+                "kind": "project",
+                "project_id": "20000000-0000-4000-8000-000000000001"
+              },
+              "variable_id": "40000000-0000-4000-8000-000000000001",
+              "value_type": {
+                "id": "photara.string",
+                "version": 1
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fenced_future": {
+      "mode": "expression",
+      "source": "```photara-expr-v1\npath.join($project.root, \"exports\")\n```",
+      "expected": "same bounded AST when supported; otherwise unsupported-container; never shell execution"
+    },
+    "literal": {
+      "mode": "literal-only",
+      "source": "Keep `rm -rf` and ${text} as literal text",
+      "expected": "unchanged literal bytes"
+    },
+    "scoped_reference": {
+      "workspace_id": "10000000-0000-4000-8000-000000000001",
+      "project_id": "20000000-0000-4000-8000-000000000001",
+      "graph_id": "30000000-0000-4000-8000-000000000001",
+      "reference": "`$delivery`",
+      "expected": "unqualified-reference"
+    },
+    "metadata": [
+      {
+        "asset_id": "80000000-0000-4000-8000-000000000001",
+        "representation_id": "90000000-0000-4000-8000-000000000001",
+        "fingerprint": {
+          "algorithm": "sha256",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "metadata_revision": "1",
+        "field": "exif.camera.make",
+        "value_type": {
+          "id": "photara.string",
+          "version": 1
+        },
+        "value": "Camera A",
+        "provenance": {
+          "kind": "extracted",
+          "extractor": "example.synthetic-exif",
+          "version": "1"
+        }
+      },
+      {
+        "asset_id": "80000000-0000-4000-8000-000000000002",
+        "representation_id": "90000000-0000-4000-8000-000000000002",
+        "fingerprint": {
+          "algorithm": "sha256",
+          "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "metadata_revision": "1",
+        "field": "exif.camera.make",
+        "value_type": {
+          "id": "photara.string",
+          "version": 1
+        },
+        "value": "Camera B",
+        "provenance": {
+          "kind": "user-asserted"
+        }
+      }
+    ],
+    "secret_requirement": {
+      "slot": "com.vendor.upload",
+      "portable_marker": "host-secret-required",
+      "expected": "no SecretRef ID, raw value or secret-derived digest serialized; shared caching disabled"
+    },
+    "proposal": {
+      "operation_id": "a0000000-0000-4000-8000-000000000001",
+      "target_variable_id": "40000000-0000-4000-8000-000000000001",
+      "expected_aggregate_revision": "3",
+      "expected_owner_revision": "8",
+      "source_run_id": "70000000-0000-4000-8000-000000000001",
+      "source_snapshot_digest": "f41b51bd63755c3fe5b831cf47aa1fd37d91501c3dcb194868a19f58a7977e43",
+      "value_type": {
+        "id": "photara.string",
+        "version": 1
+      },
+      "proposed_value": "delivered",
+      "status": "proposed",
+      "expected": "application not permitted until successful Run and explicit authorized CAS command"
+    },
+    "host_place": {
+      "source": "`$DOWNLOADS`",
+      "type": "DirectoryHandle",
+      "portable_symbol": "DOWNLOADS",
+      "resolved_path": "intentionally-absent",
+      "expected": "native known-folder capability; explicit manifest grant; no env lookup"
+    },
+    "project_root": {
+      "source": "`$project.root`",
+      "expected": "lowercase Project-semantic handle; not a global host place"
+    },
+    "asset_metadata": {
+      "source": "`$asset.metadata.exif.camera.model`",
+      "expected": "only with explicit captured single-asset binding; no implicit Gallery selection"
+    },
+    "host_denied": {
+      "symbol": "DOCUMENTS",
+      "availability": "denied",
+      "expected": "host may offer policy-controlled grant prompt before runnable freeze; node/expression cannot prompt"
+    }
+  },
+  "vectors": [
+    {
+      "id": "AST-REFERENCE",
+      "decoded": {
+        "schema": "photara.expression-ast.v1",
+        "body": {
+          "op": "reference",
+          "scope": {
+            "kind": "project",
+            "project_id": "20000000-0000-4000-8000-000000000001"
+          },
+          "variable_id": "40000000-0000-4000-8000-000000000001",
+          "value_type": {
+            "id": "photara.string",
+            "version": 1
+          }
+        }
+      },
+      "canonical_utf8": "{\"body\":{\"op\":\"reference\",\"scope\":{\"kind\":\"project\",\"project_id\":\"20000000-0000-4000-8000-000000000001\"},\"value_type\":{\"id\":\"photara.string\",\"version\":1},\"variable_id\":\"40000000-0000-4000-8000-000000000001\"},\"schema\":\"photara.expression-ast.v1\"}",
+      "byte_length": "245",
+      "sha256": "11b701ab169fc1d001e87e68a33ebb72db3c11404075fda62baceb59eadbea58",
+      "canonical_hex": "7b22626f6479223a7b226f70223a227265666572656e6365222c2273636f7065223a7b226b696e64223a2270726f6a656374222c2270726f6a6563745f6964223a2232303030303030302d303030302d343030302d383030302d303030303030303030303031227d2c2276616c75655f74797065223a7b226964223a2270686f746172612e737472696e67222c2276657273696f6e223a317d2c227661726961626c655f6964223a2234303030303030302d303030302d343030302d383030302d303030303030303030303031227d2c22736368656d61223a2270686f746172612e65787072657373696f6e2d6173742e7631227d"
+    },
+    {
+      "id": "AST-PATH",
+      "decoded": {
+        "schema": "photara.expression-ast.v1",
+        "body": {
+          "op": "call",
+          "function": "path.join",
+          "arguments": [
+            {
+              "op": "builtin",
+              "symbol": "project.root"
+            },
+            {
+              "op": "literal",
+              "value_type": {
+                "id": "photara.string",
+                "version": 1
+              },
+              "value": "exports"
+            }
+          ]
+        }
+      },
+      "canonical_utf8": "{\"body\":{\"arguments\":[{\"op\":\"builtin\",\"symbol\":\"project.root\"},{\"op\":\"literal\",\"value\":\"exports\",\"value_type\":{\"id\":\"photara.string\",\"version\":1}}],\"function\":\"path.join\",\"op\":\"call\"},\"schema\":\"photara.expression-ast.v1\"}",
+      "byte_length": "221",
+      "sha256": "0cedf0fa0aaf6180d58cea1a30814381cf26ac50fb32abf103dd8d953031e21d",
+      "canonical_hex": "7b22626f6479223a7b22617267756d656e7473223a5b7b226f70223a226275696c74696e222c2273796d626f6c223a2270726f6a6563742e726f6f74227d2c7b226f70223a226c69746572616c222c2276616c7565223a226578706f727473222c2276616c75655f74797065223a7b226964223a2270686f746172612e737472696e67222c2276657273696f6e223a317d7d5d2c2266756e6374696f6e223a22706174682e6a6f696e222c226f70223a2263616c6c227d2c22736368656d61223a2270686f746172612e65787072657373696f6e2d6173742e7631227d"
+    },
+    {
+      "id": "AST-TEMPLATE",
+      "decoded": {
+        "schema": "photara.expression-ast.v1",
+        "body": {
+          "op": "template",
+          "parts": [
+            {
+              "op": "text",
+              "text": "Delivery: "
+            },
+            {
+              "op": "reference",
+              "scope": {
+                "kind": "project",
+                "project_id": "20000000-0000-4000-8000-000000000001"
+              },
+              "variable_id": "40000000-0000-4000-8000-000000000001",
+              "value_type": {
+                "id": "photara.string",
+                "version": 1
+              }
+            }
+          ]
+        }
+      },
+      "canonical_utf8": "{\"body\":{\"op\":\"template\",\"parts\":[{\"op\":\"text\",\"text\":\"Delivery: \"},{\"op\":\"reference\",\"scope\":{\"kind\":\"project\",\"project_id\":\"20000000-0000-4000-8000-000000000001\"},\"value_type\":{\"id\":\"photara.string\",\"version\":1},\"variable_id\":\"40000000-0000-4000-8000-000000000001\"}]},\"schema\":\"photara.expression-ast.v1\"}",
+      "byte_length": "307",
+      "sha256": "8bf580524e71fa665af785d778f721b2d82a2b3c840fddee464b8edbfc2892fa",
+      "canonical_hex": "7b22626f6479223a7b226f70223a2274656d706c617465222c227061727473223a5b7b226f70223a2274657874222c2274657874223a2244656c69766572793a20227d2c7b226f70223a227265666572656e6365222c2273636f7065223a7b226b696e64223a2270726f6a656374222c2270726f6a6563745f6964223a2232303030303030302d303030302d343030302d383030302d303030303030303030303031227d2c2276616c75655f74797065223a7b226964223a2270686f746172612e737472696e67222c2276657273696f6e223a317d2c227661726961626c655f6964223a2234303030303030302d303030302d343030302d383030302d303030303030303030303031227d5d7d2c22736368656d61223a2270686f746172612e65787072657373696f6e2d6173742e7631227d"
+    },
+    {
+      "id": "CONTEXT-FRAGMENT",
+      "decoded": {
+        "domain": "photara.context-content.v1",
+        "schema_version": 1,
+        "interpreter": "photara.expression.v1",
+        "dependencies": [
+          {
+            "kind": "variable",
+            "scope": {
+              "kind": "project",
+              "project_id": "20000000-0000-4000-8000-000000000001"
+            },
+            "variable_id": "40000000-0000-4000-8000-000000000001",
+            "revision": "3",
+            "effective_source": "explicit",
+            "value_type": {
+              "id": "photara.string",
+              "version": 1
+            },
+            "value": "client-preview"
+          }
+        ]
+      },
+      "canonical_utf8": "{\"dependencies\":[{\"effective_source\":\"explicit\",\"kind\":\"variable\",\"revision\":\"3\",\"scope\":{\"kind\":\"project\",\"project_id\":\"20000000-0000-4000-8000-000000000001\"},\"value\":\"client-preview\",\"value_type\":{\"id\":\"photara.string\",\"version\":1},\"variable_id\":\"40000000-0000-4000-8000-000000000001\"}],\"domain\":\"photara.context-content.v1\",\"interpreter\":\"photara.expression.v1\",\"schema_version\":1}",
+      "byte_length": "384",
+      "sha256": "f41b51bd63755c3fe5b831cf47aa1fd37d91501c3dcb194868a19f58a7977e43",
+      "canonical_hex": "7b22646570656e64656e63696573223a5b7b226566666563746976655f736f75726365223a226578706c69636974222c226b696e64223a227661726961626c65222c227265766973696f6e223a2233222c2273636f7065223a7b226b696e64223a2270726f6a656374222c2270726f6a6563745f6964223a2232303030303030302d303030302d343030302d383030302d303030303030303030303031227d2c2276616c7565223a22636c69656e742d70726576696577222c2276616c75655f74797065223a7b226964223a2270686f746172612e737472696e67222c2276657273696f6e223a317d2c227661726961626c655f6964223a2234303030303030302d303030302d343030302d383030302d303030303030303030303031227d5d2c22646f6d61696e223a2270686f746172612e636f6e746578742d636f6e74656e742e7631222c22696e746572707265746572223a2270686f746172612e65787072657373696f6e2e7631222c22736368656d615f76657273696f6e223a317d"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "CTX-01",
+      "setup": "Same names in Workspace/Project/Graph; unqualified lookup",
+      "expected": "unqualified-reference; no implicit shadowing",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-02",
+      "setup": "Rename ID-bound Project variable; retire and recreate spelling",
+      "expected": "AST retains VariableId; reserved spelling cannot attach to another ID",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-03",
+      "setup": "Allowed literal Run override, explicit value and default all exist",
+      "expected": "override applies only to that Run; explicit/default authority unchanged",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-04",
+      "setup": "Variable type mismatch, null in nonnullable schema, i64 overflow",
+      "expected": "typed validation failure; no stored update",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-05",
+      "setup": "A default references B; B references A through fallback",
+      "expected": "cyclic-dependency before execution; no partial snapshot",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-06",
+      "setup": "Node reads undeclared transitive Workspace field or UI selection",
+      "expected": "forbidden/undeclared-dependency; no ambient lookup",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-07",
+      "setup": "Declared metadata changes versus unrelated Workspace variable changes",
+      "expected": "only declared dependency changes invalidate node context key",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-08",
+      "setup": "Two assets report Camera A and Camera B",
+      "expected": "metadata.common conflict; distinct returns both values with contributing AssetIds",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-09",
+      "setup": "Empty/missing/ambiguous representation or stale metadata fingerprint",
+      "expected": "explicit diagnostic; no first/majority fallback or silent truncation",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-10",
+      "setup": "path.join traversal, drive, UNC, alternate stream or package HEAD target",
+      "expected": "unsafe-resource-path or denied grant; no filesystem operation",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-11",
+      "setup": "Move/rebind Project root on macOS/Windows fake adapter",
+      "expected": "logical descriptor/digest unchanged; host grant revalidated; no path serialized",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-12",
+      "setup": "Try to stringify/export/hash raw secret or store tainted proposal",
+      "expected": "rejected; only portable requirement marker, non-replayable/noncacheable attempt",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-13",
+      "setup": "Two successful Runs propose against revision 3",
+      "expected": "one authorized CAS wins; other conflict, no last-writer-wins",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-14",
+      "setup": "Retry applied OperationId with same or changed request digest",
+      "expected": "same receipt for identical request; changed request rejected",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-15",
+      "setup": "Crash after package application but before receipt response",
+      "expected": "application-unknown; reconcile commit/evidence before replay",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-16",
+      "setup": "Run fails after producing proposal; downstream wants proposed value",
+      "expected": "no automatic application; downstream uses explicit output edge only",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-17",
+      "setup": "One batch targets Workspace plus Project package",
+      "expected": "unsupported-cross-authority-atomic-command; no partial disguised success",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-18",
+      "setup": "Offline local apply then server rejection",
+      "expected": "local applied and later sync conflict remain separate immutable facts",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-19",
+      "setup": "Export restricted dependency or import remaps referenced IDs",
+      "expected": "explicit omission/unavailable; reviewed AST rebind changes digest, grants not restored",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-20",
+      "setup": "Old one-JSON/L1 and old NodeSDK encounter required context feature",
+      "expected": "old documents unchanged; new required semantics unsupported, no lossy save",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-21",
+      "setup": "Literal-only field includes backticks, fenced Bash text or ${...}",
+      "expected": "literal text; no global interpretation or execution",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-22",
+      "setup": "Opted-in template uses escaped backtick/backslash; expression uses \\u0060",
+      "expected": "literal characters preserved; correct exact UTF-8 spans",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-23",
+      "setup": "Unclosed/nested delimiter, unknown fence tag, bare triple fence",
+      "expected": "syntax/unsupported diagnostic with byte spans; no shell fallback",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-24",
+      "setup": "Future fenced expression includes loop/import/process call",
+      "expected": "unsupported grammar/function; v1 remains bounded and non-Turing-complete",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-25",
+      "setup": "Delayed preview after user edits scope, base revision or draft",
+      "expected": "superseded response discarded; no semantic write",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-26",
+      "setup": "Personal capture revoked after offline package shared",
+      "expected": "deny future live reads; cannot promise erasure of retained package copies",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-27",
+      "setup": "Source whitespace changes but AST/bindings unchanged",
+      "expected": "source checksum changes; AST semantic digest unchanged",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-28",
+      "setup": "Snapshot ID/capture timestamp changes without semantic dependencies",
+      "expected": "content digest unchanged; snapshot object checksum may change",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-29",
+      "setup": "Requested frozen host time changes",
+      "expected": "typed dependency and context digest change; no implicit now()",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-30",
+      "setup": "Input exceeds source/AST/dependency/query/snapshot budget",
+      "expected": "limit-exceeded before partial state or allocation-heavy execution",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-31",
+      "setup": "Resolve all six uppercase HostPlaces without username/path on native adapter fakes",
+      "expected": "typed DirectoryHandle/ResourceRoot or explicit unavailable/denied; no inherited process env",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-32",
+      "setup": "$PROJECT, $Project.assets, $project.Assets, $home, $workspace.DeliveryPolicy, Path.Join, $PATH or $CUSTOM",
+      "expected": "case-sensitive invalid/unknown symbol or function; no normalization/env fallback",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-33",
+      "setup": "User defines project.assets/root or same-scope name in another namespace",
+      "expected": "reserved-member or duplicate-name; no built-in or cross-namespace shadowing",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-34",
+      "setup": "Downloads is localized/moved/provider-backed; home/Downloads points elsewhere",
+      "expected": "$DOWNLOADS uses native known-folder result, not concatenation",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-35",
+      "setup": "Node asks undeclared HOME access, permission denied or revoked after freeze",
+      "expected": "no broad access; host-policy prompt only before freeze; effects/retries recheck grants",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-36",
+      "setup": "Host binding identity/generation or captured availability changes",
+      "expected": "private DeviceContextDigest and node/run key change; no path/grant bytes or binding IDs exported",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-37",
+      "setup": "TEMP lease expires or node requests global $CACHE",
+      "expected": "run-bound temporary result not durable; unknown/unsupported CACHE; promote essential bytes",
+      "runtime": "not-run"
+    },
+    {
+      "id": "CTX-38",
+      "setup": "$asset.metadata access without captured single-asset binding",
+      "expected": "asset-context-required; no implicit iteration or live selection",
+      "runtime": "not-run"
+    }
+  ]
+}

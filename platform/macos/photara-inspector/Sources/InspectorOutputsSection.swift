@@ -9,7 +9,6 @@ extension InspectorView {
           InspectorPortView(port: port)
         }
       }
-      .listRowBackground(inspectorGroupBackground)
     }
   }
 }

@@ -3,6 +3,11 @@
 Independent host for `../photara-inspector`, with the exact sections Photara
 uses. It requires no live bridge, project, source folder or provider.
 
+Follow the shared [`DESIGN_LANGUAGE.md`](../DESIGN_LANGUAGE.md). This lab owns Inspector
+content, sections, fields, native controls and Inspector states. Shell/Theme own its
+single module base, title, selection tint, shared geometry and top-level glass. Metadata
+sections use hierarchy and spacing instead of feature-owned cards or outer frames.
+
 ```sh
 platform/macos/photara-inspector-lab/build-inspector-lab.sh
 open 'platform/macos/photara-inspector-lab/.build/Photara Inspector Lab.app'

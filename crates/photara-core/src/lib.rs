@@ -3,6 +3,12 @@
 mod asset;
 mod canonical;
 mod command;
+
+/// Additive pure D18 parser, context, snapshot and cache contracts.
+pub mod context;
+
+/// Additive, validated D19 contracts; independent of v1 runtime behavior.
+pub mod contracts;
 mod diagnostic;
 mod evaluation;
 mod graph;

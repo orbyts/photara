@@ -4,6 +4,11 @@ Graph Lab is a small macOS developer utility for evaluating Photara's reusable
 Graph presentation primitives without opening a project or building the Rust
 bridge. It owns fixture data and temporary authoring controls only.
 
+Follow the shared [`DESIGN_LANGUAGE.md`](../DESIGN_LANGUAGE.md). Graph Lab owns the
+canvas and its accepted floating rail/zoom glass; Shell owns the surrounding module
+base, title, selection tint, placement and resize behavior. Do not add a second module
+frame here.
+
 Node headers follow the reusable
 [Graph Node Design Language](../photara-graph/NODE_DESIGN_LANGUAGE.md): a
 free-standing 28-point outline icon centered against a tight title/category

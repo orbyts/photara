@@ -1,5 +1,8 @@
 //! Internal package surface shared by built-in and future downloadable nodes.
 
+/// Additive D19 manifest v2 contracts; v1 registration remains unchanged.
+pub mod v2;
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use photara_core::{

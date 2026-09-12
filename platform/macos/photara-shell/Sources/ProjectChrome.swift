@@ -45,6 +45,7 @@ struct PanelHeader: View {
     var titleSize: Double = 13
     var horizontalPadding: Double = 10
     var elevated = true
+    var activeFill: Color? = nil
     var allowsPlacement = true
     var title: String? = nil
 
@@ -80,6 +81,16 @@ struct PanelHeader: View {
         }
         .padding(.horizontal, horizontalPadding)
         .frame(height: height)
-        .background(elevated ? (theme?.color(.surfaceElevated) ?? Color(nsColor: .windowBackgroundColor)) : Color.clear)
+        .background {
+            if let activeFill {
+                activeFill
+            } else if elevated {
+                theme?.color(.surfaceElevated) ?? Color(nsColor: .windowBackgroundColor)
+            } else {
+                Color.clear
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { workspace.focusedPanel = panel }
     }
 }

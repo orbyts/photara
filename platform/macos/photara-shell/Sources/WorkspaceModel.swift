@@ -207,6 +207,7 @@ final class WorkspaceModel: ObservableObject {
             selectedAssetID = nil; selectedFrameID = nil; selectedCellID = nil
             activeWorkspaceNodeID = nil
             mode = .graph
+            focusedPanel = .graph
         }
         let added = ids.subtracting(knownNodeIDs)
         if let first = nodeIDs.first(where: { added.contains($0) }) {

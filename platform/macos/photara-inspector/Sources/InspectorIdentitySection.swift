@@ -25,6 +25,5 @@ extension InspectorView {
       LabeledContent("Node ID", value: node.nodeId)
         .font(.caption.monospaced())
     }
-    .listRowBackground(inspectorGroupBackground)
   }
 }

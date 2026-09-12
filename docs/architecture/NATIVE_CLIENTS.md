@@ -1,6 +1,82 @@
 # Native clients
 
-## macOS 0.2.0
+## Current exact review packet — 2026-09-12
+
+The [D19 DTO delta](D19_STATIC_SCHEMA_DELTA.md#dto-and-manifest-delta) now freezes accepted scope/access/storage/snapshot/context/node-contract response fields, stale-response handling and command boundaries. Native presentation remains a separate raster-approval gate. R1–R8 were accepted as proposed 2026-09-12; no UI or bridge source changed.
+
+## D19 Library windows and node Work Surfaces — target contract
+
+[D19](LIBRARY_AND_NODE_WORK_SURFACES.md) establishes Library as the durable named
+catalog/collaboration boundary. First installation creates/opens local My Library;
+users may have several. Every window binds one Library, and a Project window also
+binds one Project; both scopes are visible. Project-only collaborators receive
+assigned snapshots without full Library navigation. Cloud/library membership,
+Project policy/grants and native package/SMB authorization remain separate.
+
+Retire ambiguous Workspace UI labels: node-provided UI is a **Work Surface**, its
+spatial editor a **Canvas**, arrangement a **Window Layout / Layout Preset**, a
+dockable region a **Panel**, and list/grid/card primitive a **Browser**. Current
+WorkspaceModel/NSWorkspace/source paths and labels below describe existing code;
+this amendment renames no source or UI implementation.
+
+People, Organizations, SocialProfiles, LocationKinds, Locations and Project catalog
+management are application/Library-owned Browsers, not nodes. Authoring must not
+require leaving a node Work Surface: embed host-owned People/Location pickers and
+Browser/Gallery components with declared permissions. Inline creation invokes an
+authorized Library command; applying/capturing its typed ref is a separate Project
+command with explicit failure states. Users lacking Library access can use permitted
+saved assignments and see truthful denied/unavailable states for wider operations.
+
+The Graph owns the Inspector surface, placement, empty state and selection
+lifecycle. Every Node definition supplies the required typed Inspector contract
+Photara renders there: identity, ports, parameters, state, effects and diagnostics.
+Definition-specific sections may extend it; a rich Work Surface remains optional. A picker
+can be launched from either an Inspector field or a Work Surface, so simple nodes
+do not acquire a canvas merely to select a Library record.
+
+Layout's built-in Work Surface composes shared Asset Browser/Gallery Panel, Layout
+Canvas and Inspector. Gallery is a built-in inspection node using the same Gallery
+component for exactly its connected AssetSet. A Metadata-enrichment Work Surface
+can compose Asset Browser, metadata Inspector and inline pickers, with explicit
+one-asset/subset/full-input/group assignment targets. Metadata enrichment does
+not itself alter files; XMP sidecar, supported embedded/DNG metadata and external
+catalog update are effect contracts with visible permissions and receipts. No ambient
+project-wide Gallery/asset union is part of the target. Disposable viewing state
+never changes an output without an explicit authored selection/filter contract.
+
+Authoring can browse authorized Library records; runtime receives only explicit
+ports and declared frozen refs/context with exact IDs/revisions/projections.
+Reference/query nodes are optional. UI DTOs must distinguish live authoring,
+captured/offline facts, current denial/revocation and stale previews. Node display
+brands and hierarchical discovery tags are independent of execution; Layout and
+Gallery use the ordinary NodeSDK boundary. D19 contract/static schema review and
+revised D18/CXT1 precede code; raster approval still precedes visual implementation.
+
+## D18 façade/pane state proposal — revised under D19, no appearance implementation
+
+[D18](TYPED_CONTEXT_AND_EXPRESSIONS.md) specifies immutable scope/variable/effective
+value/dependency/diagnostic/proposal DTOs, revision-qualified draft previews,
+semantic commands and a future reusable Context/Variables pane state contract.
+Native selection/filter/draft/placement stays client-only; typed values change
+through commands. Stale responses, permission denial, capture versus live preview,
+conflicts and secret redaction are explicit states. Inline single-backtick and
+future version-tagged triple-fence editing opt in per field schema; native clients
+never execute source text themselves. Error spans retain exact UTF-8 offsets.
+macOS and future Windows adapters resolve separate native resource/secret grants;
+portable roots remain logical handles, not platform paths. Closed uppercase
+HOME/DOWNLOADS/DESKTOP/DOCUMENTS/PICTURES/TEMP symbols use macOS native location
+services and later Windows Known Folders/temporary leases, never inherited process
+environment or guessed home-relative folder names. Freeze private binding identity,
+generation and availability in a device-dependent digest; grant prompts remain
+host-controlled and portable records contain no resolved path/binding ID. D18 approves no UI
+appearance, Swift/Windows code or bridge implementation; raster approval remains
+required before visual implementation. L3 is paused for the context gates.
+
+## Current macOS 0.2.0 implementation evidence
+
+The following describes the compiled pre-D19 shell. Its project-wide Gallery,
+Workspace labels and launcher are transitional implementation facts. They do not
+override the Library onboarding, explicit node inputs or Work Surface target above.
 
 The first product client is macOS-only and uses SwiftUI/AppKit. AppKit/Metal may
 provide graph, crop, drag/drop, color-managed proxy, HDR/EDR, or performance-
