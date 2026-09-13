@@ -1,5 +1,9 @@
 # D19 CXT2 inert DDL proposal
 
+CXT3b subsequently promoted the six SQLite bodies into separately registered
+[executable local migrations](../../CXT3B_LOCAL_RUNTIME.md). The files in this
+proposal directory remain inert design evidence; PostgreSQL remains unexecuted.
+
 **NON-EXECUTABLE REVIEW STATUS. Do not apply these files.** Suhail accepted
 [R1–R8](../../D19_CONTRACT_FREEZE.md) as proposed on **2026-09-12**. CXT2 acceptance
 covers this static translation and its inventory only. It installs no migration,

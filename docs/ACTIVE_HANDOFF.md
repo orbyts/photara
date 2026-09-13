@@ -1,5 +1,49 @@
 # Active handoff
 
+Updated 2026-09-12. **CXT3b local runtime and app initialization are complete.**
+Started from clean `415039e`; this slice is uncommitted and unpushed. Stop here.
+Read [runtime/API boundaries and inspection commands](architecture/CXT3B_LOCAL_RUNTIME.md)
+and [exact file/migration inventory](architecture/CXT3B_LOCAL_INVENTORY.md).
+
+The real app startup entry point created/opened:
+`/Users/suhail/Library/Application Support/Photara/State/photara-local-v2.sqlite`.
+It contains one active `My Library`, explicit local controller, stable device ID,
+12 migrations, reader/writer floor 2 and 70 domain tables. Read-only integrity
+returns `ok`; foreign-key checks return no violations. No unknown/preexisting
+user database was adopted or deleted.
+
+CXT3b includes explicit local membership, restricted Project registration/access,
+policy/grant CAS with immutable control audit, atomic last-manager/controller
+transfer, classified storage/slots/host binding selection, checked Library
+variables/expressions, device observations, context apply/recovery, Project-scoped
+media and offline scoped variable intents. Project variables remain package-owned.
+Online channel activation/sealing/dispatch/service snapshot installation stay in
+CXT3c; package publication and publication receipts stay in L3. No PostgreSQL,
+Neon, Auth0, CloudKit, v0.1.3 database or SMB/user source storage was written.
+
+**Verification:** 258 offline Rust tests pass, four intentionally ignored;
+all-target compilation, Clippy with warnings denied, fmt and whitespace pass.
+Schema: 70 tables / 68 explicit indexes / 169 triggers / 310 statements. All six
+baseline migration bodies, all 12 fixtures and all 42 Graph/Graph Lab files are
+byte-for-byte preserved. Static checks cover 46 proposal signatures and 104 FKs;
+fixture verification covers 12 canonical containers and 92 embedded records.
+Bridge passes (revision 19; 3 progress / 2 cancellation callbacks). Shared UI
+passes with 98 snapshots, production UI passes with 10 snapshots and explicit
+startup assertions. Representative Light/Dark production images were inspected.
+
+Dedicated Graph Lab: the first 15,430-assertion run had one randomized prerequisite
+routing-knot failure at seed 20260909 dark/curved. Isolated replay passed 541
+assertions; the full rerun passed **15,586 assertions / zero failures**. Graph source
+was not edited to obtain the pass. Logs: `/private/tmp/photara-cxt3b-graph.log`,
+`/private/tmp/photara-cxt3b-graph-replay.log`,
+`/private/tmp/photara-cxt3b-graph-full-retry.log`.
+
+The next gate is separately authorized CXT3c disposable PostgreSQL/service work.
+No service deployment, fresh Neon environment, package publisher, commit or push
+is authorized by this completion. Continue to preserve the Graph implementation.
+
+## Historical CXT3a/rebaseline handoff
+
 Updated 2026-09-12. **CXT3a and the separately authorized Library nomenclature
 rebaseline are complete and verified.** Nothing is committed or pushed.
 

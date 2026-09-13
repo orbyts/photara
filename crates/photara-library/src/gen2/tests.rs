@@ -116,7 +116,7 @@ async fn migrations_initialize_reopen_and_preserve_family() {
     let store = LocalLibraryStore::open(&path, OpenMode::CreateNew, device, at())
         .await
         .unwrap();
-    assert_eq!(store.info().migration_count, 6);
+    assert_eq!(store.info().migration_count, 12);
     store.verify_integrity().await.unwrap();
     let id = store.info().database_id;
     store.close().await;
@@ -132,8 +132,8 @@ async fn migrations_initialize_reopen_and_preserve_family() {
 async fn full_schema_pragmas_and_storexa_lifecycle() {
     let (_temp, store, library) = fixture().await;
     let tables:i64=sqlx::query_scalar("SELECT count(*) FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name<>'_sqlx_migrations'").fetch_one(store.db.pool()).await.unwrap();
-    assert_eq!(tables, 44);
-    assert_eq!(store.info().migration_count, 6);
+    assert_eq!(tables, 70);
+    assert_eq!(store.info().migration_count, 12);
     store.health().await.unwrap();
     for (sql, expected) in [
         ("PRAGMA foreign_keys", 1),
@@ -209,7 +209,7 @@ async fn migration_checksum_newer_family_device_and_existing_v1_refusal() {
                 sqlx::query("INSERT INTO _sqlx_migrations(version,description,success,checksum,execution_time) VALUES(99,'Future',1,zeroblob(48),0)").execute(store.db.pool()).await.unwrap();
             }
             "reader" => {
-                sqlx::query("UPDATE schema_metadata SET minimum_reader=2")
+                sqlx::query("UPDATE schema_metadata SET minimum_reader=3")
                     .execute(store.db.pool())
                     .await
                     .unwrap();
@@ -221,7 +221,7 @@ async fn migration_checksum_newer_family_device_and_existing_v1_refusal() {
                     .unwrap();
             }
             "writer" => {
-                sqlx::query("UPDATE schema_metadata SET minimum_writer=2")
+                sqlx::query("UPDATE schema_metadata SET minimum_writer=3")
                     .execute(store.db.pool())
                     .await
                     .unwrap();
@@ -978,7 +978,7 @@ async fn failed_migration_and_replacement_connection_preserve_invariants() {
     );
     let mut migrations = MIGRATOR.iter().cloned().collect::<Vec<_>>();
     migrations.push(sqlx::migrate::Migration::new(
-        7,
+        13,
         "Deliberate failure".into(),
         sqlx::migrate::MigrationType::Simple,
         "CREATE TABLE rollback_probe(id INTEGER); INVALID SQL;".into_sql_str(),
@@ -1002,7 +1002,7 @@ async fn failed_migration_and_replacement_connection_preserve_invariants() {
             .fetch_one(store.db.pool())
             .await
             .unwrap(),
-        6
+        12
     );
     store.verify_integrity().await.unwrap();
 }

@@ -13,6 +13,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 bindgen = ["uniffi/cli"]
 
 [dependencies]
+tokio = { version = "1", features = ["rt", "time", "net"] }
 photara-library = { path = "../photara-library" }
 photara-core = { path = "../photara-core" }
 photara-asset-set-node = { path = "../../nodes/photara-asset-set" }

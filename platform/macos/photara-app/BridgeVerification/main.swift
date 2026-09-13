@@ -78,17 +78,28 @@ private func writeTIFF(to url: URL, red: CGFloat) throws {
 private enum PhotaraBridgeVerification {
     @MainActor
     static func main() throws {
+        if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--initialize-local-state-only" {
+            let state = try initializeLocalState(path: CommandLine.arguments[2])
+            print("Local state ready: database=\(state.databaseId) device=\(state.deviceId) library=\(state.libraryId) principal=\(state.principalId)")
+            return
+        }
         let info = applicationInfo()
         try require(info.apiVersion == 1, "unexpected facade API version")
         try require(info.productCodename == "Photara", "unexpected product codename")
 
-        let storeRoot = FileManager.default.temporaryDirectory
+        let storeRoot = URL(fileURLWithPath: "/private/tmp")
             .appending(path: "photara-uniffi-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: storeRoot) }
         guard CommandLine.arguments.count == 2 else {
             throw VerificationFailure.failed("proxy helper path argument is missing")
         }
         let proxyHelper = CommandLine.arguments[1]
+        let localStatePath = storeRoot.appending(path: "State/photara-local-v2.sqlite").path
+        let localState = try initializeLocalState(path: localStatePath)
+        let reopenedState = try initializeLocalState(path: localStatePath)
+        try require(localState.databaseId == reopenedState.databaseId, "local database identity changed")
+        try require(localState.libraryId == reopenedState.libraryId, "default Library identity changed")
+        try require(localState.deviceId == reopenedState.deviceId, "local device identity changed")
 
         let app = try PhotaraApplication.open(
             storeRoot: storeRoot.appending(path: "store").path,

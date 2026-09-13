@@ -46,6 +46,7 @@ ids!(
     SecureHandleId,
     MutationId,
     DatabaseId,
+    ScopedChannelId,
     CommitId
 );
 

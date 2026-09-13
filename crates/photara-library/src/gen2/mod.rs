@@ -1,6 +1,16 @@
 //! Separate generation-two local authority. Never opens or converts the v1 store.
 //! SQL/migrations and normalization stay here; Storexa owns database mechanics.
 mod catalog;
+mod context;
+pub use context::{DeviceContextCapture, DeviceContextEvidence};
+mod local;
+mod recovery;
+mod scoped;
+mod storage;
+pub use local::*;
+pub use recovery::*;
+pub use scoped::*;
+pub use storage::*;
 mod library;
 mod types;
 mod validation;
@@ -341,10 +351,13 @@ async fn initialize(
     // Migrator applies nested savepoints: family, ledger and bootstrap commit together.
     let mut tx = db.pool().begin_with("BEGIN IMMEDIATE").await?;
     if mode == OpenMode::OpenExisting {
-        check_metadata(&mut tx, device).await?;
+        check_metadata(&mut tx, device, false).await?;
     }
-    MIGRATOR.run(&mut *tx).await.map_err(|_| Error::Migration)?;
     if mode == OpenMode::CreateNew {
+        baseline_migrator()
+            .run(&mut *tx)
+            .await
+            .map_err(|_| Error::Migration)?;
         sqlx::query("INSERT INTO schema_metadata VALUES(1,'photara.local.g2',?,1,1,1,'photara.canonical-json.v1',?)")
             .bind(DatabaseId::new().bytes()).bind(at.get()).execute(&mut *tx).await?;
         sqlx::query("INSERT INTO local_device VALUES(1,?,'Local device',?)")
@@ -358,7 +371,24 @@ async fn initialize(
             .execute(&mut *tx)
             .await?;
     }
-    let database_id = check_metadata(&mut tx, device).await?;
+    // Existing pre-D19 authority and unsettled transport need explicit mappings;
+    // an empty 0006 database can cross the floor without inventing ownership.
+    let floor: i64 =
+        sqlx::query_scalar("SELECT minimum_writer FROM schema_metadata WHERE singleton=1")
+            .fetch_one(&mut *tx)
+            .await?;
+    if floor == 1 {
+        let populated: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM libraries) OR EXISTS(SELECT 1 FROM sync_targets)",
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        if populated {
+            return Err(Error::Unsupported);
+        }
+    }
+    MIGRATOR.run(&mut *tx).await.map_err(|_| Error::Migration)?;
+    let database_id = check_metadata(&mut tx, device, true).await?;
     tx.commit().await?;
     // Publish the family header into the main file before returning a new store;
     // later opens can reject foreign databases without interpreting their WAL.
@@ -377,7 +407,22 @@ async fn initialize(
         migration_count: MIGRATOR.iter().count(),
     })
 }
-async fn check_metadata(conn: &mut SqliteConnection, device: DeviceId) -> Result<DatabaseId> {
+fn baseline_migrator() -> sqlx::migrate::Migrator {
+    sqlx::migrate::Migrator {
+        migrations: MIGRATOR
+            .iter()
+            .filter(|m| m.version <= 6)
+            .cloned()
+            .collect::<Vec<_>>()
+            .into(),
+        ..sqlx::migrate::Migrator::DEFAULT
+    }
+}
+async fn check_metadata(
+    conn: &mut SqliteConnection,
+    device: DeviceId,
+    activated: bool,
+) -> Result<DatabaseId> {
     if sqlx::query_scalar::<_, i64>("PRAGMA application_id")
         .fetch_one(&mut *conn)
         .await?
@@ -397,8 +442,9 @@ async fn check_metadata(conn: &mut SqliteConnection, device: DeviceId) -> Result
         return Err(Error::ForeignDatabase);
     }
     if row.try_get::<i64, _>("schema_epoch")? != 1
-        || row.try_get::<i64, _>("minimum_reader")? != 1
-        || row.try_get::<i64, _>("minimum_writer")? != 1
+        || !(if activated { 2..=2 } else { 1..=2 })
+            .contains(&row.try_get::<i64, _>("minimum_reader")?)
+        || row.try_get::<i64, _>("minimum_writer")? != row.try_get::<i64, _>("minimum_reader")?
         || row.try_get::<String, _>("canonical_codec")? != "photara.canonical-json.v1"
     {
         return Err(Error::Unsupported);

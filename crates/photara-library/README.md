@@ -30,13 +30,16 @@ outbox/conflict/idempotency protocol.
 
 `gen2::LocalLibraryStore` is the additive async Storexa 0.2 / SQLx 0.9 adapter for
 the new `photara.local.g2` family. It never converts or silently opens a schema-v1
-file. Explicit create/open modes, six ordered migrations, typed Library Library
+file. Explicit create/open modes, twelve ordered migrations, typed Library
 records, CAS/tombstones, Unicode-16 Kind claims, immutable local changes and
 catalog/device projections are implemented. SQL/pool access remains private.
 
 The retained adapter is pinned to rusqlite 0.39.0 so both drivers share
 libsqlite3-sys 0.37.0; its source/public behavior and five tests are preserved.
 See [L2 API, dependency rationale, examples and exclusions](../../docs/architecture/LOCAL_LIBRARY_IMPLEMENTATION.md).
-Merge/claim transfer, sync, media, application cutover, package publication and
-legacy import are not exposed. Tests create only temporary databases; never use
-a user's Library file as a test target.
+[CXT3b](../../docs/architecture/CXT3B_LOCAL_RUNTIME.md) adds explicit local
+controller/default-Library initialization, Project ownership/access/policy, atomic
+controller transfer, classified storage/host bindings, Library context, apply
+recovery, scoped media and offline variable intents. The real app initializes
+`State/photara-local-v2.sqlite`. Network activation and package publication remain
+separate gates. Tests use disposable databases and fake hosts.

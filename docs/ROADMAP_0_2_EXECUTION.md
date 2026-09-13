@@ -4,7 +4,21 @@ This is the authoritative execution order for generation two. `ROADMAP.md` retai
 the broader product and node-contract rationale; this document defines what task
 starts next, its bounded slices, and where user approval stops progress.
 
-## CXT3a and Library nomenclature rebaseline complete
+## CXT3b local runtime complete
+
+[CXT3b](architecture/CXT3B_LOCAL_RUNTIME.md) is complete from clean `415039e`.
+Twelve executable local migrations install 70 domain tables with floor 2/2.
+Typed local authority/access, storage/context/recovery and scoped projection
+controllers are implemented; real AppModel startup safely establishes its local
+My Library in `State/photara-local-v2.sqlite`. 258 offline Rust tests, all-target
+check/Clippy/fmt, schema/naming/fixture guards, dedicated Graph Lab, bridge and
+shared/production UI checks pass. See the runtime record for the initial Graph
+randomized failure and successful replay/full rerun. All Graph sources are exact.
+The slice remains uncommitted/unpushed. **Stop after CXT3b; separately authorize
+CXT3c.** Online channel activation/service receipts/snapshot installation and
+PostgreSQL remain CXT3c; package publication stays L3.
+
+## Historical CXT3a and Library nomenclature rebaseline completion
 
 CXT2, CXT1a/b and separately selected [CXT3a](architecture/CXT3A_PACKAGE_READER.md)
 are complete. CXT3a passed 204 offline tests, repository checks/Clippy and canonical
@@ -191,7 +205,7 @@ Publication/writer locking, conversion, application cutover and live storage rem
   generation-two typed Library CRUD/CAS/tombstones/claims and catalog/device
   foundations. Sixteen new and five retained Library tests pass. Merge/claim
   transfer remains a separately scoped **L2b** with no exposed API; sync/media/
-  recovery workers and application cutover remain deferred. CXT2, CXT1a/b, CXT3a and the clean Library rebaseline are complete; R1 naming is superseded and CXT3b is the next separate gate.
+  recovery workers and application cutover remain deferred. CXT2, CXT1a/b, CXT3a and the clean Library rebaseline are complete; R1 naming is superseded and CXT3b local runtime is now complete; CXT3c is the next separate gate.
 - **D19 / CXT0 — complete:** review approved conceptual direction
   and revised D18 together: Library/Project ownership and grants, explicit ports,
   frozen context, shared host components and taxonomy. Inert baseline cases remain
@@ -212,10 +226,13 @@ Publication/writer locking, conversion, application cutover and live storage rem
   explicit source mapping DTOs in disposable roots, with no publisher; 204 tests pass.
 - **Library nomenclature rebaseline — complete:** clean canonical domain/database
   naming, regenerated schemas/fixtures and verified Rust/SQLite/Swift/UI evidence.
-- **CXT3b/c — gated:** separately authorized disposable adapters, D19 migrations/
-  repos, captures/query and permission fakes, codec compatibility and facade DTOs.
-  The authorized unshipped baseline rewrite precedes CXT3b; no existing/live database is migrated. Package-target proposal application joins L3
-  publisher crash/receipt tests; no cross-store atomicity claim.
+- **CXT3b — complete:** executable local D19 migrations, typed local repositories,
+  permission/CAS/recovery fakes and real app startup with explicit My Library.
+  Empty known 0006 upgrades; populated/unknown/newer baselines refuse adoption.
+- **CXT3c — separately gated:** disposable PostgreSQL/RLS/service adapters, online
+  scoped transport activation/receipts/snapshot installation and account/identity
+  concurrency. Package-target application joins L3 publisher crash/receipt tests;
+  no cross-store atomicity claim.
 - **L3 — paused until the above and CXT1–3 accepted:** create a package with exactly
   one owning Library and a catalog record through a recoverable staged operation;
   default to `~/Pictures/Photara/Projects` and allow another authorized root.

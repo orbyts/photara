@@ -104,6 +104,12 @@ separately; package fixture semantics are verified by the Rust package tests.
 | `crates/photara-library/migrations/generation_two/0004_mutations_sync.sql` | `72c5d345b3a93ee6a5813b8000afd2f33fc614eb45109f2d37f310225148cf4f` |
 | `crates/photara-library/migrations/generation_two/0005_durable_recovery.sql` | `d0c97f3f49bbcb1581aac714ff5798d90200039867022d01ffed6e18bf59b3fb` |
 | `crates/photara-library/migrations/generation_two/0006_invariant_guards.sql` | `85ff08feb48040eb5bcd1324e275e5593ac98cd4ba2b826e66d867eecfdfd8de` |
+| `crates/photara-library/migrations/generation_two/0007_library_project_access.sql` | `039818c41830ca5da9ab0495034bb69b2d33295c8b94b462b3e0029fe4bac78e` |
+| `crates/photara-library/migrations/generation_two/0008_storage_locations_bindings.sql` | `66500faa616fb2e218472262072846a932ff1e086981eb5195fee614e7a2cb5f` |
+| `crates/photara-library/migrations/generation_two/0009_library_context.sql` | `de50a9cd855ab3f48529b90545e2df62f92ee8e1a9950213c360d5cd91d6568f` |
+| `crates/photara-library/migrations/generation_two/0010_context_apply_recovery.sql` | `84cbe8d71a02ad7b491af5a0ec425dd22a566a82de8cc3a2eb5d883536f02aed` |
+| `crates/photara-library/migrations/generation_two/0011_scoped_sync.sql` | `d52526b340caff095f16b9c335c4cf824915064eefccd966568afdf1f3f92d15` |
+| `crates/photara-library/migrations/generation_two/0012_d19_guards_and_floor.sql` | `dedcab39b5511922465061b107fa282bcfb046d625833a1cbed05c10163e0f50` |
 | `docs/fixtures/generation-two/canonical-vectors.json` | `2fc9018d84767d4d63cbb385f60db8cf4dd45fd810dfc038c62007388eb7463d` |
 | `docs/fixtures/generation-two/context-amendment.json` | `5db3146e0aaad53c6e2c52f1d16737531c02d77f2b29426e42d9e0bee3c1e83b` |
 | `docs/fixtures/generation-two/d19-compatibility.json` | `dba279e37302c4d2d7d3ddafc13d855ea74dbc640b148d0eb2115cbf227bb3a9` |

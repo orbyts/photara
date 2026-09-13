@@ -5,6 +5,8 @@ uniffi::setup_scaffolding!();
 mod asset_materializer;
 mod evaluation;
 mod library;
+mod local_state;
+pub use local_state::*;
 mod production;
 pub use library::*;
 mod runtime_registry;

@@ -57,6 +57,7 @@ final class AppModel: ObservableObject {
 
     @Published private(set) var projectSetupRequest: UInt64 = 0
     let library: LibraryModel
+    private(set) var localState: BridgeLocalState?
 
     private var application: PhotaraApplication?
     var project: PhotaraProject?
@@ -95,6 +96,7 @@ final class AppModel: ObservableObject {
                 appropriateFor: nil,
                 create: true
             ).appending(path: "Photara")
+            localState = try initializeLocalState(path: support.appending(path: "State/photara-local-v2.sqlite").path)
             let storeRoot = support.appending(path: "GenerationTwo")
             let proxyCacheRoot = support.appending(path: "ProxyCache")
             try FileManager.default.createDirectory(

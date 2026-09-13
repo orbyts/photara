@@ -17,6 +17,8 @@ struct ProductionUIChecks {
         require(!FileManager.default.fileExists(atPath: support.appending(path: "Library/library.sqlite").path), "Library was not lazy")
         let session = EditorSessionModel(defaults: defaults)
         require(app.presentedError == nil, "Production host failed to open")
+        require(app.localState != nil, "Generation Two local state was not initialized")
+        require(FileManager.default.fileExists(atPath: support.appending(path: "State/photara-local-v2.sqlite").path), "Generation Two database is missing")
         for dark in [false, true] {
             try await capture(LabAppearance(dark: dark) {
                 EditorSessionView().environmentObject(app).environmentObject(session)
