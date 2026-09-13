@@ -13,8 +13,8 @@ impl LocalLibraryStore {
         let m = &value.meta;
         let mut tx = self.write().await?;
         check_meta(&mut tx, Table::Root, m, expected).await?;
-        sqlx::query(if m.revision==Revision::INITIAL {"INSERT INTO storage_roots(storage_root_id,workspace_id,display_name,label_key,purpose,local_revision,created_at_ms,updated_at_ms,state,retired_at_ms) VALUES(?,?,?,?,?,?,?,?,?,?)"} else {"UPDATE storage_roots SET storage_root_id=?1,workspace_id=?2,display_name=?3,label_key=?4,purpose=?5,local_revision=?6,created_at_ms=?7,updated_at_ms=?8,state=?9,retired_at_ms=?10 WHERE storage_root_id=?1 AND workspace_id=?2"})
-            .bind(m.id.bytes()).bind(m.workspace_id.bytes()).bind(&value.display_name).bind(normalize_term(&value.display_name)?).bind(&value.purpose).bind(m.revision.get()).bind(m.created_at.get()).bind(m.updated_at.get()).bind(m.state.sql()).bind(m.retired_at()).execute(&mut *tx).await?;
+        sqlx::query(if m.revision==Revision::INITIAL {"INSERT INTO storage_roots(storage_root_id,library_id,display_name,label_key,purpose,local_revision,created_at_ms,updated_at_ms,state,retired_at_ms) VALUES(?,?,?,?,?,?,?,?,?,?)"} else {"UPDATE storage_roots SET storage_root_id=?1,library_id=?2,display_name=?3,label_key=?4,purpose=?5,local_revision=?6,created_at_ms=?7,updated_at_ms=?8,state=?9,retired_at_ms=?10 WHERE storage_root_id=?1 AND library_id=?2"})
+            .bind(m.id.bytes()).bind(m.library_id.bytes()).bind(&value.display_name).bind(normalize_term(&value.display_name)?).bind(&value.purpose).bind(m.revision.get()).bind(m.created_at.get()).bind(m.updated_at.get()).bind(m.state.sql()).bind(m.retired_at()).execute(&mut *tx).await?;
         let result = finish(
             &mut tx,
             self.info.device_id,
@@ -29,7 +29,7 @@ impl LocalLibraryStore {
     }
     /// Changes discovery visibility only. Device selection has a separate method.
     /// # Errors
-    /// Rejects invalid selection, CAS or Workspace state.
+    /// Rejects invalid selection, CAS or Library state.
     pub async fn put_catalog(
         &self,
         value: &CatalogEntry,
@@ -38,15 +38,15 @@ impl LocalLibraryStore {
         let m = &value.meta;
         let mut tx = self.write().await?;
         check_meta(&mut tx, Table::Catalog, m, expected).await?;
-        let current = catalog_row(&mut tx, m.workspace_id, m.id).await?;
+        let current = catalog_row(&mut tx, m.library_id, m.id).await?;
         if value.active_locator_id != current.as_ref().and_then(|r| r.active_locator_id)
             || value.selected_observation_id
                 != current.as_ref().and_then(|r| r.selected_observation_id)
         {
             return Err(Error::Invalid);
         }
-        sqlx::query(if m.revision==Revision::INITIAL {"INSERT INTO project_catalog(workspace_id,project_id,visibility,local_revision,created_at_ms,updated_at_ms) VALUES(?,?,?,?,?,?)"} else {"UPDATE project_catalog SET workspace_id=?1,project_id=?2,visibility=?3,local_revision=?4,created_at_ms=?5,updated_at_ms=?6 WHERE project_id=?2 AND workspace_id=?1"})
-            .bind(m.workspace_id.bytes()).bind(m.id.bytes()).bind(value.visibility.sql()).bind(m.revision.get()).bind(m.created_at.get()).bind(m.updated_at.get()).execute(&mut *tx).await?;
+        sqlx::query(if m.revision==Revision::INITIAL {"INSERT INTO project_catalog(library_id,project_id,visibility,local_revision,created_at_ms,updated_at_ms) VALUES(?,?,?,?,?,?)"} else {"UPDATE project_catalog SET library_id=?1,project_id=?2,visibility=?3,local_revision=?4,created_at_ms=?5,updated_at_ms=?6 WHERE project_id=?2 AND library_id=?1"})
+            .bind(m.library_id.bytes()).bind(m.id.bytes()).bind(value.visibility.sql()).bind(m.revision.get()).bind(m.created_at.get()).bind(m.updated_at.get()).execute(&mut *tx).await?;
         let portable = serde_json::json!({"meta":m,"visibility":value.visibility});
         let result = finish(
             &mut tx,
@@ -63,7 +63,7 @@ impl LocalLibraryStore {
     /// Rooted locators carry safe relative hints; no filesystem resolution occurs.
     /// Tombstoning maps to the locator-specific `retired` state.
     /// # Errors
-    /// Returns path, CAS, same-Workspace root/project or selected-locator errors.
+    /// Returns path, CAS, same-Library root/project or selected-locator errors.
     pub async fn put_locator(
         &self,
         value: &ProjectLocator,
@@ -75,13 +75,13 @@ impl LocalLibraryStore {
         let m = &value.meta;
         let mut tx = self.write().await?;
         check_meta(&mut tx, Table::Locator, m, expected).await?;
-        if let Some(old) = locator_row(&mut tx, m.workspace_id, m.id).await?
+        if let Some(old) = locator_row(&mut tx, m.library_id, m.id).await?
             && old.project_id != value.project_id
         {
             return Err(Error::Invalid);
         }
-        sqlx::query(if m.revision==Revision::INITIAL {"INSERT INTO project_locators(locator_id,workspace_id,project_id,storage_root_id,relative_path,local_revision,created_at_ms,updated_at_ms,state,retired_at_ms) VALUES(?,?,?,?,?,?,?,?,?,?)"} else {"UPDATE project_locators SET locator_id=?1,workspace_id=?2,project_id=?3,storage_root_id=?4,relative_path=?5,local_revision=?6,created_at_ms=?7,updated_at_ms=?8,state=?9,retired_at_ms=?10 WHERE locator_id=?1 AND workspace_id=?2"})
-            .bind(m.id.bytes()).bind(m.workspace_id.bytes()).bind(value.project_id.bytes()).bind(value.rooted.as_ref().map(|r|r.storage_root_id.bytes())).bind(value.rooted.as_ref().map(|r|&r.relative_path)).bind(m.revision.get()).bind(m.created_at.get()).bind(m.updated_at.get()).bind(if m.state==Lifecycle::Active {"active"} else {"retired"}).bind(m.retired_at()).execute(&mut *tx).await?;
+        sqlx::query(if m.revision==Revision::INITIAL {"INSERT INTO project_locators(locator_id,library_id,project_id,storage_root_id,relative_path,local_revision,created_at_ms,updated_at_ms,state,retired_at_ms) VALUES(?,?,?,?,?,?,?,?,?,?)"} else {"UPDATE project_locators SET locator_id=?1,library_id=?2,project_id=?3,storage_root_id=?4,relative_path=?5,local_revision=?6,created_at_ms=?7,updated_at_ms=?8,state=?9,retired_at_ms=?10 WHERE locator_id=?1 AND library_id=?2"})
+            .bind(m.id.bytes()).bind(m.library_id.bytes()).bind(value.project_id.bytes()).bind(value.rooted.as_ref().map(|r|r.storage_root_id.bytes())).bind(value.rooted.as_ref().map(|r|&r.relative_path)).bind(m.revision.get()).bind(m.created_at.get()).bind(m.updated_at.get()).bind(if m.state==Lifecycle::Active {"active"} else {"retired"}).bind(m.retired_at()).execute(&mut *tx).await?;
         let result = finish(
             &mut tx,
             self.info.device_id,
@@ -98,46 +98,46 @@ impl LocalLibraryStore {
     /// Returns storage or typed decoding failure.
     pub async fn catalog_entry(
         &self,
-        workspace: WorkspaceId,
+        library: LibraryId,
         project: ProjectId,
     ) -> Result<Option<CatalogEntry>> {
         let mut tx = self.read().await?;
-        catalog_row(&mut tx, workspace, project).await
+        catalog_row(&mut tx, library, project).await
     }
     /// # Errors
     /// Returns storage or typed decoding failure.
     pub async fn locator(
         &self,
-        workspace: WorkspaceId,
+        library: LibraryId,
         id: LocatorId,
     ) -> Result<Option<ProjectLocator>> {
         let mut tx = self.read().await?;
-        locator_row(&mut tx, workspace, id).await
+        locator_row(&mut tx, library, id).await
     }
     /// # Errors
     /// Returns invalid bounds or storage/typed decoding failure.
     pub async fn catalog_entries(
         &self,
-        workspace: WorkspaceId,
+        library: LibraryId,
         after: Option<ProjectId>,
         limit: u32,
     ) -> Result<Vec<CatalogEntry>> {
         page(0, limit)?;
-        sqlx::query("SELECT *, 'active' AS state FROM project_catalog WHERE workspace_id=? AND project_id>? ORDER BY project_id LIMIT ?")
-            .bind(workspace.bytes()).bind(after.map_or_else(Vec::new,ProjectId::bytes)).bind(limit).fetch_all(self.db.pool()).await?.iter().map(decode_catalog).collect()
+        sqlx::query("SELECT *, 'active' AS state FROM project_catalog WHERE library_id=? AND project_id>? ORDER BY project_id LIMIT ?")
+            .bind(library.bytes()).bind(after.map_or_else(Vec::new,ProjectId::bytes)).bind(limit).fetch_all(self.db.pool()).await?.iter().map(decode_catalog).collect()
     }
     /// # Errors
     /// Returns invalid bounds or storage/typed decoding failure.
     pub async fn storage_roots(
         &self,
-        workspace: WorkspaceId,
+        library: LibraryId,
         after: Option<StorageRootId>,
         limit: u32,
         retired: bool,
     ) -> Result<Vec<StorageRoot>> {
         page(0, limit)?;
-        sqlx::query("SELECT * FROM storage_roots WHERE workspace_id=? AND storage_root_id>? AND (? OR state='active') ORDER BY storage_root_id LIMIT ?")
-            .bind(workspace.bytes()).bind(after.map_or_else(Vec::new,StorageRootId::bytes)).bind(retired).bind(limit).fetch_all(self.db.pool()).await?.iter().map(|row|Ok(StorageRoot {meta:metadata(row,"storage_root_id")?,display_name:row.try_get("display_name")?,purpose:row.try_get("purpose")?})).collect()
+        sqlx::query("SELECT * FROM storage_roots WHERE library_id=? AND storage_root_id>? AND (? OR state='active') ORDER BY storage_root_id LIMIT ?")
+            .bind(library.bytes()).bind(after.map_or_else(Vec::new,StorageRootId::bytes)).bind(retired).bind(limit).fetch_all(self.db.pool()).await?.iter().map(|row|Ok(StorageRoot {meta:metadata(row,"storage_root_id")?,display_name:row.try_get("display_name")?,purpose:row.try_get("purpose")?})).collect()
     }
     /// Writes only a device-local path or opaque secure-store reference, with CAS.
     /// The host validates mount/security-scoped access separately; nothing is opened.
@@ -165,15 +165,15 @@ impl LocalLibraryStore {
             DeviceBinding::Provider(id) => ("provider", None, Some(id.bytes())),
         };
         let mut tx = self.write().await?;
-        if !sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM storage_roots r JOIN workspaces w ON w.workspace_id=r.workspace_id WHERE r.workspace_id=? AND r.storage_root_id=? AND r.state='active' AND w.state='active')").bind(value.workspace_id.bytes()).bind(value.storage_root_id.bytes()).fetch_one(&mut *tx).await? {return Err(Error::Constraint);}
+        if !sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM storage_roots r JOIN libraries w ON w.library_id=r.library_id WHERE r.library_id=? AND r.storage_root_id=? AND r.state='active' AND w.state='active')").bind(value.library_id.bytes()).bind(value.storage_root_id.bytes()).fetch_one(&mut *tx).await? {return Err(Error::Constraint);}
         let previous:Option<i64>=sqlx::query_scalar("SELECT local_revision FROM device_root_bindings WHERE device_id=? AND storage_root_id=?").bind(self.info.device_id.bytes()).bind(value.storage_root_id.bytes()).fetch_optional(&mut *tx).await?;
         if previous != expected.map(Revision::get)
             || value.revision != expected.map_or(Ok(Revision::INITIAL), Revision::next)?
         {
             return Err(Error::Conflict);
         }
-        sqlx::query("INSERT INTO device_root_bindings(device_id,workspace_id,storage_root_id,binding_kind,host_path,secure_handle_ref,local_revision,updated_at_ms) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(device_id,storage_root_id) DO UPDATE SET binding_kind=excluded.binding_kind,host_path=excluded.host_path,secure_handle_ref=excluded.secure_handle_ref,local_revision=excluded.local_revision,updated_at_ms=excluded.updated_at_ms")
-            .bind(self.info.device_id.bytes()).bind(value.workspace_id.bytes()).bind(value.storage_root_id.bytes()).bind(kind).bind(path).bind(secure).bind(value.revision.get()).bind(value.updated_at.get()).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO device_root_bindings(device_id,library_id,storage_root_id,binding_kind,host_path,secure_handle_ref,local_revision,updated_at_ms) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(device_id,storage_root_id) DO UPDATE SET binding_kind=excluded.binding_kind,host_path=excluded.host_path,secure_handle_ref=excluded.secure_handle_ref,local_revision=excluded.local_revision,updated_at_ms=excluded.updated_at_ms")
+            .bind(self.info.device_id.bytes()).bind(value.library_id.bytes()).bind(value.storage_root_id.bytes()).bind(kind).bind(path).bind(secure).bind(value.revision.get()).bind(value.updated_at.get()).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(())
     }
@@ -181,10 +181,10 @@ impl LocalLibraryStore {
     /// Returns storage or typed decoding failure.
     pub async fn root_binding(
         &self,
-        workspace: WorkspaceId,
+        library: LibraryId,
         root: StorageRootId,
     ) -> Result<Option<RootBinding>> {
-        let row=sqlx::query("SELECT * FROM device_root_bindings WHERE device_id=? AND workspace_id=? AND storage_root_id=?").bind(self.info.device_id.bytes()).bind(workspace.bytes()).bind(root.bytes()).fetch_optional(self.db.pool()).await?;
+        let row=sqlx::query("SELECT * FROM device_root_bindings WHERE device_id=? AND library_id=? AND storage_root_id=?").bind(self.info.device_id.bytes()).bind(library.bytes()).bind(root.bytes()).fetch_optional(self.db.pool()).await?;
         row.map(|row| {
             let binding = match row.try_get::<String, _>("binding_kind")?.as_str() {
                 "path" => DeviceBinding::Path(std::path::PathBuf::from(
@@ -199,7 +199,7 @@ impl LocalLibraryStore {
                 _ => return Err(Error::Unsupported),
             };
             Ok(RootBinding {
-                workspace_id: workspace,
+                library_id: library,
                 storage_root_id: root,
                 binding,
                 revision: Revision::try_from(row.try_get::<i64, _>("local_revision")?)?,
@@ -215,19 +215,19 @@ impl LocalLibraryStore {
     /// Rejects unverified bytes, wrong identity, retired locator or database failure.
     pub async fn observe_package(
         &self,
-        workspace: WorkspaceId,
+        library: LibraryId,
         locator: LocatorId,
         root: impl AsRef<Path>,
         at: Timestamp,
     ) -> Result<ProjectObservation> {
         let root = root.as_ref().to_owned();
         let initial = self
-            .locator(workspace, locator)
+            .locator(library, locator)
             .await?
             .ok_or(Error::Constraint)?;
         let rooted = initial.rooted.as_ref().ok_or(Error::Unsupported)?;
         let root_binding = self
-            .root_binding(workspace, rooted.storage_root_id)
+            .root_binding(library, rooted.storage_root_id)
             .await?
             .ok_or(Error::Constraint)?;
         let DeviceBinding::Path(host_root) = &root_binding.binding else {
@@ -246,13 +246,13 @@ impl LocalLibraryStore {
         .map_err(|_| Error::Storage)?
         .map_err(|_| Error::Corrupt)?;
         let mut tx = self.write().await?;
-        let binding = locator_row(&mut tx, workspace, locator)
+        let binding = locator_row(&mut tx, library, locator)
             .await?
             .ok_or(Error::Constraint)?;
         if binding != initial {
             return Err(Error::Conflict);
         }
-        let current_revision:Option<i64>=sqlx::query_scalar("SELECT local_revision FROM device_root_bindings WHERE device_id=? AND workspace_id=? AND storage_root_id=?").bind(self.info.device_id.bytes()).bind(workspace.bytes()).bind(rooted.storage_root_id.bytes()).fetch_optional(&mut *tx).await?;
+        let current_revision:Option<i64>=sqlx::query_scalar("SELECT local_revision FROM device_root_bindings WHERE device_id=? AND library_id=? AND storage_root_id=?").bind(self.info.device_id.bytes()).bind(library.bytes()).bind(rooted.storage_root_id.bytes()).fetch_optional(&mut *tx).await?;
         if current_revision != Some(root_binding.revision.get()) {
             return Err(Error::Conflict);
         }
@@ -262,9 +262,9 @@ impl LocalLibraryStore {
             return Err(Error::Constraint);
         }
         let active: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM workspaces WHERE workspace_id=? AND state='active')",
+            "SELECT EXISTS(SELECT 1 FROM libraries WHERE library_id=? AND state='active')",
         )
-        .bind(workspace.bytes())
+        .bind(library.bytes())
         .fetch_one(&mut *tx)
         .await?;
         if !active {
@@ -291,7 +291,7 @@ impl LocalLibraryStore {
         if let Some(row)=sqlx::query("SELECT * FROM project_observations WHERE locator_id=? AND commit_id=? AND commit_sha256=? AND index_schema=1").bind(locator.bytes()).bind(commit_id.bytes()).bind(digest.to_vec()).fetch_optional(&mut *tx).await? {return decode_observation(&row);}
         let observation = ProjectObservation {
             id: ObservationId::new(),
-            workspace_id: workspace,
+            library_id: library,
             project_id: binding.project_id,
             locator_id: locator,
             commit_id,
@@ -303,8 +303,8 @@ impl LocalLibraryStore {
             graph_count: u64::try_from(package.graphs.len()).map_err(|_| Error::Limit)?,
             observed_at: at,
         };
-        sqlx::query("INSERT INTO project_observations(observation_id,workspace_id,project_id,locator_id,commit_id,commit_sha256,package_revision,title,project_lifecycle,asset_count,graph_count,observed_at_ms,index_schema) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1)")
-            .bind(observation.id.bytes()).bind(workspace.bytes()).bind(binding.project_id.bytes()).bind(locator.bytes()).bind(commit_id.bytes()).bind(digest.to_vec()).bind(observation.package_revision.to_string()).bind(&observation.title).bind(&observation.lifecycle).bind(i64::try_from(asset_count).map_err(|_|Error::Limit)?).bind(i64::try_from(observation.graph_count).map_err(|_|Error::Limit)?).bind(at.get()).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO project_observations(observation_id,library_id,project_id,locator_id,commit_id,commit_sha256,package_revision,title,project_lifecycle,asset_count,graph_count,observed_at_ms,index_schema) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1)")
+            .bind(observation.id.bytes()).bind(library.bytes()).bind(binding.project_id.bytes()).bind(locator.bytes()).bind(commit_id.bytes()).bind(digest.to_vec()).bind(observation.package_revision.to_string()).bind(&observation.title).bind(&observation.lifecycle).bind(i64::try_from(asset_count).map_err(|_|Error::Limit)?).bind(i64::try_from(observation.graph_count).map_err(|_|Error::Limit)?).bind(at.get()).execute(&mut *tx).await?;
         for graph in &package.graphs {
             let graph_id =
                 Uuid::parse_str(&graph.graph_id.to_string()).map_err(|_| Error::Corrupt)?;
@@ -314,8 +314,8 @@ impl LocalLibraryStore {
         project_context(&mut tx, &package, observation.id).await?;
         // Available is a historical verified identity observation, never a promise
         // of continuing access. Device paths and cloud reports are not inferred.
-        sqlx::query("INSERT INTO device_project_bindings(device_id,workspace_id,project_id,locator_id,availability,verified_project_id,last_commit_id,last_commit_sha256,checked_at_ms) VALUES(?,?,?,?,'available',?,?,?,?) ON CONFLICT(device_id,locator_id) DO UPDATE SET availability=excluded.availability,verified_project_id=excluded.verified_project_id,last_commit_id=excluded.last_commit_id,last_commit_sha256=excluded.last_commit_sha256,checked_at_ms=excluded.checked_at_ms")
-            .bind(self.info.device_id.bytes()).bind(workspace.bytes()).bind(binding.project_id.bytes()).bind(locator.bytes()).bind(binding.project_id.bytes()).bind(commit_id.bytes()).bind(digest.to_vec()).bind(at.get()).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO device_project_bindings(device_id,library_id,project_id,locator_id,availability,verified_project_id,last_commit_id,last_commit_sha256,checked_at_ms) VALUES(?,?,?,?,'available',?,?,?,?) ON CONFLICT(device_id,locator_id) DO UPDATE SET availability=excluded.availability,verified_project_id=excluded.verified_project_id,last_commit_id=excluded.last_commit_id,last_commit_sha256=excluded.last_commit_sha256,checked_at_ms=excluded.checked_at_ms")
+            .bind(self.info.device_id.bytes()).bind(library.bytes()).bind(binding.project_id.bytes()).bind(locator.bytes()).bind(binding.project_id.bytes()).bind(commit_id.bytes()).bind(digest.to_vec()).bind(at.get()).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(observation)
     }
@@ -325,14 +325,14 @@ impl LocalLibraryStore {
     /// Returns stale CAS, cross-project/locator or retired-reference errors.
     pub async fn select_observation(
         &self,
-        workspace: WorkspaceId,
+        library: LibraryId,
         project: ProjectId,
         expected: Revision,
         observation: Option<ObservationId>,
         at: Timestamp,
     ) -> Result<CatalogEntry> {
         let mut tx = self.write().await?;
-        let mut entry = catalog_row(&mut tx, workspace, project)
+        let mut entry = catalog_row(&mut tx, library, project)
             .await?
             .ok_or(Error::Conflict)?;
         if entry.meta.revision != expected {
@@ -341,13 +341,13 @@ impl LocalLibraryStore {
         entry.meta.advance(at)?;
         check_meta(&mut tx, Table::Catalog, &entry.meta, Some(expected)).await?;
         let locator = if let Some(observation) = observation {
-            let bytes:Vec<u8>=sqlx::query_scalar("SELECT locator_id FROM project_observations WHERE workspace_id=? AND project_id=? AND observation_id=?").bind(workspace.bytes()).bind(project.bytes()).bind(observation.bytes()).fetch_optional(&mut *tx).await?.ok_or(Error::Constraint)?;
+            let bytes:Vec<u8>=sqlx::query_scalar("SELECT locator_id FROM project_observations WHERE library_id=? AND project_id=? AND observation_id=?").bind(library.bytes()).bind(project.bytes()).bind(observation.bytes()).fetch_optional(&mut *tx).await?.ok_or(Error::Constraint)?;
             Some(LocatorId::from_bytes(&bytes)?)
         } else {
             None
         };
-        sqlx::query("UPDATE project_catalog SET active_locator_id=?,selected_observation_id=?,local_revision=?,updated_at_ms=? WHERE workspace_id=? AND project_id=? AND local_revision=?")
-            .bind(locator.map(LocatorId::bytes)).bind(observation.map(ObservationId::bytes)).bind(entry.meta.revision.get()).bind(at.get()).bind(workspace.bytes()).bind(project.bytes()).bind(expected.get()).execute(&mut *tx).await?;
+        sqlx::query("UPDATE project_catalog SET active_locator_id=?,selected_observation_id=?,local_revision=?,updated_at_ms=? WHERE library_id=? AND project_id=? AND local_revision=?")
+            .bind(locator.map(LocatorId::bytes)).bind(observation.map(ObservationId::bytes)).bind(entry.meta.revision.get()).bind(at.get()).bind(library.bytes()).bind(project.bytes()).bind(expected.get()).execute(&mut *tx).await?;
         entry.active_locator_id = locator;
         entry.selected_observation_id = observation;
         tx.commit().await?;
@@ -356,13 +356,13 @@ impl LocalLibraryStore {
 }
 async fn catalog_row(
     conn: &mut SqliteConnection,
-    workspace: WorkspaceId,
+    library: LibraryId,
     project: ProjectId,
 ) -> Result<Option<CatalogEntry>> {
     sqlx::query(
-        "SELECT *, 'active' AS state FROM project_catalog WHERE workspace_id=? AND project_id=?",
+        "SELECT *, 'active' AS state FROM project_catalog WHERE library_id=? AND project_id=?",
     )
-    .bind(workspace.bytes())
+    .bind(library.bytes())
     .bind(project.bytes())
     .fetch_optional(conn)
     .await?
@@ -386,11 +386,11 @@ fn decode_catalog(row: &sqlx::sqlite::SqliteRow) -> Result<CatalogEntry> {
 }
 async fn locator_row(
     conn: &mut SqliteConnection,
-    workspace: WorkspaceId,
+    library: LibraryId,
     id: LocatorId,
 ) -> Result<Option<ProjectLocator>> {
-    sqlx::query("SELECT * FROM project_locators WHERE workspace_id=? AND locator_id=?")
-        .bind(workspace.bytes())
+    sqlx::query("SELECT * FROM project_locators WHERE library_id=? AND locator_id=?")
+        .bind(library.bytes())
         .bind(id.bytes())
         .fetch_optional(conn)
         .await?
@@ -417,7 +417,7 @@ async fn locator_row(
 fn decode_observation(row: &sqlx::sqlite::SqliteRow) -> Result<ProjectObservation> {
     Ok(ProjectObservation {
         id: ObservationId::from_bytes(&row.try_get::<Vec<u8>, _>("observation_id")?)?,
-        workspace_id: WorkspaceId::from_bytes(&row.try_get::<Vec<u8>, _>("workspace_id")?)?,
+        library_id: LibraryId::from_bytes(&row.try_get::<Vec<u8>, _>("library_id")?)?,
         project_id: ProjectId::from_bytes(&row.try_get::<Vec<u8>, _>("project_id")?)?,
         locator_id: LocatorId::from_bytes(&row.try_get::<Vec<u8>, _>("locator_id")?)?,
         commit_id: CommitId::from_bytes(&row.try_get::<Vec<u8>, _>("commit_id")?)?,
@@ -472,8 +472,8 @@ async fn project_context(
         let assignment = object(reference)?;
         let snapshot = object(&assignment["party_snapshot"])?;
         let source = &snapshot["source"];
-        sqlx::query("INSERT INTO project_party_projection(observation_id,assignment_id,source_workspace_id,source_kind,source_record_id,source_revision,display_name_snapshot,roles_json) VALUES(?,?,?,?,?,?,?,?)")
-            .bind(id.bytes()).bind(json_uuid(&assignment["assignment_id"])?).bind(json_uuid(&source["workspace_id"])?).bind(json_text(&source["kind"])?).bind(json_uuid(&source["record_id"])?).bind(canonical(&source["revision"])?).bind(json_text(&snapshot["display_name"])?).bind(canonical(&assignment["roles"])?).execute(&mut *conn).await?;
+        sqlx::query("INSERT INTO project_party_projection(observation_id,assignment_id,source_library_id,source_kind,source_record_id,source_revision,display_name_snapshot,roles_json) VALUES(?,?,?,?,?,?,?,?)")
+            .bind(id.bytes()).bind(json_uuid(&assignment["assignment_id"])?).bind(json_uuid(&source["library_id"])?).bind(json_text(&source["kind"])?).bind(json_uuid(&source["record_id"])?).bind(canonical(&source["revision"])?).bind(json_text(&snapshot["display_name"])?).bind(canonical(&assignment["roles"])?).execute(&mut *conn).await?;
     }
     let locations = &package
         .objects
@@ -489,8 +489,8 @@ async fn project_context(
             .filter(|v| !v.is_null())
             .map(canonical)
             .transpose()?;
-        sqlx::query("INSERT INTO project_location_projection(observation_id,assignment_id,source_workspace_id,location_id,location_kind_id,location_name_snapshot,kind_name_snapshot,schedule_json) VALUES(?,?,?,?,?,?,?,?)")
-            .bind(id.bytes()).bind(json_uuid(&assignment["assignment_id"])?).bind(json_uuid(&location["source"]["workspace_id"])?).bind(json_uuid(&location["source"]["record_id"])?).bind(json_uuid(&kind["source"]["record_id"])?).bind(json_text(&location["display_name"])?).bind(json_text(&kind["display_name"])?).bind(schedule).execute(&mut *conn).await?;
+        sqlx::query("INSERT INTO project_location_projection(observation_id,assignment_id,source_library_id,location_id,location_kind_id,location_name_snapshot,kind_name_snapshot,schedule_json) VALUES(?,?,?,?,?,?,?,?)")
+            .bind(id.bytes()).bind(json_uuid(&assignment["assignment_id"])?).bind(json_uuid(&location["source"]["library_id"])?).bind(json_uuid(&location["source"]["record_id"])?).bind(json_uuid(&kind["source"]["record_id"])?).bind(json_text(&location["display_name"])?).bind(json_text(&kind["display_name"])?).bind(schedule).execute(&mut *conn).await?;
     }
     Ok(())
 }

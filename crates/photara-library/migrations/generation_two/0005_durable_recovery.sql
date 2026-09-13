@@ -1,6 +1,6 @@
 CREATE TABLE operation_intents (
   operation_id BLOB PRIMARY KEY CHECK(length(operation_id)=16),
-  workspace_id BLOB NOT NULL,
+  library_id BLOB NOT NULL,
   project_id BLOB CHECK(project_id IS NULL OR length(project_id)=16),
   operation_kind TEXT NOT NULL CHECK(operation_kind IN
     ('create-package','save-package','move-package','rebind-package',
@@ -18,12 +18,12 @@ CREATE TABLE operation_intents (
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
   last_error_code TEXT,
-  UNIQUE(workspace_id,idempotency_key),
+  UNIQUE(library_id,idempotency_key),
   CHECK((base_commit_id IS NULL)=(base_commit_sha256 IS NULL)),
   CHECK((proposed_commit_id IS NULL)=(proposed_commit_sha256 IS NULL)),
-  FOREIGN KEY(workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT
+  FOREIGN KEY(library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT
 ) STRICT;
-CREATE INDEX operation_intents_pending ON operation_intents(workspace_id,updated_at_ms)
+CREATE INDEX operation_intents_pending ON operation_intents(library_id,updated_at_ms)
   WHERE state IN ('prepared','executing','awaiting-package','needs-recovery');
 
 CREATE TABLE operation_events (

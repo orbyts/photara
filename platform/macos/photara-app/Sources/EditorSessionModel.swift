@@ -1,0 +1,1 @@
+../../photara-shell/Sources/EditorSessionModel.swift

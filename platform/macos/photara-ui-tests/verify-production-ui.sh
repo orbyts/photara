@@ -24,7 +24,7 @@ cp -p "$PRODUCTION_BUILD/Photara.app/Contents/MacOS/photara-proxy-imageio" "$APP
 PRODUCTION_SOURCES=("$PRODUCTION_ROOT"/Sources/*.swift)
 # Shared compatibility paths and the production @main are not compiled twice.
 PRODUCTION_SOURCES=("${(@)PRODUCTION_SOURCES:#*/ThemeStore.swift}")
-PRODUCTION_SOURCES=("${(@)PRODUCTION_SOURCES:#*/WorkspaceModel.swift}")
+PRODUCTION_SOURCES=("${(@)PRODUCTION_SOURCES:#*/EditorSessionModel.swift}")
 PRODUCTION_SOURCES=("${(@)PRODUCTION_SOURCES:#*/PhotaraMacApp.swift}")
 xcrun swiftc -swift-version 6 -parse-as-library -module-cache-path "$BUILD_ROOT/module-cache" \
   "$GENERATED_ROOT/PhotaraBridge.swift" "${SHARED_UI_SOURCES[@]}" "${PRODUCTION_SOURCES[@]}" \

@@ -1,39 +1,19 @@
 # Service PostgreSQL schema
 
-## Current exact review packet — 2026-09-12
-
-The [D19 physical/access delta](D19_STATIC_SCHEMA_DELTA.md#postgresql-authorization-rls-and-api-changes) now specifies 20 proposed new tables (55 total), one media-upload column extension, scoped APIs/feeds and replacement of membership-wide access predicates. Historical service 0007 is reserved for privileges, so additions start at 0008; local additions start at 0007. Baseline SQL below is unchanged and unexecuted. R1–R8 were accepted as proposed 2026-09-12; [inert proposal DDL](proposals/d19-cxt2/README.md) and its inventory are complete outside runtime migration paths. No SQL was executed; CXT3c and service implementation remain gated.
-
-## D19 supersession notice — physical/protocol baseline retained
-
-[D19](LIBRARY_AND_NODE_WORK_SURFACES.md) is the current conceptual authority:
-Library replaces persistent Workspace; every Project belongs to exactly one
-Library. Explicit ProjectAccessGrant/invitations and restricted/library-visible
-policies govern Project access independently of blanket membership. Project-only
-collaborators receive bounded assigned snapshots, not a full catalog, Library
-feed, reset snapshot, receipt or media projection. Package/SMB authorization
-remains separate device binding state.
-
-Graphs consume explicit AssetSet ports and declared frozen context. There is no
-ambient semantic project-wide Gallery, implicit asset union or `$project.assets`.
-A private package graph/run identity/provenance/artifact ledger may remain.
-Existing Workspace/ProjectAsset names, SQL, endpoint paths and baseline examples
-below are conceptually superseded where they conflict; they remain unchanged
-physical compatibility evidence pending an exact additive/rename/migration plan.
-
-S3 remains 44 tables/179 statements; S4 35 tables/275 statements; all six applied
-L2 migration files/checksums remain unchanged. Freeze logical/package/NodeSDK
-contracts, then review exact static SQLite/PostgreSQL/package/sync deltas,
-including LibraryId mapping, Project grants, filtered queries/feeds/snapshots/
-media/receipts, RLS and compatibility. Revised CXT1/CXT3 follow that review;
-L3 remains paused. This notice approves no new DDL, migration or service action.
+**Current baseline — 2026-09-12:** the user superseded D19 R1 physical-name
+preservation because Generation Two is unshipped. Domain, package and SQL names
+below use Library consistently. This is a clean baseline rewrite, with no rename
+migration, alias, shadow column or live database change. See the
+[rebaseline authority and evidence](LIBRARY_NOMENCLATURE_REBASELINE.md) and
+[current execution order](../ROADMAP_0_2_EXECUTION.md). CXT3a is complete; local
+D19 execution/app initialization and PostgreSQL/RLS remain separate CXT3b/c gates.
 
 ## D18 amendment — logical requirements only, DDL deferred
 
-[D18](TYPED_CONTEXT_AND_EXPRESSIONS.md) proposes typed Workspace variable
+[D18](TYPED_CONTEXT_AND_EXPRESSIONS.md) proposes typed Library variable
 aggregates with reserved names, exact schemas/AST versions, one current value,
-same-Workspace references, revisions/tombstones and permission-checked commands.
-CXT2 will specify ordered additive DDL, RLS/service allowlists, Workspace-lock/CAS
+same-Library references, revisions/tombstones and permission-checked commands.
+CXT2 will specify ordered additive DDL, RLS/service allowlists, Library-lock/CAS
 transactions and S5 feed/receipt projection. The service validates expression
 data but never executes it, resolves host SecretRefs or trusts a declared read
 as authorization. Account scope remains preferences, not ambient variables.
@@ -59,7 +39,7 @@ Inputs: [accepted logical model](LOGICAL_DATA_MODEL.md),
 [S3 local SQLite proposal](LOCAL_SQLITE_SCHEMA.md), and
 [Storexa 0.2 boundary](STOREXA_INTEGRATION.md).
 The service is a clean generation-two authority for authenticated Accounts,
-Workspace access and accepted synchronized Library revisions. Local repositories
+Library access and accepted synchronized Library revisions. Local repositories
 remain the authority for pending local edits. Project content remains in its
 package. Existing Neon and v0.1.3 sources are optional reference/salvage material;
 no import, reset, conversion or live-data inspection is a prerequisite.
@@ -75,13 +55,13 @@ connection; an approved pooled endpoint may serve ordinary short transactions.
 
 | Store | Authority |
 | --- | --- |
-| Account/identity, membership | Service-authenticated identity and Workspace access |
+| Account/identity, membership | Service-authenticated identity and Library access |
 | Subscription/entitlement records | Verified billing or explicit administrative grants |
-| Typed Library | Accepted server revisions of Workspace-owned records |
+| Typed Library | Accepted server revisions of Library-owned records |
 | Logical roots/locators and catalog preference | Synchronized discovery metadata, not filesystem access |
 | Catalog observations | Client-reported package-commit-qualified projections, not verified package contents |
 | Mutation receipts/change batches | Durable server acceptance/deduplication and ordered synchronization history |
-| Media descriptors | Authorized Workspace media metadata; bytes live in a separate protected object store |
+| Media descriptors | Authorized Library media metadata; bytes live in a separate protected object store |
 | Local SQLite/device/package | Not owned or transactionally updated by this database |
 
 Do not add authoritative project, asset, graph, node-attempt, receipt or package
@@ -109,7 +89,7 @@ element semantics.
 
 After S7, Photara owns these separate files under migrations/postgres/:
 
-1. 0001_identity_workspace.sql — namespaces, metadata, identities and memberships.
+1. 0001_identity_library.sql — namespaces, metadata, identities and memberships.
 2. 0002_entitlements_media.sql — billing/grants and durable media descriptors.
 3. 0003_typed_library.sql — People, Organizations, relationships and locations.
 4. 0004_catalog.sql — logical discovery metadata and package observations.
@@ -130,7 +110,7 @@ runtime CREATE ROLE endpoint. Proposed NOLOGIN group roles:
 - photara_owner: owns schemas/tables/functions; migration login may SET ROLE.
 - photara_api: ordinary service domain transactions; no ownership/BYPASSRLS,
   schema creation, membership administration or billing writes.
-- photara_control: narrowly deployed identity/Workspace/billing controller;
+- photara_control: narrowly deployed identity/Library/billing controller;
   never reachable through arbitrary SQL or client-controlled role selection.
 - photara_auth_read: read-only identity/permission lookup for the service.
 
@@ -141,7 +121,7 @@ gets no schema/table/function access. A service binary is still trusted code:
 RLS is tenant-scope defense in depth, not a sandbox for arbitrary SQL or proof
 that a JWT is valid.
 
-## 0001 — identity and Workspace
+## 0001 — identity and Library
 
 Auth0 tokens are validated by the API for approved issuer/audience/signature,
 expiry and required authentication policy. Only then resolve the exact
@@ -196,8 +176,8 @@ CREATE TABLE photara_identity.account_identities (
 );
 CREATE INDEX account_identities_account ON photara_identity.account_identities(account_id);
 
-CREATE TABLE photara.workspaces (
-  workspace_id uuid PRIMARY KEY,
+CREATE TABLE photara.libraries (
+  library_id uuid PRIMARY KEY,
   display_name text NOT NULL CHECK(length(btrim(display_name))>0),
   state text NOT NULL CHECK(state IN ('active','tombstoned')),
   revision bigint NOT NULL CHECK(revision>=1),
@@ -210,7 +190,7 @@ CREATE TABLE photara.workspaces (
 );
 CREATE TABLE photara_identity.memberships (
   membership_id uuid PRIMARY KEY,
-  workspace_id uuid NOT NULL REFERENCES photara.workspaces ON DELETE RESTRICT,
+  library_id uuid NOT NULL REFERENCES photara.libraries ON DELETE RESTRICT,
   account_id uuid NOT NULL REFERENCES photara_identity.accounts ON DELETE RESTRICT,
   role text NOT NULL CHECK(role IN ('owner','admin','editor','viewer')),
   state text NOT NULL CHECK(state IN ('active','revoked')),
@@ -218,12 +198,12 @@ CREATE TABLE photara_identity.memberships (
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,
   revoked_at timestamptz,
-  UNIQUE(workspace_id,account_id),
+  UNIQUE(library_id,account_id),
   CHECK((state='revoked')=(revoked_at IS NOT NULL))
 );
-CREATE INDEX memberships_account_active ON photara_identity.memberships(account_id,workspace_id)
+CREATE INDEX memberships_account_active ON photara_identity.memberships(account_id,library_id)
   WHERE state='active';
-CREATE INDEX memberships_workspace_role ON photara_identity.memberships(workspace_id,role)
+CREATE INDEX memberships_library_role ON photara_identity.memberships(library_id,role)
   WHERE state='active';
 
 CREATE TABLE photara_identity.devices (
@@ -235,11 +215,11 @@ CREATE TABLE photara_identity.devices (
   last_seen_at timestamptz,
   PRIMARY KEY(account_id,device_id)
 );
-CREATE TABLE photara_private.workspace_claim_receipts (
+CREATE TABLE photara_private.library_claim_receipts (
   account_id uuid NOT NULL REFERENCES photara_identity.accounts ON DELETE RESTRICT,
   claim_id uuid NOT NULL,
-  requested_workspace_id uuid NOT NULL,
-  claimed_workspace_id uuid REFERENCES photara.workspaces ON DELETE RESTRICT,
+  requested_library_id uuid NOT NULL,
+  claimed_library_id uuid REFERENCES photara.libraries ON DELETE RESTRICT,
   request_canonical bytea NOT NULL CHECK(octet_length(request_canonical) BETWEEN 2 AND 1048576),
   request_sha256 bytea NOT NULL CHECK(octet_length(request_sha256)=32),
   outcome text NOT NULL CHECK(outcome IN ('claimed','conflict')),
@@ -247,16 +227,16 @@ CREATE TABLE photara_private.workspace_claim_receipts (
   response_sha256 bytea NOT NULL CHECK(octet_length(response_sha256)=32),
   completed_at timestamptz NOT NULL,
   PRIMARY KEY(account_id,claim_id),
-  CHECK((outcome='claimed')=(claimed_workspace_id IS NOT NULL)),
-  CHECK(claimed_workspace_id IS NULL OR claimed_workspace_id=requested_workspace_id)
+  CHECK((outcome='claimed')=(claimed_library_id IS NOT NULL)),
+  CHECK(claimed_library_id IS NULL OR claimed_library_id=requested_library_id)
 );
 ```
 
-A local-only Workspace is absent from the service until an explicit claim.
-Claim verifies identity, checks UUID collision, atomically creates Workspace,
+A local-only Library is absent from the service until an explicit claim.
+Claim verifies identity, checks UUID collision, atomically creates Library,
 first owner membership and stream row, then uploads typed Library through the
 normal mutation protocol. Collision is never an invitation to take over an
-existing workspace. Joining an existing cloud workspace uses its ID and an
+existing library. Joining an existing cloud library uses its ID and an
 authorized invitation/controller flow; no local identity aliasing. Invitation
 delivery/storage is outside this schema's first slice and must not be faked by
 inserting membership from an email lookup.
@@ -265,15 +245,15 @@ Membership state is retained rather than deleting rows; role changes advance its
 revision. Owner/admin/editor/viewer are application roles, not database roles.
 Owners manage owner membership/deletion and billing; admins manage non-owner
 membership and Library; editors edit Library/catalog; viewers read. An active
-Workspace retains at least one owner membership; disabling/deleting that owner's
-Account additionally requires an explicit ownership-transfer or Workspace-close
-workflow. Last-owner handling is checked under the Workspace write lock and by
+Library retains at least one owner membership; disabling/deleting that owner's
+Account additionally requires an explicit ownership-transfer or Library-close
+workflow. Last-owner handling is checked under the Library write lock and by
 deferred invariant guards. Revoked identities remain reserved to their Account.
 
 ## 0002 — subscriptions, grants and media
 
-Billing is Workspace-scoped; developer grants are Account-scoped. A capability
-grant never creates membership or authorizes a different Workspace. Grant keys
+Billing is Library-scoped; developer grants are Account-scoped. A capability
+grant never creates membership or authorizes a different Library. Grant keys
 are namespaced and versioned; exact plans/prices/quotas and the developer program
 remain S7 product policy. No provider name or paid Node Store licensing is
 hard-coded into the domain model.
@@ -288,9 +268,9 @@ CREATE TABLE photara_private.billing_events (
   payload jsonb NOT NULL CHECK(jsonb_typeof(payload)='object'),
   PRIMARY KEY(provider,event_id)
 );
-CREATE TABLE photara_private.workspace_subscriptions (
+CREATE TABLE photara_private.library_subscriptions (
   subscription_id uuid PRIMARY KEY,
-  workspace_id uuid NOT NULL REFERENCES photara.workspaces ON DELETE RESTRICT,
+  library_id uuid NOT NULL REFERENCES photara.libraries ON DELETE RESTRICT,
   provider text COLLATE "C" NOT NULL,
   provider_subscription_id text COLLATE "C" NOT NULL,
   plan_key text NOT NULL,
@@ -302,16 +282,16 @@ CREATE TABLE photara_private.workspace_subscriptions (
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,
   UNIQUE(provider,provider_subscription_id),
-  UNIQUE(workspace_id,subscription_id),
+  UNIQUE(library_id,subscription_id),
   FOREIGN KEY(provider,source_event_id)
     REFERENCES photara_private.billing_events(provider,event_id) ON DELETE RESTRICT
 );
-CREATE UNIQUE INDEX subscriptions_one_current ON photara_private.workspace_subscriptions(workspace_id)
+CREATE UNIQUE INDEX subscriptions_one_current ON photara_private.library_subscriptions(library_id)
   WHERE state IN ('trialing','active','past-due','paused');
 
-CREATE TABLE photara_private.workspace_entitlement_grants (
+CREATE TABLE photara_private.library_entitlement_grants (
   grant_id uuid PRIMARY KEY,
-  workspace_id uuid NOT NULL REFERENCES photara.workspaces ON DELETE RESTRICT,
+  library_id uuid NOT NULL REFERENCES photara.libraries ON DELETE RESTRICT,
   capability_key text COLLATE "C" NOT NULL CHECK(length(capability_key)>0),
   source text NOT NULL CHECK(source IN ('subscription','manual')),
   subscription_id uuid,
@@ -325,10 +305,10 @@ CREATE TABLE photara_private.workspace_entitlement_grants (
   updated_at timestamptz NOT NULL,
   CHECK(valid_until IS NULL OR valid_until>valid_from),
   CHECK((source='subscription')=(subscription_id IS NOT NULL)),
-  FOREIGN KEY(workspace_id,subscription_id)
-    REFERENCES photara_private.workspace_subscriptions(workspace_id,subscription_id) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,subscription_id)
+    REFERENCES photara_private.library_subscriptions(library_id,subscription_id) ON DELETE RESTRICT
 );
-CREATE INDEX workspace_grants_lookup ON photara_private.workspace_entitlement_grants(workspace_id,capability_key,valid_from)
+CREATE INDEX library_grants_lookup ON photara_private.library_entitlement_grants(library_id,capability_key,valid_from)
   WHERE state='active';
 
 CREATE TABLE photara_private.account_developer_grants (
@@ -348,30 +328,30 @@ CREATE INDEX developer_grants_lookup ON photara_private.account_developer_grants
   WHERE state='active';
 
 CREATE TABLE photara.library_media (
-  workspace_id uuid NOT NULL REFERENCES photara.workspaces ON DELETE RESTRICT,
+  library_id uuid NOT NULL REFERENCES photara.libraries ON DELETE RESTRICT,
   sha256 bytea NOT NULL CHECK(octet_length(sha256)=32),
   media_type text NOT NULL,
   byte_length bigint NOT NULL CHECK(byte_length>=0),
   width integer CHECK(width IS NULL OR width>0),
   height integer CHECK(height IS NULL OR height>0),
   created_at timestamptz NOT NULL,
-  PRIMARY KEY(workspace_id,sha256)
+  PRIMARY KEY(library_id,sha256)
 );
 CREATE TABLE photara_private.media_objects (
-  workspace_id uuid NOT NULL,
+  library_id uuid NOT NULL,
   sha256 bytea NOT NULL,
   object_key text COLLATE "C" NOT NULL UNIQUE CHECK(length(object_key)>0),
   state text NOT NULL CHECK(state IN ('pending','available','quarantined')),
   verified_at timestamptz,
   created_at timestamptz NOT NULL,
   CHECK(state<>'available' OR verified_at IS NOT NULL),
-  PRIMARY KEY(workspace_id,sha256),
-  FOREIGN KEY(workspace_id,sha256)
-    REFERENCES photara.library_media(workspace_id,sha256) ON DELETE RESTRICT
+  PRIMARY KEY(library_id,sha256),
+  FOREIGN KEY(library_id,sha256)
+    REFERENCES photara.library_media(library_id,sha256) ON DELETE RESTRICT
 );
 CREATE TABLE photara_private.media_upload_sessions (
   upload_id uuid PRIMARY KEY,
-  workspace_id uuid NOT NULL,
+  library_id uuid NOT NULL,
   sha256 bytea NOT NULL,
   staging_object_key text COLLATE "C" NOT NULL UNIQUE CHECK(length(staging_object_key)>0),
   state text NOT NULL CHECK(state IN ('pending','verifying','complete','failed','expired')),
@@ -381,10 +361,10 @@ CREATE TABLE photara_private.media_upload_sessions (
   expires_at timestamptz NOT NULL CHECK(expires_at>created_at),
   completed_at timestamptz,
   CHECK((state='complete')=(completed_at IS NOT NULL)),
-  FOREIGN KEY(workspace_id,sha256)
-    REFERENCES photara.library_media(workspace_id,sha256) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,sha256)
+    REFERENCES photara.library_media(library_id,sha256) ON DELETE RESTRICT
 );
-CREATE INDEX media_upload_pending ON photara_private.media_upload_sessions(workspace_id,expires_at)
+CREATE INDEX media_upload_pending ON photara_private.media_upload_sessions(library_id,expires_at)
   WHERE state IN ('pending','verifying');
 ```
 
@@ -408,7 +388,7 @@ Media descriptors are immutable once accepted; incompatible metadata for an
 existing digest is an explicit conflict. Object keys and upload state are service
 private. Upload targets are short-lived capabilities generated after membership,
 quota and content-policy checks; finalization verifies bytes/size/hash before
-availability. Content equality across Workspaces never grants access or returns
+availability. Content equality across Libraries never grants access or returns
 existence information. Metadata may precede media availability; downloading bytes
 rechecks authorization. No object-store action runs inside a SQL transaction.
 
@@ -422,7 +402,7 @@ identities, not a separate duplicated Client table.
 ```sql
 CREATE TABLE photara.people (
   person_id uuid PRIMARY KEY,
-  workspace_id uuid NOT NULL REFERENCES photara.workspaces ON DELETE RESTRICT,
+  library_id uuid NOT NULL REFERENCES photara.libraries ON DELETE RESTRICT,
   record_schema integer NOT NULL CHECK(record_schema=1),
   revision bigint NOT NULL CHECK(revision>=1),
   created_at timestamptz NOT NULL,
@@ -436,21 +416,21 @@ CREATE TABLE photara.people (
   aliases jsonb NOT NULL DEFAULT '[]' CHECK(jsonb_typeof(aliases)='array'),
   thumbnail_sha256 bytea,
   extensions jsonb NOT NULL DEFAULT '{}' CHECK(jsonb_typeof(extensions)='object'),
-  UNIQUE(workspace_id,person_id),
+  UNIQUE(library_id,person_id),
   CHECK((state='active' AND retired_at IS NULL AND merged_into_id IS NULL)
      OR (state='tombstoned' AND retired_at IS NOT NULL AND merged_into_id IS NULL)
      OR (state='merged' AND retired_at IS NOT NULL AND merged_into_id IS NOT NULL)),
   CHECK(merged_into_id IS NULL OR merged_into_id<>person_id),
-  FOREIGN KEY(workspace_id,merged_into_id)
-    REFERENCES photara.people(workspace_id,person_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,thumbnail_sha256)
-    REFERENCES photara.library_media(workspace_id,sha256) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,merged_into_id)
+    REFERENCES photara.people(library_id,person_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,thumbnail_sha256)
+    REFERENCES photara.library_media(library_id,sha256) ON DELETE RESTRICT
 );
-CREATE INDEX people_browse ON photara.people(workspace_id,sort_key,person_id) WHERE state='active';
-CREATE INDEX people_redirects ON photara.people(workspace_id,merged_into_id) WHERE merged_into_id IS NOT NULL;
+CREATE INDEX people_browse ON photara.people(library_id,sort_key,person_id) WHERE state='active';
+CREATE INDEX people_redirects ON photara.people(library_id,merged_into_id) WHERE merged_into_id IS NOT NULL;
 CREATE TABLE photara.organizations (
   organization_id uuid PRIMARY KEY,
-  workspace_id uuid NOT NULL REFERENCES photara.workspaces ON DELETE RESTRICT,
+  library_id uuid NOT NULL REFERENCES photara.libraries ON DELETE RESTRICT,
   record_schema integer NOT NULL CHECK(record_schema=1),
   revision bigint NOT NULL CHECK(revision>=1),
   created_at timestamptz NOT NULL,
@@ -464,21 +444,21 @@ CREATE TABLE photara.organizations (
   aliases jsonb NOT NULL DEFAULT '[]' CHECK(jsonb_typeof(aliases)='array'),
   thumbnail_sha256 bytea,
   extensions jsonb NOT NULL DEFAULT '{}' CHECK(jsonb_typeof(extensions)='object'),
-  UNIQUE(workspace_id,organization_id),
+  UNIQUE(library_id,organization_id),
   CHECK((state='active' AND retired_at IS NULL AND merged_into_id IS NULL)
      OR (state='tombstoned' AND retired_at IS NOT NULL AND merged_into_id IS NULL)
      OR (state='merged' AND retired_at IS NOT NULL AND merged_into_id IS NOT NULL)),
   CHECK(merged_into_id IS NULL OR merged_into_id<>organization_id),
-  FOREIGN KEY(workspace_id,merged_into_id)
-    REFERENCES photara.organizations(workspace_id,organization_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,thumbnail_sha256)
-    REFERENCES photara.library_media(workspace_id,sha256) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,merged_into_id)
+    REFERENCES photara.organizations(library_id,organization_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,thumbnail_sha256)
+    REFERENCES photara.library_media(library_id,sha256) ON DELETE RESTRICT
 );
-CREATE INDEX organizations_browse ON photara.organizations(workspace_id,sort_key,organization_id) WHERE state='active';
-CREATE INDEX organizations_redirects ON photara.organizations(workspace_id,merged_into_id) WHERE merged_into_id IS NOT NULL;
+CREATE INDEX organizations_browse ON photara.organizations(library_id,sort_key,organization_id) WHERE state='active';
+CREATE INDEX organizations_redirects ON photara.organizations(library_id,merged_into_id) WHERE merged_into_id IS NOT NULL;
 CREATE TABLE photara.social_profiles (
   social_profile_id uuid PRIMARY KEY,
-  workspace_id uuid NOT NULL REFERENCES photara.workspaces ON DELETE RESTRICT,
+  library_id uuid NOT NULL REFERENCES photara.libraries ON DELETE RESTRICT,
   person_id uuid,
   organization_id uuid,
   provider_id text COLLATE "C" NOT NULL CHECK(length(provider_id)>0),
@@ -507,7 +487,7 @@ CREATE TABLE photara.social_profiles (
   state text NOT NULL CHECK(state IN ('active','tombstoned')),
   retired_at timestamptz,
   extensions jsonb NOT NULL DEFAULT '{}' CHECK(jsonb_typeof(extensions)='object'),
-  UNIQUE(workspace_id,social_profile_id),
+  UNIQUE(library_id,social_profile_id),
   CHECK((person_id IS NOT NULL)<>(organization_id IS NOT NULL)),
   CHECK((subject_namespace IS NULL AND provider_subject_id IS NULL)
      OR (subject_namespace IS NOT NULL AND provider_subject_id IS NOT NULL
@@ -519,45 +499,45 @@ CREATE TABLE photara.social_profiles (
   CHECK(avatar_policy<>'cache-only' OR avatar_expires_at IS NOT NULL),
   CHECK(avatar_media_sha256 IS NULL OR avatar_policy='durable-consented'),
   CHECK((state='active' AND retired_at IS NULL) OR (state='tombstoned' AND retired_at IS NOT NULL)),
-  FOREIGN KEY(workspace_id,person_id) REFERENCES photara.people(workspace_id,person_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,organization_id) REFERENCES photara.organizations(workspace_id,organization_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,avatar_media_sha256) REFERENCES photara.library_media(workspace_id,sha256) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,person_id) REFERENCES photara.people(library_id,person_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,organization_id) REFERENCES photara.organizations(library_id,organization_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,avatar_media_sha256) REFERENCES photara.library_media(library_id,sha256) ON DELETE RESTRICT
 );
-CREATE UNIQUE INDEX social_workspace_subject ON photara.social_profiles(workspace_id,provider_id,subject_namespace,provider_subject_id)
+CREATE UNIQUE INDEX social_library_subject ON photara.social_profiles(library_id,provider_id,subject_namespace,provider_subject_id)
   WHERE provider_subject_id IS NOT NULL;
-CREATE INDEX social_profiles_person ON photara.social_profiles(workspace_id,person_id,social_profile_id) WHERE state='active';
-CREATE INDEX social_profiles_organization ON photara.social_profiles(workspace_id,organization_id,social_profile_id) WHERE state='active';
+CREATE INDEX social_profiles_person ON photara.social_profiles(library_id,person_id,social_profile_id) WHERE state='active';
+CREATE INDEX social_profiles_organization ON photara.social_profiles(library_id,organization_id,social_profile_id) WHERE state='active';
 
 CREATE TABLE photara.person_capabilities (
-  workspace_id uuid NOT NULL,
+  library_id uuid NOT NULL,
   person_id uuid NOT NULL,
   capability_id text COLLATE "C" NOT NULL CHECK(length(capability_id)>0),
-  PRIMARY KEY(workspace_id,person_id,capability_id),
-  FOREIGN KEY(workspace_id,person_id) REFERENCES photara.people(workspace_id,person_id) ON DELETE RESTRICT
+  PRIMARY KEY(library_id,person_id,capability_id),
+  FOREIGN KEY(library_id,person_id) REFERENCES photara.people(library_id,person_id) ON DELETE RESTRICT
 );
-CREATE INDEX person_capability_filter ON photara.person_capabilities(workspace_id,capability_id,person_id);
+CREATE INDEX person_capability_filter ON photara.person_capabilities(library_id,capability_id,person_id);
 CREATE TABLE photara.person_labels (
-  workspace_id uuid NOT NULL,
+  library_id uuid NOT NULL,
   person_id uuid NOT NULL,
   label_key text COLLATE "C" NOT NULL CHECK(length(label_key)>0),
   display_label text NOT NULL CHECK(length(display_label)>0),
-  PRIMARY KEY(workspace_id,person_id,label_key),
-  FOREIGN KEY(workspace_id,person_id) REFERENCES photara.people(workspace_id,person_id) ON DELETE RESTRICT
+  PRIMARY KEY(library_id,person_id,label_key),
+  FOREIGN KEY(library_id,person_id) REFERENCES photara.people(library_id,person_id) ON DELETE RESTRICT
 );
-CREATE INDEX person_label_filter ON photara.person_labels(workspace_id,label_key,person_id);
+CREATE INDEX person_label_filter ON photara.person_labels(library_id,label_key,person_id);
 CREATE TABLE photara.organization_labels (
-  workspace_id uuid NOT NULL,
+  library_id uuid NOT NULL,
   organization_id uuid NOT NULL,
   label_key text COLLATE "C" NOT NULL CHECK(length(label_key)>0),
   display_label text NOT NULL CHECK(length(display_label)>0),
-  PRIMARY KEY(workspace_id,organization_id,label_key),
-  FOREIGN KEY(workspace_id,organization_id) REFERENCES photara.organizations(workspace_id,organization_id) ON DELETE RESTRICT
+  PRIMARY KEY(library_id,organization_id,label_key),
+  FOREIGN KEY(library_id,organization_id) REFERENCES photara.organizations(library_id,organization_id) ON DELETE RESTRICT
 );
-CREATE INDEX organization_label_filter ON photara.organization_labels(workspace_id,label_key,organization_id);
+CREATE INDEX organization_label_filter ON photara.organization_labels(library_id,label_key,organization_id);
 
 CREATE TABLE photara.person_organization_relationships (
   relationship_id uuid PRIMARY KEY,
-  workspace_id uuid NOT NULL,
+  library_id uuid NOT NULL,
   person_id uuid NOT NULL,
   organization_id uuid NOT NULL,
   relationship_type text COLLATE "C" NOT NULL CHECK(length(relationship_type)>0),
@@ -574,17 +554,17 @@ CREATE TABLE photara.person_organization_relationships (
   extensions jsonb NOT NULL DEFAULT '{}' CHECK(jsonb_typeof(extensions)='object'),
   CHECK(valid_from IS NULL OR valid_until IS NULL OR valid_until>valid_from),
   CHECK((state='tombstoned')=(retired_at IS NOT NULL)),
-  FOREIGN KEY(workspace_id,person_id) REFERENCES photara.people(workspace_id,person_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,organization_id) REFERENCES photara.organizations(workspace_id,organization_id) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,person_id) REFERENCES photara.people(library_id,person_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,organization_id) REFERENCES photara.organizations(library_id,organization_id) ON DELETE RESTRICT
 );
 CREATE INDEX relationships_pair_role ON photara.person_organization_relationships(
-  workspace_id,person_id,organization_id,relationship_type) WHERE state='active';
+  library_id,person_id,organization_id,relationship_type) WHERE state='active';
 CREATE INDEX relationships_organization ON photara.person_organization_relationships(
-  workspace_id,organization_id,person_id) WHERE state='active';
+  library_id,organization_id,person_id) WHERE state='active';
 
 CREATE TABLE photara.location_kinds (
   location_kind_id uuid PRIMARY KEY,
-  workspace_id uuid NOT NULL REFERENCES photara.workspaces ON DELETE RESTRICT,
+  library_id uuid NOT NULL REFERENCES photara.libraries ON DELETE RESTRICT,
   canonical_key text COLLATE "C" NOT NULL CHECK(length(canonical_key)>0),
   canonical_display text NOT NULL CHECK(length(btrim(canonical_display))>0),
   description text NOT NULL DEFAULT '',
@@ -597,43 +577,43 @@ CREATE TABLE photara.location_kinds (
   retired_at timestamptz,
   merged_into_id uuid,
   extensions jsonb NOT NULL DEFAULT '{}' CHECK(jsonb_typeof(extensions)='object'),
-  UNIQUE(workspace_id,location_kind_id),
+  UNIQUE(library_id,location_kind_id),
   claim_owner_id uuid GENERATED ALWAYS AS (CASE WHEN state<>'merged' THEN location_kind_id END) STORED,
   required_canonical_key text COLLATE "C" GENERATED ALWAYS AS (CASE WHEN state<>'merged' THEN canonical_key END) STORED,
   retirement_terms jsonb CHECK(retirement_terms IS NULL OR jsonb_typeof(retirement_terms)='array'),
-  UNIQUE(workspace_id,claim_owner_id),
+  UNIQUE(library_id,claim_owner_id),
   CHECK((state='active')=(retirement_terms IS NULL)),
   CHECK((state='active' AND retired_at IS NULL AND merged_into_id IS NULL)
      OR (state='tombstoned' AND retired_at IS NOT NULL AND merged_into_id IS NULL)
      OR (state='merged' AND retired_at IS NOT NULL AND merged_into_id IS NOT NULL)),
   CHECK(merged_into_id IS NULL OR merged_into_id<>location_kind_id),
-  FOREIGN KEY(workspace_id,merged_into_id)
-    REFERENCES photara.location_kinds(workspace_id,location_kind_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,thumbnail_sha256)
-    REFERENCES photara.library_media(workspace_id,sha256) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,merged_into_id)
+    REFERENCES photara.location_kinds(library_id,location_kind_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,thumbnail_sha256)
+    REFERENCES photara.library_media(library_id,sha256) ON DELETE RESTRICT
 );
 CREATE TABLE photara.location_kind_terms (
-  workspace_id uuid NOT NULL,
+  library_id uuid NOT NULL,
   term_key text COLLATE "C" NOT NULL CHECK(length(term_key)>0),
   location_kind_id uuid NOT NULL,
   policy_version integer NOT NULL REFERENCES photara.normalization_policies ON DELETE RESTRICT,
   spellings jsonb NOT NULL CHECK(jsonb_typeof(spellings)='array' AND jsonb_array_length(spellings)>0),
-  PRIMARY KEY(workspace_id,term_key),
-  UNIQUE(workspace_id,location_kind_id,term_key),
-  FOREIGN KEY(workspace_id,location_kind_id)
-    REFERENCES photara.location_kinds(workspace_id,claim_owner_id)
+  PRIMARY KEY(library_id,term_key),
+  UNIQUE(library_id,location_kind_id,term_key),
+  FOREIGN KEY(library_id,location_kind_id)
+    REFERENCES photara.location_kinds(library_id,claim_owner_id)
     DEFERRABLE INITIALLY DEFERRED
 );
 ALTER TABLE photara.location_kinds ADD CONSTRAINT kind_canonical_claim
-  FOREIGN KEY(workspace_id,location_kind_id,required_canonical_key)
-  REFERENCES photara.location_kind_terms(workspace_id,location_kind_id,term_key)
+  FOREIGN KEY(library_id,location_kind_id,required_canonical_key)
+  REFERENCES photara.location_kind_terms(library_id,location_kind_id,term_key)
   DEFERRABLE INITIALLY DEFERRED;
-CREATE INDEX kind_browse ON photara.location_kinds(workspace_id,canonical_key,location_kind_id) WHERE state='active';
-CREATE INDEX kind_redirects ON photara.location_kinds(workspace_id,merged_into_id) WHERE merged_into_id IS NOT NULL;
+CREATE INDEX kind_browse ON photara.location_kinds(library_id,canonical_key,location_kind_id) WHERE state='active';
+CREATE INDEX kind_redirects ON photara.location_kinds(library_id,merged_into_id) WHERE merged_into_id IS NOT NULL;
 
 CREATE TABLE photara.locations (
   location_id uuid PRIMARY KEY,
-  workspace_id uuid NOT NULL REFERENCES photara.workspaces ON DELETE RESTRICT,
+  library_id uuid NOT NULL REFERENCES photara.libraries ON DELETE RESTRICT,
   location_kind_id uuid NOT NULL,
   parent_location_id uuid,
   display_name text NOT NULL CHECK(length(btrim(display_name))>0),
@@ -652,36 +632,36 @@ CREATE TABLE photara.locations (
   retired_at timestamptz,
   merged_into_id uuid,
   extensions jsonb NOT NULL DEFAULT '{}' CHECK(jsonb_typeof(extensions)='object'),
-  UNIQUE(workspace_id,location_id),
+  UNIQUE(library_id,location_id),
   CHECK((latitude IS NULL)=(longitude IS NULL)),
   CHECK(parent_location_id IS NULL OR parent_location_id<>location_id),
   CHECK(merged_into_id IS NULL OR merged_into_id<>location_id),
   CHECK((state='active' AND retired_at IS NULL AND merged_into_id IS NULL)
      OR (state='tombstoned' AND retired_at IS NOT NULL AND merged_into_id IS NULL)
      OR (state='merged' AND retired_at IS NOT NULL AND merged_into_id IS NOT NULL)),
-  FOREIGN KEY(workspace_id,location_kind_id)
-    REFERENCES photara.location_kinds(workspace_id,location_kind_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,parent_location_id)
-    REFERENCES photara.locations(workspace_id,location_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,merged_into_id)
-    REFERENCES photara.locations(workspace_id,location_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,thumbnail_sha256)
-    REFERENCES photara.library_media(workspace_id,sha256) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,location_kind_id)
+    REFERENCES photara.location_kinds(library_id,location_kind_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,parent_location_id)
+    REFERENCES photara.locations(library_id,location_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,merged_into_id)
+    REFERENCES photara.locations(library_id,location_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,thumbnail_sha256)
+    REFERENCES photara.library_media(library_id,sha256) ON DELETE RESTRICT
 );
-CREATE INDEX location_browse ON photara.locations(workspace_id,sort_key,location_id) WHERE state='active';
-CREATE INDEX location_kind_filter ON photara.locations(workspace_id,location_kind_id,location_id) WHERE state='active';
-CREATE INDEX location_children ON photara.locations(workspace_id,parent_location_id,location_id) WHERE state='active';
-CREATE INDEX location_redirects ON photara.locations(workspace_id,merged_into_id) WHERE merged_into_id IS NOT NULL;
+CREATE INDEX location_browse ON photara.locations(library_id,sort_key,location_id) WHERE state='active';
+CREATE INDEX location_kind_filter ON photara.locations(library_id,location_kind_id,location_id) WHERE state='active';
+CREATE INDEX location_children ON photara.locations(library_id,parent_location_id,location_id) WHERE state='active';
+CREATE INDEX location_redirects ON photara.locations(library_id,merged_into_id) WHERE merged_into_id IS NOT NULL;
 ```
 
 ### Concept uniqueness and S5 claim-transfer reconciliation
 
-Canonical terms and aliases share PRIMARY KEY(workspace_id,term_key). Policy
-version is not part of this key. Rust recomputes keys using the Workspace's
+Canonical terms and aliases share PRIMARY KEY(library_id,term_key). Policy
+version is not part of this key. Rust recomputes keys using the Library's
 installed policy; Beach/beach/beaches claim the same key in either order. SQL
 uniqueness arbitrates concurrent claims; unknown custom terms require the S1
 explicit alias flow. New policy installation is not permission to re-key a
-Workspace silently: collision-reporting migration is a separate approved action.
+Library silently: collision-reporting migration is a separate approved action.
 
 S5 recommends explicit atomic claim transfer for v1, including canonical
 promotion and reconciliation after competing offline Kind creation. Both physical
@@ -692,7 +672,7 @@ their immutable historical canonical descriptor no longer requires a live claim.
 Active/tombstoned kinds still require their canonical term under their own ID.
 
 A transfer guard permits a changed owner only when the old owner is now merged
-directly into the new active target. The Workspace/key PK never changes and no
+directly into the new active target. The Library/key PK never changes and no
 claim is freed. retirement_terms plus the frozen source canonical descriptor
 retain provenance; target canonical promotion uses a now-owned claim. Tombstoned
 terms stay reserved. No arbitrary reassignment, unmerge or resurrection is added.
@@ -710,7 +690,7 @@ package safety, grant file access or overwrite Project metadata.
 ```sql
 CREATE TABLE photara.storage_roots (
   storage_root_id uuid PRIMARY KEY,
-  workspace_id uuid NOT NULL REFERENCES photara.workspaces ON DELETE RESTRICT,
+  library_id uuid NOT NULL REFERENCES photara.libraries ON DELETE RESTRICT,
   display_name text NOT NULL CHECK(length(btrim(display_name))>0),
   label_key text COLLATE "C" NOT NULL CHECK(length(label_key)>0),
   purpose text NOT NULL CHECK(length(purpose)>0),
@@ -719,22 +699,22 @@ CREATE TABLE photara.storage_roots (
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,
   retired_at timestamptz,
-  UNIQUE(workspace_id,storage_root_id),
-  UNIQUE(workspace_id,label_key),
+  UNIQUE(library_id,storage_root_id),
+  UNIQUE(library_id,label_key),
   CHECK((state='tombstoned')=(retired_at IS NOT NULL))
 );
 CREATE TABLE photara.project_catalog (
-  workspace_id uuid NOT NULL REFERENCES photara.workspaces ON DELETE RESTRICT,
+  library_id uuid NOT NULL REFERENCES photara.libraries ON DELETE RESTRICT,
   project_id uuid NOT NULL,
   visibility text NOT NULL CHECK(visibility IN ('visible','hidden')),
   revision bigint NOT NULL CHECK(revision>=1),
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,
-  PRIMARY KEY(workspace_id,project_id)
+  PRIMARY KEY(library_id,project_id)
 );
 CREATE TABLE photara.project_locators (
   locator_id uuid PRIMARY KEY,
-  workspace_id uuid NOT NULL,
+  library_id uuid NOT NULL,
   project_id uuid NOT NULL,
   storage_root_id uuid,
   relative_path text COLLATE "C",
@@ -743,7 +723,7 @@ CREATE TABLE photara.project_locators (
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,
   retired_at timestamptz,
-  UNIQUE(workspace_id,project_id,locator_id),
+  UNIQUE(library_id,project_id,locator_id),
   CHECK((storage_root_id IS NULL)=(relative_path IS NULL)),
   CHECK(relative_path IS NULL OR
     (length(relative_path)>0 AND left(relative_path,1)<>'/'
@@ -752,16 +732,16 @@ CREATE TABLE photara.project_locators (
      AND strpos('/'||relative_path||'/','/../')=0
      AND strpos('/'||relative_path||'/','/./')=0)),
   CHECK((state='retired')=(retired_at IS NOT NULL)),
-  FOREIGN KEY(workspace_id,project_id) REFERENCES photara.project_catalog(workspace_id,project_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,storage_root_id) REFERENCES photara.storage_roots(workspace_id,storage_root_id) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,project_id) REFERENCES photara.project_catalog(library_id,project_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,storage_root_id) REFERENCES photara.storage_roots(library_id,storage_root_id) ON DELETE RESTRICT
 );
-CREATE UNIQUE INDEX locator_rooted_path ON photara.project_locators(workspace_id,storage_root_id,relative_path)
+CREATE UNIQUE INDEX locator_rooted_path ON photara.project_locators(library_id,storage_root_id,relative_path)
   WHERE state='active' AND storage_root_id IS NOT NULL;
-CREATE INDEX locator_project ON photara.project_locators(workspace_id,project_id);
+CREATE INDEX locator_project ON photara.project_locators(library_id,project_id);
 
 CREATE TABLE photara.package_observations (
   observation_id uuid PRIMARY KEY,
-  workspace_id uuid NOT NULL,
+  library_id uuid NOT NULL,
   project_id uuid NOT NULL,
   locator_id uuid NOT NULL,
   commit_id uuid NOT NULL,
@@ -781,15 +761,15 @@ CREATE TABLE photara.package_observations (
   received_at timestamptz NOT NULL,
   projection_canonical bytea NOT NULL CHECK(octet_length(projection_canonical) BETWEEN 2 AND 1048576),
   projection_sha256 bytea NOT NULL CHECK(octet_length(projection_sha256)=32),
-  UNIQUE(workspace_id,observation_id),
-  UNIQUE(workspace_id,locator_id,commit_id,commit_sha256,index_schema),
-  FOREIGN KEY(workspace_id,project_id,locator_id)
-    REFERENCES photara.project_locators(workspace_id,project_id,locator_id) ON DELETE RESTRICT,
+  UNIQUE(library_id,observation_id),
+  UNIQUE(library_id,locator_id,commit_id,commit_sha256,index_schema),
+  FOREIGN KEY(library_id,project_id,locator_id)
+    REFERENCES photara.project_locators(library_id,project_id,locator_id) ON DELETE RESTRICT,
   FOREIGN KEY(reported_by_account_id,reported_by_device_id)
     REFERENCES photara_identity.devices(account_id,device_id) ON DELETE RESTRICT
 );
-CREATE INDEX observation_project ON photara.package_observations(workspace_id,project_id,received_at,observation_id);
-CREATE INDEX observation_commit ON photara.package_observations(workspace_id,project_id,commit_id,commit_sha256);
+CREATE INDEX observation_project ON photara.package_observations(library_id,project_id,received_at,observation_id);
+CREATE INDEX observation_commit ON photara.package_observations(library_id,project_id,commit_id,commit_sha256);
 ```
 
 Projection arrays have closed typed element schemas shared with S3: graph IDs,
@@ -811,24 +791,24 @@ Unicode/case rules and byte bounds before accepting a locator.
 
 ## 0005 — mutation receipts and ordered changes
 
-One Workspace write lock is deliberately the first-release concurrency boundary.
+One Library write lock is deliberately the first-release concurrency boundary.
 It serializes accepted commands, authorization-changing membership operations and
-feed allocation for that Workspace, not for the whole service. This avoids the
+feed allocation for that Library, not for the whole service. This avoids the
 classic mistake of using an independently allocated sequence as a commit-order
 cursor: PostgreSQL sequences do not roll back and concurrent commit order can
 differ from allocation order. See [transaction semantics](https://www.postgresql.org/docs/current/transaction-iso.html).
 
 ```sql
-CREATE TABLE photara_private.workspace_streams (
-  workspace_id uuid PRIMARY KEY REFERENCES photara.workspaces ON DELETE RESTRICT,
+CREATE TABLE photara_private.library_streams (
+  library_id uuid PRIMARY KEY REFERENCES photara.libraries ON DELETE RESTRICT,
   epoch uuid NOT NULL,
   last_sequence bigint NOT NULL DEFAULT 0 CHECK(last_sequence>=0),
   minimum_retained_sequence bigint NOT NULL DEFAULT 0 CHECK(minimum_retained_sequence>=0),
-  UNIQUE(workspace_id,epoch),
+  UNIQUE(library_id,epoch),
   CHECK(minimum_retained_sequence<=last_sequence)
 );
 CREATE TABLE photara_private.mutation_receipts (
-  workspace_id uuid NOT NULL REFERENCES photara.workspaces ON DELETE RESTRICT,
+  library_id uuid NOT NULL REFERENCES photara.libraries ON DELETE RESTRICT,
   mutation_id uuid NOT NULL,
   actor_account_id uuid NOT NULL,
   device_id uuid NOT NULL,
@@ -844,7 +824,7 @@ CREATE TABLE photara_private.mutation_receipts (
   accepted_sequence bigint,
   received_at timestamptz NOT NULL,
   completed_at timestamptz NOT NULL,
-  PRIMARY KEY(workspace_id,mutation_id),
+  PRIMARY KEY(library_id,mutation_id),
   CHECK((outcome='accepted')=(accepted_epoch IS NOT NULL)),
   CHECK((outcome='accepted')=(accepted_sequence IS NOT NULL)),
   CHECK(accepted_sequence IS NULL OR accepted_sequence>0),
@@ -852,8 +832,8 @@ CREATE TABLE photara_private.mutation_receipts (
   FOREIGN KEY(actor_account_id,device_id)
     REFERENCES photara_identity.devices(account_id,device_id) ON DELETE RESTRICT
 );
-CREATE TABLE photara.workspace_change_batches (
-  workspace_id uuid NOT NULL,
+CREATE TABLE photara.library_change_batches (
+  library_id uuid NOT NULL,
   epoch uuid NOT NULL,
   sequence bigint NOT NULL CHECK(sequence>0),
   mutation_id uuid NOT NULL,
@@ -861,26 +841,26 @@ CREATE TABLE photara.workspace_change_batches (
   change_count integer NOT NULL CHECK(change_count BETWEEN 1 AND 1000),
   batch_canonical bytea NOT NULL CHECK(octet_length(batch_canonical) BETWEEN 2 AND 4194304),
   batch_sha256 bytea NOT NULL CHECK(octet_length(batch_sha256)=32),
-  PRIMARY KEY(workspace_id,epoch,sequence),
-  UNIQUE(workspace_id,mutation_id),
-  FOREIGN KEY(workspace_id,epoch)
-    REFERENCES photara_private.workspace_streams(workspace_id,epoch) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,mutation_id)
-    REFERENCES photara_private.mutation_receipts(workspace_id,mutation_id)
+  PRIMARY KEY(library_id,epoch,sequence),
+  UNIQUE(library_id,mutation_id),
+  FOREIGN KEY(library_id,epoch)
+    REFERENCES photara_private.library_streams(library_id,epoch) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,mutation_id)
+    REFERENCES photara_private.mutation_receipts(library_id,mutation_id)
     DEFERRABLE INITIALLY DEFERRED
 );
 ALTER TABLE photara_private.mutation_receipts ADD CONSTRAINT receipt_accepted_batch
-  FOREIGN KEY(workspace_id,accepted_epoch,accepted_sequence)
-  REFERENCES photara.workspace_change_batches(workspace_id,epoch,sequence)
+  FOREIGN KEY(library_id,accepted_epoch,accepted_sequence)
+  REFERENCES photara.library_change_batches(library_id,epoch,sequence)
   DEFERRABLE INITIALLY DEFERRED;
 
-CREATE TABLE photara.workspace_changes (
-  workspace_id uuid NOT NULL,
+CREATE TABLE photara.library_changes (
+  library_id uuid NOT NULL,
   epoch uuid NOT NULL,
   sequence bigint NOT NULL,
   ordinal integer NOT NULL CHECK(ordinal>=0),
   entity_kind text NOT NULL CHECK(entity_kind IN
-    ('workspace','person','organization','social-profile','person-organization-relationship',
+    ('library','person','organization','social-profile','person-organization-relationship',
      'location-kind','location','storage-root','project-catalog','project-locator')),
   entity_id uuid NOT NULL,
   entity_revision bigint NOT NULL CHECK(entity_revision>=1),
@@ -889,42 +869,42 @@ CREATE TABLE photara.workspace_changes (
   post_state jsonb NOT NULL CHECK(jsonb_typeof(post_state)='object'),
   post_state_canonical bytea NOT NULL CHECK(octet_length(post_state_canonical) BETWEEN 2 AND 1048576),
   post_state_sha256 bytea NOT NULL CHECK(octet_length(post_state_sha256)=32),
-  PRIMARY KEY(workspace_id,epoch,sequence,ordinal),
-  UNIQUE(workspace_id,entity_kind,entity_id,entity_revision),
-  FOREIGN KEY(workspace_id,epoch,sequence)
-    REFERENCES photara.workspace_change_batches(workspace_id,epoch,sequence) ON DELETE RESTRICT
+  PRIMARY KEY(library_id,epoch,sequence,ordinal),
+  UNIQUE(library_id,entity_kind,entity_id,entity_revision),
+  FOREIGN KEY(library_id,epoch,sequence)
+    REFERENCES photara.library_change_batches(library_id,epoch,sequence) ON DELETE RESTRICT
 );
-CREATE INDEX changes_entity ON photara.workspace_changes(workspace_id,entity_kind,entity_id,entity_revision);
+CREATE INDEX changes_entity ON photara.library_changes(library_id,entity_kind,entity_id,entity_revision);
 
 CREATE TABLE photara_private.sync_clients (
-  workspace_id uuid NOT NULL,
+  library_id uuid NOT NULL,
   account_id uuid NOT NULL,
   device_id uuid NOT NULL,
   stream_epoch uuid NOT NULL,
   acknowledged_sequence bigint NOT NULL DEFAULT 0 CHECK(acknowledged_sequence>=0),
   last_seen_at timestamptz NOT NULL,
-  PRIMARY KEY(workspace_id,account_id,device_id),
-  FOREIGN KEY(workspace_id,stream_epoch)
-    REFERENCES photara_private.workspace_streams(workspace_id,epoch) ON DELETE RESTRICT,
+  PRIMARY KEY(library_id,account_id,device_id),
+  FOREIGN KEY(library_id,stream_epoch)
+    REFERENCES photara_private.library_streams(library_id,epoch) ON DELETE RESTRICT,
   FOREIGN KEY(account_id,device_id)
     REFERENCES photara_identity.devices(account_id,device_id) ON DELETE RESTRICT
 );
 CREATE TABLE photara_private.security_audit (
   audit_id uuid PRIMARY KEY,
   actor_account_id uuid REFERENCES photara_identity.accounts ON DELETE RESTRICT,
-  workspace_id uuid REFERENCES photara.workspaces ON DELETE RESTRICT,
+  library_id uuid REFERENCES photara.libraries ON DELETE RESTRICT,
   action_code text NOT NULL,
   target_kind text NOT NULL,
   target_id uuid,
   occurred_at timestamptz NOT NULL,
   details jsonb NOT NULL DEFAULT '{}' CHECK(jsonb_typeof(details)='object')
 );
-CREATE INDEX security_audit_workspace ON photara_private.security_audit(workspace_id,occurred_at,audit_id);
+CREATE INDEX security_audit_library ON photara_private.security_audit(library_id,occurred_at,audit_id);
 ```
 
 A command transaction first validates current authentication/authorization, locks
-the Workspace row, rechecks state/access, and looks up its receipt. Same
-Workspace/MutationId, actor and exact request digest/bytes returns the existing
+the Library row, rechecks state/access, and looks up its receipt. Same
+Library/MutationId, actor and exact request digest/bytes returns the existing
 result. Different bytes or actor returns an idempotency conflict without exposing
 the earlier payload. Unknown transport outcomes retry the same sealed request.
 Authorization is rechecked even when a receipt exists; deduplication never
@@ -939,20 +919,20 @@ commands store a final receipt without changing roots or feed sequence.
 Transient DB/transport failures are not durable rejections. A corrected command
 gets a new MutationId; retries do not silently adopt new preconditions.
 
-There is no committed processing receipt. The Workspace lock prevents two
+There is no committed processing receipt. The Library lock prevents two
 workers accepting the same MutationId concurrently; receipt uniqueness remains
 a second defense. A commit acknowledgement lost in transport is resolved by
 receipt lookup. Receipt retention is part of idempotency correctness: initial
 release retains receipts and tombstones; any later bounded retention requires
 explicit key-expiry/full-resync semantics before deletion.
 
-Feed order is (WorkspaceId,epoch,sequence), where each sequence is one complete
+Feed order is (LibraryId,epoch,sequence), where each sequence is one complete
 transaction batch. committed_at is a server observation timestamp, not an
 ordering guarantee. An opaque authenticated cursor includes protocol version,
-WorkspaceId, stream epoch and last fully applied sequence. The service validates
+LibraryId, stream epoch and last fully applied sequence. The service validates
 cursor integrity and current membership; possession of a cursor is not access.
 Page by whole batches with bounded count/bytes, never split a multi-root command.
-Because commands hold the same Workspace lock until commit, a visible high-water
+Because commands hold the same Library lock until commit, a visible high-water
 sequence cannot hide an earlier uncommitted batch.
 
 Initial snapshots use a repeatable-read transaction: capture stream high-water
@@ -976,21 +956,21 @@ not insert sensitive control records into the shared Library change feed.
 
 The requested [D16/D17 addition](SOCIAL_PROFILES_AND_LIBRARY_EXPORT.md) adds the
 typed `photara.social_profiles` root to Library DDL, change-kind vocabulary,
-revision/Workspace/owner guards, scoped API grants and forced RLS. Profiles are
+revision/Library/owner guards, scoped API grants and forced RLS. Profiles are
 not Account/Auth0 identities. Each has one Person-or-Organization owner, immutable
 provider/owner coordinates and optional adopt-once exact provider subject+namespace;
-the same bound scoped subject is unique across its Workspace, including tombstones,
+the same bound scoped subject is unique across its Library, including tombstones,
 and cannot attach to two owners. Parent retirement explicitly retires profiles
 before merge, preserving history. Bound subjects cannot be cloned onto the target;
 reattachment requires a separately approved transfer policy. Whole-command CAS,
-Workspace lock and one-batch semantics still apply.
+Library lock and one-batch semantics still apply.
 
 Provider credentials/connections and cached avatar URLs are excluded from these
 tables/feed. Only rights-permitted durable media descriptors may be referenced;
 service validators enforce safe provenance, URL/SSRF policy, consent, expiry and
 adapter permissions. A `provider-authorized` observation is not identity proof or
 current authorization. Manual profile mutations require no provider API. No grants
-allow a profile to mint Account identities or bypass Workspace membership.
+allow a profile to mint Account identities or bypass Library membership.
 
 Portable local export is not a database dump or service export endpoint. No new
 service backup tables are warranted now. A restored local Library must not replay
@@ -1005,22 +985,22 @@ These are proposed database functions/triggers, not application implementation.
 Trusted typed repositories still validate normalization, JSON schemas, canonical
 digests, expected revisions, permissions and full command/change consistency.
 All write paths—including controllers and child-set edits—take the same
-Workspace lock. Multi-Workspace administrative work acquires locks in sorted
-UUID order before mutation. Ordinary commands touch one Workspace only.
+Library lock. Multi-Library administrative work acquires locks in sorted
+UUID order before mutation. Ordinary commands touch one Library only.
 
 The guard functions use fully qualified relations and a fixed search_path.
 Security-definer owner checking is narrowly read-only and not a public function;
-the application still sets the validated Workspace transaction context. Follow
+the application still sets the validated Library transaction context. Follow
 PostgreSQL's [security-definer precautions](https://www.postgresql.org/docs/current/sql-createfunction.html).
 
 ```sql
-CREATE FUNCTION photara_private.lock_workspace() RETURNS trigger
+CREATE FUNCTION photara_private.lock_library() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE scope_id uuid;
 BEGIN
-  IF TG_OP='DELETE' THEN scope_id:=OLD.workspace_id; ELSE scope_id:=NEW.workspace_id; END IF;
-  PERFORM 1 FROM photara.workspaces WHERE workspace_id=scope_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'workspace_unavailable' USING ERRCODE='23514'; END IF;
+  IF TG_OP='DELETE' THEN scope_id:=OLD.library_id; ELSE scope_id:=NEW.library_id; END IF;
+  PERFORM 1 FROM photara.libraries WHERE library_id=scope_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'library_unavailable' USING ERRCODE='23514'; END IF;
   IF TG_OP='DELETE' THEN RETURN OLD; END IF;
   RETURN NEW;
 END;
@@ -1035,7 +1015,7 @@ BEGIN
     IF NEW.revision<>1 THEN RAISE EXCEPTION 'revision_must_start_at_one' USING ERRCODE='23514'; END IF;
   ELSE
     IF NEW.revision<>OLD.revision+1 OR NEW.created_at<>OLD.created_at
-      OR (to_jsonb(NEW)->'workspace_id') IS DISTINCT FROM (to_jsonb(OLD)->'workspace_id')
+      OR (to_jsonb(NEW)->'library_id') IS DISTINCT FROM (to_jsonb(OLD)->'library_id')
     THEN RAISE EXCEPTION 'revision_or_identity_conflict' USING ERRCODE='23514'; END IF;
     FOREACH field_name IN ARRAY TG_ARGV LOOP
       IF (to_jsonb(NEW)->field_name) IS DISTINCT FROM (to_jsonb(OLD)->field_name)
@@ -1064,18 +1044,18 @@ BEGIN
   IF NEW.merged_into_id IS NULL THEN RETURN NEW; END IF;
   IF TG_OP='UPDATE' AND NEW.merged_into_id IS NOT DISTINCT FROM OLD.merged_into_id THEN RETURN NEW; END IF;
   own_id:=(to_jsonb(NEW)->>TG_ARGV[0])::uuid;
-  EXECUTE format('SELECT state FROM %I.%I WHERE workspace_id=$1 AND %I=$2',
+  EXECUTE format('SELECT state FROM %I.%I WHERE library_id=$1 AND %I=$2',
     TG_TABLE_SCHEMA,TG_TABLE_NAME,TG_ARGV[0])
-    INTO target_state USING NEW.workspace_id,NEW.merged_into_id;
+    INTO target_state USING NEW.library_id,NEW.merged_into_id;
   IF target_state IS DISTINCT FROM 'active'
     THEN RAISE EXCEPTION 'merge_target_not_active' USING ERRCODE='23514'; END IF;
   EXECUTE format(
     'WITH RECURSIVE chain(id) AS
       (SELECT $1::uuid UNION SELECT t.merged_into_id FROM %I.%I t
-       JOIN chain c ON t.%I=c.id WHERE t.workspace_id=$2 AND t.merged_into_id IS NOT NULL)
+       JOIN chain c ON t.%I=c.id WHERE t.library_id=$2 AND t.merged_into_id IS NOT NULL)
      SELECT EXISTS(SELECT 1 FROM chain WHERE id=$3)',
     TG_TABLE_SCHEMA,TG_TABLE_NAME,TG_ARGV[0])
-    INTO cyclic USING NEW.merged_into_id,NEW.workspace_id,own_id;
+    INTO cyclic USING NEW.merged_into_id,NEW.library_id,own_id;
   IF cyclic THEN RAISE EXCEPTION 'merge_cycle' USING ERRCODE='23514'; END IF;
   RETURN NEW;
 END;
@@ -1086,17 +1066,17 @@ LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
 BEGIN
   IF TG_OP='DELETE' THEN RAISE EXCEPTION 'term_reserved' USING ERRCODE='23514'; END IF;
   IF TG_OP='UPDATE' AND
-    (NEW.workspace_id IS DISTINCT FROM OLD.workspace_id OR NEW.term_key<>OLD.term_key
+    (NEW.library_id IS DISTINCT FROM OLD.library_id OR NEW.term_key<>OLD.term_key
      OR NEW.policy_version<>OLD.policy_version)
   THEN RAISE EXCEPTION 'claim_identity_is_immutable' USING ERRCODE='23514'; END IF;
   IF TG_OP='UPDATE' AND NEW.location_kind_id<>OLD.location_kind_id AND NOT EXISTS(
     SELECT 1 FROM photara.location_kinds source JOIN photara.location_kinds target
-      ON target.workspace_id=source.workspace_id AND target.location_kind_id=NEW.location_kind_id
-    WHERE source.workspace_id=OLD.workspace_id AND source.location_kind_id=OLD.location_kind_id
+      ON target.library_id=source.library_id AND target.location_kind_id=NEW.location_kind_id
+    WHERE source.library_id=OLD.library_id AND source.location_kind_id=OLD.location_kind_id
       AND source.state='merged' AND source.merged_into_id=NEW.location_kind_id AND target.state='active')
   THEN RAISE EXCEPTION 'term_transfer_requires_merge' USING ERRCODE='23514'; END IF;
-  IF NOT EXISTS(SELECT 1 FROM photara.workspaces
-    WHERE workspace_id=NEW.workspace_id AND term_policy_version=NEW.policy_version)
+  IF NOT EXISTS(SELECT 1 FROM photara.libraries
+    WHERE library_id=NEW.library_id AND term_policy_version=NEW.policy_version)
   THEN RAISE EXCEPTION 'normalization_policy_mismatch' USING ERRCODE='23514'; END IF;
   RETURN NEW;
 END;
@@ -1107,10 +1087,10 @@ LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
 BEGIN
   IF NEW.state='active' THEN
     IF NOT EXISTS(SELECT 1 FROM photara.location_kinds
-      WHERE workspace_id=NEW.workspace_id AND location_kind_id=NEW.location_kind_id AND state='active')
+      WHERE library_id=NEW.library_id AND location_kind_id=NEW.location_kind_id AND state='active')
     THEN RAISE EXCEPTION 'location_kind_not_active' USING ERRCODE='23514'; END IF;
     IF NEW.parent_location_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM photara.locations
-      WHERE workspace_id=NEW.workspace_id AND location_id=NEW.parent_location_id AND state='active')
+      WHERE library_id=NEW.library_id AND location_id=NEW.parent_location_id AND state='active')
     THEN RAISE EXCEPTION 'location_parent_not_active' USING ERRCODE='23514'; END IF;
   END IF;
   IF NEW.parent_location_id IS NOT NULL AND EXISTS(
@@ -1118,11 +1098,11 @@ BEGIN
       SELECT NEW.parent_location_id
       UNION
       SELECT l.parent_location_id FROM photara.locations l JOIN ancestors a ON l.location_id=a.id
-      WHERE l.workspace_id=NEW.workspace_id AND l.parent_location_id IS NOT NULL
+      WHERE l.library_id=NEW.library_id AND l.parent_location_id IS NOT NULL
     ) SELECT 1 FROM ancestors WHERE id=NEW.location_id)
   THEN RAISE EXCEPTION 'location_parent_cycle' USING ERRCODE='23514'; END IF;
   IF TG_OP='UPDATE' AND NEW.state<>'active' AND EXISTS(
-    SELECT 1 FROM photara.locations WHERE workspace_id=OLD.workspace_id
+    SELECT 1 FROM photara.locations WHERE library_id=OLD.library_id
       AND parent_location_id=OLD.location_id AND state='active')
   THEN RAISE EXCEPTION 'location_has_live_children' USING ERRCODE='23514'; END IF;
   RETURN NEW;
@@ -1143,11 +1123,11 @@ CREATE FUNCTION photara_private.guard_relationship() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
 BEGIN
   IF NEW.state<>'active' THEN RETURN NEW; END IF;
-  IF NOT EXISTS(SELECT 1 FROM photara.people WHERE workspace_id=NEW.workspace_id AND person_id=NEW.person_id AND state='active')
-    OR NOT EXISTS(SELECT 1 FROM photara.organizations WHERE workspace_id=NEW.workspace_id AND organization_id=NEW.organization_id AND state='active')
+  IF NOT EXISTS(SELECT 1 FROM photara.people WHERE library_id=NEW.library_id AND person_id=NEW.person_id AND state='active')
+    OR NOT EXISTS(SELECT 1 FROM photara.organizations WHERE library_id=NEW.library_id AND organization_id=NEW.organization_id AND state='active')
   THEN RAISE EXCEPTION 'relationship_party_not_active' USING ERRCODE='23514'; END IF;
   IF EXISTS(SELECT 1 FROM photara.person_organization_relationships r
-    WHERE r.workspace_id=NEW.workspace_id AND r.person_id=NEW.person_id
+    WHERE r.library_id=NEW.library_id AND r.person_id=NEW.person_id
       AND r.organization_id=NEW.organization_id AND r.relationship_type=NEW.relationship_type
       AND r.relationship_id<>NEW.relationship_id AND r.state='active'
       AND tstzrange(r.valid_from,r.valid_until,'[)') && tstzrange(NEW.valid_from,NEW.valid_until,'[)'))
@@ -1165,9 +1145,9 @@ BEGIN
   THEN RAISE EXCEPTION 'social_subject_is_immutable' USING ERRCODE='23514'; END IF;
   IF NEW.state='active' AND
     ((NEW.person_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM photara.people
-      WHERE workspace_id=NEW.workspace_id AND person_id=NEW.person_id AND state='active'))
+      WHERE library_id=NEW.library_id AND person_id=NEW.person_id AND state='active'))
      OR (NEW.organization_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM photara.organizations
-      WHERE workspace_id=NEW.workspace_id AND organization_id=NEW.organization_id AND state='active')))
+      WHERE library_id=NEW.library_id AND organization_id=NEW.organization_id AND state='active')))
   THEN RAISE EXCEPTION 'social_owner_not_active' USING ERRCODE='23514'; END IF;
   RETURN NEW;
 END;
@@ -1178,20 +1158,20 @@ LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
 BEGIN
   IF NEW.state='active' THEN RETURN NEW; END IF;
   IF TG_TABLE_NAME='people' THEN
-    IF EXISTS(SELECT 1 FROM photara.social_profiles WHERE workspace_id=OLD.workspace_id AND person_id=OLD.person_id AND state='active')
+    IF EXISTS(SELECT 1 FROM photara.social_profiles WHERE library_id=OLD.library_id AND person_id=OLD.person_id AND state='active')
     THEN RAISE EXCEPTION 'party_has_live_social_profiles' USING ERRCODE='23514'; END IF;
-    IF EXISTS(SELECT 1 FROM photara.person_organization_relationships WHERE workspace_id=OLD.workspace_id AND person_id=OLD.person_id AND state='active')
+    IF EXISTS(SELECT 1 FROM photara.person_organization_relationships WHERE library_id=OLD.library_id AND person_id=OLD.person_id AND state='active')
     THEN RAISE EXCEPTION 'party_has_live_relationships' USING ERRCODE='23514'; END IF;
   ELSIF TG_TABLE_NAME='organizations' THEN
-    IF EXISTS(SELECT 1 FROM photara.social_profiles WHERE workspace_id=OLD.workspace_id AND organization_id=OLD.organization_id AND state='active')
+    IF EXISTS(SELECT 1 FROM photara.social_profiles WHERE library_id=OLD.library_id AND organization_id=OLD.organization_id AND state='active')
     THEN RAISE EXCEPTION 'party_has_live_social_profiles' USING ERRCODE='23514'; END IF;
-    IF EXISTS(SELECT 1 FROM photara.person_organization_relationships WHERE workspace_id=OLD.workspace_id AND organization_id=OLD.organization_id AND state='active')
+    IF EXISTS(SELECT 1 FROM photara.person_organization_relationships WHERE library_id=OLD.library_id AND organization_id=OLD.organization_id AND state='active')
     THEN RAISE EXCEPTION 'party_has_live_relationships' USING ERRCODE='23514'; END IF;
   ELSIF TG_TABLE_NAME='location_kinds' THEN
-    IF EXISTS(SELECT 1 FROM photara.locations WHERE workspace_id=OLD.workspace_id AND location_kind_id=OLD.location_kind_id AND state='active')
+    IF EXISTS(SELECT 1 FROM photara.locations WHERE library_id=OLD.library_id AND location_kind_id=OLD.location_kind_id AND state='active')
     THEN RAISE EXCEPTION 'kind_has_live_locations' USING ERRCODE='23514'; END IF;
   ELSIF TG_TABLE_NAME='storage_roots' THEN
-    IF EXISTS(SELECT 1 FROM photara.project_locators WHERE workspace_id=OLD.workspace_id AND storage_root_id=OLD.storage_root_id AND state='active')
+    IF EXISTS(SELECT 1 FROM photara.project_locators WHERE library_id=OLD.library_id AND storage_root_id=OLD.storage_root_id AND state='active')
     THEN RAISE EXCEPTION 'root_has_live_locators' USING ERRCODE='23514'; END IF;
   END IF;
   RETURN NEW;
@@ -1202,7 +1182,7 @@ CREATE FUNCTION photara_private.guard_locator() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
 BEGIN
   IF NEW.state='active' AND NEW.storage_root_id IS NOT NULL AND NOT EXISTS(
-    SELECT 1 FROM photara.storage_roots WHERE workspace_id=NEW.workspace_id
+    SELECT 1 FROM photara.storage_roots WHERE library_id=NEW.library_id
       AND storage_root_id=NEW.storage_root_id AND state='active')
   THEN RAISE EXCEPTION 'locator_root_not_active' USING ERRCODE='23514'; END IF;
   RETURN NEW;
@@ -1213,12 +1193,12 @@ CREATE FUNCTION photara_private.guard_owner() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE scope_id uuid;
 BEGIN
-  IF TG_OP='DELETE' THEN scope_id:=OLD.workspace_id; ELSE scope_id:=NEW.workspace_id; END IF;
-  IF EXISTS(SELECT 1 FROM photara.workspaces WHERE workspace_id=scope_id AND state='active')
+  IF TG_OP='DELETE' THEN scope_id:=OLD.library_id; ELSE scope_id:=NEW.library_id; END IF;
+  IF EXISTS(SELECT 1 FROM photara.libraries WHERE library_id=scope_id AND state='active')
     AND NOT EXISTS(SELECT 1 FROM photara_identity.memberships m
       JOIN photara_identity.accounts a ON a.account_id=m.account_id
-      WHERE m.workspace_id=scope_id AND m.role='owner' AND m.state='active' AND a.state='active')
-  THEN RAISE EXCEPTION 'workspace_requires_active_owner' USING ERRCODE='23514'; END IF;
+      WHERE m.library_id=scope_id AND m.role='owner' AND m.state='active' AND a.state='active')
+  THEN RAISE EXCEPTION 'library_requires_active_owner' USING ERRCODE='23514'; END IF;
   RETURN NULL;
 END;
 $$;
@@ -1240,7 +1220,7 @@ BEGIN
     IF NEW.last_sequence<>0 OR NEW.minimum_retained_sequence<>0
     THEN RAISE EXCEPTION 'new_stream_must_be_empty' USING ERRCODE='23514'; END IF;
   ELSE
-    IF NEW.workspace_id<>OLD.workspace_id OR NEW.epoch<>OLD.epoch
+    IF NEW.library_id<>OLD.library_id OR NEW.epoch<>OLD.epoch
       OR NEW.last_sequence<>OLD.last_sequence+1
       OR NEW.minimum_retained_sequence<>OLD.minimum_retained_sequence
     THEN RAISE EXCEPTION 'stream_advance_invalid' USING ERRCODE='23514'; END IF;
@@ -1254,15 +1234,15 @@ LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
 DECLARE actual_count bigint; first_ordinal integer; last_ordinal integer;
 BEGIN
   SELECT count(*),min(ordinal),max(ordinal) INTO actual_count,first_ordinal,last_ordinal
-    FROM photara.workspace_changes
-    WHERE workspace_id=NEW.workspace_id AND epoch=NEW.epoch AND sequence=NEW.sequence;
+    FROM photara.library_changes
+    WHERE library_id=NEW.library_id AND epoch=NEW.epoch AND sequence=NEW.sequence;
   IF actual_count<>NEW.change_count OR first_ordinal<>0 OR last_ordinal<>NEW.change_count-1
   THEN RAISE EXCEPTION 'incomplete_change_batch' USING ERRCODE='23514'; END IF;
   IF NOT EXISTS(SELECT 1 FROM photara_private.mutation_receipts
-    WHERE workspace_id=NEW.workspace_id AND mutation_id=NEW.mutation_id
+    WHERE library_id=NEW.library_id AND mutation_id=NEW.mutation_id
       AND outcome='accepted' AND accepted_epoch=NEW.epoch AND accepted_sequence=NEW.sequence)
-    OR NOT EXISTS(SELECT 1 FROM photara_private.workspace_streams
-    WHERE workspace_id=NEW.workspace_id AND epoch=NEW.epoch AND last_sequence=NEW.sequence)
+    OR NOT EXISTS(SELECT 1 FROM photara_private.library_streams
+    WHERE library_id=NEW.library_id AND epoch=NEW.epoch AND last_sequence=NEW.sequence)
   THEN RAISE EXCEPTION 'batch_receipt_stream_mismatch' USING ERRCODE='23514'; END IF;
   RETURN NULL;
 END;
@@ -1271,8 +1251,8 @@ $$;
 CREATE FUNCTION photara_private.guard_stream_commit() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
 BEGIN
-  IF NEW.last_sequence>0 AND NOT EXISTS(SELECT 1 FROM photara.workspace_change_batches
-    WHERE workspace_id=NEW.workspace_id AND epoch=NEW.epoch AND sequence=NEW.last_sequence)
+  IF NEW.last_sequence>0 AND NOT EXISTS(SELECT 1 FROM photara.library_change_batches
+    WHERE library_id=NEW.library_id AND epoch=NEW.epoch AND sequence=NEW.last_sequence)
   THEN RAISE EXCEPTION 'stream_advance_requires_batch' USING ERRCODE='23514'; END IF;
   RETURN NULL;
 END;
@@ -1291,10 +1271,10 @@ CREATE FUNCTION photara_private.guard_sync_ack() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
 BEGIN
   IF TG_OP='UPDATE' AND
-    (NEW.workspace_id<>OLD.workspace_id OR NEW.account_id<>OLD.account_id OR NEW.device_id<>OLD.device_id
+    (NEW.library_id<>OLD.library_id OR NEW.account_id<>OLD.account_id OR NEW.device_id<>OLD.device_id
       OR NEW.stream_epoch<>OLD.stream_epoch OR NEW.acknowledged_sequence<OLD.acknowledged_sequence)
   THEN RAISE EXCEPTION 'sync_ack_regression' USING ERRCODE='23514'; END IF;
-  IF NOT EXISTS(SELECT 1 FROM photara_private.workspace_streams WHERE workspace_id=NEW.workspace_id
+  IF NOT EXISTS(SELECT 1 FROM photara_private.library_streams WHERE library_id=NEW.library_id
     AND epoch=NEW.stream_epoch AND last_sequence>=NEW.acknowledged_sequence)
   THEN RAISE EXCEPTION 'sync_ack_ahead_of_stream' USING ERRCODE='23514'; END IF;
   RETURN NEW;
@@ -1302,30 +1282,30 @@ END;
 $$;
 CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara_private.media_upload_sessions
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_revision('upload_id','sha256','staging_object_key');
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_private.media_upload_sessions
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_private.media_upload_sessions
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
 CREATE TRIGGER c_upload_terminal BEFORE UPDATE ON photara_private.media_upload_sessions
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_media_upload();
-CREATE TRIGGER claim_receipt_immutable BEFORE UPDATE OR DELETE ON photara_private.workspace_claim_receipts
+CREATE TRIGGER claim_receipt_immutable BEFORE UPDATE OR DELETE ON photara_private.library_claim_receipts
   FOR EACH ROW EXECUTE FUNCTION photara_private.append_only();
-CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara.workspaces
-  FOR EACH ROW EXECUTE FUNCTION photara_private.guard_revision('workspace_id');
+CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara.libraries
+  FOR EACH ROW EXECUTE FUNCTION photara_private.guard_revision('library_id');
 CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara_identity.accounts
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_revision('account_id');
 CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara_identity.account_identities
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_revision('identity_id','account_id','issuer','subject');
 CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara_identity.memberships
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_revision('membership_id','account_id');
-CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara_private.workspace_subscriptions
+CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara_private.library_subscriptions
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_revision('subscription_id','provider','provider_subscription_id');
-CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara_private.workspace_entitlement_grants
+CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara_private.library_entitlement_grants
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_revision('grant_id');
 CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara_private.account_developer_grants
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_revision('grant_id','account_id');
 CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara.social_profiles
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_revision('social_profile_id','person_id','organization_id','provider_id');
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.social_profiles
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.social_profiles
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
 CREATE TRIGGER c_social_profile BEFORE INSERT OR UPDATE ON photara.social_profiles
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_social_profile();
 CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara.people
@@ -1344,52 +1324,52 @@ CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara.project_c
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_revision('project_id');
 CREATE TRIGGER b_revision BEFORE INSERT OR UPDATE OR DELETE ON photara.project_locators
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_revision('locator_id');
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_identity.memberships
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_private.workspace_subscriptions
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_private.workspace_entitlement_grants
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.people
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.organizations
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.person_capabilities
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.person_labels
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.organization_labels
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.person_organization_relationships
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.location_kinds
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.location_kind_terms
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.locations
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.storage_roots
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.project_catalog
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.project_locators
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.package_observations
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.library_media
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.workspace_change_batches
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.workspace_changes
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_private.media_objects
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_private.workspace_streams
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_private.mutation_receipts
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
-CREATE TRIGGER a_workspace_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_private.sync_clients
-  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_workspace();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_identity.memberships
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_private.library_subscriptions
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_private.library_entitlement_grants
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.people
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.organizations
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.person_capabilities
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.person_labels
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.organization_labels
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.person_organization_relationships
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.location_kinds
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.location_kind_terms
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.locations
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.storage_roots
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.project_catalog
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.project_locators
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.package_observations
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.library_media
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.library_change_batches
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara.library_changes
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_private.media_objects
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_private.library_streams
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_private.mutation_receipts
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
+CREATE TRIGGER a_library_lock BEFORE INSERT OR UPDATE OR DELETE ON photara_private.sync_clients
+  FOR EACH ROW EXECUTE FUNCTION photara_private.lock_library();
 CREATE TRIGGER c_merge BEFORE INSERT OR UPDATE ON photara.people
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_merge('person_id');
 CREATE TRIGGER c_merge BEFORE INSERT OR UPDATE ON photara.organizations
@@ -1416,17 +1396,17 @@ CREATE TRIGGER c_relationship BEFORE INSERT OR UPDATE ON photara.person_organiza
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_relationship();
 CREATE TRIGGER c_locator BEFORE INSERT OR UPDATE ON photara.project_locators
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_locator();
-CREATE CONSTRAINT TRIGGER z_workspace_owner AFTER INSERT OR UPDATE ON photara.workspaces
+CREATE CONSTRAINT TRIGGER z_library_owner AFTER INSERT OR UPDATE ON photara.libraries
   DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION photara_private.guard_owner();
 CREATE CONSTRAINT TRIGGER z_membership_owner AFTER INSERT OR UPDATE OR DELETE ON photara_identity.memberships
   DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION photara_private.guard_owner();
 CREATE TRIGGER c_account_disable BEFORE UPDATE ON photara_identity.accounts
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_account_disable();
-CREATE TRIGGER c_stream BEFORE INSERT OR UPDATE ON photara_private.workspace_streams
+CREATE TRIGGER c_stream BEFORE INSERT OR UPDATE ON photara_private.library_streams
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_stream();
-CREATE CONSTRAINT TRIGGER z_stream_commit AFTER INSERT OR UPDATE ON photara_private.workspace_streams
+CREATE CONSTRAINT TRIGGER z_stream_commit AFTER INSERT OR UPDATE ON photara_private.library_streams
   DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION photara_private.guard_stream_commit();
-CREATE CONSTRAINT TRIGGER z_batch_complete AFTER INSERT ON photara.workspace_change_batches
+CREATE CONSTRAINT TRIGGER z_batch_complete AFTER INSERT ON photara.library_change_batches
   DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION photara_private.guard_batch();
 CREATE TRIGGER c_sync_ack BEFORE INSERT OR UPDATE ON photara_private.sync_clients
   FOR EACH ROW EXECUTE FUNCTION photara_private.guard_sync_ack();
@@ -1436,9 +1416,9 @@ CREATE TRIGGER immutable_record BEFORE UPDATE OR DELETE ON photara.library_media
   FOR EACH ROW EXECUTE FUNCTION photara_private.append_only();
 CREATE TRIGGER immutable_record BEFORE UPDATE OR DELETE ON photara.package_observations
   FOR EACH ROW EXECUTE FUNCTION photara_private.append_only();
-CREATE TRIGGER immutable_record BEFORE UPDATE OR DELETE ON photara.workspace_change_batches
+CREATE TRIGGER immutable_record BEFORE UPDATE OR DELETE ON photara.library_change_batches
   FOR EACH ROW EXECUTE FUNCTION photara_private.append_only();
-CREATE TRIGGER immutable_record BEFORE UPDATE OR DELETE ON photara.workspace_changes
+CREATE TRIGGER immutable_record BEFORE UPDATE OR DELETE ON photara.library_changes
   FOR EACH ROW EXECUTE FUNCTION photara_private.append_only();
 CREATE TRIGGER immutable_record BEFORE UPDATE OR DELETE ON photara_private.billing_events
   FOR EACH ROW EXECUTE FUNCTION photara_private.append_only();
@@ -1448,7 +1428,7 @@ CREATE TRIGGER immutable_record BEFORE UPDATE OR DELETE ON photara_private.secur
   FOR EACH ROW EXECUTE FUNCTION photara_private.append_only();
 ```
 
-Trigger names put the Workspace lock before ordinary row guards on the same
+Trigger names put the Library lock before ordinary row guards on the same
 operation; the service also acquires it before authorization/CAS reads. Root
 revision guards do not automatically manufacture change events; consistency
 between root updates and typed mutation payloads is a repository obligation
@@ -1457,7 +1437,7 @@ revision. The batch guard proves structural completeness, not semantic truth
 of arbitrary JSON.
 
 Half-open relationship ranges allow adjacent periods and different concurrent
-roles. Overlap queries run under the Workspace lock, so no btree_gist extension
+roles. Overlap queries run under the Library lock, so no btree_gist extension
 is required for the initial serialized-write design. Removing that lock later
 requires equivalent constraint/isolation proof, not just keeping the same query.
 
@@ -1467,32 +1447,32 @@ record uses the same typed validation; initial merged rows resolve to a live
 target. Revision overflow, unsupported policy, malformed identities or an unknown
 write schema are errors, not implicit coercions.
 
-Owner transfer/revocation locks the Workspace first. Account disable obtains the
+Owner transfer/revocation locks the Library first. Account disable obtains the
 Account lock first; membership changes involving that Account must acquire that
-Account lock before the sorted Workspace lock, recheck active state and then
+Account lock before the sorted Library lock, recheck active state and then
 apply. The service rejects creating active memberships for disabled Accounts.
 This common ordering closes account-disable/membership-creation races; triggers
 alone do not replace the controller lock protocol. Grant/subscription writes use
-the same Workspace lock as authorization-sensitive domain writes.
+the same Library lock as authorization-sensitive domain writes.
 
 ## 0007 — service authorization and RLS
 
 Authentication is not SQL. The service first validates the JWT and resolves its
 identity through the limited auth-read connection. In the domain transaction it
-sets validated AccountId, IdentityId and WorkspaceId with transaction-local
-set_config(...,true), then calls authorize_workspace. Never use session-global
+sets validated AccountId, IdentityId and LibraryId with transaction-local
+set_config(...,true), then calls authorize_library. Never use session-global
 SET with a pooled connection; never accept these settings from request JSON.
 
-authorize_workspace rechecks and locks Account/Identity plus Workspace before
-reading membership. Read requests use shared Workspace locks; writes use
+authorize_library rechecks and locks Account/Identity plus Library before
+reading membership. Read requests use shared Library locks; writes use
 exclusive ones. Revocation/control operations take the same Account-first,
-Workspace-second lock order and cannot race an in-flight authorized transaction.
+Library-second lock order and cannot race an in-flight authorized transaction.
 Controllers handling several Accounts lock those UUIDs in sorted order first.
 The helper's fixed action vocabulary prevents a caller from substituting its own
 allowed-role array. Typed endpoint authorization still enforces owner-only
 billing/deletion and prevents admins from granting owner roles.
 
-RLS below enforces one validated Workspace context on the scoped domain/feed
+RLS below enforces one validated Library context on the scoped domain/feed
 and private projection tables listed below. Global identity, claim-receipt and security-audit
 tables are separately controller/auth-read restricted. It does not claim that
 a GUC authenticates a caller:
@@ -1509,17 +1489,17 @@ Constraint errors must map to scoped domain errors without leaking inaccessible
 identities; reference checks can bypass row policies internally.
 
 ```sql
-CREATE FUNCTION photara_private.request_workspace() RETURNS uuid
+CREATE FUNCTION photara_private.request_library() RETURNS uuid
 LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $$
-  SELECT nullif(current_setting('photara.workspace_id',true),'')::uuid;
+  SELECT nullif(current_setting('photara.library_id',true),'')::uuid;
 $$;
 
-CREATE FUNCTION photara_private.authorize_workspace(p_workspace uuid,p_action text) RETURNS void
+CREATE FUNCTION photara_private.authorize_library(p_library uuid,p_action text) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE actor_id uuid; identity_id uuid; roles text[]; workspace_state text;
+DECLARE actor_id uuid; identity_id uuid; roles text[]; library_state text;
 BEGIN
-  IF p_workspace IS DISTINCT FROM photara_private.request_workspace()
-  THEN RAISE EXCEPTION 'workspace_scope_mismatch' USING ERRCODE='42501'; END IF;
+  IF p_library IS DISTINCT FROM photara_private.request_library()
+  THEN RAISE EXCEPTION 'library_scope_mismatch' USING ERRCODE='42501'; END IF;
   actor_id:=nullif(current_setting('photara.account_id',true),'')::uuid;
   identity_id:=nullif(current_setting('photara.identity_id',true),'')::uuid;
   CASE p_action
@@ -1536,25 +1516,25 @@ BEGIN
     WHERE i.identity_id=identity_id AND i.account_id=actor_id AND i.state='active' FOR SHARE;
   IF NOT FOUND THEN RAISE EXCEPTION 'identity_unavailable' USING ERRCODE='42501'; END IF;
   IF p_action='read' THEN
-    SELECT state INTO workspace_state FROM photara.workspaces WHERE workspace_id=p_workspace FOR SHARE;
+    SELECT state INTO library_state FROM photara.libraries WHERE library_id=p_library FOR SHARE;
   ELSE
-    SELECT state INTO workspace_state FROM photara.workspaces WHERE workspace_id=p_workspace FOR UPDATE;
+    SELECT state INTO library_state FROM photara.libraries WHERE library_id=p_library FOR UPDATE;
   END IF;
-  IF NOT FOUND OR (p_action<>'read' AND workspace_state<>'active')
+  IF NOT FOUND OR (p_action<>'read' AND library_state<>'active')
     OR NOT EXISTS(SELECT 1 FROM photara_identity.memberships m
-      WHERE m.workspace_id=p_workspace AND m.account_id=actor_id
+      WHERE m.library_id=p_library AND m.account_id=actor_id
         AND m.state='active' AND m.role=ANY(roles))
-  THEN RAISE EXCEPTION 'workspace_access_denied' USING ERRCODE='42501'; END IF;
+  THEN RAISE EXCEPTION 'library_access_denied' USING ERRCODE='42501'; END IF;
 END;
 $$;
 
-CREATE FUNCTION photara_private.workspace_capability(p_key text)
+CREATE FUNCTION photara_private.library_capability(p_key text)
 RETURNS TABLE(enabled boolean,quota_limit bigint)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
   SELECT coalesce(bool_or(g.enabled),false),
          max(g.quota_limit) FILTER(WHERE g.enabled)
-  FROM photara_private.workspace_entitlement_grants g
-  WHERE g.workspace_id=photara_private.request_workspace()
+  FROM photara_private.library_entitlement_grants g
+  WHERE g.library_id=photara_private.request_library()
     AND g.capability_key=p_key AND g.state='active'
     AND g.valid_from<=transaction_timestamp()
     AND (g.valid_until IS NULL OR g.valid_until>transaction_timestamp());
@@ -1580,7 +1560,7 @@ GRANT SELECT ON photara_identity.accounts,photara_identity.account_identities,
   photara_identity.memberships,photara_identity.devices TO photara_auth_read;
 GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA photara_identity TO photara_control;
 
-GRANT SELECT ON photara.schema_metadata,photara.normalization_policies,photara.workspaces TO photara_api;
+GRANT SELECT ON photara.schema_metadata,photara.normalization_policies,photara.libraries TO photara_api;
 GRANT SELECT,INSERT,UPDATE ON photara.people,photara.organizations,photara.social_profiles,
   photara.person_organization_relationships,photara.location_kinds,photara.locations,
   photara.storage_roots,photara.project_catalog,photara.project_locators TO photara_api;
@@ -1588,167 +1568,167 @@ GRANT SELECT,INSERT,UPDATE,DELETE ON photara.person_capabilities,photara.person_
   photara.organization_labels TO photara_api;
 GRANT SELECT,INSERT,UPDATE ON photara.location_kind_terms TO photara_api;
 GRANT SELECT,INSERT ON photara.library_media,photara.package_observations,
-  photara.workspace_change_batches,photara.workspace_changes TO photara_api;
-GRANT SELECT,UPDATE ON photara_private.workspace_streams TO photara_api;
+  photara.library_change_batches,photara.library_changes TO photara_api;
+GRANT SELECT,UPDATE ON photara_private.library_streams TO photara_api;
 GRANT SELECT,INSERT ON photara_private.mutation_receipts TO photara_api;
 GRANT SELECT,INSERT,UPDATE ON photara_private.sync_clients TO photara_api;
 
 GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA photara,photara_private TO photara_control;
 GRANT DELETE ON photara.person_capabilities,photara.person_labels,photara.organization_labels TO photara_control;
-GRANT EXECUTE ON FUNCTION photara_private.request_workspace() TO photara_api,photara_control;
-GRANT EXECUTE ON FUNCTION photara_private.authorize_workspace(uuid,text) TO photara_api,photara_control;
-GRANT EXECUTE ON FUNCTION photara_private.workspace_capability(text) TO photara_api,photara_control;
+GRANT EXECUTE ON FUNCTION photara_private.request_library() TO photara_api,photara_control;
+GRANT EXECUTE ON FUNCTION photara_private.authorize_library(uuid,text) TO photara_api,photara_control;
+GRANT EXECUTE ON FUNCTION photara_private.library_capability(text) TO photara_api,photara_control;
 GRANT EXECUTE ON FUNCTION photara_private.developer_capability(text) TO photara_api,photara_control;
-ALTER TABLE photara.workspaces ENABLE ROW LEVEL SECURITY;
-ALTER TABLE photara.workspaces FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.workspaces
+ALTER TABLE photara.libraries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE photara.libraries FORCE ROW LEVEL SECURITY;
+CREATE POLICY library_scope ON photara.libraries
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
-ALTER TABLE photara_private.workspace_subscriptions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE photara_private.workspace_subscriptions FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara_private.workspace_subscriptions
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
+ALTER TABLE photara_private.library_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE photara_private.library_subscriptions FORCE ROW LEVEL SECURITY;
+CREATE POLICY library_scope ON photara_private.library_subscriptions
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
-ALTER TABLE photara_private.workspace_entitlement_grants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE photara_private.workspace_entitlement_grants FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara_private.workspace_entitlement_grants
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
+ALTER TABLE photara_private.library_entitlement_grants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE photara_private.library_entitlement_grants FORCE ROW LEVEL SECURITY;
+CREATE POLICY library_scope ON photara_private.library_entitlement_grants
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.people ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.people FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.people
+CREATE POLICY library_scope ON photara.people
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.organizations FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.organizations
+CREATE POLICY library_scope ON photara.organizations
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.social_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.social_profiles FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.social_profiles
+CREATE POLICY library_scope ON photara.social_profiles
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.person_capabilities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.person_capabilities FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.person_capabilities
+CREATE POLICY library_scope ON photara.person_capabilities
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.person_labels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.person_labels FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.person_labels
+CREATE POLICY library_scope ON photara.person_labels
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.organization_labels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.organization_labels FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.organization_labels
+CREATE POLICY library_scope ON photara.organization_labels
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.person_organization_relationships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.person_organization_relationships FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.person_organization_relationships
+CREATE POLICY library_scope ON photara.person_organization_relationships
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.location_kinds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.location_kinds FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.location_kinds
+CREATE POLICY library_scope ON photara.location_kinds
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.location_kind_terms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.location_kind_terms FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.location_kind_terms
+CREATE POLICY library_scope ON photara.location_kind_terms
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.locations FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.locations
+CREATE POLICY library_scope ON photara.locations
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.storage_roots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.storage_roots FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.storage_roots
+CREATE POLICY library_scope ON photara.storage_roots
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.project_catalog ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.project_catalog FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.project_catalog
+CREATE POLICY library_scope ON photara.project_catalog
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.project_locators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.project_locators FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.project_locators
+CREATE POLICY library_scope ON photara.project_locators
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.package_observations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.package_observations FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.package_observations
+CREATE POLICY library_scope ON photara.package_observations
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara.library_media ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara.library_media FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.library_media
+CREATE POLICY library_scope ON photara.library_media
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
-ALTER TABLE photara.workspace_change_batches ENABLE ROW LEVEL SECURITY;
-ALTER TABLE photara.workspace_change_batches FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.workspace_change_batches
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
+ALTER TABLE photara.library_change_batches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE photara.library_change_batches FORCE ROW LEVEL SECURITY;
+CREATE POLICY library_scope ON photara.library_change_batches
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
-ALTER TABLE photara.workspace_changes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE photara.workspace_changes FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara.workspace_changes
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
+ALTER TABLE photara.library_changes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE photara.library_changes FORCE ROW LEVEL SECURITY;
+CREATE POLICY library_scope ON photara.library_changes
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara_private.media_objects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara_private.media_objects FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara_private.media_objects
+CREATE POLICY library_scope ON photara_private.media_objects
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
-ALTER TABLE photara_private.workspace_streams ENABLE ROW LEVEL SECURITY;
-ALTER TABLE photara_private.workspace_streams FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara_private.workspace_streams
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
+ALTER TABLE photara_private.library_streams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE photara_private.library_streams FORCE ROW LEVEL SECURITY;
+CREATE POLICY library_scope ON photara_private.library_streams
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara_private.mutation_receipts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara_private.mutation_receipts FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara_private.mutation_receipts
+CREATE POLICY library_scope ON photara_private.mutation_receipts
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara_private.sync_clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara_private.sync_clients FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara_private.sync_clients
+CREATE POLICY library_scope ON photara_private.sync_clients
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ALTER TABLE photara_private.media_upload_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photara_private.media_upload_sessions FORCE ROW LEVEL SECURITY;
-CREATE POLICY workspace_scope ON photara_private.media_upload_sessions
+CREATE POLICY library_scope ON photara_private.media_upload_sessions
   TO photara_api,photara_control,photara_owner
-  USING (workspace_id=photara_private.request_workspace())
-  WITH CHECK (workspace_id=photara_private.request_workspace());
+  USING (library_id=photara_private.request_library())
+  WITH CHECK (library_id=photara_private.request_library());
 ```
 
 Policy expressions intentionally restrict scope, not individual domain actions.
@@ -1789,8 +1769,8 @@ node execution. Do not log bound identity claims, request bodies, connection
 URLs or secret-bearing provider errors; emit opaque IDs/codes and counts.
 
 The normal command uses READ COMMITTED plus Account/Identity shared locks and
-Workspace exclusive lock, then rechecks permissions and all root revisions.
-This deliberately serializes writes within a Workspace. Root CAS SQL remains
+Library exclusive lock, then rechecks permissions and all root revisions.
+This deliberately serializes writes within a Library. Root CAS SQL remains
 mandatory; locks do not turn a stale offline edit into a permitted overwrite.
 Serialization/deadlock/busy failures retry the whole unchanged command with
 bounded backoff; receipt lookup covers ambiguous commit outcomes. Consistent
@@ -1798,9 +1778,9 @@ bulk snapshot reads use REPEATABLE READ and a matching high-water token; a
 serialization failure retries the complete snapshot/command, never a statement
 in isolation.
 
-Control flows acquire Account locks first, then sorted Workspace locks. An
+Control flows acquire Account locks first, then sorted Library locks. An
 entitlement-changing account developer grant additionally serializes on its
-Account; a Workspace grant/subscription takes its Workspace lock. Authorize and
+Account; a Library grant/subscription takes its Library lock. Authorize and
 evaluate gated capabilities in the same transaction after those locks, through
 the narrowly scoped functions above. Quota consumption needs an atomic usage/
 reservation model before introducing metered features; these entitlement limits
@@ -1808,11 +1788,11 @@ alone do not implement billing meters or reserve storage.
 
 | Workflow | Atomic SQL boundary | Separate boundary |
 | --- | --- | --- |
-| Workspace claim | New Workspace, first owner, stream and audit | Auth0 verification; explicit local association and initial upload |
+| Library claim | New Library, first owner, stream and audit | Auth0 verification; explicit local association and initial upload |
 | Library command | Authorized CAS roots/children, receipt, batch, exact changes, stream increment | Network response/local inbox |
 | Merge | All affected roots/relationships, redirect/term preservation, one batch | Existing package snapshots unchanged |
 | Catalog report | Root revision plus immutable reported observation and batch | Client package verification and local locator selection |
-| Membership change | Authorized Account/Workspace locks, membership revision, last-owner check, audit | Invitation delivery and device cache refresh |
+| Membership change | Authorized Account/Library locks, membership revision, last-owner check, audit | Invitation delivery and device cache refresh |
 | Billing event | Deduped verified event, subscription/grants, audit | Provider signature validation/reconciliation |
 | Media finalize | Verified metadata/object availability update | Upload and content inspection |
 | Client ack | Current membership/epoch and monotonic acknowledgement | Local cursor already durably applied |
@@ -1837,59 +1817,59 @@ WHERE i.issuer=$1 AND i.subject=$2 AND i.state='active' AND a.state='active';
 -- On the request transaction, server-validated UUID strings only.
 SELECT set_config('photara.account_id',$1,true),
        set_config('photara.identity_id',$2,true),
-       set_config('photara.workspace_id',$3,true);
-SELECT photara_private.authorize_workspace($1::uuid,'write');
+       set_config('photara.library_id',$3,true);
+SELECT photara_private.authorize_library($1::uuid,'write');
 
--- Idempotency lookup occurs under the acquired Workspace lock.
+-- Idempotency lookup occurs under the acquired Library lock.
 SELECT actor_account_id,request_canonical,request_sha256,outcome,response_canonical
-FROM photara_private.mutation_receipts WHERE workspace_id=$1 AND mutation_id=$2;
+FROM photara_private.mutation_receipts WHERE library_id=$1 AND mutation_id=$2;
 
 -- Compare expected SERVER revision; zero updated rows means a domain conflict.
 UPDATE photara.people
 SET display_name=$3,sort_key=$4,revision=revision+1,updated_at=$5
-WHERE workspace_id=$1 AND person_id=$2 AND revision=$6 AND state='active'
+WHERE library_id=$1 AND person_id=$2 AND revision=$6 AND state='active'
 RETURNING person_id,revision;
 
 -- Same transaction allocates one commit-ordered batch sequence.
-UPDATE photara_private.workspace_streams
+UPDATE photara_private.library_streams
 SET last_sequence=last_sequence+1
-WHERE workspace_id=$1 AND epoch=$2
+WHERE library_id=$1 AND epoch=$2
 RETURNING last_sequence;
 
 -- Keyset browse with a deterministic sort key, not a display-name identity.
 SELECT person_id,display_name,revision,thumbnail_sha256
 FROM photara.people
-WHERE workspace_id=$1 AND state='active' AND (sort_key,person_id)>($2,$3)
+WHERE library_id=$1 AND state='active' AND (sort_key,person_id)>($2,$3)
 ORDER BY sort_key,person_id LIMIT $4;
 
 -- One complete batch per returned row; endpoint also applies bounded byte totals.
 SELECT epoch,sequence,change_count,batch_canonical,batch_sha256
-FROM photara.workspace_change_batches
-WHERE workspace_id=$1 AND epoch=$2 AND sequence>$3
+FROM photara.library_change_batches
+WHERE library_id=$1 AND epoch=$2 AND sequence>$3
 ORDER BY sequence LIMIT $4;
 
 -- Current effective Kind for a previously normalized canonical OR alias term.
 WITH RECURSIVE resolved(id) AS (
   SELECT location_kind_id FROM photara.location_kind_terms
-  WHERE workspace_id=$1 AND term_key=$2
+  WHERE library_id=$1 AND term_key=$2
   UNION
   SELECT k.merged_into_id FROM photara.location_kinds k JOIN resolved r ON k.location_kind_id=r.id
-  WHERE k.workspace_id=$1 AND k.merged_into_id IS NOT NULL
+  WHERE k.library_id=$1 AND k.merged_into_id IS NOT NULL
 )
 SELECT k.location_kind_id,k.canonical_display,k.state
 FROM photara.location_kinds k JOIN resolved r ON k.location_kind_id=r.id
-WHERE k.workspace_id=$1 AND k.merged_into_id IS NULL;
+WHERE k.library_id=$1 AND k.merged_into_id IS NULL;
 
 -- Return candidates, not an invented authoritative newest package.
 SELECT c.project_id,c.visibility,o.locator_id,o.commit_id,o.commit_sha256,
        o.title,o.observed_at,o.received_at,o.projection_sha256
 FROM photara.project_catalog c
 LEFT JOIN photara.package_observations o
-  ON o.workspace_id=c.workspace_id AND o.project_id=c.project_id
-WHERE c.workspace_id=$1 AND c.project_id=$2;
+  ON o.library_id=c.library_id AND o.project_id=c.project_id
+WHERE c.library_id=$1 AND c.project_id=$2;
 
 -- Only after appropriate authorization in the same locked transaction.
-SELECT enabled,quota_limit FROM photara_private.workspace_capability($1);
+SELECT enabled,quota_limit FROM photara_private.library_capability($1);
 SELECT photara_private.developer_capability($1);
 ```
 
@@ -1904,33 +1884,33 @@ Do not expose partial raw SQL successes to clients.
 erDiagram
   ACCOUNT ||--|{ ACCOUNT_IDENTITY : authenticates
   ACCOUNT ||--o{ MEMBERSHIP : joins
-  WORKSPACE ||--|{ MEMBERSHIP : authorizes
-  WORKSPACE ||--o{ PERSON : owns
-  WORKSPACE ||--o{ ORGANIZATION : owns
+  LIBRARY ||--|{ MEMBERSHIP : authorizes
+  LIBRARY ||--o{ PERSON : owns
+  LIBRARY ||--o{ ORGANIZATION : owns
   PERSON ||--o{ PERSON_ORGANIZATION_RELATIONSHIP : has
   ORGANIZATION ||--o{ PERSON_ORGANIZATION_RELATIONSHIP : has
-  WORKSPACE ||--o{ SOCIAL_PROFILE : owns
+  LIBRARY ||--o{ SOCIAL_PROFILE : owns
   PERSON o|--o{ SOCIAL_PROFILE : owner_xor
   ORGANIZATION o|--o{ SOCIAL_PROFILE : owner_xor
-  WORKSPACE ||--o{ LOCATION_KIND : owns
+  LIBRARY ||--o{ LOCATION_KIND : owns
   LOCATION_KIND ||--|{ TERM_CLAIM : reserves
   LOCATION_KIND ||--o{ LOCATION : classifies
   LOCATION o|--o{ LOCATION : parent
-  WORKSPACE ||--o{ SUBSCRIPTION : billed
-  WORKSPACE ||--o{ ENTITLEMENT_GRANT : permits
+  LIBRARY ||--o{ SUBSCRIPTION : billed
+  LIBRARY ||--o{ ENTITLEMENT_GRANT : permits
   ACCOUNT ||--o{ DEVELOPER_GRANT : permits
-  WORKSPACE ||--o{ PROJECT_CATALOG : discovers
+  LIBRARY ||--o{ PROJECT_CATALOG : discovers
   PROJECT_CATALOG ||--o{ PROJECT_LOCATOR : locates
   PROJECT_LOCATOR ||--o{ PACKAGE_OBSERVATION : reports
-  WORKSPACE ||--|| WORKSPACE_STREAM : orders
-  WORKSPACE ||--o{ MUTATION_RECEIPT : deduplicates
+  LIBRARY ||--|| LIBRARY_STREAM : orders
+  LIBRARY ||--o{ MUTATION_RECEIPT : deduplicates
   MUTATION_RECEIPT ||--o| CHANGE_BATCH : accepts
-  CHANGE_BATCH ||--|{ WORKSPACE_CHANGE : contains
+  CHANGE_BATCH ||--|{ LIBRARY_CHANGE : contains
 ```
 
 Only important relationships are shown. Account has at least one linked identity
 at normal provisioning; revocation/deletion workflows may leave only historical
-identity links. An active cloud Workspace has at least one active owner; the
+identity links. An active cloud Library has at least one active owner; the
 diagram's membership count is not a substitute for that qualified constraint.
 
 ## Compatibility, migrations and operations
@@ -1945,7 +1925,7 @@ Library adapter/store transition. Neither makes PostgreSQL Project authority.
 Future migrations require approved direct endpoint, role preflight, backups,
 immutable checksums, forward-compatible deployment order, lock budgets and
 rollback/read-compatibility plan. Expand/contract changes must support the
-documented API reader/writer window. Data backfills use explicit Workspace
+documented API reader/writer window. Data backfills use explicit Library
 context and counts, never a default empty RLS result as success. A failed
 migration stops rollout; no automatic destructive down script, live reset or
 silent ledger edit. Runtime migration tests use only explicitly authorized
@@ -1975,7 +1955,7 @@ S6 must specify and later run, under separate authorization:
    Account/Person separation, local claim collision vs join and first-owner
    atomicity. Account disable and concurrent owner removal must preserve access
    invariants or fail atomically.
-3. Every role/action matrix, cross-Workspace FK, missing/malformed/stale context,
+3. Every role/action matrix, cross-Library FK, missing/malformed/stale context,
    connection-pool reuse, owner vs runtime privileges, FORCE RLS and denial of
    TRUNCATE/schema/role operations. Test controller-only identity/billing paths,
    protected function execution, SQL injection boundaries and sanitized errors.
@@ -1987,7 +1967,7 @@ S6 must specify and later run, under separate authorization:
 5. Multi-role People, client Organizations, overlapping/adjacent/unbounded
    relationship intervals and merge collisions. Required live kinds, hierarchy
    cycles, reparenting, retirement and unchanged package snapshots.
-6. Expected server revision vs local/package revision, concurrent same-Workspace
+6. Expected server revision vs local/package revision, concurrent same-Library
    commands, multi-root atomicity, child-set parent bumps, integer overflow,
    unknown typed schemas and canonical byte/digest preservation across JSONB.
 7. Duplicate MutationId with equal/different bytes/actor, lost acknowledgement,
@@ -2002,7 +1982,7 @@ S6 must specify and later run, under separate authorization:
    membership. Quota reservation is a separate feature gate, not implied by a
    numeric limit column. No payment secrets or unrestricted webhook JSON in logs.
 10. Media upload disconnects, byte/hash mismatch, quarantine, missing blobs,
-    cross-Workspace content equality, descriptor dependencies and authorization
+    cross-Library content equality, descriptor dependencies and authorization
     on download. Object store and SQL are tested as separate recovery boundaries.
 11. Catalog/observation repeat/conflict, commit-id collision, duplicate ProjectIds,
     unverified client reports, hidden catalog entries and whitelist rejection of
@@ -2017,20 +1997,20 @@ S6 must specify and later run, under separate authorization:
   canonical promotion and offline reconciliation must preserve unique ownership.
 - Freeze the normalizer, key byte bounds, taxonomy vocabulary and collision/
   upgrade fixtures. Unknown terms/fields cannot silently normalize differently.
-- Confirm Account-first/Workspace-second locking, per-Workspace write
+- Confirm Account-first/Library-second locking, per-Library write
   serialization, authorization helper and RLS tenant-scope defense. Multi-tenant
   security requires runtime tests, not merely this DDL.
 - Freeze server revision encoding, idempotency retention, attachment envelopes,
   cursor signing/epoch reset, snapshot export, batch limits and offline conflict/
   rebase semantics with S3. No implicit last-write-wins.
-- Decide Workspace claim/import permissions and data privacy, owner/admin powers,
+- Decide Library claim/import permissions and data privacy, owner/admin powers,
   membership/invitation UX and access behavior after revocation. Revocation does
   not remotely erase already downloaded packages/local Library.
 - Choose plan/grant keys, developer eligibility, expiry/grace rules, media limits,
   object-store provider and quota-reservation design before enabling gated cloud
   features. This schema sets no prices or provider subscription assumptions.
 - Confirm observation upload scope and privacy, duplicate/collision handling,
-  catalog preferences and cross-Workspace historical snapshot rules.
+  catalog preferences and cross-Library historical snapshot rules.
 - Confirm PostgreSQL runtime/Neon environment, role provisioning, backup/
   retention/erasure and migration rollout policy without touching existing live
   Neon. Clean generation two ships independently of a legacy importer.

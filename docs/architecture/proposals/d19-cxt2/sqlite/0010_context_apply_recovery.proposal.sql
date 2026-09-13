@@ -26,7 +26,7 @@ CREATE INDEX d19_device_context_snapshots_run ON device_context_snapshots (proje
 -- O1: approved signature in D19_STATIC_SCHEMA_DELTA.md.
 CREATE TABLE context_apply_intents (
   operation_id BLOB NOT NULL CHECK (length(operation_id)=16 AND operation_id<>zeroblob(16)),
-  workspace_id BLOB NOT NULL CHECK (length(workspace_id)=16 AND workspace_id<>zeroblob(16)),
+  library_id BLOB NOT NULL CHECK (length(library_id)=16 AND library_id<>zeroblob(16)),
   target_project_id BLOB CHECK (target_project_id IS NULL OR (length(target_project_id)=16 AND target_project_id<>zeroblob(16))),
   proposal_id BLOB NOT NULL CHECK (length(proposal_id)=16 AND proposal_id<>zeroblob(16)),
   request_canonical BLOB NOT NULL,
@@ -42,24 +42,24 @@ CREATE TABLE context_apply_intents (
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   PRIMARY KEY (operation_id),
-  UNIQUE (workspace_id,operation_id),
+  UNIQUE (library_id,operation_id),
   CHECK (target_authority IN ('library','project')),
   CHECK (state IN ('prepared','awaiting-publication','settled','unknown')),
   CHECK ((expected_commit_id IS NULL)=(expected_commit_sha256 IS NULL)),
   CHECK ((target_authority='project')=(target_project_id IS NOT NULL)),
   CHECK ((target_authority='project')=(expected_commit_id IS NOT NULL)),
   CHECK (length(request_canonical)<=1048576),
-  FOREIGN KEY (workspace_id) REFERENCES workspaces (workspace_id) ON DELETE RESTRICT,
+  FOREIGN KEY (library_id) REFERENCES libraries (library_id) ON DELETE RESTRICT,
   CHECK (record_schema=1),
   CHECK (updated_at>=created_at)
 ) STRICT;
 
-CREATE INDEX d19_context_apply_intents_state ON context_apply_intents (workspace_id,state,operation_id);
+CREATE INDEX d19_context_apply_intents_state ON context_apply_intents (library_id,state,operation_id);
 
 -- O2: approved signature in D19_STATIC_SCHEMA_DELTA.md.
 CREATE TABLE context_apply_receipts (
   receipt_id BLOB NOT NULL CHECK (length(receipt_id)=16 AND receipt_id<>zeroblob(16)),
-  workspace_id BLOB NOT NULL CHECK (length(workspace_id)=16 AND workspace_id<>zeroblob(16)),
+  library_id BLOB NOT NULL CHECK (length(library_id)=16 AND library_id<>zeroblob(16)),
   operation_id BLOB NOT NULL CHECK (length(operation_id)=16 AND operation_id<>zeroblob(16)),
   observation_kind TEXT NOT NULL,
   result_canonical BLOB NOT NULL,
@@ -68,15 +68,15 @@ CREATE TABLE context_apply_receipts (
   package_commit_sha256 BLOB CHECK (package_commit_sha256 IS NULL OR (length(package_commit_sha256)=32)),
   observed_at INTEGER NOT NULL,
   PRIMARY KEY (receipt_id),
-  FOREIGN KEY (workspace_id,operation_id) REFERENCES context_apply_intents (workspace_id,operation_id) ON DELETE RESTRICT,
+  FOREIGN KEY (library_id,operation_id) REFERENCES context_apply_intents (library_id,operation_id) ON DELETE RESTRICT,
   CHECK (observation_kind IN ('local-applied','package-published','rejected','conflict','unknown')),
   CHECK ((package_commit_id IS NULL)=(package_commit_sha256 IS NULL)),
   CHECK (observation_kind<>'package-published' OR package_commit_id IS NOT NULL),
   CHECK (observation_kind<>'local-applied' OR package_commit_id IS NULL),
   CHECK (length(result_canonical)<=4194304),
-  FOREIGN KEY (workspace_id) REFERENCES workspaces (workspace_id) ON DELETE RESTRICT
+  FOREIGN KEY (library_id) REFERENCES libraries (library_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE UNIQUE INDEX d19_context_apply_receipts_final ON context_apply_receipts (operation_id) WHERE observation_kind IN ('local-applied','package-published','rejected','conflict');
 
-CREATE INDEX d19_context_apply_receipts_operation ON context_apply_receipts (workspace_id,operation_id,observed_at,receipt_id);
+CREATE INDEX d19_context_apply_receipts_operation ON context_apply_receipts (library_id,operation_id,observed_at,receipt_id);

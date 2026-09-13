@@ -38,7 +38,7 @@ xcrun swiftc \
   "$GENERATED_ROOT/PhotaraBridge.swift" \
   "$REPOSITORY_ROOT/platform/macos/photara-graph/Sources/GraphDocument.swift" \
   "$SCRIPT_ROOT/Sources/GraphAdapter.swift" \
-  "$SCRIPT_ROOT/Sources/WorkspaceModel.swift" \
+  "$SCRIPT_ROOT/Sources/EditorSessionModel.swift" \
   "$SCRIPT_ROOT/BridgeVerification/main.swift" \
   -Xcc "-fmodule-map-file=$GENERATED_ROOT/PhotaraBridgeFFI.modulemap" \
   -L "$RUST_TARGET/debug" \

@@ -350,7 +350,7 @@ fn validate_extensions(extensions: &BTreeMap<String, Value>) -> Result<(), Asset
         "caches",
         "credentials",
         "secrets",
-        "workspace",
+        "editor_session",
         "gallery_selection",
     ];
     if let Some(key) = extensions

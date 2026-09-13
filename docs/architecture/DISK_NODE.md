@@ -103,12 +103,12 @@ after the user grants the containing folder.
 
 Disk appears under a versioned package-supplied catalog path such as
 `Input > Filesystem`. Layout appears under `Create > Layout`. Catalog paths,
-search terms, icons, Inspector contributions, and optional Workspace hints are
+search terms, icons, Inspector contributions, and optional Work Surface hints are
 presentation metadata; they are not Core evaluator variants.
 
 Disk uses the generic Inspector plus a compact definition-specific control
 surface for choosing/rebinding the folder, scan policy, refresh, availability,
-and diagnostics. It does not advertise a rich canvas Workspace. Layout remains
+and diagnostics. It does not advertise a rich canvas Library. Layout remains
 the first node that does. Disk's definition-owned default activation opens its
 currently granted folder in Finder on macOS; if no device grant is available,
 the client presents the ordinary folder picker. This activation is native

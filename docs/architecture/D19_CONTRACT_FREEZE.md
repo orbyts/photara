@@ -1,25 +1,27 @@
 # D19 accepted contract freeze — CXT0/CXT2
 
-Status: **R1–R8 accepted as proposed by Suhail on 2026-09-12; CXT2 acceptance complete.**
+Status: **R2–R8 accepted; R1 physical naming superseded by Suhail on 2026-09-12.**
 This document and [the static schema delta](D19_STATIC_SCHEMA_DELTA.md) are the
 accepted exact contract. CXT2 produced [separated inert DDL and inventory](proposals/d19-cxt2/README.md).
 “Must” specifies accepted design, not permission to start implementation.
 [CXT1a pure Rust contracts](CXT1A_CONTRACTS.md) were separately selected and completed
 on 2026-09-12. Subsequently selected [CXT1b](CXT1B_CONTEXT_CONTRACTS.md) is also
-complete. Next eligible slice is separately selected CXT3a; CXT3/L3 have not begun.
+complete. CXT3a is verified; the separately authorized clean Library rebaseline
+precedes CXT3b/c and the future Project vertical slice.
 
 Precedence: recorded approvals in [S7](SCHEMA_REVIEW.md), then approved
 [D19](LIBRARY_AND_NODE_WORK_SURFACES.md), then this accepted exact freeze for detailed
 contracts. [D18](TYPED_CONTEXT_AND_EXPRESSIONS.md) supplies the expression grammar
 and policies except the explicit refinements here. S2–S6 SQL/JSON examples and
-L1/L2 sources remain historical compatibility evidence. This packet neither
-rewrites their bytes nor claims their behavior conforms to D19.
+L1/L2 sources and S2–S6 fixtures have a separately verified Library naming
+rebaseline. Their earlier preservation claims describe historical slice boundaries,
+not a requirement to retain unshipped naming.
 
 ## Decisions and approval boundary
 
 | ID | Accepted decision — all R1–R8, 2026-09-12 | Implementation gate |
 | --- | --- | --- |
-| R1 | Keep physical Workspace/workspace_id and StorageRoot IDs; introduce typed canonical adapters, explicit one-Library association and package 1.1 required features; no SQL table rename | CXT1 types; CXT3 compatibility; L3 association/publication |
+| R1 — superseded naming | Use LibraryId/libraries/library_id throughout the unshipped Generation Two baseline; no rename migration, runtime naming adapter, alias, shadow column or dual write. Preserve explicit one-Library association and package reader floors. Historical v0.1.3 import is optional and non-gating. | Clean rebaseline before separately selected CXT3b; no live database rewrite |
 | R2 | Restricted by default; explicit Project grants with independent edit/run actions; library-visible role masks; explicit deny on Project revocation; no Library-admin content bypass; invitation and offline rules below | CXT1 permission model; CXT3 local/service conformance |
 | R3 | Distinct stable slot, logical location, external reference, host binding and lease identities; pinned slot captures; verified rebind; managed artifact root only via publisher | CXT1 resource contracts; CXT3 fake host/codec adapters |
 | R4 | AssetSet v2 immutable snapshots and bounded pages; no AssetSet, live handle or workflow-output variable, including nested values; explicit metadata/group dependencies | CXT1 values/cache; CXT3 package closure |

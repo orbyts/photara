@@ -27,27 +27,27 @@ struct ApplicationActions { var send: (ApplicationAction) -> Void }
 /// Capability availability is separate from the user's placement/visibility preference.
 struct ApplicationShellAvailability {
     let presentation: ApplicationPresentation
-    var panels: [WorkspacePanelID] {
+    var panels: [EditorPanelID] {
         guard presentation.hasOpenProject else { return [.people, .locations, .scenes, .account] }
-        var result: [WorkspacePanelID] = [.graph, .assetGallery, .diagnostics, .inspector, .people, .locations, .scenes, .projectInfo, .account]
+        var result: [EditorPanelID] = [.graph, .assetGallery, .diagnostics, .inspector, .people, .locations, .scenes, .projectInfo, .account]
         if !presentation.workSurfaces.isEmpty { result.append(.nodeWorkSurface) }
         return result
     }
-    var modes: [WorkspaceMode] {
+    var modes: [EditorMode] {
         guard presentation.hasOpenProject else { return [] }
-        var result: [WorkspaceMode] = [.graph]
+        var result: [EditorMode] = [.graph]
         if !presentation.workSurfaces.isEmpty { result.append(.nodeWorkSurface) }
         if presentation.hasReviewableResult { result.append(.review) }
         return result
     }
-    @MainActor func visiblePanels(in region: WorkspaceRegion, workspace: WorkspaceModel) -> [WorkspacePanelID] {
-        workspace.visiblePanels(in: region).filter { panel in
+    @MainActor func visiblePanels(in region: EditorRegion, session: EditorSessionModel) -> [EditorPanelID] {
+        session.visiblePanels(in: region).filter { panel in
             guard panels.contains(panel) else { return false }
             switch panel {
-            case .inspector: return workspace.inspectorActivated
+            case .inspector: return session.inspectorActivated
             case .assetGallery:
-                return presentation.hasAssets || presentation.hasAssetProducingContext || workspace.galleryExplicitlyOpened
-            case .diagnostics: return presentation.diagnosticCount > 0 || workspace.diagnosticsExplicitlyOpened
+                return presentation.hasAssets || presentation.hasAssetProducingContext || session.galleryExplicitlyOpened
+            case .diagnostics: return presentation.diagnosticCount > 0 || session.diagnosticsExplicitlyOpened
             default: return true
             }
         }

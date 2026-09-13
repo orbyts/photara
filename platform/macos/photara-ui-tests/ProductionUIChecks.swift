@@ -15,24 +15,24 @@ struct ProductionUIChecks {
         let support = root.appending(path: "store-\(UUID().uuidString)")
         let app = AppModel(defaults: defaults, supportRootOverride: support)
         require(!FileManager.default.fileExists(atPath: support.appending(path: "Library/library.sqlite").path), "Library was not lazy")
-        let workspace = WorkspaceModel(defaults: defaults)
+        let session = EditorSessionModel(defaults: defaults)
         require(app.presentedError == nil, "Production host failed to open")
         for dark in [false, true] {
             try await capture(LabAppearance(dark: dark) {
-                WorkspaceView().environmentObject(app).environmentObject(workspace)
+                EditorSessionView().environmentObject(app).environmentObject(session)
             }, name: "production-launcher-\(dark)", size: .init(width: 980, height: 720), directory: root)
         }
         app.newProject()
-        workspace.synchronizeProject(id: app.snapshot?.projectId, nodeIDs: [])
+        session.synchronizeProject(id: app.snapshot?.projectId, nodeIDs: [])
         let emptyDigest = app.snapshot!.graph.digest
         for dark in [false, true] {
             try await capture(LabAppearance(dark: dark) {
-                WorkspaceView().environmentObject(app).environmentObject(workspace)
+                EditorSessionView().environmentObject(app).environmentObject(session)
             }, name: "production-empty-\(dark)", size: .init(width: 820, height: 720), directory: root)
         }
         require(app.snapshot!.graph.digest == emptyDigest, "Empty shell mutated graph")
-        let emptyPolicy = ApplicationShellAvailability(presentation: app.applicationPresentation(workspace))
-        require(Set(WorkspaceRegion.allCases.flatMap { emptyPolicy.visiblePanels(in: $0, workspace: workspace) }) == Set([.graph, .projectInfo]), "New Project did not disclose Project Info setup alongside Graph")
+        let emptyPolicy = ApplicationShellAvailability(presentation: app.applicationPresentation(session))
+        require(Set(EditorRegion.allCases.flatMap { emptyPolicy.visiblePanels(in: $0, session: session) }) == Set([.graph, .projectInfo]), "New Project did not disclose Project Info setup alongside Graph")
         require(emptyPolicy.modes == [.graph], "Layout icon appeared before a Layout node existed")
         require(app.recentProjects.isEmpty, "Untitled draft leaked into Recent Projects")
         // The fixture uses the bridge's explicit Layout + Project Assets setup;
@@ -46,16 +46,16 @@ struct ProductionUIChecks {
         app.addNode(diskDefinition, graphPosition: .init(x: -240, y: -80))
         let layout = app.snapshot!.nodes.first { $0.layout != nil }!
         require(layout.hasLayoutWorkSurface, "Layout node contribution was not recognized")
-        require(ApplicationShellAvailability(presentation: app.applicationPresentation(workspace)).modes.contains(.nodeWorkSurface),
+        require(ApplicationShellAvailability(presentation: app.applicationPresentation(session)).modes.contains(.nodeWorkSurface),
                 "Layout icon did not appear after adding the Layout node")
         var otherSurface = layout
-        otherSurface.workspaceContributionId = "example.other.workspace"
+        otherSurface.workSurfaceContributionId = "example.other.session"
         require(!otherSurface.hasLayoutWorkSurface, "Unrelated node surface was routed to Layout")
         require(ProductionWorkSurfaceRegistry.presentation(for: otherSurface) == nil, "Unsupported contribution advertised a dead toolbar icon")
         let contribution = ProductionWorkSurfaceRegistry.presentation(for: layout)!
         require(contribution.nodeID == layout.nodeId && contribution.iconResourceID == layout.iconResourceId,
                 "Toolbar contribution lost its node identity or icon")
-        workspace.selectedNodeID = layout.nodeId
+        session.selectedNodeID = layout.nodeId
         var secondLayout = layout
         secondLayout.nodeId = "second-layout-fixture"
         let surfaces = [layout, secondLayout].compactMap { ProductionWorkSurfaceRegistry.presentation(for: $0) }
@@ -91,23 +91,23 @@ struct ProductionUIChecks {
         app.bind(assetID: assetID, to: updated, frameID: frame.frameId, cellID: cell.cellId)
         app.save()
         require(app.presentedError == nil && app.snapshot?.dirty == false, "Save failed after shared actions: \(app.presentedError ?? "none"), dirty=\(String(describing: app.snapshot?.dirty))")
-        workspace.synchronizeProject(id: app.snapshot!.projectId, nodeIDs: app.snapshot!.nodes.map(\.nodeId))
-        workspace.selectedNodeID = layout.nodeId
+        session.synchronizeProject(id: app.snapshot!.projectId, nodeIDs: app.snapshot!.nodes.map(\.nodeId))
+        session.selectedNodeID = layout.nodeId
         let digest = app.snapshot!.graph.digest
-        workspace.selectedNodeID = nil
-        require(workspace.inspectorActivated, "Production deselection collapsed Inspector")
-        workspace.move(.diagnostics, to: .leading)
-        workspace.toggle(.diagnostics)
-        workspace.selectedNodeID = layout.nodeId
+        session.selectedNodeID = nil
+        require(session.inspectorActivated, "Production deselection collapsed Inspector")
+        session.move(.diagnostics, to: .leading)
+        session.toggle(.diagnostics)
+        session.selectedNodeID = layout.nodeId
         for dark in [false, true] {
             try await capture(LabAppearance(dark: dark) {
-                WorkspaceView().environmentObject(app).environmentObject(workspace)
+                EditorSessionView().environmentObject(app).environmentObject(session)
             }, name: "production-graph-\(dark)", size: .init(width: 1440, height: 900), directory: root)
-            workspace.activateWorkspace(for: layout.nodeId)
+            session.activateWorkSurface(for: layout.nodeId)
             try await capture(LabAppearance(dark: dark) {
-                WorkspaceView().environmentObject(app).environmentObject(workspace)
+                EditorSessionView().environmentObject(app).environmentObject(session)
             }, name: "production-layout-\(dark)", size: .init(width: 1440, height: 900), directory: root)
-            workspace.activateGraph()
+            session.activateGraph()
         }
         require(app.snapshot!.graph.digest == digest, "Presentation mutated the graph")
         // Exercise the exact production actor, thumbnail preparation, Library facade and portable assignments.
@@ -155,16 +155,16 @@ struct ProductionUIChecks {
         let reopenedInfo = try reopened.libraryContext()
         require(reopenedInfo.assignments.count == 5 && reopenedInfo.assignments[0].displayName == "Maya Chen", "Portable Library references failed save/reopen")
         await app.library.load()
-        for panel in [WorkspacePanelID.people, .locations, .scenes, .projectInfo, .account] {
-            workspace.show(panel)
-            workspace.move(panel, to: .trailing)
-            workspace.toggle(panel)
-            require(!workspace.isVisible(panel), "Library module cannot close")
+        for panel in [EditorPanelID.people, .locations, .scenes, .projectInfo, .account] {
+            session.show(panel)
+            session.move(panel, to: .trailing)
+            session.toggle(panel)
+            require(!session.isVisible(panel), "Library module cannot close")
         }
-        workspace.show(.projectInfo); workspace.show(.people)
+        session.show(.projectInfo); session.show(.people)
         for dark in [false, true] {
             try await capture(LabAppearance(dark: dark) {
-                WorkspaceView().environmentObject(app).environmentObject(workspace)
+                EditorSessionView().environmentObject(app).environmentObject(session)
             }, name: "production-library-\(dark)", size: .init(width: 1440, height: 1000), directory: root)
         }
         require(app.snapshot?.dirty == false && app.snapshot?.graph.digest == digest, "Module preferences dirtied project semantics")

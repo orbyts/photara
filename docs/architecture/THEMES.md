@@ -30,7 +30,7 @@ warnings rather than silently altering chosen colors.
 
 The macOS `PhotaraTheme.swift` file is the single parser and resolver compiled
 into both Photara and the developer Theme Lab. The Lab also compiles the actual
-production `WorkspaceView`, Layout Inspector, Graph, Gallery, controls, and
+production `EditorSessionView`, Layout Inspector, Graph, Gallery, controls, and
 generated bridge facade against an isolated fixture project. It does not keep
 hand-authored approximations of those surfaces, so production UI changes appear
 in the next Lab build automatically. The Lab imports and exports the portable

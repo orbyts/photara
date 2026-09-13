@@ -1,11 +1,12 @@
 # Inert generation-two fixtures
 
-**D19 compatibility note:** [the current conceptual amendment](../../architecture/LIBRARY_AND_NODE_WORK_SURFACES.md)
-supersedes Workspace and ambient Project asset assumptions. All JSON bytes and
-hashes here remain the original S6/D18 proposal baselines. In particular,
-context-amendment.json still contains historical `$workspace.*`/`$project.assets`
-cases; it is not conformance evidence for revised D18/D19. Exact replacement or
-additive vectors require the contract/static schema review, not a silent rehash.
+**Library nomenclature rebaseline — 2026-09-12:** the user explicitly authorized
+rewriting the unshipped Generation Two fixtures and schema. Original S6/D18 examples
+now use Library naming; package references, commits, sealed-request bytes and
+checksums were regenerated with the Rust canonical encoder. See the
+[rebaseline record](../../architecture/LIBRARY_NOMENCLATURE_REBASELINE.md).
+These examples do not make historical `$project.assets` scenarios valid D19 runtime
+inputs; immutable AssetSet and CXT1 context contracts govern current evaluation.
 
 Prepared for [S6 conformance](../../architecture/GENERATION_TWO_FIXTURES.md) and
 [S7 review](../../architecture/SCHEMA_REVIEW.md). Synthetic documentation inputs
@@ -30,7 +31,7 @@ only; do not run against real accounts, databases, storage roots or providers.
 - [scenarios.json](scenarios.json): 51 independently reset scenario specifications
   and 12 crash boundaries; runtime results are explicitly not run.
 
-Outer JSON files use readable formatting. Embedded `utf8`, `body_utf8` and
+Outer JSON files use the Rust canonical encoding. Embedded `utf8`, `body_utf8` and
 `canonical_utf8` fields define exact bytes after JSON string decoding. Do not
 append a newline to those bytes. Hash fields cover decoded bytes, not escaped
 container text. All locators/domains/identities are synthetic; no credentials or

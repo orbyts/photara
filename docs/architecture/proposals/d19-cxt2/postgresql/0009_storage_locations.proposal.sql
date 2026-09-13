@@ -7,7 +7,7 @@
 
 -- S1: approved signature in D19_STATIC_SCHEMA_DELTA.md.
 CREATE TABLE photara.storage_location_specs (
-  workspace_id uuid NOT NULL CHECK (workspace_id<>'00000000-0000-0000-0000-000000000000'::uuid),
+  library_id uuid NOT NULL CHECK (library_id<>'00000000-0000-0000-0000-000000000000'::uuid),
   storage_root_id uuid NOT NULL CHECK (storage_root_id<>'00000000-0000-0000-0000-000000000000'::uuid),
   storage_kind text COLLATE "C" NOT NULL,
   provider_id text COLLATE "C",
@@ -16,11 +16,11 @@ CREATE TABLE photara.storage_location_specs (
   revision bigint NOT NULL CHECK (revision>=1),
   created_at timestamptz(3) NOT NULL,
   updated_at timestamptz(3) NOT NULL,
-  PRIMARY KEY (workspace_id,storage_root_id),
-  FOREIGN KEY (workspace_id,storage_root_id) REFERENCES photara.storage_roots (workspace_id,storage_root_id) ON DELETE RESTRICT,
+  PRIMARY KEY (library_id,storage_root_id),
+  FOREIGN KEY (library_id,storage_root_id) REFERENCES photara.storage_roots (library_id,storage_root_id) ON DELETE RESTRICT,
   CHECK (storage_kind IN ('filesystem','provider')),
   CHECK ((storage_kind='provider')=(provider_id IS NOT NULL)),
-  FOREIGN KEY (workspace_id) REFERENCES photara.workspaces (workspace_id) ON DELETE RESTRICT,
+  FOREIGN KEY (library_id) REFERENCES photara.libraries (library_id) ON DELETE RESTRICT,
   CHECK (record_schema=1),
   CHECK (updated_at>=created_at)
 );
@@ -28,7 +28,7 @@ CREATE TABLE photara.storage_location_specs (
 -- S2: approved signature in D19_STATIC_SCHEMA_DELTA.md.
 CREATE TABLE photara.storage_slots (
   slot_id uuid NOT NULL CHECK (slot_id<>'00000000-0000-0000-0000-000000000000'::uuid),
-  workspace_id uuid NOT NULL CHECK (workspace_id<>'00000000-0000-0000-0000-000000000000'::uuid),
+  library_id uuid NOT NULL CHECK (library_id<>'00000000-0000-0000-0000-000000000000'::uuid),
   current_name text COLLATE "C" NOT NULL,
   display_name text COLLATE "C" NOT NULL,
   storage_root_id uuid NOT NULL CHECK (storage_root_id<>'00000000-0000-0000-0000-000000000000'::uuid),
@@ -39,31 +39,31 @@ CREATE TABLE photara.storage_slots (
   created_at timestamptz(3) NOT NULL,
   updated_at timestamptz(3) NOT NULL,
   PRIMARY KEY (slot_id),
-  UNIQUE (workspace_id,slot_id),
-  FOREIGN KEY (workspace_id,storage_root_id) REFERENCES photara.storage_roots (workspace_id,storage_root_id) ON DELETE RESTRICT,
+  UNIQUE (library_id,slot_id),
+  FOREIGN KEY (library_id,storage_root_id) REFERENCES photara.storage_roots (library_id,storage_root_id) ON DELETE RESTRICT,
   CHECK (state IN ('active','tombstoned')),
   CHECK ((state='tombstoned')=(retired_at IS NOT NULL)),
   CHECK (current_name ~ '^[a-z][a-z0-9_]{0,63}$'),
-  FOREIGN KEY (workspace_id) REFERENCES photara.workspaces (workspace_id) ON DELETE RESTRICT,
+  FOREIGN KEY (library_id) REFERENCES photara.libraries (library_id) ON DELETE RESTRICT,
   CHECK (record_schema=1),
   CHECK (updated_at>=created_at)
 );
 
-CREATE INDEX d19_storage_slots_root ON photara.storage_slots (workspace_id,storage_root_id,state);
+CREATE INDEX d19_storage_slots_root ON photara.storage_slots (library_id,storage_root_id,state);
 
 -- S3: approved signature in D19_STATIC_SCHEMA_DELTA.md.
 CREATE TABLE photara.storage_slot_names (
-  workspace_id uuid NOT NULL CHECK (workspace_id<>'00000000-0000-0000-0000-000000000000'::uuid),
+  library_id uuid NOT NULL CHECK (library_id<>'00000000-0000-0000-0000-000000000000'::uuid),
   name text COLLATE "C" NOT NULL,
   slot_id uuid NOT NULL CHECK (slot_id<>'00000000-0000-0000-0000-000000000000'::uuid),
   claimed_at timestamptz(3) NOT NULL,
-  PRIMARY KEY (workspace_id,name),
-  UNIQUE (workspace_id,slot_id,name),
-  FOREIGN KEY (workspace_id,slot_id) REFERENCES photara.storage_slots (workspace_id,slot_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+  PRIMARY KEY (library_id,name),
+  UNIQUE (library_id,slot_id,name),
+  FOREIGN KEY (library_id,slot_id) REFERENCES photara.storage_slots (library_id,slot_id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
   CHECK (name ~ '^[a-z][a-z0-9_]{0,63}$'),
-  FOREIGN KEY (workspace_id) REFERENCES photara.workspaces (workspace_id) ON DELETE RESTRICT
+  FOREIGN KEY (library_id) REFERENCES photara.libraries (library_id) ON DELETE RESTRICT
 );
 
-ALTER TABLE photara.storage_slots ADD CONSTRAINT d19_slot_current_name FOREIGN KEY (workspace_id,slot_id,current_name) REFERENCES photara.storage_slot_names (workspace_id,slot_id,name) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE photara.storage_slots ADD CONSTRAINT d19_slot_current_name FOREIGN KEY (library_id,slot_id,current_name) REFERENCES photara.storage_slot_names (library_id,slot_id,name) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
 
-CREATE INDEX d19_storage_slots_current_name ON photara.storage_slots (workspace_id,slot_id,current_name);
+CREATE INDEX d19_storage_slots_current_name ON photara.storage_slots (library_id,slot_id,current_name);

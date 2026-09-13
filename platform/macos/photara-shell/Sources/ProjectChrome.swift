@@ -3,7 +3,7 @@ import SwiftUI
 struct ProjectStatusBar: View {
     let presentation: ApplicationPresentation
     var preset: ApplicationShellPreset = .shipped
-    @EnvironmentObject private var workspace: WorkspaceModel
+    @EnvironmentObject private var session: EditorSessionModel
     @Environment(\.photaraTheme) private var theme
     var body: some View {
         HStack(spacing: preset.statusItemSpacing) {
@@ -16,7 +16,7 @@ struct ProjectStatusBar: View {
                     : (theme?.color(.statusTextSuccess) ?? Color.green))
             }
             if presentation.diagnosticCount > 0 {
-                Button { workspace.show(.diagnostics) } label: {
+                Button { session.show(.diagnostics) } label: {
                     Label("\(presentation.diagnosticCount) diagnostics", systemImage: "exclamationmark.triangle")
                 }.buttonStyle(.borderless)
             }
@@ -38,9 +38,9 @@ struct ProjectStatusBar: View {
 }
 
 struct PanelHeader: View {
-    @EnvironmentObject private var workspace: WorkspaceModel
+    @EnvironmentObject private var session: EditorSessionModel
     @Environment(\.photaraTheme) private var theme
-    let panel: WorkspacePanelID
+    let panel: EditorPanelID
     var height: Double = 34
     var titleSize: Double = 13
     var horizontalPadding: Double = 10
@@ -56,9 +56,9 @@ struct PanelHeader: View {
             Spacer()
             if allowsPlacement {
             Menu {
-                ForEach(WorkspaceRegion.allCases, id: \.self) { region in
+                ForEach(EditorRegion.allCases, id: \.self) { region in
                     Button(region.rawValue.capitalized) {
-                        workspace.move(panel, to: region)
+                        session.move(panel, to: region)
                     }
                 }
             } label: {
@@ -70,7 +70,7 @@ struct PanelHeader: View {
             }
             if allowsPlacement {
             Button {
-                workspace.toggle(panel)
+                session.toggle(panel)
             } label: {
                 Image(systemName: "xmark")
                     .frame(width: 20, height: 20)
@@ -91,6 +91,6 @@ struct PanelHeader: View {
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture { workspace.focusedPanel = panel }
+        .onTapGesture { session.focusedPanel = panel }
     }
 }

@@ -1,7 +1,7 @@
 # Library, project context, and sync architecture
 
 **D19 supersession note (2026-09-12):** [Libraries and node Work Surfaces](architecture/LIBRARY_AND_NODE_WORK_SURFACES.md)
-is the current conceptual target. Library replaces durable Workspace; each Project
+is the current conceptual target. Library replaces durable Library; each Project
 has one Library and explicit Project access. Graphs use connected AssetSets and
 declared frozen context; a private package ledger is not an ambient Gallery/asset
 union. Library management is app-owned; node Work Surfaces embed authorized host
@@ -26,7 +26,7 @@ authority for graph-authored state.
 ## Domain model
 
 Accounts and People are distinct. An authenticated account owns or belongs to
-a Library workspace; a Person is a photographic subject, model, photographer,
+a Library library; a Person is a photographic subject, model, photographer,
 stylist, or other collaborator. This leaves room for team/studio ownership
 without equating an Auth0 identity with a Person record.
 
@@ -35,7 +35,7 @@ without equating an Auth0 identity with a Person record.
 - **Organizations** represent studios, companies, and other non-person identities.
   Client is a relationship or project role held by a Person or Organization,
   not a duplicate identity type.
-- **Location Kinds** are workspace-unique semantic concepts such as Beach, Home
+- **Location Kinds** are library-unique semantic concepts such as Beach, Home
   Studio, Apartment, or Commercial Studio. They have descriptions and aliases.
   `beach`, `Beach`, and `beaches` must resolve to one concept under an approved
   canonicalization policy.
@@ -58,11 +58,11 @@ records.
 
 ## Native modules and labs
 
-The macOS workspace provides independently identified modules for Graph,
+The macOS library provides independently identified modules for Graph,
 Gallery, Inspector, optional node Work Surface, People, Location Kinds,
 Locations, and Project Info. Each can be closed and restored by the user.
-Placement, visibility, splits, tabs, floating geometry, and selected workspace
-preset are native workspace preferences and never dirty the Project Document.
+Placement, visibility, splits, tabs, floating geometry, and selected library
+preset are native library preferences and never dirty the Project Document.
 
 Each new module has an authoring lab that compiles the same production sources:
 
@@ -97,7 +97,7 @@ remains system-managed.
 
 The top-right application area may expose Account, People, Location Kinds, and
 Locations shortcuts. Those shortcuts reveal or focus the corresponding module;
-they are not separate modal databases. Project Info is a peer workspace module.
+they are not separate modal databases. Project Info is a peer library module.
 Optional node Work Surfaces remain opt-in contributions from exact node
 definitions.
 
@@ -130,11 +130,11 @@ User-facing storage choices are presented as **Library & Sync**:
 The desktop application must not ship a privileged Neon connection string.
 Auth0 Universal Login authenticates a native client using Authorization Code
 Flow with PKCE. The app sends access tokens to a Photara API; that service
-enforces workspace ownership, subscription, validation, migrations, and
+enforces library ownership, subscription, validation, migrations, and
 conflict policy before accessing Neon. PostgreSQL row-level security is useful
 defense in depth, not a substitute for the service boundary.
 
-Sync records need a stable workspace owner, monotonically checked revisions,
+Sync records need a stable library owner, monotonically checked revisions,
 modified timestamps, tombstones, change cursors, idempotent mutations, and a
 deterministic conflict policy. Deletes must synchronize as tombstones until all
 relevant replicas have observed them. Credentials, refresh tokens, device
@@ -148,7 +148,7 @@ Before Layout UI authoring expands:
 2. Expose immutable Library and Project Info presentation contracts.
 3. Migrate and add People, Organizations, Location Kinds, Locations, and Project
    Info shared modules and labs.
-4. Add their independently restorable shell identities and a default workspace.
+4. Add their independently restorable shell identities and a default library.
 5. Add Library & Sync settings, with On This Mac functional first.
 6. Exercise cross-project queries by person, client relationship, concrete
    location, and Location Kind.
@@ -164,7 +164,7 @@ records without loss.
 retains a path and owner ID; the SQLite connection and schema are created only
 on the first Library read/write. The default location is
 `~/Library/Application Support/Photara/Library/library.sqlite`. A device-local
-workspace UUID is stored in native preferences independently from Person records.
+library UUID is stored in native preferences independently from Person records.
 A Swift actor serializes local Library reads and edits away from the main actor.
 
 Schema v1 uses explicit `user_version`, WAL, a busy timeout, and an immediate
@@ -191,7 +191,7 @@ New Project reveals Project Info. Assign from Library searches existing records
 by name, alias, labels or description, and offers Create New for a missing record.
 Creation currently uses the exact People/Locations/Scenes editors, saves one
 Library record, then assigns its stable identity. A failed project assignment leaves the reusable
-Library record intact. Existing projects can open Project Info from Workspace.
+Library record intact. Existing projects can open Project Info from Library.
 The first native browsing projection is bounded to 500 live records; paged,
 server-backed discovery and cross-project indexed search are later work.
 
@@ -208,7 +208,7 @@ date/schedule and notes belong to that assignment. Removing an assignment does
 not delete its Library record. Project Info provides session undo through the
 same Core command. Unknown future Project Info fields reject editing instead
 of being silently erased. Assignment changes dirty the project but leave the
-graph digest unchanged; local Library edits and workspace preferences dirty neither.
+graph digest unchanged; local Library edits and library preferences dirty neither.
 
 The Settings pane and Account shortcut expose Library & Sync with On This Mac
 active. Photara Cloud and iCloud are visibly planned/unavailable. Auth0 PKCE,

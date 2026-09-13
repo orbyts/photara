@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 extension AppModel {
-    func applicationPresentation(_ workspace: WorkspaceModel) -> ApplicationPresentation {
+    func applicationPresentation(_ session: EditorSessionModel) -> ApplicationPresentation {
         return .init(hasOpenProject: hasOpenProject, title: snapshot?.title ?? "Photara Project",
             subtitle: snapshot.map { "rev \($0.projectRevision) · \($0.projectId.prefix(12))" } ?? "Not loaded",
             isDirty: snapshot?.dirty == true, nodeCount: snapshot?.nodes.count ?? 0,
@@ -35,7 +35,7 @@ extension AppModel {
 /// Additional node surfaces get their own host adapters when implemented.
 extension BridgeNodeDto {
     var hasLayoutWorkSurface: Bool {
-        hasWorkspace && workspaceContributionId == "photara.layout.workspace" && layout != nil
+        hasWorkSurface && workSurfaceContributionId == "photara.layout.work-surface" && layout != nil
     }
 }
 
@@ -47,11 +47,11 @@ enum ProductionWorkSurfaceRegistry {
         var render: (NodeWorkSurfacePresentation) -> AnyView
     }
     private static let registrations: [String: Registration] = [
-        "photara.layout.workspace": .init(accepts: { $0.hasLayoutWorkSurface },
+        "photara.layout.work-surface": .init(accepts: { $0.hasLayoutWorkSurface },
             render: { AnyView(ProductionLayoutView(nodeID: $0.nodeID)) })
     ]
     static func presentation(for node: BridgeNodeDto) -> NodeWorkSurfacePresentation? {
-        guard node.hasWorkspace, let id = node.workspaceContributionId,
+        guard node.hasWorkSurface, let id = node.workSurfaceContributionId,
               registrations[id]?.accepts(node) == true else { return nil }
         return .init(nodeID: node.nodeId, contributionID: id, title: node.displayName,
             iconResourceID: node.iconResourceId, themeColorRole: node.themeColorRole, accentHex: node.accentSrgbHex)

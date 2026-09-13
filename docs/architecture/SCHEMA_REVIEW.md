@@ -1,5 +1,10 @@
 # Generation-two database design — S7 review index
 
+Historical slice/review record. Current naming and gates are governed by the
+[Library rebaseline](LIBRARY_NOMENCLATURE_REBASELINE.md) and
+[execution roadmap](../ROADMAP_0_2_EXECUTION.md); earlier byte-preservation and
+next-step labels below refer to their original verification date.
+
 **2026-09-12: Suhail accepted R1–R8 as proposed; CXT2 acceptance is complete.**
 [Accepted contract freeze](D19_CONTRACT_FREEZE.md), [static schema delta](D19_STATIC_SCHEMA_DELTA.md),
 and [inert DDL/inventory](proposals/d19-cxt2/README.md) form the exact design record.
@@ -41,7 +46,7 @@ in this historical S1–S7 packet. The exact physical/portable delta was accepte
 
 ## Authority summary
 
-The table uses the historical physical baseline names. Under D19, Workspace means
+The table uses the historical physical baseline names. Under D19, Library means
 Library; Project policy/grants qualify every catalog/content read independently
 of blanket membership. Project assets mean the private graph/run ledger, not an
 implicit AssetSet union. Project-only collaborators get assigned bounded snapshots.
@@ -49,14 +54,14 @@ implicit AssetSet union. Project-only collaborators get assigned bounded snapsho
 | Data | Authority | Other stores |
 | --- | --- | --- |
 | Account, exact Auth0 issuer/subject, billing/developer grants | Authenticated service/control plane | Bounded local cache; Account is never a Person |
-| Workspace membership and cloud authorization | Service | Offline local view cannot grant remote rights |
-| Local Workspace Library: typed People/Organizations/relationships/LocationKinds/Locations | Local SQLite for On This Mac; local-first edits plus accepted service base for a cloud Workspace | Explicit mutation/receipt/feed reconciliation; no last-write-wins |
+| Library membership and cloud authorization | Service | Offline local view cannot grant remote rights |
+| Local Library records: typed People/Organizations/relationships/LocationKinds/Locations | Local SQLite for On This Mac; local-first edits plus accepted service base for a cloud Library | Explicit mutation/receipt/feed reconciliation; no last-write-wins |
 | Project metadata, immutable Library snapshots/assignments, assets/representations/resources, named graphs and run/effect/evidence history | Movable `.photara` package verified commit | Catalog is a projection, never a replacement or cloud backup claim |
 | Paths, mounts, bookmark references, device availability | Device-local SQLite/host | No secrets/bookmark bytes or machine locators in portable package/cloud report |
 | Publication/sync recovery intents, sealed requests, receipt/inbox/snapshot staging | Durable local state | Not disposable cache; no cross-store distributed transaction |
 | Cloud catalog/media | Client-reported bounded observation; verified media descriptor + private storage binding | No client observation establishes verified package HEAD |
 | Node release identity/category/search metadata | Versioned package catalog/manifest | Installation/trust/license separate; package pin never follows latest silently |
-| Person/Organization social profiles | Typed Workspace Library roots; one owner, own revisions | No Auth0 identity proof; provider connections private; chosen display facts only in Project snapshots |
+| Person/Organization social profiles | Typed Library records roots; one owner, own revisions | No Auth0 identity proof; provider connections private; chosen display facts only in Project snapshots |
 | Future Library export | Versioned logical snapshot with typed IDs/provenance and permitted media | Not a live DB copy or Project backup; import is dry-run/isolated, no auth/device/sync-state restoration |
 | Thumbnails, proxies, browsing indexes | Rebuildable device cache | Essential evidence/authored assets never demoted to cache |
 
@@ -89,19 +94,19 @@ recommendations are accepted design choices, with the exclusions recorded below.
 | D1 Package | Immutable objects, commit/inventory chain, one HEAD; independent authored/history roots; specimen envelope shapes | Retain ancestors/no automatic GC initially; control-size ceilings and later sharding |
 | D2 Publication | Single writer with no timeout-only lock stealing; stage/verify/publish and durable recovery; explicit local/SMB limitations | Ambiguous SMB ownership stops writes; never promise cross-store ACID |
 | D3 Identity | Stable ProjectId; moves/rebinds only locator changes; duplicate writable copies quarantine; explicit fork with provenance | No timestamp-wins or copied-ID silent divergence |
-| D4 Library | Typed Workspace aggregates; multiple Person roles; Organization client identities; required concrete LocationKind | No Scene table or duplicate Client aggregate; UI label remains a later presentation choice |
-| D5 Kind terms | Approve narrow atomic claim transfer, immutable source retirement snapshot, canonical promotion and explicit offline collision reconcile | Preserve Workspace+term uniqueness; no arbitrary stealing, unmerge, resurrection or tombstone key reuse |
+| D4 Library | Typed Library aggregates; multiple Person roles; Organization client identities; required concrete LocationKind | No Scene table or duplicate Client aggregate; UI label remains a later presentation choice |
+| D5 Kind terms | Approve narrow atomic claim transfer, immutable source retirement snapshot, canonical promotion and explicit offline collision reconcile | Preserve Library+term uniqueness; no arbitrary stealing, unmerge, resurrection or tombstone key reuse |
 | D6 Normalizer | Unicode 16.0.0 NFC/full-default-casefold/NFC/White_Space policy; immutable bidirectional Beach/beaches and Studio/studios seed; explicit custom aliases | Not general-language stemming; both creation directions claim full group; upgrades require collision audit |
 | D7 Codec | Retain actual Rust canonical-json.v1 byte behavior and S6 vectors, not RFC8785/JSON.stringify | Add duplicate-key/typed-number streaming validation; dependency drift needs codec version |
 | D8 Local persistence | Adopt Storexa 0.2 explicit SQLite types; app-owned SQL/migrations; local STRICT/WAL/FULL/FK settings | Deferred Storexa begin requires explicit SQLx BEGIN IMMEDIATE path for local CAS; no ORM/domain leakage |
-| D9 Service security | Auth0 JWT/API mapping; exact issuer+subject; Account-first/Workspace lock order; least-privilege roles and forced scoped RLS | Desktop never has Neon credentials; RLS is defense-in-depth, not authentication; test real unprivileged roles |
+| D9 Service security | Auth0 JWT/API mapping; exact issuer+subject; Account-first/Library lock order; least-privilege roles and forced scoped RLS | Desktop never has Neon credentials; RLS is defense-in-depth, not authentication; test real unprivileged roles |
 | D10 Sync | Immutable sealed commands/receipts, one-batch feeds, receipt+ordered-base milestones, explicit rebase/no automatic merge | Durable overlay and history retention; reject oversized atomic commands, never split secretly |
 | D11 Reset/retention | Bounded complete snapshot with CAS install; no v1 feed/receipt/tombstone pruning or automatic epoch reset | Oversize/lost history are explicit errors; future erasure/retention protocol is separate work |
-| D12 Media/privacy | Staging separate from immutable final media; minimal catalog by default, rich explicit same-Workspace opt-in | No foreign-Workspace snapshot leakage, portable locators or secret URLs; revocation cannot erase offline cached bytes |
+| D12 Media/privacy | Staging separate from immutable final media; minimal catalog by default, rich explicit same-Library opt-in | No foreign-Library snapshot leakage, portable locators or secret URLs; revocation cannot erase offline cached bytes |
 | D13 Limits | S6 exact protocol/string/depth/reader bounds; advertise lower service capacity when needed | Initial product limits, not finalized paid plan quotas; reject honestly before partial state |
 | D14 Rollout | Clean generation two; only current gen2 one-JSON compatibility retained as L1 test | Legacy/v0.1.3/live Neon import is never schema, implementation or release gate |
-| D15 Future adapters | CloudKit deferred; selected local/cloud authority explicit, no same-Workspace dual write | No CloudKit-via-SQL fiction; developer access does not bypass Workspace authorization |
-| D16 Social profiles | Typed manual-first Person/Organization profiles; optional exact scoped subject, mutable handle/display/URL, provenance/refresh facts; Workspace-wide bound-subject uniqueness including tombstones | No identity proof/OAuth requirement; chosen snapshot display facts only; consent/expiry-aware avatars; Instagram optional. Bound-subject reattachment/transfer is not approved by this initial policy |
+| D15 Future adapters | CloudKit deferred; selected local/cloud authority explicit, no same-Library dual write | No CloudKit-via-SQL fiction; developer access does not bypass Library authorization |
+| D16 Social profiles | Typed manual-first Person/Organization profiles; optional exact scoped subject, mutable handle/display/URL, provenance/refresh facts; Library-wide bound-subject uniqueness including tombstones | No identity proof/OAuth requirement; chosen snapshot display facts only; consent/expiry-aware avatars; Instagram optional. Bound-subject reattachment/transfer is not approved by this initial policy |
 | D17 Portable Library export/import | Future versioned/checksummed logical bundle, optional reviewed encryption, typed records/social profiles/permitted durable media and portable discovery hints | Non-gating; packages separate; no credentials/device/absolute-path/sync state; dry-run/isolated or transactional restore, explicit collisions/rebind/privacy and erasure limits |
 
 No final paid prices/quota schedule, retention/erasure SLA, Node Store commerce,
@@ -118,7 +123,7 @@ app-owned Library Browsers and embedded pickers, explicit asset ports and privat
 ledger, read/enrich/effect contracts, typed families, Layout/Gallery proposed
 built-ins and stable hierarchical discovery taxonomy. Documentation consistency
 and exact logical/package/NodeSDK contracts remain next gates. Approval does not
-cover physical Workspace/ProjectAsset renames, new grant/RLS/feed schemas, changing
+cover physical Library/ProjectAsset renames, new grant/RLS/feed schemas, changing
 applied migrations, fixture baselines, manifests, runtime or UI. Existing D1–D17
 rows above are a historical record and are superseded where D19 explicitly changes
 the model; completed L1/L2 evidence remains valid for their bounded old contracts.
@@ -137,7 +142,7 @@ L1 and subsequently L2 received separate bounded implementation authority. D16 r
 profiles now; automated lookup/provider-avatar collection remains optional future
 adapter work with separate consent/terms/erasure review. D17 reserves export/import
 compatibility but does not make backup UI, encryption or an importer a condition
-of L1/L2. Bound subject ownership is unique across a Workspace; the conservative
+of L1/L2. Bound subject ownership is unique across a Library; the conservative
 no-transfer/tombstone reservation choice is accepted. Any future transfer needs
 a separately reviewed atomic transfer model before implementation.
 
@@ -163,7 +168,7 @@ local runtime results and its exclusions. D18/CXT1–3 now precede any L3 author
    remains unexposed pending its separate bounded implementation/proof.
 4. **D19/revised D18 gates before L3:** R1–R8 accepted as proposed 2026-09-12;
    CXT2 inert DDL/static inventory and CXT1a/b pure contracts are complete.
-   Next separately select CXT3a, then CXT3b/c adapters/migrations/tests. Never rewrite
+   CXT3a is complete; separately select CXT3b/c after the Library rebaseline. Never rewrite
    L2 0001–0006; no implicit DDL execution.
 5. **L3–L6 package publication, currently paused:** choose test roots for create/open/save/move/rebind/
    duplicate/copy/fork/recovery. Prove HEAD/catalog crash windows and single-writer
@@ -186,20 +191,21 @@ local runtime results and its exclusions. D18/CXT1–3 now precede any L3 author
 - [x] First bounded implementation/test scope chosen: L1, fresh temporary roots only.
 - [x] L1 read-only codec/validator: 25 focused tests plus 29 retained tests passed.
 - [x] L2 separately authorized: 44-table family and bounded typed repositories;
-  selected regression total 75 passed, workspace Clippy/check passed.
+  selected regression total 75 passed, library Clippy/check passed.
 - [x] D18 concept/source syntax direction incorporated in a separate inert proposal.
 - [x] D19 conceptual approval recorded and documentation amended.
 - [x] D19 consistency reviewed; exact logical/package/NodeSDK freeze candidate prepared.
-- [x] Suhail accepted R1–R8 as proposed, including the static physical/portable proposal, 2026-09-12.
+- [x] Suhail accepted R2–R8 and superseded R1 physical naming with the clean Library rebaseline, 2026-09-12.
 - [x] CXT2 inert DDL, exact inventory and static checks complete; no execution.
 - [x] CXT1a separately selected and complete; pure contracts and Rust-generated golden verified.
 - [x] CXT1b separately selected and complete; pure context contracts, golden and regression verified.
-- [ ] CXT3a/b/c scopes accepted before implementation.
+- [x] CXT3a selected, implemented and verified; Library rebaseline separately selected and verified.
+- [ ] CXT3b/c scopes selected before their execution.
 - [ ] Runtime conformance completed as implementation evidence, not prose approval.
 - [ ] Any live infrastructure, migration of user data, UI, staging/commit or
   release action separately authorized when needed.
 
-Next eligible action: separately select **CXT3a package reader/closure contracts** from the
+Next eligible action: separately select **CXT3b local SQLite and app initialization** from the
 [accepted slices](D19_STATIC_SCHEMA_DELTA.md#fixture-delta-implementation-slices-and-gates).
-CXT2 and CXT1a/b are complete; CXT3/L3 have not begun. L3 waits for required contract and
+CXT2, CXT1a/b, CXT3a and the Library rebaseline are complete; CXT3b/c remain gated. L3 waits for required contract and
 runtime conformance; UI appearance still needs raster approval.

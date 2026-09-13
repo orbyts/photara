@@ -101,7 +101,7 @@ impl PhotaraLibrary {
     /// Returns an error when the owner scope is empty.
     pub fn local(path: String, owner_id: String) -> Result<Arc<Self>, BridgeError> {
         if owner_id.trim().is_empty() {
-            return Err(library_error("Library workspace is required"));
+            return Err(library_error("Library identity is required"));
         }
         Ok(Arc::new(Self {
             path: PathBuf::from(path),

@@ -1,6 +1,6 @@
 CREATE TABLE storage_roots (
     storage_root_id BLOB PRIMARY KEY CHECK (length(storage_root_id) = 16),
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     display_name TEXT NOT NULL CHECK (length(trim(display_name)) > 0),
     label_key TEXT NOT NULL CHECK (length(label_key) > 0),
     purpose TEXT NOT NULL CHECK (length(purpose) > 0),
@@ -9,14 +9,14 @@ CREATE TABLE storage_roots (
     updated_at_ms INTEGER NOT NULL,
     state TEXT NOT NULL CHECK (state IN ('active', 'tombstoned')),
     retired_at_ms INTEGER,
-    UNIQUE (workspace_id, storage_root_id),
-    UNIQUE (workspace_id, label_key),
+    UNIQUE (library_id, storage_root_id),
+    UNIQUE (library_id, label_key),
     CHECK ((state = 'active' AND retired_at_ms IS NULL) OR (state = 'tombstoned' AND retired_at_ms IS NOT NULL)),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT
+    FOREIGN KEY (library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE project_catalog (
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     project_id BLOB NOT NULL CHECK (length(project_id) = 16),
     visibility TEXT NOT NULL CHECK (visibility IN ('visible', 'hidden')),
     local_revision INTEGER NOT NULL CHECK (local_revision >= 1),
@@ -24,20 +24,20 @@ CREATE TABLE project_catalog (
     updated_at_ms INTEGER NOT NULL,
     active_locator_id BLOB,
     selected_observation_id BLOB,
-    PRIMARY KEY (workspace_id, project_id),
+    PRIMARY KEY (library_id, project_id),
     CHECK (selected_observation_id IS NULL OR active_locator_id IS NOT NULL),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, project_id, active_locator_id)
-        REFERENCES project_locators(workspace_id, project_id, locator_id)
+    FOREIGN KEY (library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, project_id, active_locator_id)
+        REFERENCES project_locators(library_id, project_id, locator_id)
         DEFERRABLE INITIALLY DEFERRED,
-    FOREIGN KEY (workspace_id, project_id, selected_observation_id, active_locator_id)
-        REFERENCES project_observations(workspace_id, project_id, observation_id, locator_id)
+    FOREIGN KEY (library_id, project_id, selected_observation_id, active_locator_id)
+        REFERENCES project_observations(library_id, project_id, observation_id, locator_id)
         DEFERRABLE INITIALLY DEFERRED
 ) STRICT;
 
 CREATE TABLE project_locators (
     locator_id BLOB PRIMARY KEY CHECK (length(locator_id) = 16),
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     project_id BLOB NOT NULL,
     storage_root_id BLOB,
     relative_path TEXT,
@@ -46,7 +46,7 @@ CREATE TABLE project_locators (
     updated_at_ms INTEGER NOT NULL,
     state TEXT NOT NULL CHECK (state IN ('active', 'retired')),
     retired_at_ms INTEGER,
-    UNIQUE (workspace_id, project_id, locator_id),
+    UNIQUE (library_id, project_id, locator_id),
     CHECK ((storage_root_id IS NULL) = (relative_path IS NULL)),
     CHECK (relative_path IS NULL OR (length(relative_path) > 0
         AND substr(relative_path, 1, 1) <> '/'
@@ -55,16 +55,16 @@ CREATE TABLE project_locators (
         AND instr('/' || relative_path || '/', '/../') = 0
         AND instr('/' || relative_path || '/', '/./') = 0)),
     CHECK ((state = 'active' AND retired_at_ms IS NULL) OR (state = 'retired' AND retired_at_ms IS NOT NULL)),
-    FOREIGN KEY (workspace_id, project_id) REFERENCES project_catalog(workspace_id, project_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, storage_root_id) REFERENCES storage_roots(workspace_id, storage_root_id) ON DELETE RESTRICT
+    FOREIGN KEY (library_id, project_id) REFERENCES project_catalog(library_id, project_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, storage_root_id) REFERENCES storage_roots(library_id, storage_root_id) ON DELETE RESTRICT
 ) STRICT;
-CREATE UNIQUE INDEX rooted_locator_path ON project_locators(workspace_id, storage_root_id, relative_path)
+CREATE UNIQUE INDEX rooted_locator_path ON project_locators(library_id, storage_root_id, relative_path)
     WHERE storage_root_id IS NOT NULL AND state = 'active';
-CREATE INDEX locators_by_project ON project_locators(workspace_id, project_id, state);
+CREATE INDEX locators_by_project ON project_locators(library_id, project_id, state);
 
 CREATE TABLE device_root_bindings (
     device_id BLOB NOT NULL,
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     storage_root_id BLOB NOT NULL,
     binding_kind TEXT NOT NULL CHECK (binding_kind IN ('path', 'bookmark', 'provider')),
     host_path TEXT,
@@ -75,12 +75,12 @@ CREATE TABLE device_root_bindings (
         OR (binding_kind IN ('bookmark', 'provider') AND host_path IS NULL AND secure_handle_ref IS NOT NULL)),
     PRIMARY KEY (device_id, storage_root_id),
     FOREIGN KEY (device_id) REFERENCES local_device(device_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, storage_root_id) REFERENCES storage_roots(workspace_id, storage_root_id) ON DELETE RESTRICT
+    FOREIGN KEY (library_id, storage_root_id) REFERENCES storage_roots(library_id, storage_root_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE device_project_bindings (
     device_id BLOB NOT NULL,
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     project_id BLOB NOT NULL,
     locator_id BLOB NOT NULL,
     direct_host_path TEXT,
@@ -96,13 +96,13 @@ CREATE TABLE device_project_bindings (
     CHECK ((last_commit_id IS NULL) = (last_commit_sha256 IS NULL)),
     CHECK (availability <> 'available' OR (verified_project_id IS NOT NULL AND verified_project_id = project_id AND checked_at_ms IS NOT NULL)),
     FOREIGN KEY (device_id) REFERENCES local_device(device_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, project_id, locator_id)
-        REFERENCES project_locators(workspace_id, project_id, locator_id) ON DELETE RESTRICT
+    FOREIGN KEY (library_id, project_id, locator_id)
+        REFERENCES project_locators(library_id, project_id, locator_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE project_observations (
     observation_id BLOB PRIMARY KEY CHECK (length(observation_id) = 16),
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     project_id BLOB NOT NULL,
     locator_id BLOB NOT NULL,
     commit_id BLOB NOT NULL CHECK (length(commit_id) = 16),
@@ -116,17 +116,17 @@ CREATE TABLE project_observations (
     graph_count INTEGER NOT NULL CHECK (graph_count >= 0),
     observed_at_ms INTEGER NOT NULL,
     index_schema INTEGER NOT NULL CHECK (index_schema = 1),
-    UNIQUE (workspace_id, project_id, observation_id, locator_id),
+    UNIQUE (library_id, project_id, observation_id, locator_id),
     UNIQUE (locator_id, commit_id, commit_sha256, index_schema),
-    FOREIGN KEY (workspace_id, project_id, locator_id)
-        REFERENCES project_locators(workspace_id, project_id, locator_id) ON DELETE RESTRICT
+    FOREIGN KEY (library_id, project_id, locator_id)
+        REFERENCES project_locators(library_id, project_id, locator_id) ON DELETE RESTRICT
 ) STRICT;
-CREATE INDEX observation_commit ON project_observations(workspace_id, project_id, commit_id, commit_sha256);
+CREATE INDEX observation_commit ON project_observations(library_id, project_id, commit_id, commit_sha256);
 
 CREATE TABLE project_party_projection (
     observation_id BLOB NOT NULL,
     assignment_id BLOB NOT NULL CHECK (length(assignment_id) = 16),
-    source_workspace_id BLOB NOT NULL CHECK (length(source_workspace_id) = 16),
+    source_library_id BLOB NOT NULL CHECK (length(source_library_id) = 16),
     source_kind TEXT NOT NULL CHECK (source_kind IN ('person', 'organization')),
     source_record_id BLOB NOT NULL CHECK (length(source_record_id) = 16),
     source_revision TEXT NOT NULL,
@@ -135,12 +135,12 @@ CREATE TABLE project_party_projection (
     PRIMARY KEY (observation_id, assignment_id),
     FOREIGN KEY (observation_id) REFERENCES project_observations(observation_id) ON DELETE CASCADE
 ) STRICT;
-CREATE INDEX projects_by_party ON project_party_projection(source_workspace_id, source_kind, source_record_id, observation_id);
+CREATE INDEX projects_by_party ON project_party_projection(source_library_id, source_kind, source_record_id, observation_id);
 
 CREATE TABLE project_location_projection (
     observation_id BLOB NOT NULL,
     assignment_id BLOB NOT NULL CHECK (length(assignment_id) = 16),
-    source_workspace_id BLOB NOT NULL CHECK (length(source_workspace_id) = 16),
+    source_library_id BLOB NOT NULL CHECK (length(source_library_id) = 16),
     location_id BLOB NOT NULL CHECK (length(location_id) = 16),
     location_kind_id BLOB NOT NULL CHECK (length(location_kind_id) = 16),
     location_name_snapshot TEXT NOT NULL,
@@ -149,8 +149,8 @@ CREATE TABLE project_location_projection (
     PRIMARY KEY (observation_id, assignment_id),
     FOREIGN KEY (observation_id) REFERENCES project_observations(observation_id) ON DELETE CASCADE
 ) STRICT;
-CREATE INDEX projects_by_location ON project_location_projection(source_workspace_id, location_id, observation_id);
-CREATE INDEX projects_by_kind ON project_location_projection(source_workspace_id, location_kind_id, observation_id);
+CREATE INDEX projects_by_location ON project_location_projection(source_library_id, location_id, observation_id);
+CREATE INDEX projects_by_kind ON project_location_projection(source_library_id, location_kind_id, observation_id);
 
 CREATE TABLE project_graph_projection (
     observation_id BLOB NOT NULL,

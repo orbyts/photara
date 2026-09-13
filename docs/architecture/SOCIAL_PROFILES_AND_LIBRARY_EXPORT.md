@@ -5,7 +5,7 @@
 D16/D17 were approved at S7; older conditional-approval wording below is historical. The [D19 export delta](D19_STATIC_SCHEMA_DELTA.md#sync-v2-and-export) adds permitted logical slots/variables/ASTs while excluding access grants, invitations and all device/sync/recovery state. Export/import/encryption runtime remains deferred. R1–R8 were accepted as proposed 2026-09-12; CXT2 is complete without changing export runtime or fixtures.
 
 **D19 supersession note (2026-09-12):** [Libraries and node Work Surfaces](LIBRARY_AND_NODE_WORK_SURFACES.md)
-is the current conceptual target. Library replaces durable Workspace; each Project
+is the current conceptual target. Library is the durable ownership domain; each Project
 has one Library and explicit Project access. Graphs use connected AssetSets and
 declared frozen context; a private package ledger is not an ambient Gallery/asset
 union. Library management is app-owned; node Work Surfaces embed authorized host
@@ -21,8 +21,8 @@ No provider/API/database access or runtime implementation is part of this slice.
 
 ## D16 — typed social profiles
 
-`SocialProfileId` identifies a Workspace-scoped typed Library aggregate. Each
-profile has exactly one immutable same-Workspace Person **or** Organization owner;
+`SocialProfileId` identifies a Library-scoped typed Library aggregate. Each
+profile has exactly one immutable same-Library Person **or** Organization owner;
 each owner has zero to many profiles, including multiple accounts on one provider.
 Profiles have their own local/server revisions and ordinary typed mutations.
 `SocialIdentity` means the optional provider subject coordinate held by a profile,
@@ -30,7 +30,7 @@ not a second Account table or an authentication credential.
 
 The record retains:
 
-- Immutable profile/Workspace/owner IDs, namespaced `provider_id`, schema version,
+- Immutable profile/Library/owner IDs, namespaced `provider_id`, schema version,
   created time; mutable revision/update time and `active | tombstoned` lifecycle.
 - Optional exact `(subject_namespace, provider_subject_id)` pair. Namespace must
   distinguish app-scoped/tenant-scoped provider identifiers; no case folding.
@@ -54,13 +54,13 @@ proof that the Person is that account's legal owner. `provider-authorized` recor
 how an observation was obtained, never current access, endorsement, identity proof,
 or permission to fetch again. Account/Auth0 identity and membership remain separate.
 
-Uniqueness is **Workspace + provider + subject namespace + subject ID** whenever
+Uniqueness is **Library + provider + subject namespace + subject ID** whenever
 the subject is bound, including tombstones. A bound scoped subject cannot attach
 to two different People/Organizations. Subject namespace distinguishes genuinely
 app/tenant-scoped provider IDs; adapters must pin/validate it, not let a client
 invent another namespace to bypass uniqueness. Handles are not unique identity
 keys. Manual duplicate handles/URLs warn for review; they never silently merge
-owners. SQL has one Workspace-wide partial unique index, an exclusive-owner check
+owners. SQL has one Library-wide partial unique index, an exclusive-owner check
 and scoped FKs. Provider observations still are not legal identity proof.
 No ordinary resurrection, subject reassignment or hard delete is approved.
 
@@ -88,7 +88,7 @@ and provenance, and stores bytes outside durable Library media. Expiry, adapter
 deletion requirements or revoked consent invalidate/delete cache and fall back;
 network errors alone do not erase manual profile facts. `durable-consented` is an
 explicit promotion only when user consent **and provider rights** permit storage,
-redistribution in Workspace sync, project snapshots and/or backup as separately
+redistribution in Library sync, project snapshots and/or backup as separately
 applicable. Each use rechecks that scope; durable does not mean exempt from expiry
 or erasure. Keep source/rights/consent provenance; do not export or embed media
 whose license disallows that use. Current append-only media descriptors do not
@@ -124,11 +124,11 @@ Lookup/deletion/rename never silently refreshes a saved snapshot.
 
 Cloud replication uses the typed `social-profile` root with full revision/CAS,
 receipt/feed/snapshot rules. Safe source metadata is shared only inside its
-authorized Workspace. Membership changes still govern remote access. Provider
+authorized Library. Membership changes still govern remote access. Provider
 connection state/credentials are private and never part of the root. Do not
 automatically attach social display data to cloud Project Catalog reports; any
-rich sharing follows explicit same-Workspace opt-in. No public profile existence
-is proof of Workspace membership or permission to upload its avatar.
+rich sharing follows explicit same-Library opt-in. No public profile existence
+is proof of Library membership or permission to upload its avatar.
 
 ## D17 — future portable Library export/import
 
@@ -139,7 +139,7 @@ Export is a logical snapshot bundle, never a copied live SQLite/WAL file.
 
 Proposed family: `photara.library-export`, independently versioned from package,
 SQL schema and sync protocol. A manifest has ExportId, format major/minor, codec,
-source WorkspaceId and source revision facts, capture time, inclusion/privacy
+source LibraryId and source revision facts, capture time, inclusion/privacy
 policy, required features, sorted member paths, exact byte lengths/SHA-256 and
 completeness/omission report. Content is bounded canonical typed JSON and verified
 durable media objects. A checksum inventory covers all payload members; a detached
@@ -158,7 +158,7 @@ and path limits apply before allocation or extraction.
 
 | Included, subject to explicit selection/rights | Always excluded |
 | --- | --- |
-| Workspace display metadata and stable ID; typed People, Organizations, relationships, social profiles, LocationKinds/claims/retirement provenance and Locations | Account/Auth0 identity exports, Membership/billing/developer entitlements, authentication/authorization claims |
+| Library display metadata and stable ID; typed People, Organizations, relationships, social profiles, LocationKinds/claims/retirement provenance and Locations | Account/Auth0 identity exports, Membership/billing/developer entitlements, authentication/authorization claims |
 | Supported logical record revisions, tombstones, source schema/policy IDs and approved provenance | Tokens, credentials, cookies, signed URLs, provider connection IDs/secrets, security-bookmark bytes |
 | Verified durable Library media authorized for export; omissions with reason | Provider cache, proxies/thumbnails derived as cache, expired/disallowed media |
 | ProjectIds, logical StorageRootIds, selected portable catalog summaries, last observed CommitId/checksum and safe root-relative hints | Device IDs, absolute/mounted/UNC paths, SMB host/share URIs, bookmarks, machine fingerprints |
@@ -185,7 +185,7 @@ unavailable until the authorized host resolves their new bindings.
    Reject corrupt/unsupported input before writes; report omitted media/packages,
    unresolved provider subjects, missing kinds and every normalization collision.
 2. Default restore is **side-by-side into an isolated new local store**, preserving
-   Workspace/root/Project/record IDs and source revision/provenance facts. It is
+   Library/root/Project/record IDs and source revision/provenance facts. It is
    never a second automatic cloud writer. Do not restore membership, credentials,
    pending server work or an authenticated cloud association from a bundle.
 3. Capture a reviewable import plan keyed to export manifest digest and current
@@ -201,7 +201,7 @@ unavailable until the authorized host resolves their new bindings.
 5. Resolve Kind canonical/alias collisions through the existing explicit reuse/
    claim-transfer rules, never a disabled unique constraint. Owner/relationship/
    social-subject duplicates require typed reconciliation. Import into a different
-   Workspace or fork requires an explicit ID mapping/provenance report; it is
+   Library or fork requires an explicit ID mapping/provenance report; it is
    not the default identity-preserving restore. Missing required parents reject.
 6. Record ImportId, source ExportId/digest, chosen mappings, omissions and source
    revisions in a durable import report. New accepted local edits get new local

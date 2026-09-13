@@ -322,7 +322,7 @@ pub(super) fn validate_record(
             uuid_field(v, "snapshot_id")?;
             named(v, "display_name", 512)?;
             let source = field(v, "source")?;
-            ids(source, &["workspace_id", "record_id"])?;
+            ids(source, &["library_id", "record_id"])?;
             one_of(
                 source,
                 "kind",
@@ -672,7 +672,10 @@ fn validate_content(
     clippy::too_many_lines,
     reason = "Checks follow the authored aggregate's graph, party, location and asset boundaries"
 )]
-pub(super) fn validate_authored(a: &AuthoredProject, c: &Context) -> Result<(), PackageError> {
+pub(super) fn validate_authored(
+    a: &AuthoredProject,
+    c: &impl ObjectLookup,
+) -> Result<(), PackageError> {
     schema(&a.schema, "photara.project.authored")?;
     if a.graphs.len() > 1000 || a.graphs.windows(2).any(|p| p[0].graph_id >= p[1].graph_id) {
         return Err(PackageError::Record);
@@ -711,7 +714,7 @@ pub(super) fn validate_authored(a: &AuthoredProject, c: &Context) -> Result<(), 
         let source = field(snap, "source")?;
         one_of(source, "kind", &["person", "organization"])?;
         if !sources.insert((
-            uuid_field(source, "workspace_id")?,
+            uuid_field(source, "library_id")?,
             text(source, "kind")?.to_owned(),
             uuid_field(source, "record_id")?,
         )) {
@@ -739,8 +742,8 @@ pub(super) fn validate_authored(a: &AuthoredProject, c: &Context) -> Result<(), 
             || text(field(kind, "source")?, "kind")? != "location_kind"
             || uuid_field(field(location, "payload")?, "location_kind_id")?
                 != uuid_field(field(kind, "source")?, "record_id")?
-            || uuid_field(field(location, "source")?, "workspace_id")?
-                != uuid_field(field(kind, "source")?, "workspace_id")?
+            || uuid_field(field(location, "source")?, "library_id")?
+                != uuid_field(field(kind, "source")?, "library_id")?
         {
             return Err(PackageError::Integrity);
         }
@@ -791,13 +794,13 @@ pub(super) fn validate_authored(a: &AuthoredProject, c: &Context) -> Result<(), 
     clippy::collapsible_match,
     reason = "Side-effecting index insertion stays in explicit schema arms, not match guards"
 )]
-pub(super) fn validate_links(c: &Context) -> Result<(), PackageError> {
+pub(super) fn validate_links(c: &impl ObjectLookup) -> Result<(), PackageError> {
     let mut starts = BTreeMap::new();
     let mut attempts = BTreeMap::new();
     let mut operations = BTreeMap::new();
     let mut terminals = BTreeSet::new();
     let mut ordinals = BTreeSet::new();
-    for object in c.objects.values() {
+    for object in c.objects().values() {
         let v = &object.value;
         match owned_schema(v)?.id.as_str() {
             "photara.history.run-start" => {
@@ -837,7 +840,7 @@ pub(super) fn validate_links(c: &Context) -> Result<(), PackageError> {
             _ => {}
         }
     }
-    for object in c.objects.values() {
+    for object in c.objects().values() {
         let v = &object.value;
         let s = owned_schema(v)?;
         match s.id.as_str() {

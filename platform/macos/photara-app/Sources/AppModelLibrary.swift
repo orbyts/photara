@@ -99,7 +99,7 @@ extension LibraryItem {
     }
 }
 struct ProductionLibraryModule: View {
-    let panel: WorkspacePanelID
+    let panel: EditorPanelID
     @ObservedObject var library: LibraryModel
     var body: some View {
         Group {

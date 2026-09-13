@@ -135,9 +135,9 @@ pub struct BridgeNodeDto {
     pub theme_color_role: Option<String>,
     pub accent_srgb_hex: Option<String>,
     pub inspector_contribution_id: Option<String>,
-    pub workspace_contribution_id: Option<String>,
+    pub work_surface_contribution_id: Option<String>,
     pub default_activation_id: Option<String>,
-    pub has_workspace: bool,
+    pub has_work_surface: bool,
     pub status: String,
     pub ports: Vec<BridgePortInspectionDto>,
     pub output_summary: Vec<BridgeInspectionFieldDto>,
@@ -185,7 +185,7 @@ pub struct BridgeAvailableNodeDefinitionDto {
     pub catalog_path: Vec<String>,
     pub search_terms: Vec<String>,
     pub inspector_contribution_id: Option<String>,
-    pub workspace_contribution_id: Option<String>,
+    pub work_surface_contribution_id: Option<String>,
     pub default_activation_id: Option<String>,
 }
 
@@ -640,7 +640,7 @@ impl PhotaraApplication {
                         catalog_path: presentation.catalog_path,
                         search_terms: presentation.search_terms,
                         inspector_contribution_id: presentation.inspector_contribution_id,
-                        workspace_contribution_id: presentation.workspace_contribution_id,
+                        work_surface_contribution_id: presentation.work_surface_contribution_id,
                         default_activation_id: presentation.default_activation_id,
                     })
                 })
@@ -3066,15 +3066,15 @@ fn node_snapshot(
         inspector_contribution_id: presentation
             .as_ref()
             .and_then(|value| value.inspector_contribution_id.clone()),
-        workspace_contribution_id: presentation
+        work_surface_contribution_id: presentation
             .as_ref()
-            .and_then(|value| value.workspace_contribution_id.clone()),
+            .and_then(|value| value.work_surface_contribution_id.clone()),
         default_activation_id: presentation
             .as_ref()
             .and_then(|value| value.default_activation_id.clone()),
-        has_workspace: presentation
+        has_work_surface: presentation
             .as_ref()
-            .is_some_and(|value| value.workspace_contribution_id.is_some()),
+            .is_some_and(|value| value.work_surface_contribution_id.is_some()),
         status: status.to_owned(),
         ports,
         output_summary,
@@ -3845,7 +3845,7 @@ mod tests {
             .unwrap();
         assert_eq!(disk_definition.catalog_path, ["Input", "Filesystem"]);
         assert_eq!(disk_definition.icon_resource_id, "photara.disk.folder");
-        assert!(disk_definition.workspace_contribution_id.is_none());
+        assert!(disk_definition.work_surface_contribution_id.is_none());
         assert_eq!(
             disk_definition.default_activation_id.as_deref(),
             Some("photara.disk.open-folder")
@@ -3855,10 +3855,10 @@ mod tests {
             .find(|definition| definition.definition_id == photara_layout_node::DEFINITION_ID)
             .unwrap();
         assert_eq!(layout_definition.catalog_path, ["Create", "Layout"]);
-        assert!(layout_definition.workspace_contribution_id.is_some());
+        assert!(layout_definition.work_surface_contribution_id.is_some());
         assert_eq!(
             layout_definition.default_activation_id.as_deref(),
-            Some("photara.layout.open-workspace")
+            Some("photara.layout.open-work-surface")
         );
 
         let project = app.create_project("Live folder".to_owned()).unwrap();
@@ -3872,7 +3872,7 @@ mod tests {
             .find(|node| node.disk.is_some())
             .unwrap();
         assert_eq!(disk.icon_resource_id, "photara.disk.folder");
-        assert!(!disk.has_workspace);
+        assert!(!disk.has_work_surface);
         let disk_id = disk.node_id.clone();
         let semantic_digest_before_attach = added_disk.graph.digest.clone();
 
@@ -4017,7 +4017,7 @@ mod tests {
             .find(|node| node.layout.is_some())
             .unwrap();
         let layout = node.layout.as_ref().unwrap();
-        assert!(node.has_workspace);
+        assert!(node.has_work_surface);
         assert_eq!(node.status, "Ready");
         assert_eq!(node.ports.len(), 2);
         assert_eq!(node.ports[0].direction, BridgePortDirection::Input);
@@ -4031,7 +4031,7 @@ mod tests {
             .iter()
             .find(|node| node.layout.is_none())
             .unwrap();
-        assert!(!source.has_workspace);
+        assert!(!source.has_work_surface);
         assert_eq!(source.ports[0].direction, BridgePortDirection::Output);
         let frame_id = layout.frames[0].frame_id.clone();
         let cell_id = layout.frames[0].cells[0].cell_id.clone();

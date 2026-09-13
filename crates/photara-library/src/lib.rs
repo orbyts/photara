@@ -54,7 +54,7 @@ impl LibraryRecordKind {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LibraryRecordHeader {
-    /// User or future studio/workspace boundary. Authentication mapping is host-owned.
+    /// User or future studio/library boundary. Authentication mapping is host-owned.
     pub owner_id: String,
     pub record_id: Uuid,
     pub revision: u64,
@@ -518,7 +518,7 @@ fn validate_location_links(
                 }) if !header.deleted => parent = parent_location_id,
                 _ => {
                     return Err(LibraryError::InvalidRecord(
-                        "parent must be a live location in the same workspace",
+                        "parent must be a live location in the same library",
                     ));
                 }
             }

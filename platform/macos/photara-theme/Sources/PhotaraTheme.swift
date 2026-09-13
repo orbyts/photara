@@ -22,7 +22,7 @@ enum PhotaraThemeRole: String, CaseIterable, Identifiable {
     case graphNodeSelected = "graph.node-selected"
     case galleryBackground = "gallery.background"
     case galleryCell = "gallery.cell"
-    case workspaceSurround = "workspace.surround"
+    case editorSurround = "editor.surround"
     case statusTextNeutral = "status.text.neutral"
     case statusTextRunning = "status.text.running"
     case statusTextSuccess = "status.text.success"

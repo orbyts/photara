@@ -149,7 +149,7 @@ ready, or failed activity per preview profile. Those observations may differ
 between devices and consumers and never enter the project or graph digest.
 
 The portable schema rejects availability, materialization, proxy, thumbnail,
-preview, cache, credential, workspace, and Gallery-selection extension fields.
+preview, cache, credential, library, and Gallery-selection extension fields.
 Those values cannot silently become project authority.
 
 Representation format/container metadata is distinct from consumer

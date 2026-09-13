@@ -1,6 +1,6 @@
 # D19 accepted static schema delta — CXT2
 
-Status: **R1–R8 accepted as proposed by Suhail on 2026-09-12; CXT2 acceptance complete.**
+Status: **R2–R8 accepted; R1 physical naming superseded by Suhail on 2026-09-12.**
 Read [the accepted contract freeze](D19_CONTRACT_FREEZE.md) first. The relation
 signatures below remain the approved specification. Their concrete translation is
 [eleven inert DDL proposals](proposals/d19-cxt2/README.md), with an
@@ -9,23 +9,23 @@ signatures below remain the approved specification. Their concrete translation i
 No database was opened, SQL executed, runtime migration installed, service contacted
 or fixture modified during CXT2. Subsequent [CXT1a pure Rust work](CXT1A_CONTRACTS.md)
 is complete, with one additive golden fixture. Subsequent [CXT1b](CXT1B_CONTEXT_CONTRACTS.md)
-is complete with a separate context golden addendum. CXT3a is the next separately selected slice.
+is complete with a separate context golden addendum. CXT3a is verified. The clean Library nomenclature rebaseline precedes CXT3b.
 
 ## Compatibility mappings and activation
 
 | Existing surface | Canonical mapping | Preserve / transition |
 | --- | --- | --- |
-| WorkspaceId, workspaces.workspace_id and every scoped FK | LibraryId carries the identical UUID through an explicit typed adapter | Keep physical tables/columns and old local-record encoding; no bulk rename or namespace-derived replacement UUID |
+| LibraryId, libraries.library_id and every scoped FK | Canonical Library identity throughout the clean baseline | No physical-name compatibility layer or replacement UUID |
 | storage_roots.storage_root_id / StorageRootId | StorageLocationId, same UUID | Keep label_key uniqueness as legacy compatibility constraint; add specs; label_key is not a StorageSlotId or variable name |
 | device_root_bindings (device, root) | Legacy single binding candidate | Explicit migration can create new HostBindingId with origin coordinate; validate before selecting; legacy rows retained and no new dual writes |
 | RepresentationStorageBindingId | Legacy **external resolver identity**, not HostBindingId | Preserve source UUID in compatibility facts; explicit resolution maps it to a Project-owned ExternalResourceRefId/revision with provenance |
 | RuntimeResolved without a logical root | Unresolved legacy external resource | Never invent a location from path/filename; remains unavailable until explicit map/rebind |
 | ProjectAsset / ProjectAssetContext | V1 identity/inventory authority within its exact old format | Explicit conversion builds private ledger and specific source-node selection snapshots; no ambient union in v2 evaluation |
-| originating_workspace_id, including null | Historical origin, distinct from required owning_library_id | Explicit association from chosen destination and verified package; never overwrite source provenance or treat null as current Library |
+| originating_library_id, including null | Historical origin, distinct from required owning_library_id | Explicit association from chosen destination and verified package; never overwrite source provenance or treat null as current Library |
 | project_catalog.visibility = visible/hidden | Discovery preference only | Does not map to restricted/library-visible or grant read; new access policy required |
-| catalog_path strings / workspace_contribution_id | Legacy presentation facts | V2 uses CategoryId and work_surface; label-to-category mapping is explicit per exact definition; old strings remain unchanged |
+| catalog_path strings / work_surface_contribution_id | Legacy presentation facts | V2 uses CategoryId and work_surface; label-to-category mapping is explicit per exact definition; old strings remain unchanged |
 | photara.presentation optional Inspector field | V1 presentation record | Cannot satisfy v2 mandatory Inspector by silent mutation; host fallback is inspection only |
-| v1 sync workspace paths/bytes/cursors | Historical protocol | New /v2/libraries and Project scopes; no redirect that re-signs/reinterprets old sealed bytes |
+| v1 sync library paths/bytes/cursors | Historical protocol | New /v2/libraries and Project scopes; no redirect that re-signs/reinterprets old sealed bytes |
 
 Owner association is a staged operation: preflight source bytes/ProjectId and
 possible catalog duplicates; choose destination Library explicitly; reserve a
@@ -62,7 +62,7 @@ Unknown versions remain read-only/unsupported, not lossy save-through.
 
 These reservations now have `.proposal.sql` review counterparts outside runtime
 migration directories; they are not installed migrations.
-Never rewrite local applied 0001–0006. S4 already has an **unexecuted 0007 privileges
+The unshipped local 0001–0006 baseline is rewritten and verified before CXT3b; no deployed database exists to migrate. S4 already has an **unexecuted 0007 privileges
 section**: preserve that reservation and begin service additions at 0008. Do not
 use “0007” for two service migrations or pretend the service ledger is installed.
 
@@ -109,7 +109,7 @@ are validated in Photara, not assumed from a shape CHECK.
 `M` expands to `record_schema INTEGER=1, revision REV, created_at T, updated_at T`.
 On SQLite the physical revision column is `local_revision`; on PostgreSQL it is
 `revision`. These new names are mapped explicitly, not an ALTER of old rows.
-`L` means physical `workspace_id ID` FK to workspaces, the LibraryId adapter.
+`L` means physical `library_id ID` FK to libraries, the LibraryId adapter.
 All FKs default ON DELETE RESTRICT. All ID owners/created times are immutable.
 Mutable authority rows reject DELETE and ordinary resurrection; CAS changes
 advance exactly once. Immutable records reject UPDATE/DELETE. Child table changes
@@ -135,7 +135,7 @@ Mode is `local-only | cloud-member | project-only`. Local-only requires principa
 other modes require null. Service permits cloud-member only and null principal.
 This is contract/access state, not a copy of Library display metadata. Generation
 increments on access changes; M revision advances on any state change. A local
-Project-only stub can have a bounded workspaces header but no membership/directory
+Project-only stub can have a bounded libraries header but no membership/directory
 rights. No default mode inferred from Account absence.
 
 ### A2 — project_ownership
@@ -547,12 +547,12 @@ unimplemented, this is a rollout requirement, not a live transition performed no
 The service 0011 also adds nullable columns to the existing
 `photara_private.media_upload_sessions`: `project_id uuid`,
 `actor_account_id uuid`, `project_media_purpose text`,
-`authorization_generation bigint`. Composite FK(workspace_id,project_id) targets
+`authorization_generation bigint`. Composite FK(library_id,project_id) targets
 A2; actor FK targets accounts. ProjectId/purpose/generation/actor must all be
 present for a Project upload; purpose cover/assigned-snapshot and generation>0.
 Library uploads retain null ProjectId/purpose and carry actor/generation on new
 v2 requests. Old sessions with all four null are historical and cannot be resumed
-through v2. Index `(workspace_id,project_id,actor_account_id,state,expires_at)`.
+through v2. Index `(library_id,project_id,actor_account_id,state,expires_at)`.
 Project upload/finalize rechecks the recorded actor, current generation and
 Project edit/consent before exposing staging state; its media descriptor is visible
 to that actor only through the bounded upload route until an active P1 link exists.
@@ -594,7 +594,7 @@ No host/provider I/O is done while holding a database transaction.
 
 ## PostgreSQL authorization, RLS and API changes
 
-The old 25 `workspace_scope` policies check tenant scope only. They are **not
+The old 25 `library_scope` policies check tenant scope only. They are **not
 sufficient** for D19. The reviewed 0012 migration replaces their predicates and
 revokes incompatible v1 route/table grants before minimum_api=2 activation.
 Do not stack another permissive policy beside an old broad policy (their OR can
@@ -611,7 +611,7 @@ recursive membership RLS; it gains no unrestricted Project data query endpoint.
 
 | Table/query class | SELECT requirement | Mutation requirement |
 | --- | --- | --- |
-| workspaces/Library header | Current membership for full row; Project-only gets separate bounded header DTO | Library controller |
+| libraries/Library header | Current membership for full row; Project-only gets separate bounded header DTO | Library controller |
 | People/Organizations/relationships/kinds/locations/social profiles and children | Current Library read | Current Library edit; child changes under parent CAS |
 | storage_roots/specs/slots/names | Current Library read; Project-only sees captured descriptor subset via package | Library manage-storage |
 | Library variables/value/name/expression/dependency rows | Current Library read plus restricted-policy predicate inherited from owning variable | Library manage-context; no service AST execution |
@@ -720,7 +720,7 @@ export jobs and import runtime remain non-gating deferred work.
 
 ## Package object delta and closure
 
-No S6 object is rewritten. New required features:
+S6 fixtures were explicitly rebaselined to Library naming. Package 1.1 required features:
 `photara.library-project.v1`, `photara.resources.v2`, `photara.asset-set.v2`,
 `photara.context.v1`, `photara.node-contract.v2` as applicable to actual content.
 The first feature is required on every new associated authored root; other features
@@ -736,7 +736,7 @@ Source code strings and arbitrary JSON must never be searched for Ref-like shape
 
 | Schema and version | Required field change/shape |
 | --- | --- |
-| photara.project.authored v2 | Retain v1 metadata/revisions/assignments/graphs; replace originating_workspace_id with owning_library_id (required) and origin {library_id?, source_format, source_object?}; replace asset_inventory/resource_inventory with asset_ledger Ref/resource_ledger Ref; add context Ref |
+| photara.project.authored v2 | Retain v1 metadata/revisions/assignments/graphs; replace originating_library_id with owning_library_id (required) and origin {library_id?, source_format, source_object?}; replace asset_inventory/resource_inventory with asset_ledger Ref/resource_ledger Ref; add context Ref |
 | photara.project.saved-graph v2 | Retain wrapper metadata and exact package pins; retain graph payload under its own version; add context Ref and node_contracts [{node_id,manifest Ref?,contract_digest}]; array exactly matches nodes |
 | photara.project.library-snapshot v2 | Retain snapshot/time/display/payload; source uses library_id, typed record ID and explicitly tagged local/server revision; add projection_schema, fields[], sensitivity, portability, consent_projection_digest? |
 | photara.project.representation-content v2 | Retain asset/representation/content IDs, fingerprints/media/lineage; binding is managed {resource_id,version_id,version Ref} OR external {external_ref_id,revision_id,revision Ref}; no device binding |
@@ -839,7 +839,8 @@ under v1; they receive no v2 context rights automatically.
 
 ## Fixture delta, implementation slices and gates
 
-Existing S6/D18 JSON, checksums and L2 migration bytes remain unchanged.
+S6/D18 JSON and L2 migration checksums were regenerated in the authorized Library
+rebaseline. Earlier no-rewrite statements describe their historical slices.
 [CXT1a](CXT1A_CONTRACTS.md) generated only `d19-contracts.json`, containing the
 pure contract vectors and a complete manifest v2. The separately selected CXT1b
 adds `d19-context.json` for Rust-generated source/AST/snapshot/cache vectors; no prior
@@ -872,7 +873,7 @@ codec conformance. Existing vectors remain independently pinned.
 | CXT2 acceptance — complete | R1–R8 accepted as proposed 2026-09-12; separated inert DDL authored from signatures with exact inventory | Static signature/FK/index/guard and lexical checks recorded; grammar parser unavailable; no DB execution |
 | CXT1a — complete, separately selected 2026-09-12 | Pure IDs, access masks, portable resources, AssetSet v2 and complete manifest v2 schema validation | [58 new integration tests, two compile-fail tests and 39 retained tests](CXT1A_CONTRACTS.md#verification); old APIs/keys unchanged |
 | CXT1b — complete, separately selected 2026-09-12 | D18 bounded parser/AST/types/dependencies/snapshots/cache v2/proposals | [57 new integration tests and three compile-fail tests](CXT1B_CONTEXT_CONTRACTS.md#bounds-and-evidence); 159-test regression passed; no DB/host I/O/UI |
-| CXT3a | Package 1.1 reader/closure and explicit compatibility mapping DTOs in disposable roots | Old 33-file specimen unchanged, all new closure/reference/type/unsupported cases; no publisher |
+| CXT3a — verified complete | Package 1.1 reader/closure and explicit compatibility mapping DTOs in disposable roots | Old 33-file specimen unchanged, all new closure/reference/type/unsupported cases; no publisher |
 | CXT3b | New local migrations/repos, fake host resolution and local apply journal, facade DTOs | Fresh and 0006→new temporary DB migrations, checksums/floor refusal, rollback/FK/integrity, binding/permission/CAS tests |
 | CXT3c | Disposable PostgreSQL and fake service/Auth0/media transport for scoped sync/control | Real unprivileged RLS/grant/concurrency tests for every access cell, pooled-context cleanup, no live Neon/Auth0/CloudKit |
 | L3 | Separately authorized package creation/publication and package-target apply | Exact one-Library staged recovery, writer readiness, HEAD/catalog and receipt crash windows; explicit roots; SMB needs its own scope |

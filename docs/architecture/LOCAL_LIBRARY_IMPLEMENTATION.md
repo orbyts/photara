@@ -1,18 +1,17 @@
 # L2 generation-two local Library implementation
 
-## Current exact review packet — 2026-09-12
+Historical slice/review record. Current naming and gates are governed by the
+[Library rebaseline](LIBRARY_NOMENCLATURE_REBASELINE.md) and
+[execution roadmap](../ROADMAP_0_2_EXECUTION.md); earlier byte-preservation and
+next-step labels below refer to their original verification date.
 
-The [D19 static proposal](D19_STATIC_SCHEMA_DELTA.md#proposed-migration-inventory) is complete for review. L2 remains exactly the six-migration/44-table implementation described below. Additive 0007–0012 and reader/writer floor 2 are proposals only; old migration bytes/checksums are preserved. R1–R8 were accepted as proposed 2026-09-12 and [inert DDL](proposals/d19-cxt2/README.md) is complete; separate CXT3b scope precedes runtime migration/repository work.
+## Current implementation boundary
 
-**D19 supersession note (2026-09-12):** [Libraries and node Work Surfaces](LIBRARY_AND_NODE_WORK_SURFACES.md)
-is the current conceptual target. Library replaces durable Workspace; each Project
-has one Library and explicit Project access. Graphs use connected AssetSets and
-declared frozen context; a private package ledger is not an ambient Gallery/asset
-union. Library management is app-owned; node Work Surfaces embed authorized host
-pickers/components. First install opens local My Library. The pre-D19 implementation,
-physical identifiers, examples and fixture contracts below remain baseline evidence,
-not approval to reinterpret stored bytes. Exact contract/static schema review and
-revised CXT1/CXT3 precede L3; no migration, source or fixture bytes change here.
+The six-migration/44-table L2 implementation has a clean Library-named rebaseline.
+The following implementation account describes its original bounded behavior;
+CXT3b has not installed or executed D19's additional migrations or initialized the
+real application against them. No existing user database is migrated. See the
+[rebaseline record](LIBRARY_NOMENCLATURE_REBASELINE.md) for regenerated checksums.
 
 Status: bounded L2 complete, 2026-09-11, explicitly authorized after S7/L1.
 Only fresh temporary SQLite databases and disposable inert package copies were
@@ -53,7 +52,7 @@ alignment, not a database migration. The lockfile retains the exact resolved gra
 The six ordered [migration files](../../crates/photara-library/migrations/generation_two/0001_local_identity.sql)
 are copied from the approved [S3 DDL](LOCAL_SQLITE_SCHEMA.md):
 
-1. `0001_local_identity.sql`: family metadata, local device, Workspaces and media/cache foundations.
+1. `0001_local_identity.sql`: family metadata, local device, Libraries and media/cache foundations.
 2. `0002_typed_library.sql`: typed parties, relationships, Kind claims, Locations and social profiles.
 3. `0003_catalog_device.sql`: catalog/locators, roots/bindings and immutable projections.
 4. `0004_mutations_sync.sql`: exact local changes and future sync bookkeeping.
@@ -95,17 +94,17 @@ signed-64-bit with checked increment; `Timestamp` is UTC Unix milliseconds bound
 to years 0001–9999. Package revisions remain decimal TEXT/u64, not SQLite REAL.
 Each record has typed `Metadata<Id>`; `advance`/`tombstone` prepare an edit, and the
 corresponding `put_*` still requires its exact prior revision (`None` means create).
-Identity, Workspace and created time are immutable; no ordinary resurrection.
+Identity, Library and created time are immutable; no ordinary resurrection.
 
 Implemented read, stable UUID keyset list (1..500), create, CAS update and tombstone:
 
-- Workspace, Person with multiple namespaced capabilities/labels, Organization
+- Library, Person with multiple namespaced capabilities/labels, Organization
   with client labels, and typed Person–Organization relationships.
-- Relationships enforce same-Workspace active endpoints and nonoverlapping
+- Relationships enforce same-Library active endpoints and nonoverlapping
   half-open periods for the same pair/type; different roles may overlap.
 - LocationKind canonical/alias claims and required-kind, acyclic Locations.
   Live child/relationship/profile/Location references block retirement rather
-  than implicitly cascading. Workspace retirement requires live dependents retired.
+  than implicitly cascading. Library retirement requires live dependents retired.
 - Manual-first SocialProfile with one immutable Person/Organization owner,
   mutable handle/display/public URL, provider/account kind, exact optional
   provider subject/namespace, provenance, verification and refresh facts.
@@ -169,7 +168,7 @@ As of 2026-09-12, next is [D19 consistency and contract freeze](LIBRARY_AND_NODE
 then static CXT2 review before revised CXT1/CXT3; L3 is paused.
 No Library variable/AST table, Project grant, context API or apply-receipt
 protocol was added to L2. CXT2 must review additive DDL before implementation;
-these six migration checksums remain unchanged. Afterwards, explicitly authorize
+these six unshipped migration checksums are regenerated in the Library rebaseline. Afterwards, explicitly authorize
 L3 package creation and crash/intent/catalog tests on named temporary roots. Resolve L1 writer
 readiness gaps before publication. No SMB/user-storage, UI, staging/commit, cloud
 or deployment authority is inferred. L2b can be separately scheduled and must
@@ -180,7 +179,7 @@ precede exposing merge or cloud reconciliation, but does not block local creatio
 `cargo test --offline -p photara-library -p photara-store -p photara-core -p photara-node-sdk`
 passed **75 tests**: 16 new L2, five retained Library, 25 L1 package, two retained
 store, 24 Core and three NodeSDK tests. Their doc-test targets passed.
-`cargo clippy --offline --workspace --all-targets -- -D warnings`, whole-workspace
+`cargo clippy --offline --workspace --all-targets -- -D warnings`, whole-repository
 all-target check and formatting checks passed. Temporary tests cover fresh/reopen,
 all migrations/PRAGMAs/FK/integrity, checksum/newer/family/device refusal, failed
 migration rollback, replacement connections, CRUD/CAS/history/retirement, Unicode/

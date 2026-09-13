@@ -3,7 +3,7 @@ import SwiftUI
 /// Production adapter. The renderer and its local selection/filter UI are shared with Gallery Lab.
 struct ProductionGalleryView: View {
     @EnvironmentObject private var app: AppModel
-    @EnvironmentObject private var workspace: WorkspaceModel
+    @EnvironmentObject private var session: EditorSessionModel
     @State private var preset = GalleryPreset.developmentOrShipped
 
     var body: some View {
@@ -13,13 +13,13 @@ struct ProductionGalleryView: View {
                            addSourceNode: addSourceNode,
                            runWorkflow: { app.performApplicationAction(.evaluate) }),
             preset: preset,
-            filter: $workspace.galleryFilter, selectedAssetID: $workspace.selectedAssetID)
+            filter: $session.galleryFilter, selectedAssetID: $session.selectedAssetID)
             .task { await reloadDevelopmentPreset() }
     }
 
     private var selectedLayout: BridgeNodeDto? {
         let layouts = app.snapshot?.nodes.filter { $0.layout != nil } ?? []
-        if let selected = workspace.selectedNodeID { return layouts.first { $0.nodeId == selected } }
+        if let selected = session.selectedNodeID { return layouts.first { $0.nodeId == selected } }
         return layouts.first
     }
 
@@ -45,8 +45,8 @@ struct ProductionGalleryView: View {
     }
 
     private func addSourceNode() {
-        workspace.activateGraph()
-        workspace.requestNodeMenu()
+        session.activateGraph()
+        session.requestNodeMenu()
     }
 
     private func reloadDevelopmentPreset() async {
@@ -59,8 +59,8 @@ struct ProductionGalleryView: View {
 
     private func assign(_ assetID: String) {
         guard let node = selectedLayout, let frames = node.layout?.frames,
-              let frame = frames.first(where: { $0.frameId == workspace.selectedFrameID }) ?? frames.first,
-              let cell = frame.cells.first(where: { $0.cellId == workspace.selectedCellID }) ?? frame.cells.first
+              let frame = frames.first(where: { $0.frameId == session.selectedFrameID }) ?? frames.first,
+              let cell = frame.cells.first(where: { $0.cellId == session.selectedCellID }) ?? frame.cells.first
         else { return }
         app.bind(assetID: assetID, to: node, frameID: frame.frameId, cellID: cell.cellId)
     }

@@ -134,7 +134,7 @@ impl NodePackage for DiskNodePackage {
                 ],
                 catalog_visibility: NodeCatalogVisibility::Visible,
                 inspector_contribution_id: Some("photara.disk.inspector".to_owned()),
-                workspace_contribution_id: None,
+                work_surface_contribution_id: None,
                 default_activation_id: Some("photara.disk.open-folder".to_owned()),
             },
         )
@@ -213,7 +213,7 @@ mod tests {
     use photara_node_sdk::{NodePackage, node_presentation};
 
     #[test]
-    fn definition_owns_visible_brand_and_no_workspace() {
+    fn definition_owns_visible_brand_and_no_work_surface() {
         let manifest = DiskNodePackage.manifest();
         manifest.validate().unwrap();
         let presentation = node_presentation(&manifest.definitions[0])
@@ -221,7 +221,7 @@ mod tests {
             .unwrap();
         assert_eq!(presentation.catalog_path, ["Input", "Filesystem"]);
         assert_eq!(presentation.brand.icon_resource_id, "photara.disk.folder");
-        assert!(presentation.workspace_contribution_id.is_none());
+        assert!(presentation.work_surface_contribution_id.is_none());
         assert_eq!(
             presentation.default_activation_id.as_deref(),
             Some("photara.disk.open-folder")

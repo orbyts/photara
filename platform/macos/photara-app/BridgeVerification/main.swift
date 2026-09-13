@@ -131,7 +131,7 @@ private enum PhotaraBridgeVerification {
             layoutNode.layout?.canvas.widthPixels == 3000,
             "Rust did not resolve the typed Layout canvas"
         )
-        try require(layoutNode.hasWorkspace, "Layout did not advertise its optional Workspace")
+        try require(layoutNode.hasWorkSurface, "Layout did not advertise its optional Editor")
         try require(layoutNode.status == "Ready", "standard node status was not available")
         try require(
             layoutNode.ports.first { $0.direction == .input }?.connectedNodeName == "Project Assets",
@@ -205,39 +205,39 @@ private enum PhotaraBridgeVerification {
             "asset import unexpectedly changed the graph"
         )
 
-        let workspaceDefaults = UserDefaults(suiteName: "photara-verification-\(UUID().uuidString)")!
-        let workspace = WorkspaceModel(defaults: workspaceDefaults)
-        workspace.selectedNodeID = node.nodeId
-        workspace.selectedAssetID = imported.assetId
-        workspace.selectedFrameID = node.layout?.frames.first?.frameId
-        workspace.selectedCellID = node.layout?.frames.first?.cells.first?.cellId
-        workspace.galleryFilter = "Verification"
-        let semanticDigestBeforeWorkspaceChange = imported.snapshot.graph.digest
+        let editorDefaults = UserDefaults(suiteName: "photara-verification-\(UUID().uuidString)")!
+        let session = EditorSessionModel(defaults: editorDefaults)
+        session.selectedNodeID = node.nodeId
+        session.selectedAssetID = imported.assetId
+        session.selectedFrameID = node.layout?.frames.first?.frameId
+        session.selectedCellID = node.layout?.frames.first?.cells.first?.cellId
+        session.galleryFilter = "Verification"
+        let semanticDigestBeforeEditorChange = imported.snapshot.graph.digest
         try require(
-            workspace.visiblePanels(in: .content).contains(.graph),
-            "default workspace did not prioritize Graph"
+            session.visiblePanels(in: .content).contains(.graph),
+            "default session did not prioritize Graph"
         )
         try require(
-            !workspace.isVisible(.layoutAuthoring),
-            "optional Layout Workspace opened without explicit activation"
+            !session.isVisible(.layoutAuthoring),
+            "optional Layout Work Surface opened without explicit activation"
         )
-        workspace.move(.inspector, to: .trailing)
-        workspace.toggle(.assetGallery)
+        session.move(.inspector, to: .trailing)
+        session.toggle(.assetGallery)
         try require(
-            workspace.visiblePanels(in: .trailing).contains(.inspector),
+            session.visiblePanels(in: .trailing).contains(.inspector),
             "Inspector identity was coupled to its original placement"
         )
-        workspace.activateWorkspace(for: node.nodeId)
+        session.activateWorkSurface(for: node.nodeId)
         try require(
-            workspace.visiblePanels(in: .content).contains(.layoutAuthoring),
-            "Layout Workspace did not activate independently of Inspector"
+            session.visiblePanels(in: .content).contains(.layoutAuthoring),
+            "Layout Work Surface did not activate independently of Inspector"
         )
-        try require(workspace.selectedNodeID == node.nodeId, "moving Inspector lost node selection")
-        try require(workspace.selectedAssetID == imported.assetId, "Gallery selection was lost")
-        let semanticDigestAfterWorkspaceChange = try project.snapshot().graph.digest
+        try require(session.selectedNodeID == node.nodeId, "moving Inspector lost node selection")
+        try require(session.selectedAssetID == imported.assetId, "Gallery selection was lost")
+        let semanticDigestAfterEditorChange = try project.snapshot().graph.digest
         try require(
-            semanticDigestAfterWorkspaceChange == semanticDigestBeforeWorkspaceChange,
-            "workspace or Gallery state changed the semantic graph digest"
+            semanticDigestAfterEditorChange == semanticDigestBeforeEditorChange,
+            "session or Gallery state changed the semantic graph digest"
         )
 
         let (frameID, cellID) = try layoutIdentities(from: node)

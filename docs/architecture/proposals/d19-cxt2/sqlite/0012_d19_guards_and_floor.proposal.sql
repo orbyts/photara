@@ -14,7 +14,7 @@ END;
 
 CREATE TRIGGER d19_library_contract_state_update
 BEFORE UPDATE ON library_contract_state
-WHEN NEW.workspace_id IS NOT OLD.workspace_id OR NEW.contract_version IS NOT OLD.contract_version OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
+WHEN NEW.library_id IS NOT OLD.library_id OR NEW.contract_version IS NOT OLD.contract_version OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
 BEGIN
   SELECT RAISE(ABORT,'d19_immutable_or_cas');
 END;
@@ -28,7 +28,7 @@ END;
 
 CREATE TRIGGER d19_project_ownership_update
 BEFORE UPDATE ON project_ownership
-WHEN NEW.project_id IS NOT OLD.project_id OR NEW.workspace_id IS NOT OLD.workspace_id OR NEW.source_origin_library_id IS NOT OLD.source_origin_library_id OR NEW.source_format IS NOT OLD.source_format OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
+WHEN NEW.project_id IS NOT OLD.project_id OR NEW.library_id IS NOT OLD.library_id OR NEW.source_origin_library_id IS NOT OLD.source_origin_library_id OR NEW.source_format IS NOT OLD.source_format OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
 BEGIN
   SELECT RAISE(ABORT,'d19_immutable_or_cas');
 END;
@@ -42,7 +42,7 @@ END;
 
 CREATE TRIGGER d19_project_access_policies_update
 BEFORE UPDATE ON project_access_policies
-WHEN NEW.workspace_id IS NOT OLD.workspace_id OR NEW.project_id IS NOT OLD.project_id OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
+WHEN NEW.library_id IS NOT OLD.library_id OR NEW.project_id IS NOT OLD.project_id OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
 BEGIN
   SELECT RAISE(ABORT,'d19_immutable_or_cas');
 END;
@@ -56,7 +56,7 @@ END;
 
 CREATE TRIGGER d19_project_access_grants_update
 BEFORE UPDATE ON project_access_grants
-WHEN NEW.grant_id IS NOT OLD.grant_id OR NEW.workspace_id IS NOT OLD.workspace_id OR NEW.project_id IS NOT OLD.project_id OR NEW.account_id IS NOT OLD.account_id OR NEW.local_principal_id IS NOT OLD.local_principal_id OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
+WHEN NEW.grant_id IS NOT OLD.grant_id OR NEW.library_id IS NOT OLD.library_id OR NEW.project_id IS NOT OLD.project_id OR NEW.account_id IS NOT OLD.account_id OR NEW.local_principal_id IS NOT OLD.local_principal_id OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
 BEGIN
   SELECT RAISE(ABORT,'d19_immutable_or_cas');
 END;
@@ -70,7 +70,7 @@ END;
 
 CREATE TRIGGER d19_project_invitations_update
 BEFORE UPDATE ON project_invitations
-WHEN NEW.invitation_id IS NOT OLD.invitation_id OR NEW.workspace_id IS NOT OLD.workspace_id OR NEW.project_id IS NOT OLD.project_id OR NEW.inviter_account_id IS NOT OLD.inviter_account_id OR NEW.target_account_id IS NOT OLD.target_account_id OR NEW.action_mask IS NOT OLD.action_mask OR NEW.expected_policy_revision IS NOT OLD.expected_policy_revision OR NEW.expires_at IS NOT OLD.expires_at OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
+WHEN NEW.invitation_id IS NOT OLD.invitation_id OR NEW.library_id IS NOT OLD.library_id OR NEW.project_id IS NOT OLD.project_id OR NEW.inviter_account_id IS NOT OLD.inviter_account_id OR NEW.target_account_id IS NOT OLD.target_account_id OR NEW.action_mask IS NOT OLD.action_mask OR NEW.expected_policy_revision IS NOT OLD.expected_policy_revision OR NEW.expires_at IS NOT OLD.expires_at OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
 BEGIN
   SELECT RAISE(ABORT,'d19_immutable_or_cas');
 END;
@@ -84,7 +84,7 @@ END;
 
 CREATE TRIGGER d19_storage_location_specs_update
 BEFORE UPDATE ON storage_location_specs
-WHEN NEW.workspace_id IS NOT OLD.workspace_id OR NEW.storage_root_id IS NOT OLD.storage_root_id OR NEW.storage_kind IS NOT OLD.storage_kind OR NEW.provider_id IS NOT OLD.provider_id OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
+WHEN NEW.library_id IS NOT OLD.library_id OR NEW.storage_root_id IS NOT OLD.storage_root_id OR NEW.storage_kind IS NOT OLD.storage_kind OR NEW.provider_id IS NOT OLD.provider_id OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
 BEGIN
   SELECT RAISE(ABORT,'d19_immutable_or_cas');
 END;
@@ -98,7 +98,7 @@ END;
 
 CREATE TRIGGER d19_storage_slots_update
 BEFORE UPDATE ON storage_slots
-WHEN NEW.slot_id IS NOT OLD.slot_id OR NEW.workspace_id IS NOT OLD.workspace_id OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
+WHEN NEW.slot_id IS NOT OLD.slot_id OR NEW.library_id IS NOT OLD.library_id OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
 BEGIN
   SELECT RAISE(ABORT,'d19_immutable_or_cas');
 END;
@@ -133,14 +133,14 @@ END;
 
 CREATE TRIGGER d19_host_bindings_update
 BEFORE UPDATE ON host_bindings
-WHEN NEW.binding_id IS NOT OLD.binding_id OR NEW.device_id IS NOT OLD.device_id OR NEW.workspace_id IS NOT OLD.workspace_id OR NEW.storage_root_id IS NOT OLD.storage_root_id OR NEW.host_kind IS NOT OLD.host_kind OR NEW.binding_kind IS NOT OLD.binding_kind OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
+WHEN NEW.binding_id IS NOT OLD.binding_id OR NEW.device_id IS NOT OLD.device_id OR NEW.library_id IS NOT OLD.library_id OR NEW.storage_root_id IS NOT OLD.storage_root_id OR NEW.host_kind IS NOT OLD.host_kind OR NEW.binding_kind IS NOT OLD.binding_kind OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
 BEGIN
   SELECT RAISE(ABORT,'d19_immutable_or_cas');
 END;
 
 CREATE TRIGGER d19_host_binding_selections_update
 BEFORE UPDATE ON host_binding_selections
-WHEN NEW.device_id IS NOT OLD.device_id OR NEW.workspace_id IS NOT OLD.workspace_id OR NEW.storage_root_id IS NOT OLD.storage_root_id
+WHEN NEW.device_id IS NOT OLD.device_id OR NEW.library_id IS NOT OLD.library_id OR NEW.storage_root_id IS NOT OLD.storage_root_id
 BEGIN
   SELECT RAISE(ABORT,'d19_immutable_or_cas');
 END;
@@ -168,7 +168,7 @@ END;
 
 CREATE TRIGGER d19_library_variables_update
 BEFORE UPDATE ON library_variables
-WHEN NEW.variable_id IS NOT OLD.variable_id OR NEW.workspace_id IS NOT OLD.workspace_id OR NEW.namespace IS NOT OLD.namespace OR NEW.value_type_id IS NOT OLD.value_type_id OR NEW.value_type_version IS NOT OLD.value_type_version OR NEW.schema_id IS NOT OLD.schema_id OR NEW.schema_version IS NOT OLD.schema_version OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
+WHEN NEW.variable_id IS NOT OLD.variable_id OR NEW.library_id IS NOT OLD.library_id OR NEW.namespace IS NOT OLD.namespace OR NEW.value_type_id IS NOT OLD.value_type_id OR NEW.value_type_version IS NOT OLD.value_type_version OR NEW.schema_id IS NOT OLD.schema_id OR NEW.schema_version IS NOT OLD.schema_version OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
 BEGIN
   SELECT RAISE(ABORT,'d19_immutable_or_cas');
 END;
@@ -189,7 +189,7 @@ END;
 
 CREATE TRIGGER d19_library_variable_values_update
 BEFORE UPDATE ON library_variable_values
-WHEN NEW.workspace_id IS NOT OLD.workspace_id OR NEW.variable_id IS NOT OLD.variable_id OR NEW.value_id IS NOT OLD.value_id
+WHEN NEW.library_id IS NOT OLD.library_id OR NEW.variable_id IS NOT OLD.variable_id OR NEW.value_id IS NOT OLD.value_id
 BEGIN
   SELECT RAISE(ABORT,'d19_immutable_or_cas');
 END;
@@ -259,7 +259,7 @@ END;
 
 CREATE TRIGGER d19_context_apply_intents_update
 BEFORE UPDATE ON context_apply_intents
-WHEN NEW.operation_id IS NOT OLD.operation_id OR NEW.workspace_id IS NOT OLD.workspace_id OR NEW.target_project_id IS NOT OLD.target_project_id OR NEW.proposal_id IS NOT OLD.proposal_id OR NEW.request_canonical IS NOT OLD.request_canonical OR NEW.request_sha256 IS NOT OLD.request_sha256 OR NEW.source_run_id IS NOT OLD.source_run_id OR NEW.source_attempt_id IS NOT OLD.source_attempt_id OR NEW.target_authority IS NOT OLD.target_authority OR NEW.expected_commit_id IS NOT OLD.expected_commit_id OR NEW.expected_commit_sha256 IS NOT OLD.expected_commit_sha256 OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
+WHEN NEW.operation_id IS NOT OLD.operation_id OR NEW.library_id IS NOT OLD.library_id OR NEW.target_project_id IS NOT OLD.target_project_id OR NEW.proposal_id IS NOT OLD.proposal_id OR NEW.request_canonical IS NOT OLD.request_canonical OR NEW.request_sha256 IS NOT OLD.request_sha256 OR NEW.source_run_id IS NOT OLD.source_run_id OR NEW.source_attempt_id IS NOT OLD.source_attempt_id OR NEW.target_authority IS NOT OLD.target_authority OR NEW.expected_commit_id IS NOT OLD.expected_commit_id OR NEW.expected_commit_sha256 IS NOT OLD.expected_commit_sha256 OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
 BEGIN
   SELECT RAISE(ABORT,'d19_immutable_or_cas');
 END;
@@ -287,7 +287,7 @@ END;
 
 CREATE TRIGGER d19_project_media_links_update
 BEFORE UPDATE ON project_media_links
-WHEN NEW.workspace_id IS NOT OLD.workspace_id OR NEW.project_id IS NOT OLD.project_id OR NEW.sha256 IS NOT OLD.sha256 OR NEW.purpose IS NOT OLD.purpose OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
+WHEN NEW.library_id IS NOT OLD.library_id OR NEW.project_id IS NOT OLD.project_id OR NEW.sha256 IS NOT OLD.sha256 OR NEW.purpose IS NOT OLD.purpose OR NEW.record_schema IS NOT OLD.record_schema OR NEW.created_at IS NOT OLD.created_at OR NEW.local_revision<>OLD.local_revision+1
 BEGIN
   SELECT RAISE(ABORT,'d19_immutable_or_cas');
 END;
@@ -308,7 +308,7 @@ END;
 
 CREATE TRIGGER d19_scoped_sync_channels_update
 BEFORE UPDATE ON scoped_sync_channels
-WHEN NEW.channel_id IS NOT OLD.channel_id OR NEW.workspace_id IS NOT OLD.workspace_id OR NEW.account_id IS NOT OLD.account_id OR NEW.environment_id IS NOT OLD.environment_id OR NEW.scope_kind IS NOT OLD.scope_kind OR NEW.project_id IS NOT OLD.project_id
+WHEN NEW.channel_id IS NOT OLD.channel_id OR NEW.library_id IS NOT OLD.library_id OR NEW.account_id IS NOT OLD.account_id OR NEW.environment_id IS NOT OLD.environment_id OR NEW.scope_kind IS NOT OLD.scope_kind OR NEW.project_id IS NOT OLD.project_id
 BEGIN
   SELECT RAISE(ABORT,'d19_immutable_or_cas');
 END;
@@ -413,28 +413,28 @@ END;
 
 CREATE TRIGGER d19_project_access_grants_principal_insert
 BEFORE INSERT ON project_access_grants
-WHEN NEW.local_principal_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM library_contract_state c WHERE c.workspace_id=NEW.workspace_id AND c.authority_mode='local-only' AND c.local_principal_id=NEW.local_principal_id)
+WHEN NEW.local_principal_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM library_contract_state c WHERE c.library_id=NEW.library_id AND c.authority_mode='local-only' AND c.local_principal_id=NEW.local_principal_id)
 BEGIN
   SELECT RAISE(ABORT,'d19_local_principal');
 END;
 
 CREATE TRIGGER d19_host_binding_selections_verified_insert
 BEFORE INSERT ON host_binding_selections
-WHEN NOT EXISTS (SELECT 1 FROM host_bindings b WHERE b.device_id=NEW.device_id AND b.workspace_id=NEW.workspace_id AND b.storage_root_id=NEW.storage_root_id AND b.binding_id=NEW.binding_id AND b.state='verified')
+WHEN NOT EXISTS (SELECT 1 FROM host_bindings b WHERE b.device_id=NEW.device_id AND b.library_id=NEW.library_id AND b.storage_root_id=NEW.storage_root_id AND b.binding_id=NEW.binding_id AND b.state='verified')
 BEGIN
   SELECT RAISE(ABORT,'d19_selection_unverified');
 END;
 
 CREATE TRIGGER d19_project_access_grants_principal_update
 BEFORE UPDATE ON project_access_grants
-WHEN NEW.local_principal_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM library_contract_state c WHERE c.workspace_id=NEW.workspace_id AND c.authority_mode='local-only' AND c.local_principal_id=NEW.local_principal_id)
+WHEN NEW.local_principal_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM library_contract_state c WHERE c.library_id=NEW.library_id AND c.authority_mode='local-only' AND c.local_principal_id=NEW.local_principal_id)
 BEGIN
   SELECT RAISE(ABORT,'d19_local_principal');
 END;
 
 CREATE TRIGGER d19_host_binding_selections_verified_update
 BEFORE UPDATE ON host_binding_selections
-WHEN NOT EXISTS (SELECT 1 FROM host_bindings b WHERE b.device_id=NEW.device_id AND b.workspace_id=NEW.workspace_id AND b.storage_root_id=NEW.storage_root_id AND b.binding_id=NEW.binding_id AND b.state='verified')
+WHEN NOT EXISTS (SELECT 1 FROM host_bindings b WHERE b.device_id=NEW.device_id AND b.library_id=NEW.library_id AND b.storage_root_id=NEW.storage_root_id AND b.binding_id=NEW.binding_id AND b.state='verified')
 BEGIN
   SELECT RAISE(ABORT,'d19_selection_unverified');
 END;
@@ -448,7 +448,7 @@ END;
 
 CREATE TRIGGER d19_host_bindings_selected
 BEFORE UPDATE ON host_bindings
-WHEN NEW.state<>'verified' AND EXISTS (SELECT 1 FROM host_binding_selections s WHERE s.device_id=OLD.device_id AND s.workspace_id=OLD.workspace_id AND s.storage_root_id=OLD.storage_root_id AND s.binding_id=OLD.binding_id)
+WHEN NEW.state<>'verified' AND EXISTS (SELECT 1 FROM host_binding_selections s WHERE s.device_id=OLD.device_id AND s.library_id=OLD.library_id AND s.storage_root_id=OLD.storage_root_id AND s.binding_id=OLD.binding_id)
 BEGIN
   SELECT RAISE(ABORT,'d19_selected_binding_retired');
 END;
@@ -497,28 +497,28 @@ END;
 
 CREATE TRIGGER d19_context_apply_receipts_authority
 BEFORE INSERT ON context_apply_receipts
-WHEN (NEW.observation_kind='local-applied' AND NOT EXISTS (SELECT 1 FROM context_apply_intents i WHERE i.workspace_id=NEW.workspace_id AND i.operation_id=NEW.operation_id AND i.target_authority='library')) OR (NEW.observation_kind='package-published' AND NOT EXISTS (SELECT 1 FROM context_apply_intents i WHERE i.workspace_id=NEW.workspace_id AND i.operation_id=NEW.operation_id AND i.target_authority='project'))
+WHEN (NEW.observation_kind='local-applied' AND NOT EXISTS (SELECT 1 FROM context_apply_intents i WHERE i.library_id=NEW.library_id AND i.operation_id=NEW.operation_id AND i.target_authority='library')) OR (NEW.observation_kind='package-published' AND NOT EXISTS (SELECT 1 FROM context_apply_intents i WHERE i.library_id=NEW.library_id AND i.operation_id=NEW.operation_id AND i.target_authority='project'))
 BEGIN
   SELECT RAISE(ABORT,'d19_receipt_authority');
 END;
 
 CREATE TRIGGER d19_storage_slots_target_insert
 BEFORE INSERT ON storage_slots
-WHEN NEW.state='active' AND NOT EXISTS (SELECT 1 FROM storage_roots r JOIN storage_location_specs s ON s.workspace_id=r.workspace_id AND s.storage_root_id=r.storage_root_id WHERE r.workspace_id=NEW.workspace_id AND r.storage_root_id=NEW.storage_root_id AND r.state='active')
+WHEN NEW.state='active' AND NOT EXISTS (SELECT 1 FROM storage_roots r JOIN storage_location_specs s ON s.library_id=r.library_id AND s.storage_root_id=r.storage_root_id WHERE r.library_id=NEW.library_id AND r.storage_root_id=NEW.storage_root_id AND r.state='active')
 BEGIN
   SELECT RAISE(ABORT,'d19_slot_unclassified');
 END;
 
 CREATE TRIGGER d19_storage_slots_target_update
 BEFORE UPDATE ON storage_slots
-WHEN NEW.state='active' AND NOT EXISTS (SELECT 1 FROM storage_roots r JOIN storage_location_specs s ON s.workspace_id=r.workspace_id AND s.storage_root_id=r.storage_root_id WHERE r.workspace_id=NEW.workspace_id AND r.storage_root_id=NEW.storage_root_id AND r.state='active')
+WHEN NEW.state='active' AND NOT EXISTS (SELECT 1 FROM storage_roots r JOIN storage_location_specs s ON s.library_id=r.library_id AND s.storage_root_id=r.storage_root_id WHERE r.library_id=NEW.library_id AND r.storage_root_id=NEW.storage_root_id AND r.state='active')
 BEGIN
   SELECT RAISE(ABORT,'d19_slot_unclassified');
 END;
 
 CREATE TRIGGER d19_storage_roots_live_dependents
 BEFORE UPDATE ON storage_roots
-WHEN NEW.state='tombstoned' AND (EXISTS (SELECT 1 FROM storage_slots s WHERE s.workspace_id=NEW.workspace_id AND s.storage_root_id=NEW.storage_root_id AND s.state='active') OR EXISTS (SELECT 1 FROM project_locators l WHERE l.workspace_id=NEW.workspace_id AND l.storage_root_id=NEW.storage_root_id AND l.state='active'))
+WHEN NEW.state='tombstoned' AND (EXISTS (SELECT 1 FROM storage_slots s WHERE s.library_id=NEW.library_id AND s.storage_root_id=NEW.storage_root_id AND s.state='active') OR EXISTS (SELECT 1 FROM project_locators l WHERE l.library_id=NEW.library_id AND l.storage_root_id=NEW.storage_root_id AND l.state='active'))
 BEGIN
   SELECT RAISE(ABORT,'d19_root_in_use');
 END;

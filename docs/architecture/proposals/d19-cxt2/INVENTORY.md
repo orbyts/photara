@@ -1,7 +1,7 @@
 # D19 CXT2 exact DDL inventory
 
-**Inert proposal only; not applied or runtime-validated.** R1–R8 accepted as proposed
-2026-09-12. Counts below come from the actual eleven proposal files. A statement
+**Inert proposal only; not applied or runtime-validated.** R1 naming superseded;
+Library rebaseline authorized 2026-09-12. Counts below come from the actual eleven proposal files. A statement
 means one top-level SQL statement; function/trigger bodies count with their owner.
 Explicit indexes exclude implicit indexes backing PRIMARY KEY/UNIQUE constraints.
 
@@ -24,7 +24,7 @@ Explicit indexes exclude implicit indexes backing PRIMARY KEY/UNIQUE constraints
 | **sqlite total** | **139** | **26** | **38** | **74** | **0** | **0** | **0** | **0** | **1** |
 
 The proposed totals remain local 44+26=70 and service 35+20=55 relations.
-Existing S3 179/S4 275 statements and service 0007 are preserved baseline evidence.
+The Library-named baseline and service 0007 reservation were rechecked; counts are unchanged.
 
 ## Relation/signature cross-check
 
@@ -77,42 +77,45 @@ index coverage was checked, including constraints added after forward references
 
 - Eleven files lexically checked for balanced delimiters, quoted/dollar-quoted
   bodies, statement termination and exact counts. This is not a grammar parser.
-- Installed Python environments checked for pglast, sqlglot and sqlparse; none
-  was available. No dependency was fetched, SQL engine started or database opened.
+- This scanner does not use a PostgreSQL grammar parser; SQL grammar is not
+  claimed. This script starts no SQL engine and opens no database.
 - 26 local and 20 service relation signatures, scoped FKs, referenced unique keys,
   full child-FK indexes, object-name uniqueness and PostgreSQL identifier lengths
   checked against actual proposal text and baseline schema text.
-- All 25 old workspace_scope policy drops are enumerated; all 20 new service
+- All 25 old library_scope policy drops are enumerated; all 20 new service
   tables explicitly enable and force RLS. Raw transport/access/private media grants
   and five required authorization facade helpers are spelled out below.
 - The [responsibility ledger](RESPONSIBILITIES.md) identifies every invariant that
   SQL cannot prove alone. SQL grammar/type/name resolution, engine semantics,
   RLS/grants, race behavior and codecs remain untested CXT3 gates.
 
-## Protected baseline hashes
+## Regenerated Library baseline hashes
 
-SHA-256 values below matched the pre-CXT2-acceptance snapshot after authoring.
-All pre-existing non-Markdown files also remained byte-identical. These are file
-hashes, not replacement SQLx ledger checksums. Baseline SQL fences are checked
-separately; package specimen bytes were never materialized or modified.
+SHA-256 values below were recomputed from the rebaselined files.
+These are synthetic/unshipped Generation Two baselines, not deployed files. File
+hashes are distinct from SQLx ledger checksums. Baseline SQL fences are checked
+separately; package fixture semantics are verified by the Rust package tests.
 
 | Protected file | SHA-256 |
 | --- | --- |
-| `crates/photara-library/migrations/generation_two/0001_local_identity.sql` | `19f6e680d74b4af09820dd4d016a121dbdbd8bc10aa20262850decbf29f51681` |
-| `crates/photara-library/migrations/generation_two/0002_typed_library.sql` | `eb70102903bbcb0224fa5d6c0bd094b54de6625fef0b28a72845ad2feae2a712` |
-| `crates/photara-library/migrations/generation_two/0003_catalog_device.sql` | `8995b55a145bfb0a1c6c034fe1483bd1f424334029822b78663acdda02ea7cec` |
-| `crates/photara-library/migrations/generation_two/0004_mutations_sync.sql` | `4a812f1b06934ed589ad78366db5ddd70b0d2464d11d8480df60a5345feb0814` |
-| `crates/photara-library/migrations/generation_two/0005_durable_recovery.sql` | `ea4336af02bc897eb11faab81b1823f0c47d2f5c4e7219c4df1b21c3deba57f1` |
-| `crates/photara-library/migrations/generation_two/0006_invariant_guards.sql` | `fe73a1da292dc9ac8e440b45ef5494f821e526ee697e79a00e2a25504b97ebcd` |
-| `docs/fixtures/generation-two/README.md` | `3e3e7edaded9a59a768a9a426026ce3bb33eb36e47890f7666825738db5528d5` |
-| `docs/fixtures/generation-two/canonical-vectors.json` | `2403ba4c80f769644ddee43d88e63dd5c7147a004fd9ca7e904eedea2ee54351` |
-| `docs/fixtures/generation-two/context-amendment.json` | `654e47e903963c090b079a80e59e5bb5433c0c3d89431935f45d24194d3bf995` |
-| `docs/fixtures/generation-two/normalization-and-limits.json` | `ef428409aabd8384fe36994bc791a0b8d6030c5ec3381087da4f26bb4922070f` |
-| `docs/fixtures/generation-two/package-specimen.json` | `7d9267c7a32303f88269be897f0cf84d820cb051945bc73b9139d34cf7bd1b56` |
-| `docs/fixtures/generation-two/records.json` | `05c22a00bd966b069a0f791183499773bfbcc855c840a73b97f94e5e27d21963` |
-| `docs/fixtures/generation-two/scenarios.json` | `c14b7d532d6c4d9f34368ad7a98af838d83eb173f35d1422d571c8c7dc336dbd` |
-| `docs/fixtures/generation-two/social-export.json` | `4ed18137918166410d3d476d5854ec7ed3ddb7f80f20eee8e8adf8d61983083e` |
-| `docs/fixtures/generation-two/sync-trace.json` | `6fefdc5821915143b0378e83590d115608c6dfb8509842aca6cbd648c98a72f1` |
+| `crates/photara-library/migrations/generation_two/0001_local_identity.sql` | `b99f33adc424a0aae3e717c972e33d72be5f0ec82f11ac0e7fb4ec28037377fd` |
+| `crates/photara-library/migrations/generation_two/0002_typed_library.sql` | `7562bc582d3d8a6a8bc1a8d0e5451c24670763c7d3031b78e903c9960c1416a9` |
+| `crates/photara-library/migrations/generation_two/0003_catalog_device.sql` | `7331ab5c6742d194fc64eb41557763f92cb93ecdac358aa564d01b82f700fc3e` |
+| `crates/photara-library/migrations/generation_two/0004_mutations_sync.sql` | `72c5d345b3a93ee6a5813b8000afd2f33fc614eb45109f2d37f310225148cf4f` |
+| `crates/photara-library/migrations/generation_two/0005_durable_recovery.sql` | `d0c97f3f49bbcb1581aac714ff5798d90200039867022d01ffed6e18bf59b3fb` |
+| `crates/photara-library/migrations/generation_two/0006_invariant_guards.sql` | `85ff08feb48040eb5bcd1324e275e5593ac98cd4ba2b826e66d867eecfdfd8de` |
+| `docs/fixtures/generation-two/canonical-vectors.json` | `2fc9018d84767d4d63cbb385f60db8cf4dd45fd810dfc038c62007388eb7463d` |
+| `docs/fixtures/generation-two/context-amendment.json` | `5db3146e0aaad53c6e2c52f1d16737531c02d77f2b29426e42d9e0bee3c1e83b` |
+| `docs/fixtures/generation-two/d19-compatibility.json` | `dba279e37302c4d2d7d3ddafc13d855ea74dbc640b148d0eb2115cbf227bb3a9` |
+| `docs/fixtures/generation-two/d19-context.json` | `6e49a4156fa664f3844372ccdb1932a04e681abec48b762386a81a1826a6dcd4` |
+| `docs/fixtures/generation-two/d19-contracts.json` | `c4cd563e2a454bb1f8353250ee3bfd38a5c88a825dc0da64677ffcdeb2c0b893` |
+| `docs/fixtures/generation-two/d19-package-specimen.json` | `be32df34ad90d00430dd4fb0e6e475dc2c5c0093d89b261ab8c6fb26a95113b7` |
+| `docs/fixtures/generation-two/normalization-and-limits.json` | `6ef0289b65e9da84d96655287257e29149fe800daca5aa9b75c44cc0111e65b0` |
+| `docs/fixtures/generation-two/package-specimen.json` | `ff83aa26537bc9d134ae0257a4d92870e9b91dfa1c938f5a60bb8086230fdcef` |
+| `docs/fixtures/generation-two/records.json` | `79c4ce72cfbab22d0dad4898c9f19523607800b93a9c305de69c6b8e8c49a741` |
+| `docs/fixtures/generation-two/scenarios.json` | `61185ac18d9a69cd5724adf728cb4550d8e8c489295ceaca6efeba47c47b409b` |
+| `docs/fixtures/generation-two/social-export.json` | `29dde1b14af1e3655db162564fda45845cafadca75d30cfb5c89ac844cf71e0a` |
+| `docs/fixtures/generation-two/sync-trace.json` | `561e0240ddd6881d0e3287eb48d7deb5e4e6cc97f41c2b94c7da03c3403b56d6` |
 
 ## Exact statement and object list
 
@@ -270,33 +273,33 @@ indexes/triggers/policies/functions/privilege/floor statements appear separately
 | 67 | 435 | CREATE TRIGGER | `d19_scoped_sync_clients_ack_insert on photara_private.scoped_sync_clients` |
 | 68 | 438 | CREATE FUNCTION | `photara_private.d19_scoped_sync_clients_ack_update` |
 | 69 | 446 | CREATE TRIGGER | `d19_scoped_sync_clients_ack_update on photara_private.scoped_sync_clients` |
-| 70 | 449 | DROP POLICY | `workspace_scope on photara.workspaces` |
-| 71 | 451 | DROP POLICY | `workspace_scope on photara_private.workspace_subscriptions` |
-| 72 | 453 | DROP POLICY | `workspace_scope on photara_private.workspace_entitlement_grants` |
-| 73 | 455 | DROP POLICY | `workspace_scope on photara.people` |
-| 74 | 457 | DROP POLICY | `workspace_scope on photara.organizations` |
-| 75 | 459 | DROP POLICY | `workspace_scope on photara.social_profiles` |
-| 76 | 461 | DROP POLICY | `workspace_scope on photara.person_capabilities` |
-| 77 | 463 | DROP POLICY | `workspace_scope on photara.person_labels` |
-| 78 | 465 | DROP POLICY | `workspace_scope on photara.organization_labels` |
-| 79 | 467 | DROP POLICY | `workspace_scope on photara.person_organization_relationships` |
-| 80 | 469 | DROP POLICY | `workspace_scope on photara.location_kinds` |
-| 81 | 471 | DROP POLICY | `workspace_scope on photara.location_kind_terms` |
-| 82 | 473 | DROP POLICY | `workspace_scope on photara.locations` |
-| 83 | 475 | DROP POLICY | `workspace_scope on photara.storage_roots` |
-| 84 | 477 | DROP POLICY | `workspace_scope on photara.project_catalog` |
-| 85 | 479 | DROP POLICY | `workspace_scope on photara.project_locators` |
-| 86 | 481 | DROP POLICY | `workspace_scope on photara.package_observations` |
-| 87 | 483 | DROP POLICY | `workspace_scope on photara.library_media` |
-| 88 | 485 | DROP POLICY | `workspace_scope on photara.workspace_change_batches` |
-| 89 | 487 | DROP POLICY | `workspace_scope on photara.workspace_changes` |
-| 90 | 489 | DROP POLICY | `workspace_scope on photara_private.media_objects` |
-| 91 | 491 | DROP POLICY | `workspace_scope on photara_private.workspace_streams` |
-| 92 | 493 | DROP POLICY | `workspace_scope on photara_private.mutation_receipts` |
-| 93 | 495 | DROP POLICY | `workspace_scope on photara_private.sync_clients` |
-| 94 | 497 | DROP POLICY | `workspace_scope on photara_private.media_upload_sessions` |
-| 95 | 499 | REVOKE ALL | `REVOKE ALL ON photara . workspace_change_batches , photara . workspace_changes , photara_private . workspace_streams , photara_private . mutation_receipts , photara_private . sync_clients FROM photara_api` |
-| 96 | 501 | REVOKE EXECUTE | `REVOKE EXECUTE ON FUNCTION photara_private . authorize_workspace ( uuid , text ) FROM photara_api , photara_control` |
+| 70 | 449 | DROP POLICY | `library_scope on photara.libraries` |
+| 71 | 451 | DROP POLICY | `library_scope on photara_private.library_subscriptions` |
+| 72 | 453 | DROP POLICY | `library_scope on photara_private.library_entitlement_grants` |
+| 73 | 455 | DROP POLICY | `library_scope on photara.people` |
+| 74 | 457 | DROP POLICY | `library_scope on photara.organizations` |
+| 75 | 459 | DROP POLICY | `library_scope on photara.social_profiles` |
+| 76 | 461 | DROP POLICY | `library_scope on photara.person_capabilities` |
+| 77 | 463 | DROP POLICY | `library_scope on photara.person_labels` |
+| 78 | 465 | DROP POLICY | `library_scope on photara.organization_labels` |
+| 79 | 467 | DROP POLICY | `library_scope on photara.person_organization_relationships` |
+| 80 | 469 | DROP POLICY | `library_scope on photara.location_kinds` |
+| 81 | 471 | DROP POLICY | `library_scope on photara.location_kind_terms` |
+| 82 | 473 | DROP POLICY | `library_scope on photara.locations` |
+| 83 | 475 | DROP POLICY | `library_scope on photara.storage_roots` |
+| 84 | 477 | DROP POLICY | `library_scope on photara.project_catalog` |
+| 85 | 479 | DROP POLICY | `library_scope on photara.project_locators` |
+| 86 | 481 | DROP POLICY | `library_scope on photara.package_observations` |
+| 87 | 483 | DROP POLICY | `library_scope on photara.library_media` |
+| 88 | 485 | DROP POLICY | `library_scope on photara.library_change_batches` |
+| 89 | 487 | DROP POLICY | `library_scope on photara.library_changes` |
+| 90 | 489 | DROP POLICY | `library_scope on photara_private.media_objects` |
+| 91 | 491 | DROP POLICY | `library_scope on photara_private.library_streams` |
+| 92 | 493 | DROP POLICY | `library_scope on photara_private.mutation_receipts` |
+| 93 | 495 | DROP POLICY | `library_scope on photara_private.sync_clients` |
+| 94 | 497 | DROP POLICY | `library_scope on photara_private.media_upload_sessions` |
+| 95 | 499 | REVOKE ALL | `REVOKE ALL ON photara . library_change_batches , photara . library_changes , photara_private . library_streams , photara_private . mutation_receipts , photara_private . sync_clients FROM photara_api` |
+| 96 | 501 | REVOKE EXECUTE | `REVOKE EXECUTE ON FUNCTION photara_private . authorize_library ( uuid , text ) FROM photara_api , photara_control` |
 | 97 | 503 | ALTER TABLE | `photara.library_contract_state — enable RLS` |
 | 98 | 505 | ALTER TABLE | `photara.library_contract_state — force RLS` |
 | 99 | 507 | ALTER TABLE | `photara.project_ownership — enable RLS` |
@@ -337,19 +340,19 @@ indexes/triggers/policies/functions/privilege/floor statements appear separately
 | 134 | 577 | ALTER TABLE | `photara_private.scoped_command_receipts — force RLS` |
 | 135 | 579 | ALTER TABLE | `photara_private.scoped_sync_clients — enable RLS` |
 | 136 | 581 | ALTER TABLE | `photara_private.scoped_sync_clients — force RLS` |
-| 137 | 583 | CREATE POLICY | `d19_owner on photara.workspaces` |
-| 138 | 585 | CREATE POLICY | `d19_read on photara.workspaces` |
-| 139 | 587 | CREATE POLICY | `d19_insert on photara.workspaces` |
-| 140 | 589 | CREATE POLICY | `d19_update on photara.workspaces` |
-| 141 | 591 | CREATE POLICY | `d19_control on photara.workspaces` |
-| 142 | 593 | CREATE POLICY | `d19_owner on photara_private.workspace_subscriptions` |
-| 143 | 595 | CREATE POLICY | `d19_control on photara_private.workspace_subscriptions` |
-| 144 | 597 | REVOKE ALL | `REVOKE ALL ON photara_private . workspace_subscriptions FROM photara_api` |
-| 145 | 599 | GRANT SELECT | `GRANT SELECT , INSERT , UPDATE ON photara_private . workspace_subscriptions TO photara_control` |
-| 146 | 601 | CREATE POLICY | `d19_owner on photara_private.workspace_entitlement_grants` |
-| 147 | 603 | CREATE POLICY | `d19_control on photara_private.workspace_entitlement_grants` |
-| 148 | 605 | REVOKE ALL | `REVOKE ALL ON photara_private . workspace_entitlement_grants FROM photara_api` |
-| 149 | 607 | GRANT SELECT | `GRANT SELECT , INSERT , UPDATE ON photara_private . workspace_entitlement_grants TO photara_control` |
+| 137 | 583 | CREATE POLICY | `d19_owner on photara.libraries` |
+| 138 | 585 | CREATE POLICY | `d19_read on photara.libraries` |
+| 139 | 587 | CREATE POLICY | `d19_insert on photara.libraries` |
+| 140 | 589 | CREATE POLICY | `d19_update on photara.libraries` |
+| 141 | 591 | CREATE POLICY | `d19_control on photara.libraries` |
+| 142 | 593 | CREATE POLICY | `d19_owner on photara_private.library_subscriptions` |
+| 143 | 595 | CREATE POLICY | `d19_control on photara_private.library_subscriptions` |
+| 144 | 597 | REVOKE ALL | `REVOKE ALL ON photara_private . library_subscriptions FROM photara_api` |
+| 145 | 599 | GRANT SELECT | `GRANT SELECT , INSERT , UPDATE ON photara_private . library_subscriptions TO photara_control` |
+| 146 | 601 | CREATE POLICY | `d19_owner on photara_private.library_entitlement_grants` |
+| 147 | 603 | CREATE POLICY | `d19_control on photara_private.library_entitlement_grants` |
+| 148 | 605 | REVOKE ALL | `REVOKE ALL ON photara_private . library_entitlement_grants FROM photara_api` |
+| 149 | 607 | GRANT SELECT | `GRANT SELECT , INSERT , UPDATE ON photara_private . library_entitlement_grants TO photara_control` |
 | 150 | 609 | CREATE POLICY | `d19_owner on photara.people` |
 | 151 | 611 | CREATE POLICY | `d19_read on photara.people` |
 | 152 | 613 | CREATE POLICY | `d19_insert on photara.people` |
@@ -428,22 +431,22 @@ indexes/triggers/policies/functions/privilege/floor statements appear separately
 | 225 | 759 | CREATE POLICY | `d19_insert on photara.library_media` |
 | 226 | 761 | CREATE POLICY | `d19_update on photara.library_media` |
 | 227 | 763 | CREATE POLICY | `d19_control on photara.library_media` |
-| 228 | 765 | CREATE POLICY | `d19_owner on photara.workspace_change_batches` |
-| 229 | 767 | CREATE POLICY | `d19_control on photara.workspace_change_batches` |
-| 230 | 769 | REVOKE ALL | `REVOKE ALL ON photara . workspace_change_batches FROM photara_api` |
-| 231 | 771 | GRANT SELECT | `GRANT SELECT , INSERT , UPDATE ON photara . workspace_change_batches TO photara_control` |
-| 232 | 773 | CREATE POLICY | `d19_owner on photara.workspace_changes` |
-| 233 | 775 | CREATE POLICY | `d19_control on photara.workspace_changes` |
-| 234 | 777 | REVOKE ALL | `REVOKE ALL ON photara . workspace_changes FROM photara_api` |
-| 235 | 779 | GRANT SELECT | `GRANT SELECT , INSERT , UPDATE ON photara . workspace_changes TO photara_control` |
+| 228 | 765 | CREATE POLICY | `d19_owner on photara.library_change_batches` |
+| 229 | 767 | CREATE POLICY | `d19_control on photara.library_change_batches` |
+| 230 | 769 | REVOKE ALL | `REVOKE ALL ON photara . library_change_batches FROM photara_api` |
+| 231 | 771 | GRANT SELECT | `GRANT SELECT , INSERT , UPDATE ON photara . library_change_batches TO photara_control` |
+| 232 | 773 | CREATE POLICY | `d19_owner on photara.library_changes` |
+| 233 | 775 | CREATE POLICY | `d19_control on photara.library_changes` |
+| 234 | 777 | REVOKE ALL | `REVOKE ALL ON photara . library_changes FROM photara_api` |
+| 235 | 779 | GRANT SELECT | `GRANT SELECT , INSERT , UPDATE ON photara . library_changes TO photara_control` |
 | 236 | 781 | CREATE POLICY | `d19_owner on photara_private.media_objects` |
 | 237 | 783 | CREATE POLICY | `d19_control on photara_private.media_objects` |
 | 238 | 785 | REVOKE ALL | `REVOKE ALL ON photara_private . media_objects FROM photara_api` |
 | 239 | 787 | GRANT SELECT | `GRANT SELECT , INSERT , UPDATE ON photara_private . media_objects TO photara_control` |
-| 240 | 789 | CREATE POLICY | `d19_owner on photara_private.workspace_streams` |
-| 241 | 791 | CREATE POLICY | `d19_control on photara_private.workspace_streams` |
-| 242 | 793 | REVOKE ALL | `REVOKE ALL ON photara_private . workspace_streams FROM photara_api` |
-| 243 | 795 | GRANT SELECT | `GRANT SELECT , INSERT , UPDATE ON photara_private . workspace_streams TO photara_control` |
+| 240 | 789 | CREATE POLICY | `d19_owner on photara_private.library_streams` |
+| 241 | 791 | CREATE POLICY | `d19_control on photara_private.library_streams` |
+| 242 | 793 | REVOKE ALL | `REVOKE ALL ON photara_private . library_streams FROM photara_api` |
+| 243 | 795 | GRANT SELECT | `GRANT SELECT , INSERT , UPDATE ON photara_private . library_streams TO photara_control` |
 | 244 | 797 | CREATE POLICY | `d19_owner on photara_private.mutation_receipts` |
 | 245 | 799 | CREATE POLICY | `d19_control on photara_private.mutation_receipts` |
 | 246 | 801 | REVOKE ALL | `REVOKE ALL ON photara_private . mutation_receipts FROM photara_api` |

@@ -48,7 +48,7 @@ Preserve the current stage gate while keeping later nodes additive. A new
 provider, editor, automation, compute, integration, or eventual scripting node
 should normally require only an exact node package, typed ports/values,
 host-registered runtime, scoped capabilities, and optional neutral
-Inspector/Workspace contributions. It must not introduce a Core evaluator
+Inspector/Work Surface contributions. It must not introduce a Core evaluator
 variant, a definition-ID dispatch branch in the bridge, provider or platform
 semantics in portable documents, ambient database/filesystem/network/secret
 access, or a node-specific rewrite of the native shell.
@@ -91,7 +91,7 @@ nodes/photara-disk
 platform/macos/photara-theme
 ```
 
-The workspace is `0.2.0-alpha.0`. Core now contains canonical namespaced IDs,
+The library is `0.2.0-alpha.0`. Core now contains canonical namespaced IDs,
 separate package/definition/value-type/schema versions, typed-value descriptors
 and a minimum registry, generic port compatibility, version-pinned node
 instances, identified connections, configuration/authored-state separation,
@@ -110,7 +110,7 @@ the existing `GraphDocument`, and semantically identified project-relative
 resources. `NodeGraphDocument` exports that same configured graph and topology
 as a standalone shareable file without project identity or resource inventory.
 Both use canonical digests, preserve generic/unknown node state where practical,
-and exclude runtime, caches, secrets, machine paths, and workspace UI state.
+and exclude runtime, caches, secrets, machine paths, and editor UI state.
 
 Stage 4A is complete. Exact package manifests validate and rebuild an ordinary
 package/definition registry. Backend-neutral repositories now persist exact
@@ -289,7 +289,7 @@ project resources, an ordinary explicit `AssetSet` source, explicit Layout
 binding, Gallery thumbnails, and a proxy-backed Layout preview. Proxy payloads
 cross as leased verified file references with color/HDR descriptors, never
 pixel buffers. Gallery placement, visibility, filters, and selection remain
-Swift workspace state and the verification proves they cannot change the graph
+Swift editor session state and the verification proves they cannot change the graph
 digest.
 
 Roadmap Stage 9 is in progress. The facade now exposes deterministic resolved
@@ -297,18 +297,18 @@ normalized and pixel rectangles alongside typed Layout inspection and accepts
 semantic structure, Fit/Fill/Crop, focal/alignment, rotation, crop, and explicit
 assignment commands. History stores exact forward/reverse Core graph
 transactions, so assignment's AssetSet-plus-Layout batch and ordinary Layout
-edits undo and redo coherently under revision checking. The macOS workspace has
+edits undo and redo coherently under revision checking. The macOS library has
 a separately identified Layout Authoring surface that composes shared per-cell
 proxy references, plus conventional Inspector controls. Crop dragging keeps
 only transient Swift translation during pointer movement and commits one Core
 command on gesture completion. Keep Stage 9 open until the complete real-project
 gate in `ROADMAP.md` is exercised and hardened. Exact definition metadata now
 owns each node's independent brand, neutral icon resource, hierarchical catalog
-path, Inspector contribution, and optional Workspace contribution. The facade
+path, Inspector contribution, and optional Work Surface contribution. The facade
 returns that immutable catalog and the Swift Tab popover renders it generically.
 
 `photara.disk.folder` is the second visible bundled definition and first live
-asset provider. It is an ordinary no-Workspace node under Input → Filesystem.
+asset provider. It is an ordinary no-Library node under Input → Filesystem.
 Portable authored state contains a stable folder-binding UUID, scan policy, and
 last accepted `AssetSet`; macOS security bookmarks and paths are device-only.
 The Disk Inspector can grant/rebind, explicitly scan, and explicitly connect to
@@ -335,7 +335,7 @@ The bounded developer Theme Lab now owns palette authoring without becoming a
 product subsystem. `platform/macos/photara-theme` supplies one shared Swift
 parser/resolver compiled into both the Lab and Photara, a paired Light/Dark
 portable sRGB theme, validation/export, and a developer-only live-reload
-override. The Lab compiles the production Workspace, Layout Inspector, Graph,
+override. The Lab compiles the production Library, Layout Inspector, Graph,
 Gallery, controls, and generated facade against an isolated fixture instead of
 maintaining duplicate UI previews. Themes are native preference state and
 never enter Core or project semantics. Exact definitions may request a durable
@@ -353,7 +353,7 @@ Swift uses constrained HDR presentation so highlights remain controlled on HDR
 displays and system-mapped on SDR displays. Native thumbnail paths and images
 remain non-authoritative. Exact definitions also advertise a neutral default
 activation: Disk opens its granted Finder folder and Layout focuses/reveals its
-authoring Workspace. Bare `Tab` is captured while Graph is visible and opens
+authoring Work Surface. Bare `Tab` is captured while Graph is visible and opens
 the catalog at the current graph pointer, falling back to center before the
 pointer has entered.
 
@@ -362,7 +362,7 @@ grid remains viewport-sized while its origin and spacing follow pan and zoom,
 so camera movement cannot expose a finite background edge. Drag and precise
 trackpad scroll pan, pinch and conventional mouse-wheel input zoom, and an
 optional bottom-left overview shows nodes, connections, and the current
-viewport. All of this remains native workspace presentation state.
+viewport. All of this remains native library presentation state.
 
 The next performance invariant is now encoded directly: publish assets after
 cheap discovery, progressively show the best available preview, and verify
@@ -460,10 +460,10 @@ recent locations in native `UserDefaults`. `open_project_document` validates
 portable JSON, imports it into the filesystem store, and rejects divergent
 content with an existing project identity; no cloud database was added. The
 visible node list is now a minimal spatial Graph. Generic bridge DTOs expose
-typed ports, connections, status, versioned brand/workspace metadata, and summary fields so
+typed ports, connections, status, versioned brand/library metadata, and summary fields so
 Project Assets and Layout share one standard Inspector shell. Layout's existing
-Stage 9 surface is an optional Workspace activated by double-click, while
-Assets/Diagnostics remain project panels. A native Workspace menu restores the
+Stage 9 surface is an optional Work Surface activated by double-click, while
+Assets/Diagnostics remain project panels. A native Library menu restores the
 default presentation only. Continue hardening this recognizable shell and real
 Layout projects without building final graph editing or docking.
 
@@ -479,8 +479,8 @@ presets are the motivating user-scoped example.
 
 ```console
 cargo fmt --check
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
+cargo test --library
+cargo clippy --library --all-targets -- -D warnings
 cargo metadata --no-deps --format-version 1
 git diff --check
 ```

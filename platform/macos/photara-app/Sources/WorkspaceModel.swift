@@ -1,1 +1,0 @@
-../../photara-shell/Sources/WorkspaceModel.swift

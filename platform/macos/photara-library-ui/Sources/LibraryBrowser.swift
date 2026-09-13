@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Shared discovery/editor chrome. Feature modules own their fields and vocabulary.
+/// Shared discovery/session chrome. Feature modules own their fields and vocabulary.
 struct LibraryBrowser<Fields: View>: View {
     let title: String
     let introduction: String

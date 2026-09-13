@@ -203,7 +203,7 @@ pub struct NamedGraphRef {
 pub struct AuthoredProject {
     pub schema: RecordSchema,
     pub project_id: ProjectId,
-    pub originating_workspace_id: Option<PackageUuid>,
+    pub originating_library_id: Option<PackageUuid>,
     pub created_at: String,
     pub updated_at: String,
     pub title: String,

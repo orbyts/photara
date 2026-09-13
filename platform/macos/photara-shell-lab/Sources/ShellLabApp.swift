@@ -17,7 +17,7 @@ private struct PreviewWindow: View {
     @ObservedObject var model: ShellLabModel
     @Environment(\.openWindow) private var openWindow
     var body: some View {
-        ShellLabPreview(model: model, workspace: model.workspace)
+        ShellLabPreview(model: model, session: model.session)
             .onAppear { openWindow(id: "controls") }
     }
 }
@@ -111,7 +111,7 @@ private struct ShellControls: View {
                 Text("These semantic Light/Dark roles and dimensions belong to every module. Borders and resting dividers are intentionally absent.")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Section("Workspace chrome") {
+            Section("Editor chrome") {
                 TextField("Fixture project name", text: $model.fixtureProjectTitle)
                 TextField("Centered application name", text: $model.preset.toolbarApplicationTitle)
                 slider("Application name size", \.toolbarApplicationTitleSize, 10...24)

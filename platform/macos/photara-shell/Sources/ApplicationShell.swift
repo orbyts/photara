@@ -5,11 +5,11 @@ struct ApplicationShell<Panel: View>: View {
     let presentation: ApplicationPresentation
     let actions: ApplicationActions
     var preset: ApplicationShellPreset = .shipped
-    @EnvironmentObject private var workspace: WorkspaceModel
+    @EnvironmentObject private var session: EditorSessionModel
     @Environment(\.photaraTheme) private var theme
     @Environment(\.colorScheme) private var colorScheme
     var workSurface: (NodeWorkSurfacePresentation) -> AnyView
-    @ViewBuilder var panel: (WorkspacePanelID) -> Panel
+    @ViewBuilder var panel: (EditorPanelID) -> Panel
     private var availability: ApplicationShellAvailability { .init(presentation: presentation) }
 
     var body: some View {
@@ -18,9 +18,9 @@ struct ApplicationShell<Panel: View>: View {
                 GeometryReader { geometry in
                     VStack(spacing: preset.frame.gutter / 2) {
                         if geometry.size.width < preset.frame.compactBreakpoint {
-                            compactWorkspace
+                            compactEditor
                         } else {
-                            regularWorkspace
+                            regularEditor
                         }
                         if availability.hasStatus {
                             ProjectStatusBar(presentation: presentation, preset: preset)
@@ -45,15 +45,15 @@ struct ApplicationShell<Panel: View>: View {
             }
             ToolbarItem(placement: .principal) { applicationIdentity }
             ToolbarItemGroup(placement: .primaryAction) {
-                Button("Account", systemImage: "person.crop.circle") { workspace.show(.account) }.help("Account · Library & Sync")
-                Button("People", systemImage: "person.2") { workspace.show(.people) }.help("People and Clients")
-                Button("Locations", systemImage: "mappin.and.ellipse") { workspace.show(.locations) }.help("Locations")
-                Button("Scenes", systemImage: "rectangle.stack") { workspace.show(.scenes) }.help("Scenes")
+                Button("Account", systemImage: "person.crop.circle") { session.show(.account) }.help("Account · Library & Sync")
+                Button("People", systemImage: "person.2") { session.show(.people) }.help("People and Clients")
+                Button("Locations", systemImage: "mappin.and.ellipse") { session.show(.locations) }.help("Locations")
+                Button("Scenes", systemImage: "rectangle.stack") { session.show(.scenes) }.help("Scenes")
             }
             if presentation.hasOpenProject {
                 ToolbarSpacer(.fixed, placement: .primaryAction)
                 ToolbarItemGroup(placement: .primaryAction) {
-                    workspaceModeControls
+                    editorModeControls
                 }
                 ToolbarSpacer(.fixed, placement: .primaryAction)
                 ToolbarItemGroup(placement: .primaryAction) {
@@ -69,12 +69,12 @@ struct ApplicationShell<Panel: View>: View {
         .onChange(of: presentation.nodeIDs) { synchronize() }
         .onChange(of: presentation.workSurfaces) {
             if activeWorkSurface == nil {
-                if workspace.mode == .nodeWorkSurface { workspace.activateGraph() }
-                workspace.activeWorkspaceNodeID = presentation.workSurfaces.first?.nodeID
+                if session.mode == .nodeWorkSurface { session.activateGraph() }
+                session.activeWorkSurfaceNodeID = presentation.workSurfaces.first?.nodeID
             }
         }
         .onChange(of: presentation.hasReviewableResult) {
-            if workspace.mode == .review && !presentation.hasReviewableResult { workspace.activateGraph() }
+            if session.mode == .review && !presentation.hasReviewableResult { session.activateGraph() }
         }
     }
 
@@ -128,14 +128,14 @@ struct ApplicationShell<Panel: View>: View {
                 }
         }
     }
-    @ViewBuilder private var workspaceModeControls: some View {
-        Button { workspace.activateGraph() } label: {
-            Image(systemName: WorkspaceMode.graph.symbol)
+    @ViewBuilder private var editorModeControls: some View {
+        Button { session.activateGraph() } label: {
+            Image(systemName: EditorMode.graph.symbol)
         }.help("Graph").accessibilityLabel("Graph")
         ForEach(presentation.workSurfaces) { surface in
             Button {
-                workspace.selectedNodeID = surface.nodeID
-                workspace.activateWorkspace(for: surface.nodeID)
+                session.selectedNodeID = surface.nodeID
+                session.activateWorkSurface(for: surface.nodeID)
             } label: {
                 NodeBrandIcon(resourceID: surface.iconResourceID,
                     themeColorRole: surface.themeColorRole, accentHex: surface.accentHex, size: 24)
@@ -145,13 +145,13 @@ struct ApplicationShell<Panel: View>: View {
             .accessibilityIdentifier("node-work-surface-\(surface.nodeID)")
         }
         if presentation.hasReviewableResult {
-            Button { workspace.activateReview() } label: {
-                Image(systemName: WorkspaceMode.review.symbol)
+            Button { session.activateReview() } label: {
+                Image(systemName: EditorMode.review.symbol)
             }.help("Review").accessibilityLabel("Review")
         }
     }
     @ViewBuilder private var projectActionControls: some View {
-        Button("Add Node", systemImage: "plus") { workspace.requestNodeMenu() }
+        Button("Add Node", systemImage: "plus") { session.requestNodeMenu() }
         if presentation.isEvaluating {
             Button("Cancel", systemImage: "stop.fill") { actions.send(.cancel) }
         } else if presentation.nodeCount > 0 {
@@ -165,16 +165,16 @@ struct ApplicationShell<Panel: View>: View {
     @ViewBuilder private var primaryRegion: some View {
         if !presentation.hasOpenProject && displayedPanels(in: .content).isEmpty {
             ProjectLauncherView(presentation: presentation, actions: actions, preset: preset)
-        } else if displayedPanels(in: .content).isEmpty && workspace.mode != .review {
+        } else if displayedPanels(in: .content).isEmpty && session.mode != .review {
             VStack(spacing: 12) {
                 Text("Make room for your work").font(.title2)
-                Text("Open a module from Workspace, or restore the default workspace.").foregroundStyle(.secondary)
-                Button("Restore Workspace") { workspace.restoreLayoutAuthoringPreset() }
+                Text("Open a module from Editor, or restore the default session.").foregroundStyle(.secondary)
+                Button("Restore Editor") { session.restoreLayoutAuthoringPreset() }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         } else { region(.content) }
     }
     private var hasLibraryPanels: Bool {
-        WorkspaceRegion.allCases.contains { !displayedPanels(in: $0).isEmpty }
+        EditorRegion.allCases.contains { !displayedPanels(in: $0).isEmpty }
     }
     private var hasSidePanels: Bool {
         !displayedPanels(in: .leading).isEmpty || !displayedPanels(in: .trailing).isEmpty
@@ -182,7 +182,7 @@ struct ApplicationShell<Panel: View>: View {
     private var hasLeadingPanels: Bool { !displayedPanels(in: .leading).isEmpty }
     private var hasTrailingPanels: Bool { !displayedPanels(in: .trailing).isEmpty }
 
-    @ViewBuilder private var regularWorkspace: some View {
+    @ViewBuilder private var regularEditor: some View {
         if hasLeadingPanels && hasTrailingPanels {
             PhotaraTransientSplit(axis: .horizontal, sizing: .first(preset.leadingIdealWidth),
                                   minimumFirst: 230, minimumSecond: 600, gutter: preset.frame.gutter) {
@@ -214,7 +214,7 @@ struct ApplicationShell<Panel: View>: View {
         }
     }
 
-    @ViewBuilder private var compactWorkspace: some View {
+    @ViewBuilder private var compactEditor: some View {
         if hasSidePanels {
             PhotaraTransientSplit(axis: .vertical, sizing: .fraction(0.58),
                                   minimumFirst: 240, minimumSecond: 160, gutter: preset.frame.gutter) {
@@ -242,19 +242,19 @@ struct ApplicationShell<Panel: View>: View {
         }
     }
     private func synchronize() {
-        workspace.synchronizeProject(id: presentation.projectID, nodeIDs: presentation.nodeIDs)
-        if workspace.activeWorkspaceNodeID == nil { workspace.activeWorkspaceNodeID = presentation.workSurfaces.first?.nodeID }
+        session.synchronizeProject(id: presentation.projectID, nodeIDs: presentation.nodeIDs)
+        if session.activeWorkSurfaceNodeID == nil { session.activeWorkSurfaceNodeID = presentation.workSurfaces.first?.nodeID }
     }
     private var activeWorkSurface: NodeWorkSurfacePresentation? {
-        presentation.workSurfaces.first { $0.nodeID == workspace.activeWorkspaceNodeID }
+        presentation.workSurfaces.first { $0.nodeID == session.activeWorkSurfaceNodeID }
     }
-    private func displayedPanels(in region: WorkspaceRegion) -> [WorkspacePanelID] {
-        availability.visiblePanels(in: region, workspace: workspace)
-            .filter { workspace.mode != .review || $0 != .assetGallery }
+    private func displayedPanels(in region: EditorRegion) -> [EditorPanelID] {
+        availability.visiblePanels(in: region, session: session)
+            .filter { session.mode != .review || $0 != .assetGallery }
     }
-    @ViewBuilder private func region(_ region: WorkspaceRegion) -> some View {
+    @ViewBuilder private func region(_ region: EditorRegion) -> some View {
         let panels = displayedPanels(in: region)
-        if workspace.mode == .review && region == .content {
+        if session.mode == .review && region == .content {
             panelView(.assetGallery).frame(minWidth: 320, maxWidth: .infinity, minHeight: 160, maxHeight: .infinity)
         } else if !panels.isEmpty {
             Group {
@@ -265,8 +265,8 @@ struct ApplicationShell<Panel: View>: View {
                                 ForEach(panels) { id in panelView(id).frame(height: 360).id(id) }
                             }
                         }
-                        .onChange(of: workspace.focusedPanel) {
-                            if let focused = workspace.focusedPanel { proxy.scrollTo(focused, anchor: .top) }
+                        .onChange(of: session.focusedPanel) {
+                            if let focused = session.focusedPanel { proxy.scrollTo(focused, anchor: .top) }
                         }
                     }
                 } else if panels.count == 2 {
@@ -286,8 +286,8 @@ struct ApplicationShell<Panel: View>: View {
                    minHeight: 160, maxHeight: .infinity)
         }
     }
-    private func panelView(_ id: WorkspacePanelID) -> some View {
-        let isFocused = workspace.focusedPanel == id
+    private func panelView(_ id: EditorPanelID) -> some View {
+        let isFocused = session.focusedPanel == id
         return VStack(spacing: 0) {
             PanelHeader(panel: id, height: preset.panelHeaderHeight,
                 titleSize: preset.panelHeaderTitleSize,
@@ -304,7 +304,7 @@ struct ApplicationShell<Panel: View>: View {
                         Text("Build your workflow").font(.title2.weight(.semibold))
                         Text("Add your first node to begin automating this project.")
                             .foregroundStyle(.secondary).multilineTextAlignment(.center)
-                        Button("Add Node", systemImage: "plus") { workspace.requestNodeMenu() }
+                        Button("Add Node", systemImage: "plus") { session.requestNodeMenu() }
                             .buttonStyle(.borderedProminent)
                     }.padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
                 }
@@ -316,9 +316,9 @@ struct ApplicationShell<Panel: View>: View {
         .clipShape(RoundedRectangle(cornerRadius: preset.frame.cornerRadius))
         .shadow(color: .black.opacity(colorScheme == .dark ? 0.18 : 0.07), radius: preset.frame.elevation, y: preset.frame.elevation / 2)
         .padding(preset.frame.gutter / 2)
-        .accessibilityIdentifier("workspace-module-\(id.rawValue)")
+        .accessibilityIdentifier("session-module-\(id.rawValue)")
     }
-    @ViewBuilder private func hostedPanel(_ id: WorkspacePanelID) -> some View {
+    @ViewBuilder private func hostedPanel(_ id: EditorPanelID) -> some View {
         if id == .nodeWorkSurface {
             if let surface = activeWorkSurface { workSurface(surface) }
         } else {
@@ -326,15 +326,15 @@ struct ApplicationShell<Panel: View>: View {
         }
     }
     private var panelsMenu: some View {
-        Menu("Workspace", systemImage: "rectangle.3.group") {
+        Menu("Editor", systemImage: "rectangle.3.group") {
             ForEach(availability.panels) { id in
                 Group {
                     Toggle(isOn: Binding(
-                        get: { WorkspaceRegion.allCases.contains { availability.visiblePanels(in: $0, workspace: workspace).contains(id) } },
+                        get: { EditorRegion.allCases.contains { availability.visiblePanels(in: $0, session: session).contains(id) } },
                         set: { visible in if visible {
-                            if id == .nodeWorkSurface, workspace.activeWorkspaceNodeID == nil { workspace.activeWorkspaceNodeID = presentation.workSurfaces.first?.nodeID }
-                            workspace.show(id)
-                        } else { workspace.toggle(id) } })) { Label(id.title, systemImage: id.symbol) }
+                            if id == .nodeWorkSurface, session.activeWorkSurfaceNodeID == nil { session.activeWorkSurfaceNodeID = presentation.workSurfaces.first?.nodeID }
+                            session.show(id)
+                        } else { session.toggle(id) } })) { Label(id.title, systemImage: id.symbol) }
                 }
             }
             Divider()
@@ -342,7 +342,7 @@ struct ApplicationShell<Panel: View>: View {
             Button("Import Pair…", systemImage: "photo.badge.plus") { actions.send(.importPair) }
             Button("Close Project") { actions.send(.closeProject) }
             }
-            Button("Restore Workspace") { workspace.restoreLayoutAuthoringPreset() }
+            Button("Restore Editor") { session.restoreLayoutAuthoringPreset() }
         }
     }
 }

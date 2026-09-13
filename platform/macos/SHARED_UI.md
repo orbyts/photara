@@ -19,8 +19,8 @@ The shared visual hierarchy and Liquid Glass rules are normative in
 | `photara-locations` | Hierarchical Locations and sub-locations browser/editor | Immutable Library projections and semantic create/edit/select actions |
 | `photara-scenes` | Reusable Scene browser/editor | Immutable Library projections and semantic create/edit/select actions |
 | `photara-project-info` | Project assignments for clients, people, locations, and scene occurrences | Portable project references plus Library lookup/assignment actions |
-| `photara-shell` | Application chrome/launcher/status, capability-driven split regions, panel headers/placement/visibility, client workspace preferences | Project summary, application actions, feature composition |
-| `photara-app` | Thin `WorkspaceView` composition and production adapters | Core, bridge, persistence, file dialogs, source grants, evaluation, proxy ownership |
+| `photara-shell` | Application chrome/launcher/status, capability-driven split regions, panel headers/placement/visibility, client editor preferences | Project summary, application actions, feature composition |
+| `photara-app` | Thin `EditorSessionView` composition and production adapters | Core, bridge, persistence, file dialogs, source grants, evaluation, proxy ownership |
 | `photara-lab-support` | Deterministic fixtures and lab appearance/export helpers | Compiled only by labs and verification, never Photara |
 
 ### User Library and project context
@@ -33,8 +33,8 @@ People because client contacts and organizations share the same discovery and
 assignment workflow; that boundary can be split later without changing stable
 record identity.
 
-Each module is an independently identified workspace surface. Users may close,
-restore, dock, tab, or move it; those choices are native workspace preferences
+Each module is an independently identified editor surface. Users may close,
+restore, dock, tab, or move it; those choices are native editor preferences
 and never project semantics. Project Info composes assignments from the global
 Library and stores portable project references with display/revision snapshots.
 It does not duplicate the Library records.
@@ -65,7 +65,7 @@ The title bar and its Liquid Glass remain native and system-managed. Photara sup
 leading project identity, centered application identity, and semantic trailing item
 groups; macOS supplies glass, grouping, overflow, contrast and accessibility behavior.
 Account, People, Locations and Scenes reveal their modules. Project Info is a peer
-workspace module; optional node Work Surfaces remain opt-in node contributions.
+editor module; optional node Work Surfaces remain opt-in node contributions.
 
 `shared-ui-sources.sh` is the production assembly manifest. Feature labs compile
 only foundation, theme, their feature and their lab fixtures. They do not build
@@ -110,8 +110,8 @@ a clean checkout.
    override that Photara live-reloads. Availability remains typed Swift. Inspector
    hierarchy stays in its component; all application/module surface colors stay in Theme.
 5. Gallery filter, current grid style/size, selection and focused image are
-   disposable native viewing state. Workspace panel visibility and placement
-   retain the existing `photara.workspace.layout-authoring.v1` UserDefaults
+   disposable native viewing state. Editor panel visibility and placement
+   retain the existing `photara.editor.layout-authoring.v1` UserDefaults
    payload. Theme and Graph user preferences retain their current domains.
    None of these presentation settings enter Project Documents or graph digests.
 
@@ -148,7 +148,7 @@ do not advertise dead toolbar buttons.
 
 ## Compatibility and boundaries
 
-`photara-app/Sources/ThemeStore.swift` and `WorkspaceModel.swift` are source
+`photara-app/Sources/ThemeStore.swift` and `EditorSessionModel.swift` are source
 symlinks to their new owners. They keep the existing Graph and bridge
 verification scripts unchanged. Main and feature builds compile the canonical
 shared files once. `HDRImageView.swift` moved unchanged to UI foundation:
@@ -172,9 +172,9 @@ platform/macos/photara-ui-tests/verify-production-ui.sh
 ```
 
 The shared checks validate preset decoding/round trips, extended-range float
-fixtures, native HDR policy and fit/fill geometry, workspace preference isolation,
+fixtures, native HDR policy and fit/fill geometry, editor preference isolation,
 Inspector callback targets, and render 54 Gallery/Inspector/Shell states. The production
-checks compose the real `WorkspaceView`, use an isolated Core project, import an
+checks compose the real `EditorSessionView`, use an isolated Core project, import an
 HDR/SDR pair, exercise semantic edits and undo/redo, save, and check that viewing
 Graph/Layout leaves the graph digest unchanged. Snapshots live under
 `photara-ui-tests/.build`. Verification executables are test harnesses, not extra
@@ -214,7 +214,7 @@ leaving renderer ownership in the shared component directories. Keep all node
 inspectors universal and dedicated node authoring surfaces optional.
 
 Shell tasks own `photara-shell`, its presentation preset, and `photara-shell-lab`.
-Read [Shell Lab](photara-shell-lab/README.md) before authoring. New projects reveal Project Info for Library assignment; an otherwise empty workspace shows
+Read [Shell Lab](photara-shell-lab/README.md) before authoring. New projects reveal Project Info for Library assignment; an otherwise empty editor shows
 Graph alone. Inspector stays disclosed after first selection; Gallery requires
 assets, an asset-producing context, or an explicit request. Layout navigation
 requires Layout capability; Review requires reviewable content. Diagnostics use
@@ -232,7 +232,7 @@ chrome and thumbnail primitives live in `photara-library-ui`; feature field
 editors remain in their feature directory. Fixtures and lab controls remain in
 `photara-lab-support`, never in production.
 
-Every surface has an icon and close control. Workspace toolbar/menu toggles
+Every surface has an icon and close control. Editor toolbar/menu toggles
 restore Graph, Assets, Inspector, Work Surface, People, Locations, Scenes,
 Project Info, Diagnostics and Library & Sync. Graph and a node Work Surface can
 coexist. Old placement payloads gain new hidden module identities without losing

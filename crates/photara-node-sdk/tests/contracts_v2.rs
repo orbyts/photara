@@ -297,7 +297,7 @@ fn manifest_unknown_required_semantics_duplicate_keys_and_native_fields_fail_clo
         "native_skin",
         "host_path",
         "secret",
-        "workspace_contribution_id",
+        "work_surface_contribution_id",
     ] {
         let mut v = base.clone();
         v["definitions"][0]["presentation"][field] = json!("private");

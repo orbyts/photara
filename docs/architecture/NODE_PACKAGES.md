@@ -40,7 +40,7 @@ permissions and receipts. The application
 owns Library management Browsers and embedded pickers; declared host permissions
 and authorized Library commands govern browsing and inline creation. None grant
 nodes SQL or database credentials. Work Surface/Canvas/Panel/Browser/Window Layout
-replace ambiguous presentation Workspace terms; existing source fields await a
+replace ambiguous presentation Library terms; existing source fields await a
 separately reviewed compatibility change. Authoring visibility is never runtime
 permission. D18/CXT1 must be revised and exact contracts frozen before code.
 

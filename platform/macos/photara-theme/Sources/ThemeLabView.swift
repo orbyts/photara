@@ -3,7 +3,7 @@ import SwiftUI
 struct ThemeLabView: View {
     @EnvironmentObject private var model: ThemeLabModel
     @EnvironmentObject private var previewApp: AppModel
-    @EnvironmentObject private var previewWorkspace: WorkspaceModel
+    @EnvironmentObject private var previewEditor: EditorSessionModel
     @State private var showsRoleDetails = true
     @State private var previewSurface = ThemeLabPreviewSurface.glass
 
@@ -109,7 +109,7 @@ struct ThemeLabView: View {
             case .glass:
                 GlassTestScene(theme: theme)
             case .production:
-                WorkspaceView()
+                EditorSessionView()
                     .task {
                         prepareLayoutFixture()
                     }
@@ -134,15 +134,15 @@ struct ThemeLabView: View {
         guard let layout = previewApp.snapshot?.nodes.first(where: { $0.layout != nil }) else {
             return
         }
-        previewWorkspace.selectedNodeID = layout.nodeId
-        previewWorkspace.selectedFrameID = layout.layout?.frames.first?.frameId
-        previewWorkspace.selectedCellID = layout.layout?.frames.first?.cells.first?.cellId
+        previewEditor.selectedNodeID = layout.nodeId
+        previewEditor.selectedFrameID = layout.layout?.frames.first?.frameId
+        previewEditor.selectedCellID = layout.layout?.frames.first?.cells.first?.cellId
     }
 
     private var slotGroups: [(name: String, roles: [PhotaraThemeRole])] {
         let order = [
             "surface", "text", "border", "selection", "graph", "gallery",
-            "workspace", "status", "node",
+            "session", "status", "node",
         ]
         return order.map { prefix in
             (
@@ -186,8 +186,8 @@ private enum ThemeLabCoverage {
 private extension PhotaraThemeRole {
     var themeLabConsumer: String {
         switch self {
-        case .surfaceCanvas: "Application and workspace base behind panels"
-        case .surfacePanel: "Inspector and ordinary workspace panel backgrounds"
+        case .surfaceCanvas: "Application and session base behind panels"
+        case .surfacePanel: "Inspector and ordinary session panel backgrounds"
         case .surfaceElevated: "Inspector groups, panel headers, and command/status bars"
         case .surfaceControl: "Control and passive input fills"
         case .textPrimary: "Primary labels and content text"
@@ -204,7 +204,7 @@ private extension PhotaraThemeRole {
         case .graphNodeSelected: "Selected Graph node outline"
         case .galleryBackground: "Assets Gallery panel"
         case .galleryCell: "Square Gallery cells and unloaded thumbnail wells"
-        case .workspaceSurround: "Neutral surround outside a node authoring canvas"
+        case .editorSurround: "Neutral surround outside a node authoring canvas"
         case .statusTextNeutral: "Idle and neutral runtime status"
         case .statusTextRunning: "Running and progress status"
         case .statusTextSuccess: "Ready and successful status"
@@ -235,7 +235,7 @@ private extension PhotaraThemeRole {
              .borderStrong, .statusTextNeutral, .statusTextRunning,
              .statusTextCancelled:
             .partial
-        case .workspaceSurround:
+        case .editorSurround:
             .live
         case .nodeTransform, .nodeIntegration, .nodeCompute:
             .reserved

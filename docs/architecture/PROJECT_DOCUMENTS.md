@@ -5,7 +5,7 @@
 The [D19 compatibility plan](D19_STATIC_SCHEMA_DELTA.md#compatibility-mappings-and-activation) now specifies explicit association/conversion into package 1.1 while preserving these one-JSON bytes, IDs and opaque state. No old extension is reinterpreted as context or implicit input membership. R1–R8 were accepted as proposed 2026-09-12; this page still describes implemented v1 documents.
 
 **D19 supersession note (2026-09-12):** [Libraries and node Work Surfaces](LIBRARY_AND_NODE_WORK_SURFACES.md)
-is the current conceptual target. Library replaces durable Workspace; each Project
+is the current conceptual target. Library is the durable ownership domain; each Project
 has one Library and explicit Project access. Graphs use connected AssetSets and
 declared frozen context; a private package ledger is not an ambient Gallery/asset
 union. Library management is app-owned; node Work Surfaces embed authorized host
@@ -94,11 +94,11 @@ Neither portable document contains:
   contents;
 - machine-specific host paths, mount paths, or account bindings;
 - panel placement, split sizes, tabs, floating geometry, monitor choice,
-  selection, focus, or other workspace UI state.
+  selection, focus, or other editor UI state.
 
 Runtime/evaluation state belongs to the Core state service. Reproducible cache
-data belongs to cache storage. Workspace state belongs to the native client.
-Deleting either runtime/cache or workspace state cannot damage the portable
+data belongs to cache storage. Library state belongs to the native client.
+Deleting either runtime/cache or editor session state cannot damage the portable
 project semantics.
 
 ## Serialization and missing dependencies

@@ -1,39 +1,19 @@
 # Local SQLite schema
 
-## Current exact review packet — 2026-09-12
-
-The [D19 physical delta](D19_STATIC_SCHEMA_DELTA.md#proposed-migration-inventory) now reserves additive local 0007–0012: 26 proposed new tables (70 total after later implementation), exact column/key/guard signatures, device binding/apply recovery and scoped sync. The 44-table SQL blocks and applied 0001–0006 below are unchanged. R1–R8 were accepted as proposed 2026-09-12; [inert proposal DDL](proposals/d19-cxt2/README.md) and its inventory are complete outside runtime migration paths. No DDL was executed or runtime migration file created; CXT3b remains gated.
-
-## D19 supersession notice — physical/protocol baseline retained
-
-[D19](LIBRARY_AND_NODE_WORK_SURFACES.md) is the current conceptual authority:
-Library replaces persistent Workspace; every Project belongs to exactly one
-Library. Explicit ProjectAccessGrant/invitations and restricted/library-visible
-policies govern Project access independently of blanket membership. Project-only
-collaborators receive bounded assigned snapshots, not a full catalog, Library
-feed, reset snapshot, receipt or media projection. Package/SMB authorization
-remains separate device binding state.
-
-Graphs consume explicit AssetSet ports and declared frozen context. There is no
-ambient semantic project-wide Gallery, implicit asset union or `$project.assets`.
-A private package graph/run identity/provenance/artifact ledger may remain.
-Existing Workspace/ProjectAsset names, SQL, endpoint paths and baseline examples
-below are conceptually superseded where they conflict; they remain unchanged
-physical compatibility evidence pending an exact additive/rename/migration plan.
-
-S3 remains 44 tables/179 statements; S4 35 tables/275 statements; all six applied
-L2 migration files/checksums remain unchanged. Freeze logical/package/NodeSDK
-contracts, then review exact static SQLite/PostgreSQL/package/sync deltas,
-including LibraryId mapping, Project grants, filtered queries/feeds/snapshots/
-media/receipts, RLS and compatibility. Revised CXT1/CXT3 follow that review;
-L3 remains paused. This notice approves no new DDL, migration or service action.
+**Current baseline — 2026-09-12:** the user superseded D19 R1 physical-name
+preservation because Generation Two is unshipped. Domain, package and SQL names
+below use Library consistently. This is a clean baseline rewrite, with no rename
+migration, alias, shadow column or live database change. See the
+[rebaseline authority and evidence](LIBRARY_NOMENCLATURE_REBASELINE.md) and
+[current execution order](../ROADMAP_0_2_EXECUTION.md). CXT3a is complete; local
+D19 execution/app initialization and PostgreSQL/RLS remain separate CXT3b/c gates.
 
 ## D18 amendment — logical requirements only, DDL deferred
 
-[D18](TYPED_CONTEXT_AND_EXPRESSIONS.md) reserves typed Workspace variable
+[D18](TYPED_CONTEXT_AND_EXPRESSIONS.md) reserves typed Library variable
 definition/value, reserved-name and AST/dependency persistence under one aggregate
 CAS revision. CXT2 must specify additive migration DDL, exact type/schema checks,
-same-Workspace FKs, one-current-value, lifecycle/name-reservation guards, local
+same-Library FKs, one-current-value, lifecycle/name-reservation guards, local
 changes/idempotency and future sync shape. No generic untyped key/value table and
 no editable Project/Graph variables in SQLite. Optional asset-metadata indexes
 are rebuildable commit/checksum/fingerprint-qualified package projections only.
@@ -41,7 +21,7 @@ SecretRefs, host bindings and restricted data cannot leak into mutation payloads
 The new application receipt/retry protocol is not implemented by L2's history log.
 
 No concrete DDL is added here: **44 tables, 179 statements, 95 triggers** and
-L2 migrations 0001–0006/checksums stay unchanged. D18 concept approval does not
+L2 migrations 0001–0006/checksums have a separately verified Library rebaseline. D18 concept approval does not
 authorize executing migrations or retroactively changing applied files. CXT2
 must review schema floors, tests and counts before CXT3 disposable implementation.
 
@@ -75,7 +55,7 @@ its WAL/SHM, or raw bookmarks in a `.photara` package or on SMB.
 
 | Class | Authority and retention |
 | --- | --- |
-| Workspace Library | Typed local working records, media references and pending edits are durable |
+| Library records | Typed local working records, media references and pending edits are durable |
 | Account/membership cache | Service projections only; cannot confer remote authority |
 | Catalog/observation indexes | Derived from verified package commits; removable/rebuildable |
 | Catalog visibility, logical roots/locators | User discovery preferences/metadata; not Project contents |
@@ -143,7 +123,7 @@ The host creates the one metadata row, device row and approved normalization
 policy from its verified release constants in the first initialization
 transaction. Its database UUID is new for a new store; restoring a backup on
 another device requires a documented device-rebind step. The DDL intentionally
-does not invent production UUIDs, user Workspaces or sign-in identities.
+does not invent production UUIDs, user Libraries or sign-in identities.
 
 ## 0001 — local identity and media
 
@@ -176,8 +156,8 @@ CREATE TABLE local_device (
     created_at_ms INTEGER NOT NULL
 ) STRICT;
 
-CREATE TABLE workspaces (
-    workspace_id BLOB PRIMARY KEY CHECK (length(workspace_id) = 16),
+CREATE TABLE libraries (
+    library_id BLOB PRIMARY KEY CHECK (length(library_id) = 16),
     display_name TEXT NOT NULL CHECK (length(trim(display_name)) > 0),
     state TEXT NOT NULL CHECK (state IN ('active', 'tombstoned')),
     local_revision INTEGER NOT NULL CHECK (local_revision >= 1),
@@ -199,43 +179,43 @@ CREATE TABLE account_cache (
 ) STRICT;
 
 CREATE TABLE membership_cache (
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     account_id BLOB NOT NULL,
     membership_id BLOB NOT NULL CHECK (length(membership_id) = 16),
     role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'editor', 'viewer')),
     state TEXT NOT NULL CHECK (state IN ('active', 'revoked')),
     server_revision TEXT NOT NULL CHECK (length(server_revision) > 0),
     observed_at_ms INTEGER NOT NULL,
-    PRIMARY KEY (workspace_id, account_id),
+    PRIMARY KEY (library_id, account_id),
     UNIQUE (membership_id),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT,
     FOREIGN KEY (account_id) REFERENCES account_cache(account_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE library_media (
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     sha256 BLOB NOT NULL CHECK (length(sha256) = 32),
     media_type TEXT NOT NULL CHECK (length(media_type) > 0),
     byte_length INTEGER NOT NULL CHECK (byte_length >= 0),
     width INTEGER CHECK (width > 0),
     height INTEGER CHECK (height > 0),
     created_at_ms INTEGER NOT NULL,
-    PRIMARY KEY (workspace_id, sha256),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT
+    PRIMARY KEY (library_id, sha256),
+    FOREIGN KEY (library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE media_local_state (
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     sha256 BLOB NOT NULL,
     state TEXT NOT NULL CHECK (state IN ('pending', 'available', 'missing', 'corrupt')),
     verified_at_ms INTEGER,
-    PRIMARY KEY (workspace_id, sha256),
-    FOREIGN KEY (workspace_id, sha256) REFERENCES library_media(workspace_id, sha256) ON DELETE RESTRICT
+    PRIMARY KEY (library_id, sha256),
+    FOREIGN KEY (library_id, sha256) REFERENCES library_media(library_id, sha256) ON DELETE RESTRICT
 ) STRICT;
 ```
 
 Authentication subjects/tokens are not duplicated here. The service owns
-AccountIdentity and membership policy; a local-only Workspace has neither a
+AccountIdentity and membership policy; a local-only Library has neither a
 fake Account nor fake membership. Sign-out pauses delivery; it does not delete
 local-only Library records or pending changes. Local access to already stored
 bytes is not proof of current remote permission.
@@ -250,7 +230,7 @@ caches. No automatic media reclamation is specified for this initial version.
 The requested [D16/D17 addition](SOCIAL_PROFILES_AND_LIBRARY_EXPORT.md) adds one
 typed `social_profiles` root table in 0002 and its guards in 0006. Local change
 root vocabulary includes `social-profile`; profile edits use the same CAS/outbox
-transaction as other roots. Workspace-wide scoped subject uniqueness prevents
+transaction as other roots. Library-wide scoped subject uniqueness prevents
 one bound subject attaching to two owners; it does not identify People or reserve
 mutable handles. Bound subjects remain reserved on tombstones. Provider/owner coordinates are immutable;
 previously unknown subject coordinates may be adopted once. Parent retirement
@@ -266,7 +246,7 @@ Manual profiles need no provider access. Refresh is a normal revision-checked ed
 not a hidden write bypass. No automatic provider adapter is implemented here.
 
 Future Library export reads a consistent **logical** snapshot, not this live DB/WAL.
-The schema already exposes stable Workspace/Library/StorageRoot/Project IDs and
+The schema already exposes stable Library/StorageRoot/Project IDs and
 media descriptors. Export/import jobs, encryption and activation bookkeeping can
 use later additive migrations; no export-specific runtime tables are introduced.
 Exclude device IDs/locators/bookmarks, account/auth caches, SQL migration ledger,
@@ -284,7 +264,7 @@ They do not independently sync as unrelated records.
 ```sql
 CREATE TABLE people (
     person_id BLOB PRIMARY KEY CHECK (length(person_id) = 16),
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     record_schema INTEGER NOT NULL CHECK (record_schema = 1),
     local_revision INTEGER NOT NULL CHECK (local_revision >= 1),
     created_at_ms INTEGER NOT NULL,
@@ -298,22 +278,22 @@ CREATE TABLE people (
     aliases_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(aliases_json) AND json_type(aliases_json) = 'array'),
     thumbnail_sha256 BLOB,
     extensions_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(extensions_json) AND json_type(extensions_json) = 'object'),
-    UNIQUE (workspace_id, person_id),
+    UNIQUE (library_id, person_id),
     CHECK ((state = 'active' AND retired_at_ms IS NULL AND merged_into_id IS NULL)
         OR (state = 'tombstoned' AND retired_at_ms IS NOT NULL AND merged_into_id IS NULL)
         OR (state = 'merged' AND retired_at_ms IS NOT NULL AND merged_into_id IS NOT NULL)),
     CHECK (merged_into_id IS NULL OR merged_into_id <> person_id),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, merged_into_id) REFERENCES people(workspace_id, person_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, thumbnail_sha256) REFERENCES library_media(workspace_id, sha256) ON DELETE RESTRICT
+    FOREIGN KEY (library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, merged_into_id) REFERENCES people(library_id, person_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, thumbnail_sha256) REFERENCES library_media(library_id, sha256) ON DELETE RESTRICT
 ) STRICT;
 
-CREATE INDEX people_browse ON people(workspace_id, sort_key, person_id) WHERE state = 'active';
-CREATE INDEX people_merge_target ON people(workspace_id, merged_into_id) WHERE merged_into_id IS NOT NULL;
+CREATE INDEX people_browse ON people(library_id, sort_key, person_id) WHERE state = 'active';
+CREATE INDEX people_merge_target ON people(library_id, merged_into_id) WHERE merged_into_id IS NOT NULL;
 
 CREATE TABLE organizations (
     organization_id BLOB PRIMARY KEY CHECK (length(organization_id) = 16),
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     record_schema INTEGER NOT NULL CHECK (record_schema = 1),
     local_revision INTEGER NOT NULL CHECK (local_revision >= 1),
     created_at_ms INTEGER NOT NULL,
@@ -327,23 +307,23 @@ CREATE TABLE organizations (
     aliases_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(aliases_json) AND json_type(aliases_json) = 'array'),
     thumbnail_sha256 BLOB,
     extensions_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(extensions_json) AND json_type(extensions_json) = 'object'),
-    UNIQUE (workspace_id, organization_id),
+    UNIQUE (library_id, organization_id),
     CHECK ((state = 'active' AND retired_at_ms IS NULL AND merged_into_id IS NULL)
         OR (state = 'tombstoned' AND retired_at_ms IS NOT NULL AND merged_into_id IS NULL)
         OR (state = 'merged' AND retired_at_ms IS NOT NULL AND merged_into_id IS NOT NULL)),
     CHECK (merged_into_id IS NULL OR merged_into_id <> organization_id),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, merged_into_id) REFERENCES organizations(workspace_id, organization_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, thumbnail_sha256) REFERENCES library_media(workspace_id, sha256) ON DELETE RESTRICT
+    FOREIGN KEY (library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, merged_into_id) REFERENCES organizations(library_id, organization_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, thumbnail_sha256) REFERENCES library_media(library_id, sha256) ON DELETE RESTRICT
 ) STRICT;
 
-CREATE INDEX organizations_browse ON organizations(workspace_id, sort_key, organization_id) WHERE state = 'active';
-CREATE INDEX organizations_merge_target ON organizations(workspace_id, merged_into_id) WHERE merged_into_id IS NOT NULL;
+CREATE INDEX organizations_browse ON organizations(library_id, sort_key, organization_id) WHERE state = 'active';
+CREATE INDEX organizations_merge_target ON organizations(library_id, merged_into_id) WHERE merged_into_id IS NOT NULL;
 
 
 CREATE TABLE social_profiles (
     social_profile_id BLOB PRIMARY KEY CHECK (length(social_profile_id) = 16),
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     person_id BLOB,
     organization_id BLOB,
     provider_id TEXT NOT NULL CHECK (length(provider_id) > 0),
@@ -372,7 +352,7 @@ CREATE TABLE social_profiles (
     state TEXT NOT NULL CHECK (state IN ('active','tombstoned')),
     retired_at_ms INTEGER,
     extensions_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(extensions_json) AND json_type(extensions_json) = 'object'),
-    UNIQUE (workspace_id, social_profile_id),
+    UNIQUE (library_id, social_profile_id),
     CHECK ((person_id IS NOT NULL) <> (organization_id IS NOT NULL)),
     CHECK ((subject_namespace IS NULL AND provider_subject_id IS NULL)
         OR (length(subject_namespace) > 0 AND length(provider_subject_id) > 0
@@ -384,47 +364,47 @@ CREATE TABLE social_profiles (
     CHECK (avatar_policy <> 'cache-only' OR avatar_expires_at_ms IS NOT NULL),
     CHECK (avatar_media_sha256 IS NULL OR avatar_policy = 'durable-consented'),
     CHECK ((state = 'active' AND retired_at_ms IS NULL) OR (state = 'tombstoned' AND retired_at_ms IS NOT NULL)),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, person_id) REFERENCES people(workspace_id, person_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, organization_id) REFERENCES organizations(workspace_id, organization_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, avatar_media_sha256) REFERENCES library_media(workspace_id, sha256) ON DELETE RESTRICT
+    FOREIGN KEY (library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, person_id) REFERENCES people(library_id, person_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, organization_id) REFERENCES organizations(library_id, organization_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, avatar_media_sha256) REFERENCES library_media(library_id, sha256) ON DELETE RESTRICT
 ) STRICT;
-CREATE UNIQUE INDEX social_workspace_subject ON social_profiles(workspace_id,provider_id,subject_namespace,provider_subject_id)
+CREATE UNIQUE INDEX social_library_subject ON social_profiles(library_id,provider_id,subject_namespace,provider_subject_id)
     WHERE provider_subject_id IS NOT NULL;
-CREATE INDEX social_profiles_person ON social_profiles(workspace_id,person_id,social_profile_id) WHERE state = 'active';
-CREATE INDEX social_profiles_organization ON social_profiles(workspace_id,organization_id,social_profile_id) WHERE state = 'active';
+CREATE INDEX social_profiles_person ON social_profiles(library_id,person_id,social_profile_id) WHERE state = 'active';
+CREATE INDEX social_profiles_organization ON social_profiles(library_id,organization_id,social_profile_id) WHERE state = 'active';
 
 CREATE TABLE person_capabilities (
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     person_id BLOB NOT NULL,
     capability_id TEXT NOT NULL CHECK (length(capability_id) > 0),
-    PRIMARY KEY (workspace_id, person_id, capability_id),
-    FOREIGN KEY (workspace_id, person_id) REFERENCES people(workspace_id, person_id) ON DELETE RESTRICT
+    PRIMARY KEY (library_id, person_id, capability_id),
+    FOREIGN KEY (library_id, person_id) REFERENCES people(library_id, person_id) ON DELETE RESTRICT
 ) STRICT;
-CREATE INDEX people_by_capability ON person_capabilities(workspace_id, capability_id, person_id);
+CREATE INDEX people_by_capability ON person_capabilities(library_id, capability_id, person_id);
 
 CREATE TABLE person_labels (
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     person_id BLOB NOT NULL,
     label_key TEXT NOT NULL CHECK (length(label_key) > 0),
     display_label TEXT NOT NULL CHECK (length(trim(display_label)) > 0),
-    PRIMARY KEY (workspace_id, person_id, label_key),
-    FOREIGN KEY (workspace_id, person_id) REFERENCES people(workspace_id, person_id) ON DELETE RESTRICT
+    PRIMARY KEY (library_id, person_id, label_key),
+    FOREIGN KEY (library_id, person_id) REFERENCES people(library_id, person_id) ON DELETE RESTRICT
 ) STRICT;
-CREATE INDEX people_by_label ON person_labels(workspace_id, label_key, person_id);
+CREATE INDEX people_by_label ON person_labels(library_id, label_key, person_id);
 
 CREATE TABLE organization_labels (
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     organization_id BLOB NOT NULL,
     label_key TEXT NOT NULL CHECK (length(label_key) > 0),
     display_label TEXT NOT NULL CHECK (length(trim(display_label)) > 0),
-    PRIMARY KEY (workspace_id, organization_id, label_key),
-    FOREIGN KEY (workspace_id, organization_id) REFERENCES organizations(workspace_id, organization_id) ON DELETE RESTRICT
+    PRIMARY KEY (library_id, organization_id, label_key),
+    FOREIGN KEY (library_id, organization_id) REFERENCES organizations(library_id, organization_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE person_organization_relationships (
     relationship_id BLOB PRIMARY KEY CHECK (length(relationship_id) = 16),
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     person_id BLOB NOT NULL,
     organization_id BLOB NOT NULL,
     relationship_type TEXT NOT NULL CHECK (length(relationship_type) > 0),
@@ -441,19 +421,19 @@ CREATE TABLE person_organization_relationships (
     extensions_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(extensions_json) AND json_type(extensions_json) = 'object'),
     CHECK (valid_from_ms IS NULL OR valid_until_ms IS NULL OR valid_until_ms > valid_from_ms),
     CHECK ((state = 'active' AND retired_at_ms IS NULL) OR (state = 'tombstoned' AND retired_at_ms IS NOT NULL)),
-    FOREIGN KEY (workspace_id, person_id) REFERENCES people(workspace_id, person_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, organization_id) REFERENCES organizations(workspace_id, organization_id) ON DELETE RESTRICT
+    FOREIGN KEY (library_id, person_id) REFERENCES people(library_id, person_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, organization_id) REFERENCES organizations(library_id, organization_id) ON DELETE RESTRICT
 ) STRICT;
 CREATE INDEX relationships_pair_role ON person_organization_relationships(
-    workspace_id, person_id, organization_id, relationship_type
+    library_id, person_id, organization_id, relationship_type
 ) WHERE state = 'active';
 CREATE INDEX relationships_by_organization ON person_organization_relationships(
-    workspace_id, organization_id, person_id
+    library_id, organization_id, person_id
 ) WHERE state = 'active';
 
 CREATE TABLE location_kinds (
     location_kind_id BLOB PRIMARY KEY CHECK (length(location_kind_id) = 16),
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     canonical_key TEXT NOT NULL CHECK (length(canonical_key) > 0),
     canonical_display TEXT NOT NULL CHECK (length(trim(canonical_display)) > 0),
     description TEXT NOT NULL DEFAULT '',
@@ -469,40 +449,40 @@ CREATE TABLE location_kinds (
     claim_owner_id BLOB GENERATED ALWAYS AS (CASE WHEN state <> 'merged' THEN location_kind_id END) STORED,
     required_canonical_key TEXT GENERATED ALWAYS AS (CASE WHEN state <> 'merged' THEN canonical_key END) STORED,
     retirement_terms_json TEXT CHECK (retirement_terms_json IS NULL OR (json_valid(retirement_terms_json) AND json_type(retirement_terms_json) = 'array')),
-    UNIQUE (workspace_id, location_kind_id),
-    UNIQUE (workspace_id, claim_owner_id),
+    UNIQUE (library_id, location_kind_id),
+    UNIQUE (library_id, claim_owner_id),
     CHECK ((state = 'active') = (retirement_terms_json IS NULL)),
     CHECK ((state = 'active' AND retired_at_ms IS NULL AND merged_into_id IS NULL)
         OR (state = 'tombstoned' AND retired_at_ms IS NOT NULL AND merged_into_id IS NULL)
         OR (state = 'merged' AND retired_at_ms IS NOT NULL AND merged_into_id IS NOT NULL)),
     CHECK (merged_into_id IS NULL OR merged_into_id <> location_kind_id),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, merged_into_id) REFERENCES location_kinds(workspace_id, location_kind_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, thumbnail_sha256) REFERENCES library_media(workspace_id, sha256) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, location_kind_id, required_canonical_key)
-        REFERENCES location_kind_terms(workspace_id, location_kind_id, term_key)
+    FOREIGN KEY (library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, merged_into_id) REFERENCES location_kinds(library_id, location_kind_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, thumbnail_sha256) REFERENCES library_media(library_id, sha256) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, location_kind_id, required_canonical_key)
+        REFERENCES location_kind_terms(library_id, location_kind_id, term_key)
         DEFERRABLE INITIALLY DEFERRED
 ) STRICT;
 
 CREATE TABLE location_kind_terms (
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     term_key TEXT NOT NULL CHECK (length(term_key) > 0),
     location_kind_id BLOB NOT NULL,
     policy_version INTEGER NOT NULL,
     spellings_json TEXT NOT NULL CHECK (json_valid(spellings_json) AND json_type(spellings_json) = 'array' AND json_array_length(spellings_json) > 0),
-    PRIMARY KEY (workspace_id, term_key),
-    UNIQUE (workspace_id, location_kind_id, term_key),
-    FOREIGN KEY (workspace_id, location_kind_id)
-        REFERENCES location_kinds(workspace_id, claim_owner_id)
+    PRIMARY KEY (library_id, term_key),
+    UNIQUE (library_id, location_kind_id, term_key),
+    FOREIGN KEY (library_id, location_kind_id)
+        REFERENCES location_kinds(library_id, claim_owner_id)
         DEFERRABLE INITIALLY DEFERRED,
     FOREIGN KEY (policy_version) REFERENCES normalization_policies(policy_version) ON DELETE RESTRICT
 ) STRICT;
-CREATE INDEX kinds_browse ON location_kinds(workspace_id, canonical_key, location_kind_id) WHERE state = 'active';
-CREATE INDEX kinds_merge_target ON location_kinds(workspace_id, merged_into_id) WHERE merged_into_id IS NOT NULL;
+CREATE INDEX kinds_browse ON location_kinds(library_id, canonical_key, location_kind_id) WHERE state = 'active';
+CREATE INDEX kinds_merge_target ON location_kinds(library_id, merged_into_id) WHERE merged_into_id IS NOT NULL;
 
 CREATE TABLE locations (
     location_id BLOB PRIMARY KEY CHECK (length(location_id) = 16),
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     location_kind_id BLOB NOT NULL,
     parent_location_id BLOB CHECK (length(parent_location_id) = 16),
     display_name TEXT NOT NULL CHECK (length(trim(display_name)) > 0),
@@ -521,23 +501,23 @@ CREATE TABLE locations (
     retired_at_ms INTEGER,
     merged_into_id BLOB CHECK (length(merged_into_id) = 16),
     extensions_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(extensions_json) AND json_type(extensions_json) = 'object'),
-    UNIQUE (workspace_id, location_id),
+    UNIQUE (library_id, location_id),
     CHECK ((latitude IS NULL) = (longitude IS NULL)),
     CHECK (parent_location_id IS NULL OR parent_location_id <> location_id),
     CHECK (merged_into_id IS NULL OR merged_into_id <> location_id),
     CHECK ((state = 'active' AND retired_at_ms IS NULL AND merged_into_id IS NULL)
         OR (state = 'tombstoned' AND retired_at_ms IS NOT NULL AND merged_into_id IS NULL)
         OR (state = 'merged' AND retired_at_ms IS NOT NULL AND merged_into_id IS NOT NULL)),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, location_kind_id) REFERENCES location_kinds(workspace_id, location_kind_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, parent_location_id) REFERENCES locations(workspace_id, location_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, merged_into_id) REFERENCES locations(workspace_id, location_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, thumbnail_sha256) REFERENCES library_media(workspace_id, sha256) ON DELETE RESTRICT
+    FOREIGN KEY (library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, location_kind_id) REFERENCES location_kinds(library_id, location_kind_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, parent_location_id) REFERENCES locations(library_id, location_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, merged_into_id) REFERENCES locations(library_id, location_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, thumbnail_sha256) REFERENCES library_media(library_id, sha256) ON DELETE RESTRICT
 ) STRICT;
-CREATE INDEX locations_browse ON locations(workspace_id, sort_key, location_id) WHERE state = 'active';
-CREATE INDEX locations_by_kind ON locations(workspace_id, location_kind_id, location_id) WHERE state = 'active';
-CREATE INDEX locations_children ON locations(workspace_id, parent_location_id) WHERE state = 'active';
-CREATE INDEX locations_merge_target ON locations(workspace_id, merged_into_id) WHERE merged_into_id IS NOT NULL;
+CREATE INDEX locations_browse ON locations(library_id, sort_key, location_id) WHERE state = 'active';
+CREATE INDEX locations_by_kind ON locations(library_id, location_kind_id, location_id) WHERE state = 'active';
+CREATE INDEX locations_children ON locations(library_id, parent_location_id) WHERE state = 'active';
+CREATE INDEX locations_merge_target ON locations(library_id, merged_into_id) WHERE merged_into_id IS NOT NULL;
 ```
 
 ### Canonical/alias uniqueness and merge behavior
@@ -547,7 +527,7 @@ never indexed in separate uniqueness domains. The deferred circular FK requires
 each active/tombstoned kind's canonical key to be claimed by that same kind at
 commit. A merged kind has no eligible claim owner/canonical-reference key and
 retains immutable retirement terms instead. Every
-Location requires a same-Workspace kind; live-reference/cycle guards below
+Location requires a same-Library kind; live-reference/cycle guards below
 strengthen simple FK existence.
 
 The approved S6/L2 Rust policy maps Beach to text key `beach` and beaches to text
@@ -556,9 +536,9 @@ one key. Equivalent spellings share a claim's typed spelling list; explicit
 aliases recompute this same bidirectional closure. Creating a competing
 kind fails even if the competing name was supplied as an alias or plural first.
 Policy version is NOT part of the unique key: concurrent versions cannot create
-two claims for the same concept key. A Workspace uses one installed policy; a
+two claims for the same concept key. A Library uses one installed policy; a
 policy upgrade precomputes all keys, reports collisions, and migrates the whole
-Workspace transactionally. No runtime auto-upgrade or unrestricted stemmer.
+Library transactionally. No runtime auto-upgrade or unrestricted stemmer.
 
 Rename adds/claims a new key, updates the canonical FK and retains old claims.
 Terms remain reserved after tombstone. The S5 v1 recommendation captures source
@@ -578,12 +558,12 @@ An observation is one immutable indexed view of a verified package commit from
 one locator. Selected observation and active locator are explicit; duplicate
 ProjectIds never resolve by maximum timestamp/revision. Library references in
 projections deliberately have no FK to local Library tables: saved historical
-snapshots remain intelligible across deletion, offline access and Workspaces.
+snapshots remain intelligible across deletion, offline access and Libraries.
 
 ```sql
 CREATE TABLE storage_roots (
     storage_root_id BLOB PRIMARY KEY CHECK (length(storage_root_id) = 16),
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     display_name TEXT NOT NULL CHECK (length(trim(display_name)) > 0),
     label_key TEXT NOT NULL CHECK (length(label_key) > 0),
     purpose TEXT NOT NULL CHECK (length(purpose) > 0),
@@ -592,14 +572,14 @@ CREATE TABLE storage_roots (
     updated_at_ms INTEGER NOT NULL,
     state TEXT NOT NULL CHECK (state IN ('active', 'tombstoned')),
     retired_at_ms INTEGER,
-    UNIQUE (workspace_id, storage_root_id),
-    UNIQUE (workspace_id, label_key),
+    UNIQUE (library_id, storage_root_id),
+    UNIQUE (library_id, label_key),
     CHECK ((state = 'active' AND retired_at_ms IS NULL) OR (state = 'tombstoned' AND retired_at_ms IS NOT NULL)),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT
+    FOREIGN KEY (library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE project_catalog (
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     project_id BLOB NOT NULL CHECK (length(project_id) = 16),
     visibility TEXT NOT NULL CHECK (visibility IN ('visible', 'hidden')),
     local_revision INTEGER NOT NULL CHECK (local_revision >= 1),
@@ -607,20 +587,20 @@ CREATE TABLE project_catalog (
     updated_at_ms INTEGER NOT NULL,
     active_locator_id BLOB,
     selected_observation_id BLOB,
-    PRIMARY KEY (workspace_id, project_id),
+    PRIMARY KEY (library_id, project_id),
     CHECK (selected_observation_id IS NULL OR active_locator_id IS NOT NULL),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, project_id, active_locator_id)
-        REFERENCES project_locators(workspace_id, project_id, locator_id)
+    FOREIGN KEY (library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, project_id, active_locator_id)
+        REFERENCES project_locators(library_id, project_id, locator_id)
         DEFERRABLE INITIALLY DEFERRED,
-    FOREIGN KEY (workspace_id, project_id, selected_observation_id, active_locator_id)
-        REFERENCES project_observations(workspace_id, project_id, observation_id, locator_id)
+    FOREIGN KEY (library_id, project_id, selected_observation_id, active_locator_id)
+        REFERENCES project_observations(library_id, project_id, observation_id, locator_id)
         DEFERRABLE INITIALLY DEFERRED
 ) STRICT;
 
 CREATE TABLE project_locators (
     locator_id BLOB PRIMARY KEY CHECK (length(locator_id) = 16),
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     project_id BLOB NOT NULL,
     storage_root_id BLOB,
     relative_path TEXT,
@@ -629,7 +609,7 @@ CREATE TABLE project_locators (
     updated_at_ms INTEGER NOT NULL,
     state TEXT NOT NULL CHECK (state IN ('active', 'retired')),
     retired_at_ms INTEGER,
-    UNIQUE (workspace_id, project_id, locator_id),
+    UNIQUE (library_id, project_id, locator_id),
     CHECK ((storage_root_id IS NULL) = (relative_path IS NULL)),
     CHECK (relative_path IS NULL OR (length(relative_path) > 0
         AND substr(relative_path, 1, 1) <> '/'
@@ -638,16 +618,16 @@ CREATE TABLE project_locators (
         AND instr('/' || relative_path || '/', '/../') = 0
         AND instr('/' || relative_path || '/', '/./') = 0)),
     CHECK ((state = 'active' AND retired_at_ms IS NULL) OR (state = 'retired' AND retired_at_ms IS NOT NULL)),
-    FOREIGN KEY (workspace_id, project_id) REFERENCES project_catalog(workspace_id, project_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, storage_root_id) REFERENCES storage_roots(workspace_id, storage_root_id) ON DELETE RESTRICT
+    FOREIGN KEY (library_id, project_id) REFERENCES project_catalog(library_id, project_id) ON DELETE RESTRICT,
+    FOREIGN KEY (library_id, storage_root_id) REFERENCES storage_roots(library_id, storage_root_id) ON DELETE RESTRICT
 ) STRICT;
-CREATE UNIQUE INDEX rooted_locator_path ON project_locators(workspace_id, storage_root_id, relative_path)
+CREATE UNIQUE INDEX rooted_locator_path ON project_locators(library_id, storage_root_id, relative_path)
     WHERE storage_root_id IS NOT NULL AND state = 'active';
-CREATE INDEX locators_by_project ON project_locators(workspace_id, project_id, state);
+CREATE INDEX locators_by_project ON project_locators(library_id, project_id, state);
 
 CREATE TABLE device_root_bindings (
     device_id BLOB NOT NULL,
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     storage_root_id BLOB NOT NULL,
     binding_kind TEXT NOT NULL CHECK (binding_kind IN ('path', 'bookmark', 'provider')),
     host_path TEXT,
@@ -658,12 +638,12 @@ CREATE TABLE device_root_bindings (
         OR (binding_kind IN ('bookmark', 'provider') AND host_path IS NULL AND secure_handle_ref IS NOT NULL)),
     PRIMARY KEY (device_id, storage_root_id),
     FOREIGN KEY (device_id) REFERENCES local_device(device_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, storage_root_id) REFERENCES storage_roots(workspace_id, storage_root_id) ON DELETE RESTRICT
+    FOREIGN KEY (library_id, storage_root_id) REFERENCES storage_roots(library_id, storage_root_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE device_project_bindings (
     device_id BLOB NOT NULL,
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     project_id BLOB NOT NULL,
     locator_id BLOB NOT NULL,
     direct_host_path TEXT,
@@ -679,13 +659,13 @@ CREATE TABLE device_project_bindings (
     CHECK ((last_commit_id IS NULL) = (last_commit_sha256 IS NULL)),
     CHECK (availability <> 'available' OR (verified_project_id IS NOT NULL AND verified_project_id = project_id AND checked_at_ms IS NOT NULL)),
     FOREIGN KEY (device_id) REFERENCES local_device(device_id) ON DELETE RESTRICT,
-    FOREIGN KEY (workspace_id, project_id, locator_id)
-        REFERENCES project_locators(workspace_id, project_id, locator_id) ON DELETE RESTRICT
+    FOREIGN KEY (library_id, project_id, locator_id)
+        REFERENCES project_locators(library_id, project_id, locator_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE project_observations (
     observation_id BLOB PRIMARY KEY CHECK (length(observation_id) = 16),
-    workspace_id BLOB NOT NULL,
+    library_id BLOB NOT NULL,
     project_id BLOB NOT NULL,
     locator_id BLOB NOT NULL,
     commit_id BLOB NOT NULL CHECK (length(commit_id) = 16),
@@ -699,17 +679,17 @@ CREATE TABLE project_observations (
     graph_count INTEGER NOT NULL CHECK (graph_count >= 0),
     observed_at_ms INTEGER NOT NULL,
     index_schema INTEGER NOT NULL CHECK (index_schema = 1),
-    UNIQUE (workspace_id, project_id, observation_id, locator_id),
+    UNIQUE (library_id, project_id, observation_id, locator_id),
     UNIQUE (locator_id, commit_id, commit_sha256, index_schema),
-    FOREIGN KEY (workspace_id, project_id, locator_id)
-        REFERENCES project_locators(workspace_id, project_id, locator_id) ON DELETE RESTRICT
+    FOREIGN KEY (library_id, project_id, locator_id)
+        REFERENCES project_locators(library_id, project_id, locator_id) ON DELETE RESTRICT
 ) STRICT;
-CREATE INDEX observation_commit ON project_observations(workspace_id, project_id, commit_id, commit_sha256);
+CREATE INDEX observation_commit ON project_observations(library_id, project_id, commit_id, commit_sha256);
 
 CREATE TABLE project_party_projection (
     observation_id BLOB NOT NULL,
     assignment_id BLOB NOT NULL CHECK (length(assignment_id) = 16),
-    source_workspace_id BLOB NOT NULL CHECK (length(source_workspace_id) = 16),
+    source_library_id BLOB NOT NULL CHECK (length(source_library_id) = 16),
     source_kind TEXT NOT NULL CHECK (source_kind IN ('person', 'organization')),
     source_record_id BLOB NOT NULL CHECK (length(source_record_id) = 16),
     source_revision TEXT NOT NULL,
@@ -718,12 +698,12 @@ CREATE TABLE project_party_projection (
     PRIMARY KEY (observation_id, assignment_id),
     FOREIGN KEY (observation_id) REFERENCES project_observations(observation_id) ON DELETE CASCADE
 ) STRICT;
-CREATE INDEX projects_by_party ON project_party_projection(source_workspace_id, source_kind, source_record_id, observation_id);
+CREATE INDEX projects_by_party ON project_party_projection(source_library_id, source_kind, source_record_id, observation_id);
 
 CREATE TABLE project_location_projection (
     observation_id BLOB NOT NULL,
     assignment_id BLOB NOT NULL CHECK (length(assignment_id) = 16),
-    source_workspace_id BLOB NOT NULL CHECK (length(source_workspace_id) = 16),
+    source_library_id BLOB NOT NULL CHECK (length(source_library_id) = 16),
     location_id BLOB NOT NULL CHECK (length(location_id) = 16),
     location_kind_id BLOB NOT NULL CHECK (length(location_kind_id) = 16),
     location_name_snapshot TEXT NOT NULL,
@@ -732,8 +712,8 @@ CREATE TABLE project_location_projection (
     PRIMARY KEY (observation_id, assignment_id),
     FOREIGN KEY (observation_id) REFERENCES project_observations(observation_id) ON DELETE CASCADE
 ) STRICT;
-CREATE INDEX projects_by_location ON project_location_projection(source_workspace_id, location_id, observation_id);
-CREATE INDEX projects_by_kind ON project_location_projection(source_workspace_id, location_kind_id, observation_id);
+CREATE INDEX projects_by_location ON project_location_projection(source_library_id, location_id, observation_id);
+CREATE INDEX projects_by_kind ON project_location_projection(source_library_id, location_kind_id, observation_id);
 
 CREATE TABLE project_graph_projection (
     observation_id BLOB NOT NULL,
@@ -773,48 +753,48 @@ or disk file is deleted by a SQL cascade.
 
 Synchronization tables are transport bookkeeping, not an alternate untyped
 Library API. Typed repositories own each command's validation and resulting
-typed rows. Local-only workspaces have no sync target. Signing out pauses sync;
-it does not remove the local Library. A future workspace claim must preserve its
-WorkspaceId; joining another workspace is an explicit operation, not an ID alias.
+typed rows. Local-only libraries have no sync target. Signing out pauses sync;
+it does not remove the local Library. A future library claim must preserve its
+LibraryId; joining another library is an explicit operation, not an ID alias.
 
 ```sql
 CREATE TABLE sync_targets (
   target_id BLOB PRIMARY KEY CHECK(length(target_id)=16),
-  workspace_id BLOB NOT NULL UNIQUE,
+  library_id BLOB NOT NULL UNIQUE,
   account_id BLOB NOT NULL,
   backend TEXT NOT NULL CHECK(backend='photara-cloud'),
   environment_id TEXT NOT NULL CHECK(length(environment_id)>0),
   state TEXT NOT NULL CHECK(state IN ('enabled','paused','auth-required')),
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
-  UNIQUE(workspace_id,target_id),
-  FOREIGN KEY(workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT,
+  UNIQUE(library_id,target_id),
+  FOREIGN KEY(library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT,
   FOREIGN KEY(account_id) REFERENCES account_cache(account_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE mutations (
   mutation_id BLOB PRIMARY KEY CHECK(length(mutation_id)=16),
-  workspace_id BLOB NOT NULL,
+  library_id BLOB NOT NULL,
   source_device_id BLOB NOT NULL CHECK(length(source_device_id)=16),
   origin TEXT NOT NULL CHECK(origin IN ('local','remote')),
   command_schema INTEGER NOT NULL CHECK(command_schema>=1),
   primary_entity_kind TEXT NOT NULL CHECK(primary_entity_kind IN
-    ('workspace','person','organization','social-profile','person-organization-relationship',
+    ('library','person','organization','social-profile','person-organization-relationship',
      'location-kind','location','storage-root','project-catalog','project-locator')),
   primary_entity_id BLOB NOT NULL CHECK(length(primary_entity_id)=16),
   created_at_ms INTEGER NOT NULL,
   envelope_json TEXT NOT NULL CHECK(json_valid(envelope_json) AND json_type(envelope_json)='object'),
   envelope_sha256 BLOB NOT NULL CHECK(length(envelope_sha256)=32),
-  UNIQUE(workspace_id,mutation_id),
-  FOREIGN KEY(workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT
+  UNIQUE(library_id,mutation_id),
+  FOREIGN KEY(library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE local_changes (
   sequence INTEGER PRIMARY KEY AUTOINCREMENT,
-  workspace_id BLOB NOT NULL,
+  library_id BLOB NOT NULL,
   mutation_id BLOB NOT NULL,
   entity_kind TEXT NOT NULL CHECK(entity_kind IN
-    ('workspace','person','organization','social-profile','person-organization-relationship',
+    ('library','person','organization','social-profile','person-organization-relationship',
      'location-kind','location','storage-root','project-catalog','project-locator')),
   entity_id BLOB NOT NULL CHECK(length(entity_id)=16),
   local_revision INTEGER NOT NULL CHECK(local_revision>=1),
@@ -822,14 +802,14 @@ CREATE TABLE local_changes (
   changed_at_ms INTEGER NOT NULL,
   post_state_json TEXT NOT NULL CHECK(json_valid(post_state_json) AND json_type(post_state_json)='object'),
   post_state_sha256 BLOB NOT NULL CHECK(length(post_state_sha256)=32),
-  UNIQUE(workspace_id,entity_kind,entity_id,local_revision),
-  FOREIGN KEY(workspace_id,mutation_id) REFERENCES mutations(workspace_id,mutation_id) ON DELETE RESTRICT
+  UNIQUE(library_id,entity_kind,entity_id,local_revision),
+  FOREIGN KEY(library_id,mutation_id) REFERENCES mutations(library_id,mutation_id) ON DELETE RESTRICT
 ) STRICT;
-CREATE INDEX local_changes_workspace_sequence ON local_changes(workspace_id,sequence);
+CREATE INDEX local_changes_library_sequence ON local_changes(library_id,sequence);
 CREATE INDEX local_changes_mutation ON local_changes(mutation_id,sequence);
 
 CREATE TABLE mutation_baselines (
-  workspace_id BLOB NOT NULL,
+  library_id BLOB NOT NULL,
   mutation_id BLOB NOT NULL,
   entity_kind TEXT NOT NULL,
   entity_id BLOB NOT NULL CHECK(length(entity_id)=16),
@@ -839,13 +819,13 @@ CREATE TABLE mutation_baselines (
   CHECK(expected_server_revision IS NULL OR length(expected_server_revision)>0),
   CHECK(expected_server_revision IS NULL OR predecessor_mutation_id IS NULL),
   CHECK(predecessor_mutation_id IS NULL OR predecessor_mutation_id<>mutation_id),
-  FOREIGN KEY(workspace_id,mutation_id) REFERENCES mutations(workspace_id,mutation_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,predecessor_mutation_id) REFERENCES mutations(workspace_id,mutation_id) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,mutation_id) REFERENCES mutations(library_id,mutation_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,predecessor_mutation_id) REFERENCES mutations(library_id,mutation_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE sync_object_state (
   target_id BLOB NOT NULL,
-  workspace_id BLOB NOT NULL,
+  library_id BLOB NOT NULL,
   entity_kind TEXT NOT NULL,
   entity_id BLOB NOT NULL CHECK(length(entity_id)=16),
   server_revision TEXT NOT NULL CHECK(length(server_revision)>0),
@@ -853,13 +833,13 @@ CREATE TABLE sync_object_state (
   base_snapshot_json TEXT NOT NULL CHECK(json_valid(base_snapshot_json) AND json_type(base_snapshot_json)='object'),
   base_snapshot_sha256 BLOB NOT NULL CHECK(length(base_snapshot_sha256)=32),
   PRIMARY KEY(target_id,entity_kind,entity_id),
-  FOREIGN KEY(workspace_id,target_id) REFERENCES sync_targets(workspace_id,target_id) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,target_id) REFERENCES sync_targets(library_id,target_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE sync_outbox (
   sequence INTEGER PRIMARY KEY AUTOINCREMENT,
   target_id BLOB NOT NULL,
-  workspace_id BLOB NOT NULL,
+  library_id BLOB NOT NULL,
   mutation_id BLOB NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('queued','sending','acknowledged','rejected','conflict','superseded','discarded')),
   attempt_count INTEGER NOT NULL DEFAULT 0 CHECK(attempt_count>=0),
@@ -870,12 +850,12 @@ CREATE TABLE sync_outbox (
   acknowledged_at_ms INTEGER,
   last_error_code TEXT,
   UNIQUE(target_id,mutation_id),
-  UNIQUE(workspace_id,target_id,sequence),
+  UNIQUE(library_id,target_id,sequence),
   CHECK((request_json IS NULL)=(request_sha256 IS NULL)),
   CHECK(state NOT IN ('sending','acknowledged') OR request_json IS NOT NULL),
   CHECK((state='acknowledged')=(acknowledged_at_ms IS NOT NULL)),
-  FOREIGN KEY(workspace_id,target_id) REFERENCES sync_targets(workspace_id,target_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,mutation_id) REFERENCES mutations(workspace_id,mutation_id) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,target_id) REFERENCES sync_targets(library_id,target_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,mutation_id) REFERENCES mutations(library_id,mutation_id) ON DELETE RESTRICT
 ) STRICT;
 CREATE INDEX sync_outbox_ready ON sync_outbox(target_id,not_before_ms,sequence)
   WHERE state='queued';
@@ -883,7 +863,7 @@ CREATE INDEX sync_outbox_ready ON sync_outbox(target_id,not_before_ms,sequence)
 CREATE TABLE sync_inbox (
   batch_id BLOB PRIMARY KEY CHECK(length(batch_id)=16),
   target_id BLOB NOT NULL,
-  workspace_id BLOB NOT NULL,
+  library_id BLOB NOT NULL,
   stream_epoch BLOB NOT NULL CHECK(length(stream_epoch)=16),
   batch_sequence TEXT NOT NULL CHECK(length(batch_sequence) BETWEEN 1 AND 19 AND batch_sequence NOT GLOB '*[^0-9]*' AND substr(batch_sequence,1,1)<>'0' AND (length(batch_sequence)<19 OR batch_sequence<='9223372036854775807')),
   cursor_before TEXT,
@@ -896,26 +876,26 @@ CREATE TABLE sync_inbox (
   last_error_code TEXT,
   UNIQUE(target_id,cursor_after),
   UNIQUE(target_id,stream_epoch,batch_sequence),
-  UNIQUE(workspace_id,target_id,batch_id),
+  UNIQUE(library_id,target_id,batch_id),
   CHECK((state='applied')=(applied_at_ms IS NOT NULL)),
-  FOREIGN KEY(workspace_id,target_id) REFERENCES sync_targets(workspace_id,target_id) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,target_id) REFERENCES sync_targets(library_id,target_id) ON DELETE RESTRICT
 ) STRICT;
 CREATE UNIQUE INDEX sync_inbox_one_pending_page ON sync_inbox(target_id)
   WHERE state<>'applied';
 
 CREATE TABLE sync_cursors (
   target_id BLOB PRIMARY KEY,
-  workspace_id BLOB NOT NULL,
+  library_id BLOB NOT NULL,
   applied_cursor TEXT,
   local_revision INTEGER NOT NULL CHECK(local_revision>=1),
   updated_at_ms INTEGER NOT NULL,
-  FOREIGN KEY(workspace_id,target_id) REFERENCES sync_targets(workspace_id,target_id) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,target_id) REFERENCES sync_targets(library_id,target_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE sync_conflicts (
   conflict_id BLOB PRIMARY KEY CHECK(length(conflict_id)=16),
   target_id BLOB NOT NULL,
-  workspace_id BLOB NOT NULL,
+  library_id BLOB NOT NULL,
   batch_id BLOB,
   outbox_sequence INTEGER,
   entity_kind TEXT NOT NULL,
@@ -929,17 +909,17 @@ CREATE TABLE sync_conflicts (
   resolved_at_ms INTEGER,
   CHECK((batch_id IS NULL)<>(outbox_sequence IS NULL)),
   CHECK((state='resolved')=(resolved_at_ms IS NOT NULL)),
-  FOREIGN KEY(workspace_id,target_id) REFERENCES sync_targets(workspace_id,target_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,target_id,batch_id) REFERENCES sync_inbox(workspace_id,target_id,batch_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,target_id,outbox_sequence) REFERENCES sync_outbox(workspace_id,target_id,sequence) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,resolution_mutation_id) REFERENCES mutations(workspace_id,mutation_id) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,target_id) REFERENCES sync_targets(library_id,target_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,target_id,batch_id) REFERENCES sync_inbox(library_id,target_id,batch_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,target_id,outbox_sequence) REFERENCES sync_outbox(library_id,target_id,sequence) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,resolution_mutation_id) REFERENCES mutations(library_id,mutation_id) ON DELETE RESTRICT
 ) STRICT;
-CREATE INDEX sync_conflicts_open ON sync_conflicts(workspace_id,created_at_ms)
+CREATE INDEX sync_conflicts_open ON sync_conflicts(library_id,created_at_ms)
   WHERE state='open';
 
 CREATE TABLE media_transfers (
   target_id BLOB NOT NULL,
-  workspace_id BLOB NOT NULL,
+  library_id BLOB NOT NULL,
   sha256 BLOB NOT NULL,
   direction TEXT NOT NULL CHECK(direction IN ('upload','download')),
   state TEXT NOT NULL CHECK(state IN ('queued','transferring','complete','failed')),
@@ -947,12 +927,12 @@ CREATE TABLE media_transfers (
   updated_at_ms INTEGER NOT NULL,
   last_error_code TEXT,
   PRIMARY KEY(target_id,sha256,direction),
-  FOREIGN KEY(workspace_id,target_id) REFERENCES sync_targets(workspace_id,target_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,sha256) REFERENCES library_media(workspace_id,sha256) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,target_id) REFERENCES sync_targets(library_id,target_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,sha256) REFERENCES library_media(library_id,sha256) ON DELETE RESTRICT
 ) STRICT;
 CREATE TABLE remote_mutation_receipts (
   target_id BLOB NOT NULL,
-  workspace_id BLOB NOT NULL,
+  library_id BLOB NOT NULL,
   mutation_id BLOB NOT NULL,
   request_sha256 BLOB NOT NULL CHECK(length(request_sha256)=32),
   outcome TEXT NOT NULL CHECK(outcome IN ('accepted','rejected','conflict')),
@@ -964,28 +944,28 @@ CREATE TABLE remote_mutation_receipts (
   PRIMARY KEY(target_id,mutation_id),
   CHECK((outcome='accepted')=(accepted_epoch IS NOT NULL)),
   CHECK((outcome='accepted')=(accepted_sequence IS NOT NULL)),
-  FOREIGN KEY(workspace_id,target_id) REFERENCES sync_targets(workspace_id,target_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,target_id) REFERENCES sync_targets(library_id,target_id) ON DELETE RESTRICT,
   FOREIGN KEY(target_id,mutation_id) REFERENCES sync_outbox(target_id,mutation_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE local_mutation_dispositions (
-  workspace_id BLOB NOT NULL,
+  library_id BLOB NOT NULL,
   mutation_id BLOB NOT NULL,
   disposition TEXT NOT NULL CHECK(disposition IN ('superseded','discarded')),
   replacement_mutation_id BLOB,
   reason_code TEXT NOT NULL CHECK(length(reason_code)>0),
   created_at_ms INTEGER NOT NULL,
-  PRIMARY KEY(workspace_id,mutation_id),
+  PRIMARY KEY(library_id,mutation_id),
   CHECK(replacement_mutation_id IS NULL OR replacement_mutation_id<>mutation_id),
   CHECK((disposition='superseded')=(replacement_mutation_id IS NOT NULL)),
-  FOREIGN KEY(workspace_id,mutation_id) REFERENCES mutations(workspace_id,mutation_id) ON DELETE RESTRICT,
-  FOREIGN KEY(workspace_id,replacement_mutation_id) REFERENCES mutations(workspace_id,mutation_id) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,mutation_id) REFERENCES mutations(library_id,mutation_id) ON DELETE RESTRICT,
+  FOREIGN KEY(library_id,replacement_mutation_id) REFERENCES mutations(library_id,mutation_id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE sync_snapshot_installs (
   installation_id BLOB PRIMARY KEY CHECK(length(installation_id)=16),
   target_id BLOB NOT NULL,
-  workspace_id BLOB NOT NULL,
+  library_id BLOB NOT NULL,
   server_snapshot_id BLOB NOT NULL CHECK(length(server_snapshot_id)=16),
   stream_epoch BLOB NOT NULL CHECK(length(stream_epoch)=16),
   high_water_cursor TEXT NOT NULL CHECK(length(high_water_cursor)>0),
@@ -997,7 +977,7 @@ CREATE TABLE sync_snapshot_installs (
   installed_at_ms INTEGER,
   UNIQUE(target_id,server_snapshot_id),
   CHECK((state='installed')=(installed_at_ms IS NOT NULL)),
-  FOREIGN KEY(workspace_id,target_id) REFERENCES sync_targets(workspace_id,target_id) ON DELETE RESTRICT
+  FOREIGN KEY(library_id,target_id) REFERENCES sync_targets(library_id,target_id) ON DELETE RESTRICT
 ) STRICT;
 CREATE UNIQUE INDEX snapshot_one_pending ON sync_snapshot_installs(target_id)
   WHERE state IN ('staged','conflict','unsupported');
@@ -1054,7 +1034,7 @@ catalog row.
 ```sql
 CREATE TABLE operation_intents (
   operation_id BLOB PRIMARY KEY CHECK(length(operation_id)=16),
-  workspace_id BLOB NOT NULL,
+  library_id BLOB NOT NULL,
   project_id BLOB CHECK(project_id IS NULL OR length(project_id)=16),
   operation_kind TEXT NOT NULL CHECK(operation_kind IN
     ('create-package','save-package','move-package','rebind-package',
@@ -1072,12 +1052,12 @@ CREATE TABLE operation_intents (
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
   last_error_code TEXT,
-  UNIQUE(workspace_id,idempotency_key),
+  UNIQUE(library_id,idempotency_key),
   CHECK((base_commit_id IS NULL)=(base_commit_sha256 IS NULL)),
   CHECK((proposed_commit_id IS NULL)=(proposed_commit_sha256 IS NULL)),
-  FOREIGN KEY(workspace_id) REFERENCES workspaces(workspace_id) ON DELETE RESTRICT
+  FOREIGN KEY(library_id) REFERENCES libraries(library_id) ON DELETE RESTRICT
 ) STRICT;
-CREATE INDEX operation_intents_pending ON operation_intents(workspace_id,updated_at_ms)
+CREATE INDEX operation_intents_pending ON operation_intents(library_id,updated_at_ms)
   WHERE state IN ('prepared','executing','awaiting-package','needs-recovery');
 
 CREATE TABLE operation_events (
@@ -1156,20 +1136,20 @@ are tombstoned/merged/hidden, not deleted. Resurrection and merge reversal are
 not ordinary edits; S7 must approve a dedicated restoration command before use.
 
 ```sql
-CREATE TRIGGER workspaces_revision_insert BEFORE INSERT ON workspaces
+CREATE TRIGGER libraries_revision_insert BEFORE INSERT ON libraries
 WHEN NEW.local_revision<>1
 BEGIN SELECT RAISE(ABORT,'revision_must_start_at_one'); END;
-CREATE TRIGGER workspaces_revision_update BEFORE UPDATE ON workspaces
-WHEN NEW.workspace_id IS NOT OLD.workspace_id OR NEW.workspace_id IS NOT OLD.workspace_id
+CREATE TRIGGER libraries_revision_update BEFORE UPDATE ON libraries
+WHEN NEW.library_id IS NOT OLD.library_id OR NEW.library_id IS NOT OLD.library_id
   OR NEW.created_at_ms<>OLD.created_at_ms OR NEW.local_revision<>OLD.local_revision+1
 BEGIN SELECT RAISE(ABORT,'identity_or_revision_conflict'); END;
-CREATE TRIGGER workspaces_no_delete BEFORE DELETE ON workspaces
+CREATE TRIGGER libraries_no_delete BEFORE DELETE ON libraries
 BEGIN SELECT RAISE(ABORT,'hard_delete_not_supported'); END;
 CREATE TRIGGER social_profiles_revision_insert BEFORE INSERT ON social_profiles
 WHEN NEW.local_revision<>1
 BEGIN SELECT RAISE(ABORT,'revision_must_start_at_one'); END;
 CREATE TRIGGER social_profiles_revision_update BEFORE UPDATE ON social_profiles
-WHEN NEW.social_profile_id IS NOT OLD.social_profile_id OR NEW.workspace_id IS NOT OLD.workspace_id
+WHEN NEW.social_profile_id IS NOT OLD.social_profile_id OR NEW.library_id IS NOT OLD.library_id
  OR NEW.person_id IS NOT OLD.person_id OR NEW.organization_id IS NOT OLD.organization_id
  OR NEW.provider_id<>OLD.provider_id OR NEW.created_at_ms<>OLD.created_at_ms
  OR NEW.local_revision<>OLD.local_revision+1
@@ -1183,30 +1163,30 @@ CREATE TRIGGER social_profiles_owner_insert BEFORE INSERT ON social_profiles
 WHEN NEW.state='active'
 BEGIN
  SELECT RAISE(ABORT,'social_owner_not_active') WHERE
-  (NEW.person_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM people WHERE workspace_id=NEW.workspace_id AND person_id=NEW.person_id AND state='active'))
-  OR (NEW.organization_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM organizations WHERE workspace_id=NEW.workspace_id AND organization_id=NEW.organization_id AND state='active'));
+  (NEW.person_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM people WHERE library_id=NEW.library_id AND person_id=NEW.person_id AND state='active'))
+  OR (NEW.organization_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM organizations WHERE library_id=NEW.library_id AND organization_id=NEW.organization_id AND state='active'));
 END;
 CREATE TRIGGER social_profiles_owner_update BEFORE UPDATE ON social_profiles
 WHEN NEW.state='active'
 BEGIN
  SELECT RAISE(ABORT,'social_owner_not_active') WHERE
-  (NEW.person_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM people WHERE workspace_id=NEW.workspace_id AND person_id=NEW.person_id AND state='active'))
-  OR (NEW.organization_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM organizations WHERE workspace_id=NEW.workspace_id AND organization_id=NEW.organization_id AND state='active'));
+  (NEW.person_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM people WHERE library_id=NEW.library_id AND person_id=NEW.person_id AND state='active'))
+  OR (NEW.organization_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM organizations WHERE library_id=NEW.library_id AND organization_id=NEW.organization_id AND state='active'));
 END;
 CREATE TRIGGER people_live_social_profiles BEFORE UPDATE OF state ON people
 WHEN NEW.state<>'active' AND EXISTS (SELECT 1 FROM social_profiles
- WHERE workspace_id=OLD.workspace_id AND person_id=OLD.person_id AND state='active')
+ WHERE library_id=OLD.library_id AND person_id=OLD.person_id AND state='active')
 BEGIN SELECT RAISE(ABORT,'party_has_live_social_profiles'); END;
 CREATE TRIGGER organizations_live_social_profiles BEFORE UPDATE OF state ON organizations
 WHEN NEW.state<>'active' AND EXISTS (SELECT 1 FROM social_profiles
- WHERE workspace_id=OLD.workspace_id AND organization_id=OLD.organization_id AND state='active')
+ WHERE library_id=OLD.library_id AND organization_id=OLD.organization_id AND state='active')
 BEGIN SELECT RAISE(ABORT,'party_has_live_social_profiles'); END;
 
 CREATE TRIGGER people_revision_insert BEFORE INSERT ON people
 WHEN NEW.local_revision<>1
 BEGIN SELECT RAISE(ABORT,'revision_must_start_at_one'); END;
 CREATE TRIGGER people_revision_update BEFORE UPDATE ON people
-WHEN NEW.person_id IS NOT OLD.person_id OR NEW.workspace_id IS NOT OLD.workspace_id
+WHEN NEW.person_id IS NOT OLD.person_id OR NEW.library_id IS NOT OLD.library_id
   OR NEW.created_at_ms<>OLD.created_at_ms OR NEW.local_revision<>OLD.local_revision+1
 BEGIN SELECT RAISE(ABORT,'identity_or_revision_conflict'); END;
 CREATE TRIGGER people_no_delete BEFORE DELETE ON people
@@ -1215,7 +1195,7 @@ CREATE TRIGGER organizations_revision_insert BEFORE INSERT ON organizations
 WHEN NEW.local_revision<>1
 BEGIN SELECT RAISE(ABORT,'revision_must_start_at_one'); END;
 CREATE TRIGGER organizations_revision_update BEFORE UPDATE ON organizations
-WHEN NEW.organization_id IS NOT OLD.organization_id OR NEW.workspace_id IS NOT OLD.workspace_id
+WHEN NEW.organization_id IS NOT OLD.organization_id OR NEW.library_id IS NOT OLD.library_id
   OR NEW.created_at_ms<>OLD.created_at_ms OR NEW.local_revision<>OLD.local_revision+1
 BEGIN SELECT RAISE(ABORT,'identity_or_revision_conflict'); END;
 CREATE TRIGGER organizations_no_delete BEFORE DELETE ON organizations
@@ -1224,7 +1204,7 @@ CREATE TRIGGER location_kinds_revision_insert BEFORE INSERT ON location_kinds
 WHEN NEW.local_revision<>1
 BEGIN SELECT RAISE(ABORT,'revision_must_start_at_one'); END;
 CREATE TRIGGER location_kinds_revision_update BEFORE UPDATE ON location_kinds
-WHEN NEW.location_kind_id IS NOT OLD.location_kind_id OR NEW.workspace_id IS NOT OLD.workspace_id
+WHEN NEW.location_kind_id IS NOT OLD.location_kind_id OR NEW.library_id IS NOT OLD.library_id
   OR NEW.created_at_ms<>OLD.created_at_ms OR NEW.local_revision<>OLD.local_revision+1
 BEGIN SELECT RAISE(ABORT,'identity_or_revision_conflict'); END;
 CREATE TRIGGER location_kinds_no_delete BEFORE DELETE ON location_kinds
@@ -1233,7 +1213,7 @@ CREATE TRIGGER locations_revision_insert BEFORE INSERT ON locations
 WHEN NEW.local_revision<>1
 BEGIN SELECT RAISE(ABORT,'revision_must_start_at_one'); END;
 CREATE TRIGGER locations_revision_update BEFORE UPDATE ON locations
-WHEN NEW.location_id IS NOT OLD.location_id OR NEW.workspace_id IS NOT OLD.workspace_id
+WHEN NEW.location_id IS NOT OLD.location_id OR NEW.library_id IS NOT OLD.library_id
   OR NEW.created_at_ms<>OLD.created_at_ms OR NEW.local_revision<>OLD.local_revision+1
 BEGIN SELECT RAISE(ABORT,'identity_or_revision_conflict'); END;
 CREATE TRIGGER locations_no_delete BEFORE DELETE ON locations
@@ -1242,7 +1222,7 @@ CREATE TRIGGER person_organization_relationships_revision_insert BEFORE INSERT O
 WHEN NEW.local_revision<>1
 BEGIN SELECT RAISE(ABORT,'revision_must_start_at_one'); END;
 CREATE TRIGGER person_organization_relationships_revision_update BEFORE UPDATE ON person_organization_relationships
-WHEN NEW.relationship_id IS NOT OLD.relationship_id OR NEW.workspace_id IS NOT OLD.workspace_id
+WHEN NEW.relationship_id IS NOT OLD.relationship_id OR NEW.library_id IS NOT OLD.library_id
   OR NEW.created_at_ms<>OLD.created_at_ms OR NEW.local_revision<>OLD.local_revision+1
 BEGIN SELECT RAISE(ABORT,'identity_or_revision_conflict'); END;
 CREATE TRIGGER person_organization_relationships_no_delete BEFORE DELETE ON person_organization_relationships
@@ -1251,7 +1231,7 @@ CREATE TRIGGER storage_roots_revision_insert BEFORE INSERT ON storage_roots
 WHEN NEW.local_revision<>1
 BEGIN SELECT RAISE(ABORT,'revision_must_start_at_one'); END;
 CREATE TRIGGER storage_roots_revision_update BEFORE UPDATE ON storage_roots
-WHEN NEW.storage_root_id IS NOT OLD.storage_root_id OR NEW.workspace_id IS NOT OLD.workspace_id
+WHEN NEW.storage_root_id IS NOT OLD.storage_root_id OR NEW.library_id IS NOT OLD.library_id
   OR NEW.created_at_ms<>OLD.created_at_ms OR NEW.local_revision<>OLD.local_revision+1
 BEGIN SELECT RAISE(ABORT,'identity_or_revision_conflict'); END;
 CREATE TRIGGER storage_roots_no_delete BEFORE DELETE ON storage_roots
@@ -1260,7 +1240,7 @@ CREATE TRIGGER project_catalog_revision_insert BEFORE INSERT ON project_catalog
 WHEN NEW.local_revision<>1
 BEGIN SELECT RAISE(ABORT,'revision_must_start_at_one'); END;
 CREATE TRIGGER project_catalog_revision_update BEFORE UPDATE ON project_catalog
-WHEN NEW.project_id IS NOT OLD.project_id OR NEW.workspace_id IS NOT OLD.workspace_id
+WHEN NEW.project_id IS NOT OLD.project_id OR NEW.library_id IS NOT OLD.library_id
   OR NEW.created_at_ms<>OLD.created_at_ms OR NEW.local_revision<>OLD.local_revision+1
 BEGIN SELECT RAISE(ABORT,'identity_or_revision_conflict'); END;
 CREATE TRIGGER project_catalog_no_delete BEFORE DELETE ON project_catalog
@@ -1269,7 +1249,7 @@ CREATE TRIGGER project_locators_revision_insert BEFORE INSERT ON project_locator
 WHEN NEW.local_revision<>1
 BEGIN SELECT RAISE(ABORT,'revision_must_start_at_one'); END;
 CREATE TRIGGER project_locators_revision_update BEFORE UPDATE ON project_locators
-WHEN NEW.locator_id IS NOT OLD.locator_id OR NEW.workspace_id IS NOT OLD.workspace_id
+WHEN NEW.locator_id IS NOT OLD.locator_id OR NEW.library_id IS NOT OLD.library_id
   OR NEW.created_at_ms<>OLD.created_at_ms OR NEW.local_revision<>OLD.local_revision+1
 BEGIN SELECT RAISE(ABORT,'identity_or_revision_conflict'); END;
 CREATE TRIGGER project_locators_no_delete BEFORE DELETE ON project_locators
@@ -1278,7 +1258,7 @@ CREATE TRIGGER operation_intents_revision_insert BEFORE INSERT ON operation_inte
 WHEN NEW.local_revision<>1
 BEGIN SELECT RAISE(ABORT,'revision_must_start_at_one'); END;
 CREATE TRIGGER operation_intents_revision_update BEFORE UPDATE ON operation_intents
-WHEN NEW.operation_id IS NOT OLD.operation_id OR NEW.workspace_id IS NOT OLD.workspace_id
+WHEN NEW.operation_id IS NOT OLD.operation_id OR NEW.library_id IS NOT OLD.library_id
   OR NEW.created_at_ms<>OLD.created_at_ms OR NEW.local_revision<>OLD.local_revision+1
 BEGIN SELECT RAISE(ABORT,'identity_or_revision_conflict'); END;
 CREATE TRIGGER operation_intents_no_delete BEFORE DELETE ON operation_intents
@@ -1287,14 +1267,14 @@ CREATE TRIGGER people_merge_guard BEFORE UPDATE OF merged_into_id,state ON peopl
 WHEN NEW.merged_into_id IS NOT NULL AND NEW.merged_into_id IS NOT OLD.merged_into_id
 BEGIN
   SELECT RAISE(ABORT,'merge_target_not_active') WHERE NOT EXISTS
-    (SELECT 1 FROM people WHERE workspace_id=NEW.workspace_id
+    (SELECT 1 FROM people WHERE library_id=NEW.library_id
      AND person_id=NEW.merged_into_id AND state='active');
   SELECT RAISE(ABORT,'merge_cycle') WHERE EXISTS (
     WITH RECURSIVE chain(id) AS (
       SELECT NEW.merged_into_id
       UNION
       SELECT t.merged_into_id FROM people t JOIN chain c ON t.person_id=c.id
-      WHERE t.workspace_id=NEW.workspace_id AND t.merged_into_id IS NOT NULL
+      WHERE t.library_id=NEW.library_id AND t.merged_into_id IS NOT NULL
     ) SELECT 1 FROM chain WHERE id=NEW.person_id
   );
 END;
@@ -1307,14 +1287,14 @@ CREATE TRIGGER organizations_merge_guard BEFORE UPDATE OF merged_into_id,state O
 WHEN NEW.merged_into_id IS NOT NULL AND NEW.merged_into_id IS NOT OLD.merged_into_id
 BEGIN
   SELECT RAISE(ABORT,'merge_target_not_active') WHERE NOT EXISTS
-    (SELECT 1 FROM organizations WHERE workspace_id=NEW.workspace_id
+    (SELECT 1 FROM organizations WHERE library_id=NEW.library_id
      AND organization_id=NEW.merged_into_id AND state='active');
   SELECT RAISE(ABORT,'merge_cycle') WHERE EXISTS (
     WITH RECURSIVE chain(id) AS (
       SELECT NEW.merged_into_id
       UNION
       SELECT t.merged_into_id FROM organizations t JOIN chain c ON t.organization_id=c.id
-      WHERE t.workspace_id=NEW.workspace_id AND t.merged_into_id IS NOT NULL
+      WHERE t.library_id=NEW.library_id AND t.merged_into_id IS NOT NULL
     ) SELECT 1 FROM chain WHERE id=NEW.organization_id
   );
 END;
@@ -1327,14 +1307,14 @@ CREATE TRIGGER location_kinds_merge_guard BEFORE UPDATE OF merged_into_id,state 
 WHEN NEW.merged_into_id IS NOT NULL AND NEW.merged_into_id IS NOT OLD.merged_into_id
 BEGIN
   SELECT RAISE(ABORT,'merge_target_not_active') WHERE NOT EXISTS
-    (SELECT 1 FROM location_kinds WHERE workspace_id=NEW.workspace_id
+    (SELECT 1 FROM location_kinds WHERE library_id=NEW.library_id
      AND location_kind_id=NEW.merged_into_id AND state='active');
   SELECT RAISE(ABORT,'merge_cycle') WHERE EXISTS (
     WITH RECURSIVE chain(id) AS (
       SELECT NEW.merged_into_id
       UNION
       SELECT t.merged_into_id FROM location_kinds t JOIN chain c ON t.location_kind_id=c.id
-      WHERE t.workspace_id=NEW.workspace_id AND t.merged_into_id IS NOT NULL
+      WHERE t.library_id=NEW.library_id AND t.merged_into_id IS NOT NULL
     ) SELECT 1 FROM chain WHERE id=NEW.location_kind_id
   );
 END;
@@ -1347,14 +1327,14 @@ CREATE TRIGGER locations_merge_guard BEFORE UPDATE OF merged_into_id,state ON lo
 WHEN NEW.merged_into_id IS NOT NULL AND NEW.merged_into_id IS NOT OLD.merged_into_id
 BEGIN
   SELECT RAISE(ABORT,'merge_target_not_active') WHERE NOT EXISTS
-    (SELECT 1 FROM locations WHERE workspace_id=NEW.workspace_id
+    (SELECT 1 FROM locations WHERE library_id=NEW.library_id
      AND location_id=NEW.merged_into_id AND state='active');
   SELECT RAISE(ABORT,'merge_cycle') WHERE EXISTS (
     WITH RECURSIVE chain(id) AS (
       SELECT NEW.merged_into_id
       UNION
       SELECT t.merged_into_id FROM locations t JOIN chain c ON t.location_id=c.id
-      WHERE t.workspace_id=NEW.workspace_id AND t.merged_into_id IS NOT NULL
+      WHERE t.library_id=NEW.library_id AND t.merged_into_id IS NOT NULL
     ) SELECT 1 FROM chain WHERE id=NEW.location_id
   );
 END;
@@ -1364,18 +1344,18 @@ WHEN (OLD.state='merged' AND
   OR (OLD.state='tombstoned' AND NEW.state<>'tombstoned')
 BEGIN SELECT RAISE(ABORT,'retired_identity_requires_explicit_restore'); END;
 CREATE TRIGGER location_kind_terms_policy_insert BEFORE INSERT ON location_kind_terms
-WHEN NOT EXISTS (SELECT 1 FROM workspaces WHERE workspace_id=NEW.workspace_id
+WHEN NOT EXISTS (SELECT 1 FROM libraries WHERE library_id=NEW.library_id
   AND term_policy_version=NEW.policy_version)
 BEGIN SELECT RAISE(ABORT,'term_policy_mismatch'); END;
 CREATE TRIGGER location_kind_terms_update_guard BEFORE UPDATE ON location_kind_terms
-WHEN NEW.workspace_id IS NOT OLD.workspace_id OR NEW.term_key<>OLD.term_key
+WHEN NEW.library_id IS NOT OLD.library_id OR NEW.term_key<>OLD.term_key
   OR NEW.policy_version<>OLD.policy_version
 BEGIN SELECT RAISE(ABORT,'term_claim_identity_is_immutable'); END;
 CREATE TRIGGER location_kind_terms_transfer_guard BEFORE UPDATE OF location_kind_id ON location_kind_terms
 WHEN NEW.location_kind_id IS NOT OLD.location_kind_id AND NOT EXISTS
  (SELECT 1 FROM location_kinds source JOIN location_kinds target
-   ON target.workspace_id=source.workspace_id AND target.location_kind_id=NEW.location_kind_id
-  WHERE source.workspace_id=OLD.workspace_id AND source.location_kind_id=OLD.location_kind_id
+   ON target.library_id=source.library_id AND target.location_kind_id=NEW.location_kind_id
+  WHERE source.library_id=OLD.library_id AND source.location_kind_id=OLD.location_kind_id
     AND source.state='merged' AND source.merged_into_id=NEW.location_kind_id AND target.state='active')
 BEGIN SELECT RAISE(ABORT,'term_transfer_requires_merge'); END;
 CREATE TRIGGER location_kinds_retirement_history BEFORE UPDATE ON location_kinds
@@ -1388,22 +1368,22 @@ BEGIN SELECT RAISE(ABORT,'term_claim_is_reserved'); END;
 
 CREATE TRIGGER location_kinds_live_locations BEFORE UPDATE OF state ON location_kinds
 WHEN NEW.state<>'active' AND EXISTS
- (SELECT 1 FROM locations WHERE workspace_id=OLD.workspace_id
+ (SELECT 1 FROM locations WHERE library_id=OLD.library_id
   AND location_kind_id=OLD.location_kind_id AND state='active')
 BEGIN SELECT RAISE(ABORT,'kind_has_live_locations'); END;
 CREATE TRIGGER locations_live_children BEFORE UPDATE OF state ON locations
 WHEN NEW.state<>'active' AND EXISTS
- (SELECT 1 FROM locations WHERE workspace_id=OLD.workspace_id
+ (SELECT 1 FROM locations WHERE library_id=OLD.library_id
   AND parent_location_id=OLD.location_id AND state='active')
 BEGIN SELECT RAISE(ABORT,'location_has_live_children'); END;
 CREATE TRIGGER locations_active_targets_insert BEFORE INSERT ON locations
 WHEN NEW.state='active'
 BEGIN
   SELECT RAISE(ABORT,'location_kind_not_active') WHERE NOT EXISTS
-    (SELECT 1 FROM location_kinds WHERE workspace_id=NEW.workspace_id
+    (SELECT 1 FROM location_kinds WHERE library_id=NEW.library_id
      AND location_kind_id=NEW.location_kind_id AND state='active');
   SELECT RAISE(ABORT,'location_parent_not_active') WHERE NEW.parent_location_id IS NOT NULL
-    AND NOT EXISTS (SELECT 1 FROM locations WHERE workspace_id=NEW.workspace_id
+    AND NOT EXISTS (SELECT 1 FROM locations WHERE library_id=NEW.library_id
      AND location_id=NEW.parent_location_id AND state='active');
 END;
 CREATE TRIGGER locations_parent_cycle_insert BEFORE INSERT ON locations
@@ -1414,7 +1394,7 @@ BEGIN
       SELECT NEW.parent_location_id
       UNION
       SELECT l.parent_location_id FROM locations l JOIN ancestors a ON l.location_id=a.id
-      WHERE l.workspace_id=NEW.workspace_id AND l.parent_location_id IS NOT NULL
+      WHERE l.library_id=NEW.library_id AND l.parent_location_id IS NOT NULL
     ) SELECT 1 FROM ancestors WHERE id=NEW.location_id
   );
 END;
@@ -1423,12 +1403,12 @@ CREATE TRIGGER relationships_valid_insert BEFORE INSERT ON person_organization_r
 WHEN NEW.state='active'
 BEGIN
   SELECT RAISE(ABORT,'relationship_party_not_active') WHERE NOT EXISTS
-    (SELECT 1 FROM people WHERE workspace_id=NEW.workspace_id AND person_id=NEW.person_id AND state='active')
+    (SELECT 1 FROM people WHERE library_id=NEW.library_id AND person_id=NEW.person_id AND state='active')
     OR NOT EXISTS
-    (SELECT 1 FROM organizations WHERE workspace_id=NEW.workspace_id AND organization_id=NEW.organization_id AND state='active');
+    (SELECT 1 FROM organizations WHERE library_id=NEW.library_id AND organization_id=NEW.organization_id AND state='active');
   SELECT RAISE(ABORT,'relationship_interval_overlap') WHERE EXISTS
     (SELECT 1 FROM person_organization_relationships r
-     WHERE r.workspace_id=NEW.workspace_id AND r.person_id=NEW.person_id
+     WHERE r.library_id=NEW.library_id AND r.person_id=NEW.person_id
        AND r.organization_id=NEW.organization_id AND r.relationship_type=NEW.relationship_type
        AND r.relationship_id<>NEW.relationship_id AND r.state='active'
        AND (r.valid_until_ms IS NULL OR NEW.valid_from_ms IS NULL OR r.valid_until_ms>NEW.valid_from_ms)
@@ -1438,10 +1418,10 @@ CREATE TRIGGER locations_active_targets_update BEFORE UPDATE ON locations
 WHEN NEW.state='active'
 BEGIN
   SELECT RAISE(ABORT,'location_kind_not_active') WHERE NOT EXISTS
-    (SELECT 1 FROM location_kinds WHERE workspace_id=NEW.workspace_id
+    (SELECT 1 FROM location_kinds WHERE library_id=NEW.library_id
      AND location_kind_id=NEW.location_kind_id AND state='active');
   SELECT RAISE(ABORT,'location_parent_not_active') WHERE NEW.parent_location_id IS NOT NULL
-    AND NOT EXISTS (SELECT 1 FROM locations WHERE workspace_id=NEW.workspace_id
+    AND NOT EXISTS (SELECT 1 FROM locations WHERE library_id=NEW.library_id
      AND location_id=NEW.parent_location_id AND state='active');
 END;
 CREATE TRIGGER locations_parent_cycle_update BEFORE UPDATE ON locations
@@ -1452,7 +1432,7 @@ BEGIN
       SELECT NEW.parent_location_id
       UNION
       SELECT l.parent_location_id FROM locations l JOIN ancestors a ON l.location_id=a.id
-      WHERE l.workspace_id=NEW.workspace_id AND l.parent_location_id IS NOT NULL
+      WHERE l.library_id=NEW.library_id AND l.parent_location_id IS NOT NULL
     ) SELECT 1 FROM ancestors WHERE id=NEW.location_id
   );
 END;
@@ -1461,12 +1441,12 @@ CREATE TRIGGER relationships_valid_update BEFORE UPDATE ON person_organization_r
 WHEN NEW.state='active'
 BEGIN
   SELECT RAISE(ABORT,'relationship_party_not_active') WHERE NOT EXISTS
-    (SELECT 1 FROM people WHERE workspace_id=NEW.workspace_id AND person_id=NEW.person_id AND state='active')
+    (SELECT 1 FROM people WHERE library_id=NEW.library_id AND person_id=NEW.person_id AND state='active')
     OR NOT EXISTS
-    (SELECT 1 FROM organizations WHERE workspace_id=NEW.workspace_id AND organization_id=NEW.organization_id AND state='active');
+    (SELECT 1 FROM organizations WHERE library_id=NEW.library_id AND organization_id=NEW.organization_id AND state='active');
   SELECT RAISE(ABORT,'relationship_interval_overlap') WHERE EXISTS
     (SELECT 1 FROM person_organization_relationships r
-     WHERE r.workspace_id=NEW.workspace_id AND r.person_id=NEW.person_id
+     WHERE r.library_id=NEW.library_id AND r.person_id=NEW.person_id
        AND r.organization_id=NEW.organization_id AND r.relationship_type=NEW.relationship_type
        AND r.relationship_id<>NEW.relationship_id AND r.state='active'
        AND (r.valid_until_ms IS NULL OR NEW.valid_from_ms IS NULL OR r.valid_until_ms>NEW.valid_from_ms)
@@ -1474,55 +1454,55 @@ BEGIN
 END;
 CREATE TRIGGER people_live_relationships BEFORE UPDATE OF state ON people
 WHEN NEW.state<>'active' AND EXISTS
- (SELECT 1 FROM person_organization_relationships WHERE workspace_id=OLD.workspace_id
+ (SELECT 1 FROM person_organization_relationships WHERE library_id=OLD.library_id
   AND person_id=OLD.person_id AND state='active')
 BEGIN SELECT RAISE(ABORT,'party_has_live_relationships'); END;
 CREATE TRIGGER organizations_live_relationships BEFORE UPDATE OF state ON organizations
 WHEN NEW.state<>'active' AND EXISTS
- (SELECT 1 FROM person_organization_relationships WHERE workspace_id=OLD.workspace_id
+ (SELECT 1 FROM person_organization_relationships WHERE library_id=OLD.library_id
   AND organization_id=OLD.organization_id AND state='active')
 BEGIN SELECT RAISE(ABORT,'party_has_live_relationships'); END;
 CREATE TRIGGER storage_roots_live_locators BEFORE UPDATE OF state ON storage_roots
 WHEN NEW.state<>'active' AND EXISTS
- (SELECT 1 FROM project_locators WHERE workspace_id=OLD.workspace_id
+ (SELECT 1 FROM project_locators WHERE library_id=OLD.library_id
   AND storage_root_id=OLD.storage_root_id AND state='active')
 BEGIN SELECT RAISE(ABORT,'root_has_live_locators'); END;
 CREATE TRIGGER project_locators_root_insert BEFORE INSERT ON project_locators
 WHEN NEW.state='active' AND NEW.storage_root_id IS NOT NULL AND NOT EXISTS
- (SELECT 1 FROM storage_roots WHERE workspace_id=NEW.workspace_id
+ (SELECT 1 FROM storage_roots WHERE library_id=NEW.library_id
   AND storage_root_id=NEW.storage_root_id AND state='active')
 BEGIN SELECT RAISE(ABORT,'locator_root_not_active'); END;
 CREATE TRIGGER project_catalog_selection_insert BEFORE INSERT ON project_catalog
 WHEN NEW.active_locator_id IS NOT NULL AND NOT EXISTS
- (SELECT 1 FROM project_locators WHERE workspace_id=NEW.workspace_id
+ (SELECT 1 FROM project_locators WHERE library_id=NEW.library_id
   AND project_id=NEW.project_id AND locator_id=NEW.active_locator_id AND state='active')
 BEGIN SELECT RAISE(ABORT,'catalog_locator_not_active'); END;
 CREATE TRIGGER project_locators_root_update BEFORE UPDATE ON project_locators
 WHEN NEW.state='active' AND NEW.storage_root_id IS NOT NULL AND NOT EXISTS
- (SELECT 1 FROM storage_roots WHERE workspace_id=NEW.workspace_id
+ (SELECT 1 FROM storage_roots WHERE library_id=NEW.library_id
   AND storage_root_id=NEW.storage_root_id AND state='active')
 BEGIN SELECT RAISE(ABORT,'locator_root_not_active'); END;
 CREATE TRIGGER project_catalog_selection_update BEFORE UPDATE ON project_catalog
 WHEN NEW.active_locator_id IS NOT NULL AND NOT EXISTS
- (SELECT 1 FROM project_locators WHERE workspace_id=NEW.workspace_id
+ (SELECT 1 FROM project_locators WHERE library_id=NEW.library_id
   AND project_id=NEW.project_id AND locator_id=NEW.active_locator_id AND state='active')
 BEGIN SELECT RAISE(ABORT,'catalog_locator_not_active'); END;
 CREATE TRIGGER project_locators_selected_retirement BEFORE UPDATE OF state ON project_locators
 WHEN NEW.state='retired' AND EXISTS
- (SELECT 1 FROM project_catalog WHERE workspace_id=OLD.workspace_id
+ (SELECT 1 FROM project_catalog WHERE library_id=OLD.library_id
   AND project_id=OLD.project_id AND active_locator_id=OLD.locator_id)
 BEGIN SELECT RAISE(ABORT,'clear_catalog_selection_first'); END;
 
 CREATE TRIGGER remote_receipt_request BEFORE INSERT ON remote_mutation_receipts
 WHEN NOT EXISTS (SELECT 1 FROM sync_outbox WHERE target_id=NEW.target_id
-  AND workspace_id=NEW.workspace_id AND mutation_id=NEW.mutation_id AND request_sha256=NEW.request_sha256)
+  AND library_id=NEW.library_id AND mutation_id=NEW.mutation_id AND request_sha256=NEW.request_sha256)
 BEGIN SELECT RAISE(ABORT,'receipt_request_mismatch'); END;
 CREATE TRIGGER remote_receipt_no_update BEFORE UPDATE ON remote_mutation_receipts
 BEGIN SELECT RAISE(ABORT,'append_only_receipt'); END;
 CREATE TRIGGER remote_receipt_no_delete BEFORE DELETE ON remote_mutation_receipts
 BEGIN SELECT RAISE(ABORT,'append_only_receipt'); END;
 CREATE TRIGGER disposition_sealed_guard BEFORE INSERT ON local_mutation_dispositions
-WHEN EXISTS (SELECT 1 FROM sync_outbox o WHERE o.workspace_id=NEW.workspace_id
+WHEN EXISTS (SELECT 1 FROM sync_outbox o WHERE o.library_id=NEW.library_id
   AND o.mutation_id=NEW.mutation_id AND o.request_json IS NOT NULL AND NOT EXISTS
     (SELECT 1 FROM remote_mutation_receipts r WHERE r.target_id=o.target_id
      AND r.mutation_id=o.mutation_id AND r.outcome IN ('rejected','conflict')))
@@ -1533,7 +1513,7 @@ CREATE TRIGGER disposition_no_delete BEFORE DELETE ON local_mutation_disposition
 BEGIN SELECT RAISE(ABORT,'append_only_disposition'); END;
 CREATE TRIGGER snapshot_payload_immutable BEFORE UPDATE ON sync_snapshot_installs
 WHEN NEW.installation_id IS NOT OLD.installation_id OR NEW.target_id IS NOT OLD.target_id
- OR NEW.workspace_id IS NOT OLD.workspace_id OR NEW.server_snapshot_id IS NOT OLD.server_snapshot_id
+ OR NEW.library_id IS NOT OLD.library_id OR NEW.server_snapshot_id IS NOT OLD.server_snapshot_id
  OR NEW.stream_epoch IS NOT OLD.stream_epoch OR NEW.high_water_cursor<>OLD.high_water_cursor
  OR NEW.payload_json<>OLD.payload_json
  OR NEW.payload_sha256 IS NOT OLD.payload_sha256 OR NEW.created_at_ms<>OLD.created_at_ms
@@ -1541,7 +1521,7 @@ WHEN NEW.installation_id IS NOT OLD.installation_id OR NEW.target_id IS NOT OLD.
    OR NEW.expected_local_cursor IS NOT OLD.expected_local_cursor OR NEW.installed_at_ms IS NOT OLD.installed_at_ms))
 BEGIN SELECT RAISE(ABORT,'snapshot_payload_is_immutable'); END;
 CREATE TRIGGER sync_outbox_request_immutable BEFORE UPDATE ON sync_outbox
-WHEN NEW.target_id IS NOT OLD.target_id OR NEW.workspace_id IS NOT OLD.workspace_id
+WHEN NEW.target_id IS NOT OLD.target_id OR NEW.library_id IS NOT OLD.library_id
  OR NEW.mutation_id IS NOT OLD.mutation_id OR NEW.sequence<>OLD.sequence
  OR (OLD.request_json IS NOT NULL AND
     (NEW.request_json IS NOT OLD.request_json OR NEW.request_sha256 IS NOT OLD.request_sha256))
@@ -1552,7 +1532,7 @@ BEGIN SELECT RAISE(ABORT,'sealed_request_is_immutable'); END;
 
 CREATE TRIGGER sync_inbox_payload_immutable BEFORE UPDATE ON sync_inbox
 WHEN NEW.batch_id IS NOT OLD.batch_id OR NEW.target_id IS NOT OLD.target_id
- OR NEW.workspace_id IS NOT OLD.workspace_id OR NEW.cursor_before IS NOT OLD.cursor_before
+ OR NEW.library_id IS NOT OLD.library_id OR NEW.cursor_before IS NOT OLD.cursor_before
  OR NEW.stream_epoch IS NOT OLD.stream_epoch OR NEW.batch_sequence<>OLD.batch_sequence
  OR NEW.cursor_after<>OLD.cursor_after OR NEW.payload_json<>OLD.payload_json
  OR NEW.payload_sha256 IS NOT OLD.payload_sha256 OR NEW.received_at_ms<>OLD.received_at_ms
@@ -1603,28 +1583,28 @@ CREATE TRIGGER people_merge_insert BEFORE INSERT ON people
 WHEN NEW.merged_into_id IS NOT NULL
 BEGIN
   SELECT RAISE(ABORT,'merge_target_not_active') WHERE NOT EXISTS
-    (SELECT 1 FROM people WHERE workspace_id=NEW.workspace_id
+    (SELECT 1 FROM people WHERE library_id=NEW.library_id
      AND person_id=NEW.merged_into_id AND state='active');
 END;
 CREATE TRIGGER organizations_merge_insert BEFORE INSERT ON organizations
 WHEN NEW.merged_into_id IS NOT NULL
 BEGIN
   SELECT RAISE(ABORT,'merge_target_not_active') WHERE NOT EXISTS
-    (SELECT 1 FROM organizations WHERE workspace_id=NEW.workspace_id
+    (SELECT 1 FROM organizations WHERE library_id=NEW.library_id
      AND organization_id=NEW.merged_into_id AND state='active');
 END;
 CREATE TRIGGER location_kinds_merge_insert BEFORE INSERT ON location_kinds
 WHEN NEW.merged_into_id IS NOT NULL
 BEGIN
   SELECT RAISE(ABORT,'merge_target_not_active') WHERE NOT EXISTS
-    (SELECT 1 FROM location_kinds WHERE workspace_id=NEW.workspace_id
+    (SELECT 1 FROM location_kinds WHERE library_id=NEW.library_id
      AND location_kind_id=NEW.merged_into_id AND state='active');
 END;
 CREATE TRIGGER locations_merge_insert BEFORE INSERT ON locations
 WHEN NEW.merged_into_id IS NOT NULL
 BEGIN
   SELECT RAISE(ABORT,'merge_target_not_active') WHERE NOT EXISTS
-    (SELECT 1 FROM locations WHERE workspace_id=NEW.workspace_id
+    (SELECT 1 FROM locations WHERE library_id=NEW.library_id
      AND location_id=NEW.merged_into_id AND state='active');
 END;
 ```
@@ -1645,11 +1625,11 @@ effective live target before initial insertion. S5 must preserve original remote
 provenance in the immutable envelope while reconciling this materialized form.
 Add remote fixture coverage before S7; triggers do not replace typed validation.
 
-Normalization policy changes are **schema/data migrations**, not a workspace
+Normalization policy changes are **schema/data migrations**, not a library
 preference toggle. Existing claims and their immutable policy cannot be silently
 re-keyed. A future upgrade precomputes all collisions, obtains explicit conflict
 resolutions, and replaces claims atomically under a versioned migration. Until
-then workspaces keep their initially assigned supported policy. Term spelling
+then libraries keep their initially assigned supported policy. Term spelling
 arrays and labels are typed sets validated in Rust; SQL JSON arrays alone cannot
 enforce semantic element uniqueness.
 
@@ -1694,7 +1674,7 @@ host's shutdown policy.
 | Receive page | Persist raw bounded page; separate atomic typed apply + changes + base state + inbox applied + cursor CAS | HTTP fetch, media downloads |
 | Evidence recovery | Intent/item descriptor; later verified publication linkage | Flush recovery blob, publish immutable package record, verify commit |
 
-CAS updates include identity/workspace and expected local_revision in WHERE;
+CAS updates include identity/library and expected local_revision in WHERE;
 zero affected rows is a domain conflict, not an upsert. The guard requires
 expected+1, not a server version. Short writer transactions serialize on the one
 local file. Bounded busy errors retry the **whole idempotent command**, never only
@@ -1727,15 +1707,15 @@ Use typed decoding and explicit selected columns in implementation.
 -- Keyset People browser. Bind a normalized sort key and 16-byte last ID.
 SELECT person_id,display_name,local_revision,thumbnail_sha256
 FROM people
-WHERE workspace_id=:workspace AND state='active'
+WHERE library_id=:library AND state='active'
   AND (sort_key,person_id)>(:after_sort,:after_id)
 ORDER BY sort_key,person_id LIMIT :page_size;
 
 -- Capabilities are a many-to-many filter, not one Person.role enum.
 SELECT p.person_id,p.display_name
 FROM people p JOIN person_capabilities c
-  ON c.workspace_id=p.workspace_id AND c.person_id=p.person_id
-WHERE p.workspace_id=:workspace AND p.state='active'
+  ON c.library_id=p.library_id AND c.person_id=p.person_id
+WHERE p.library_id=:library AND p.state='active'
   AND c.capability_id=:capability
 ORDER BY p.sort_key,p.person_id LIMIT :page_size;
 
@@ -1743,14 +1723,14 @@ ORDER BY p.sort_key,p.person_id LIMIT :page_size;
 -- Current term ownership is unique; historical IDs resolve through redirects.
 WITH RECURSIVE resolved(id) AS (
   SELECT location_kind_id FROM location_kind_terms
-  WHERE workspace_id=:workspace AND term_key=:concept_key
+  WHERE library_id=:library AND term_key=:concept_key
   UNION
   SELECT k.merged_into_id FROM location_kinds k JOIN resolved r ON k.location_kind_id=r.id
-  WHERE k.workspace_id=:workspace AND k.merged_into_id IS NOT NULL
+  WHERE k.library_id=:library AND k.merged_into_id IS NOT NULL
 )
 SELECT k.location_kind_id,k.canonical_display,k.state
 FROM location_kinds k JOIN resolved r ON r.id=k.location_kind_id
-WHERE k.workspace_id=:workspace AND k.merged_into_id IS NULL;
+WHERE k.library_id=:library AND k.merged_into_id IS NULL;
 
 -- Catalog remains useful offline; observation provenance stays visible.
 SELECT c.project_id,o.title,o.commit_id,o.commit_sha256,o.observed_at_ms,
@@ -1758,7 +1738,7 @@ SELECT c.project_id,o.title,o.commit_id,o.commit_sha256,o.observed_at_ms,
 FROM project_catalog c
 LEFT JOIN project_observations o ON o.observation_id=c.selected_observation_id
 LEFT JOIN device_project_bindings b ON b.locator_id=c.active_locator_id AND b.device_id=:device
-WHERE c.workspace_id=:workspace AND c.visibility='visible'
+WHERE c.library_id=:library AND c.visibility='visible'
 ORDER BY o.title,c.project_id;
 
 -- Cross-project Location filtering uses the explicitly saved package snapshot.
@@ -1766,13 +1746,13 @@ SELECT c.project_id,o.title,x.location_name_snapshot,x.kind_name_snapshot,o.comm
 FROM project_catalog c
 JOIN project_observations o ON o.observation_id=c.selected_observation_id
 JOIN project_location_projection x ON x.observation_id=o.observation_id
-WHERE c.workspace_id=:workspace AND c.visibility='visible'
-  AND x.source_workspace_id=:source_workspace AND x.location_id=:location;
+WHERE c.library_id=:library AND c.visibility='visible'
+  AND x.source_library_id=:source_library AND x.location_id=:location;
 
 -- Change feed is exact historical state, not a join to latest mutable rows.
 SELECT sequence,mutation_id,entity_kind,entity_id,local_revision,
        change_kind,post_state_json,post_state_sha256
-FROM local_changes WHERE workspace_id=:workspace AND sequence>:after_sequence
+FROM local_changes WHERE library_id=:library AND sequence>:after_sequence
 ORDER BY sequence LIMIT :page_size;
 
 -- Claim/transition occurs in the surrounding immediate transaction.
@@ -1782,7 +1762,7 @@ ORDER BY sequence LIMIT 1;
 
 SELECT operation_id,project_id,operation_kind,state,base_commit_id,proposed_commit_id
 FROM operation_intents
-WHERE workspace_id=:workspace
+WHERE library_id=:library
   AND state IN ('prepared','executing','awaiting-package','needs-recovery')
 ORDER BY updated_at_ms,operation_id;
 ```
@@ -1799,30 +1779,30 @@ Only the important relationships are shown; this is not a second schema.
 
 ```mermaid
 erDiagram
-  WORKSPACE ||--o{ PERSON : owns
-  WORKSPACE ||--o{ ORGANIZATION : owns
-  WORKSPACE ||--o{ SOCIAL_PROFILE : owns
+  LIBRARY ||--o{ PERSON : owns
+  LIBRARY ||--o{ ORGANIZATION : owns
+  LIBRARY ||--o{ SOCIAL_PROFILE : owns
   PERSON o|--o{ SOCIAL_PROFILE : owner_xor
   ORGANIZATION o|--o{ SOCIAL_PROFILE : owner_xor
   PERSON ||--o{ PERSON_ORGANIZATION_RELATIONSHIP : participates
   ORGANIZATION ||--o{ PERSON_ORGANIZATION_RELATIONSHIP : participates
-  WORKSPACE ||--o{ LOCATION_KIND : owns
+  LIBRARY ||--o{ LOCATION_KIND : owns
   LOCATION_KIND ||--|{ KIND_TERM_CLAIM : reserves
   LOCATION_KIND ||--o{ LOCATION : classifies
   LOCATION o|--o{ LOCATION : parent
-  WORKSPACE ||--o{ PROJECT_CATALOG : discovers
+  LIBRARY ||--o{ PROJECT_CATALOG : discovers
   PROJECT_CATALOG ||--o{ PROJECT_LOCATOR : tracks
   STORAGE_ROOT o|--o{ PROJECT_LOCATOR : anchors
   PROJECT_LOCATOR ||--o{ DEVICE_BINDING : resolves
   PROJECT_LOCATOR ||--o{ PACKAGE_OBSERVATION : verifies
   PACKAGE_OBSERVATION ||--o{ LOCATION_PROJECTION : summarizes
   PACKAGE_OBSERVATION ||--o{ GRAPH_PROJECTION : summarizes
-  WORKSPACE ||--o{ MUTATION : records
+  LIBRARY ||--o{ MUTATION : records
   MUTATION ||--|{ LOCAL_CHANGE : explains
   MUTATION ||--o{ SYNC_OUTBOX : delivers
-  WORKSPACE ||--o| SYNC_TARGET : connects
+  LIBRARY ||--o| SYNC_TARGET : connects
   SYNC_TARGET ||--o{ SYNC_INBOX : receives
-  WORKSPACE ||--o{ RECOVERY_INTENT : journals
+  LIBRARY ||--o{ RECOVERY_INTENT : journals
   RECOVERY_INTENT ||--o{ RECOVERY_ITEM : retains
 ```
 
@@ -1876,14 +1856,14 @@ S6 must implement, after appropriate approval for executable fixture work:
    integrity_check after fixtures; do not run these against user stores.
 2. Every FK target/unique-parent pairing and deferred circular kind claim;
    nil/wrong-length IDs, malformed JSON/types, invalid lifecycle/null combinations,
-   orphan cross-workspace refs and invalid revisions must fail.
+   orphan cross-library refs and invalid revisions must fail.
 3. Beach/beach/beaches in either canonical/alias creation order and two competing
    writers; one semantic concept wins. Test punctuation, diacritics, Unicode,
    singular/plural exceptions, policy mismatch, retained rename claims, redirect
    lookup and a policy-upgrade collision report. Rust and service share fixtures.
 4. Multiple person capabilities/labels/organizations; client Organization vs
    Person identity; adjacent/overlapping/unbounded relationship periods, merge
-   collisions, live-reference retirement, same-workspace and redirect cycles.
+   collisions, live-reference retirement, same-library and redirect cycles.
 5. Required kind, parent hierarchy cycles/reparenting, child/parent/kind deletion
    guards, tombstones, and snapshots that remain unchanged after Library edits.
 6. Every CAS/append-only/sealed-envelope guard and its full rollback behavior;
@@ -1911,7 +1891,7 @@ S6 must implement, after appropriate approval for executable fixture work:
 
 These are proposed defaults, not user approval:
 
-- One local database per macOS user/device, multiple workspaces; local WAL/FULL
+- One local database per macOS user/device, multiple libraries; local WAL/FULL
   and short immediate commands; single-device identity on backup restore.
 - UUID BLOBs, signed local revisions, decimal package revisions; JSON canonical
   codec, concrete bounds, versioned Unicode/semantic normalizer and policy upgrade
@@ -1924,7 +1904,7 @@ These are proposed defaults, not user approval:
   multi-root merges. Labels/capabilities remain multi-valued and independently typed.
 - New schema family/file with safe side-by-side current Library compatibility,
   not automatic legacy import. Decide mapping policy before enabling conversion.
-- One Photara Cloud sync target per workspace; canonical workspace ID preservation,
+- One Photara Cloud sync target per library; canonical library ID preservation,
   sealed idempotent commands, server CAS baselines, whole-page quarantine and
   explicit conflict resolution. S4/S5 must finalize API/Auth0 authorization,
   membership revocation, cursor/reset semantics and transport envelope versions.

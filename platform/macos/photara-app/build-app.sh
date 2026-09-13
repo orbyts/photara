@@ -64,7 +64,7 @@ xcrun swiftc \
   "$SCRIPT_ROOT/Sources/ProductionGraphView.swift" \
   "$SCRIPT_ROOT/Sources/InspectionAdapter.swift" \
   "$SCRIPT_ROOT/Sources/ApplicationAdapter.swift" \
-  "$SCRIPT_ROOT/Sources/WorkspaceView.swift" \
+  "$SCRIPT_ROOT/Sources/EditorSessionView.swift" \
   "$SCRIPT_ROOT/Sources/PhotaraMacApp.swift" \
   -Xcc "-fmodule-map-file=$GENERATED_ROOT/PhotaraBridgeFFI.modulemap" \
   -L "$FRAMEWORKS" \

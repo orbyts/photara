@@ -1,15 +1,19 @@
 # Roadmap to Photara 0.2.0
 
-**2026-09-12: CXT1b pure context contracts complete.** [Implementation and verification](docs/architecture/CXT1B_CONTEXT_CONTRACTS.md) cover explicit field parsing, ID-bound typed ASTs, variables, frozen captures, metadata queries, cache v2 and proposal planning. CXT1a/CXT2, old APIs/cache keys and all previous fixture/migration bytes are preserved. Next eligible slice is separately selected CXT3a; CXT3b/c and L3 remain unstarted.
+**2026-09-12: CXT3a and the clean Library nomenclature rebaseline are complete.**
+[Verification and authority](docs/architecture/LIBRARY_NOMENCLATURE_REBASELINE.md)
+record 245 passing offline tests, regenerated schema/fixture hashes, checked SQLite
+integrity and passing Swift/bridge/UI verification. D19 R1 physical-name preservation
+is superseded. CXT3b is the next separately authorized gate.
 
 > **Current execution plan:** [`docs/ROADMAP_0_2_EXECUTION.md`](docs/ROADMAP_0_2_EXECUTION.md)
 > defines active version milestones, bounded sub-slices, approval gates, and the
 > task/model handoff protocol. It supersedes older stage ordering when they conflict.
 > S7 D1–D17 and bounded L1/L2 are complete. The current conceptual amendment is
 > [D19](docs/architecture/LIBRARY_AND_NODE_WORK_SURFACES.md), approved 2026-09-12.
-> CXT2, CXT1a and CXT1b are complete. Next: separately select CXT3a, then CXT3b/c; L3 remains gated. Applied migrations remain unchanged.
+> CXT2, CXT1a/b, CXT3a and the clean Library rebaseline are complete. Next: separately select CXT3b, then CXT3c and separately authorized fresh Neon deployment. No deployed database was migrated.
 
-D19 supersedes earlier Workspace, whole-project Gallery/Project Asset Context
+D19 supersedes earlier Library, whole-project Gallery/Project Asset Context
 and sole-built-in assumptions in the historical stages and catalog below. Library
 is the durable named boundary; each Project belongs to one Library with explicit
 Project policy/grants. First launch opens local My Library. Node Work Surfaces
@@ -310,7 +314,7 @@ implementation plan only when a concrete vertical slice owns them.
 ### User Library, project context, and surface-frame guardrail
 
 Before production Layout authoring expands, establish the user/studio data and
-workspace composition that Layout must inhabit. Keep three catalogs distinct:
+library composition that Layout must inhabit. Keep three catalogs distinct:
 the Node Catalog contains installed node definitions, Gallery presents visual
 project/node assets, and the user Library stores reusable People, Organizations,
 Location Kinds, and Locations.
@@ -320,9 +324,9 @@ Location Kinds, and Locations.
   option synchronize the same local-first domain; they are not mutually
   exclusive replacements for the local store.
 - Accounts and People are separate. Authenticated users belong to an owner or
-  future studio/workspace scope; People represent models, photographers,
+  future studio/library scope; People represent models, photographers,
   stylists, and other collaborators. Clients may be individuals or
-  organizations. Location Kinds are workspace-unique semantic concepts such as
+  organizations. Location Kinds are library-unique semantic concepts such as
   Beach or Home Studio, with descriptions and aliases; case or plural variants
   cannot create duplicate concepts. Locations are concrete places, may be
   hierarchical, and must reference one Location Kind. Project uses of Locations
@@ -330,7 +334,7 @@ Location Kinds, and Locations.
 - Projects reference stable Library identities and retain display-name/revision
   snapshots for portability and offline historical meaning.
 - People, Location Kinds, Locations, and Project Info are independently identified,
-  closable, restorable workspace modules. Each has a lab compiling its
+  closable, restorable library modules. Each has a lab compiling its
   production sources. Project Info composes Library assignments rather than
   duplicating records.
 - The Spotify reference defines composition, not branding: a semantic
@@ -341,7 +345,7 @@ Location Kinds, and Locations.
   geometry; feature labs own surface content. Resting module borders and split
   rules are absent. Native toolbar glass and grouping remain system-owned.
 - Photara Cloud authenticates the native client with Auth0 Authorization Code
-  Flow with PKCE, then calls a Photara service that enforces workspace ownership,
+  Flow with PKCE, then calls a Photara service that enforces library ownership,
   subscription, validation, migration, and conflict policy before Neon. Never
   ship a privileged Neon connection string in the desktop application.
 - Sync-ready records require revisions, timestamps, tombstones, change cursors,
@@ -359,7 +363,7 @@ does not authorize nodes to access SQL, credentials, or ambient cloud services.
 
 ### 0. Repository foundation — complete
 
-- Start a clean Cargo workspace.
+- Start a clean Cargo library.
 - Establish separate Core, node SDK, store, bridge, and Layout packages.
 - Retain only generation-two documentation on the active branch.
 
@@ -389,7 +393,7 @@ Core contains no Layout, source, host, destination, Adobe, or media-kind branch.
 - Define a separate standalone `NodeGraphDocument` export using the same graph
   payload and package requirements, so users can trivially share how nodes are
   configured and connected without sharing project identity, resource
-  inventory, runtime state, caches, or workspace layout.
+  inventory, runtime state, caches, or library layout.
 - Keep project identity/revision, optional human metadata, exact package release
   requirements, and semantically identified project-relative resources in the
   project wrapper. Paths describe locations, never asset identity.
@@ -406,7 +410,7 @@ Core contains no Layout, source, host, destination, Adobe, or media-kind branch.
 **Gate:** media-agnostic and Layout graphs round-trip through project JSON and
 standalone graph JSON without semantic loss; package/definition/schema identity
 and unknown node state survive; relative paths cannot escape the project root;
-and neither document requires runtime, cache, secret, or workspace UI state.
+and neither document requires runtime, cache, secret, or editor UI state.
 
 ### 2. Graph commands and evaluation model
 
@@ -654,11 +658,11 @@ authored state or the semantic plan. The gate test gives independent 3:4 and
 hit, deletes the complete proxy cache, and reopens both Layouts byte-for-byte
 from the portable project store.
 
-### 8. Minimal dockable macOS workspace — complete
+### 8. Minimal dockable macOS library — complete
 
 #### 8A. Production native facade — complete
 
-- Replace the disposable NDJSON spike with a workspace-pinned UniFFI library
+- Replace the disposable NDJSON spike with a library-pinned UniFFI library
   facade before substantial SwiftUI work.
 - Expose project create/open/save, immutable project/node/asset snapshots,
   structured diagnostics and command rejection, evaluation progress, and
@@ -671,7 +675,7 @@ from the portable project store.
   Xcode 26.6, and Swift 6.3.3. The facade has no SwiftUI/AppKit or macOS 27
   dependency.
 
-**Measured outcome:** workspace-pinned UniFFI 0.32 generates Swift 6 bindings
+**Measured outcome:** library-pinned UniFFI 0.32 generates Swift 6 bindings
 from the real `photara-bridge` dynamic library. The Quasar verification creates,
 inspects, edits, saves, and reopens a portable project; observes immutable,
 typed Layout inspection DTOs; rejects a stale revision with a structured
@@ -681,14 +685,14 @@ progress; and honors Swift-triggered cancellation. It also moves the Inspector,
 hides Gallery, preserves node selection, and verifies that the graph digest is
 unchanged.
 
-#### 8B. First workspace vertical slice — complete
+#### 8B. First library vertical slice — complete
 
 - Create the SwiftUI/AppKit application and document lifecycle.
 - Model independently identified panels/surfaces separately from their current
-  position. Workspace UI state—placement, splits, visibility, tabs, floating
+  position. Editor UI state—placement, splits, visibility, tabs, floating
   geometry, and selected preset—must not dirty project or graph state.
 - Ship a useful default Layout Authoring preset, which may initially place
-  Assets, Workspace/Graph, and Properties/Inspector in three regions without
+  Assets, Library/Graph, and Properties/Inspector in three regions without
   making left/center/right placement part of panel identity.
 - Build only the project lifecycle, project-owned asset Gallery, primitive
   graph list, typed Layout Inspector, diagnostics, progress/cancellation,
@@ -696,7 +700,7 @@ unchanged.
   vertical slice. Defer polished docking, graph editing, and Stage 9 controls.
 - Keep the graph representation intentionally simple. Polished wires, ports,
   groups, minimaps, macros, search, final visual language, advanced tabbing,
-  floating, multi-display behavior, and workspace management do not block the
+  floating, multi-display behavior, and library management do not block the
   first useful Layout workflow.
 - Use AppKit/Metal selectively for high-performance graph/crop/HDR surfaces.
 - Keep every semantic edit as a Core command.
@@ -730,7 +734,7 @@ command publishes a fingerprinted import, and another explicit graph batch adds
 its identity to the `AssetSet` and assigns it to a Layout cell. The macOS shell
 creates, closes, and reopens projects, copies paired local
 TIFFs into project-relative resources, populates Gallery solely from Project
-Asset Context, and holds Gallery selection/filtering in workspace state. Gallery
+Asset Context, and holds Gallery selection/filtering in editor session state. Gallery
 and Layout request the same bounded project proxy service and receive leased
 verified file references with SDR/HDR and color descriptors rather than pixel
 buffers. The Swift 6.3.3 Quasar harness generates real TIFFs and proves import,
@@ -753,7 +757,7 @@ the production UniFFI facade remain unchanged.
 
 - Keep conventional Inspector controls and the visual Layout authoring surface
   as separate presentation concepts. The authoring surface may occupy most of
-  a workspace or later become focused/detached; placement and size never enter
+  a library or later become focused/detached; placement and size never enter
   Core semantics.
 - Make asset assignment/reassignment, frame/cell structure changes,
   Fit/Fill/Crop, focal alignment, quarter-turn rotation, and crop commits
@@ -780,7 +784,7 @@ the production UniFFI facade remain unchanged.
 - Expose an immutable available-definition catalog through the application
   facade. Exact package definitions contribute hierarchical category paths,
   search metadata, independent brand identity, package-owned neutral icon
-  resources, generic Inspector contribution hints, and optional rich Workspace
+  resources, generic Inspector contribution hints, and optional rich Library
   capabilities without becoming Core evaluator variants. Native clients resolve
   those resources into platform skins rather than hard-coding definition
   identities. Graph's
@@ -788,20 +792,20 @@ the production UniFFI facade remain unchanged.
   Swift.
 - Let each exact definition advertise a neutral default activation. The first
   macOS mappings open Disk's granted folder in Finder and focus Layout's
-  existing authoring Workspace without changing project semantics.
+  existing authoring Work Surface without changing project semantics.
 - Add `photara.disk.folder` as the second ordinary bundled node and first
   live-data source. It emits explicit `photara.asset-set`, uses a stable portable
   folder-binding identity, and keeps macOS security-scoped bookmarks, absolute
   paths, availability, and materialized locations in native/runtime binding
   state. Disk receives a compact custom Inspector contribution but no canvas
-  Workspace.
+  Library.
 - Exercise Stage 9 against a real authorized folder and real project data.
   Folder scanning/reconciliation must publish asset-context and node-membership
   changes through an explicit revision-checked Core command; it cannot mutate
   project semantics merely because a directory changed.
 - Iterate native density, border, material, background, shape, typography, and
   interaction using measured visual references while preserving independent
-  panel identity and optional node Workspaces.
+  panel identity and optional node Work Surfaces.
 - Keep UI palette iteration behind one portable semantic theme document with
   paired Light/Dark sRGB values. The bounded developer Theme Lab must compile
   the same parser/resolver and production native views as Photara against an
@@ -835,7 +839,7 @@ marketplace-era visual language.
    name, camera, lens, capture time, or another supported field). Add an explicit
    Project/Selected Node viewing scope and allow quick text plus metadata-
    expression filtering within it. Scope, filter expression, primary label,
-   selection, and full-image presentation remain disposable workspace state;
+   selection, and full-image presentation remain disposable editor session state;
    making a reusable semantic result requires an explicit Query node or Core
    command.
 3. **Inspector design draft.** Establish the production first-draft hierarchy
@@ -843,7 +847,7 @@ marketplace-era visual language.
    progress, and node-contributed controls. Inspector content follows the
    selected exact definition through immutable presentation DTOs and semantic
    commands; it must not become a Swift interpretation of node-authored JSON or
-   assume every node owns a canvas Workspace.
+   assume every node owns a canvas Library.
 4. **Application frame and Library foundation.** Replace the wireframe pane
    treatment with the shared Light/Dark canvas and rounded filled module
    surfaces defined by Theme and Shell Labs. Keep Liquid Glass confined to native
@@ -854,7 +858,7 @@ marketplace-era visual language.
    Scenes module/lab is transitional pending terminology and schema migration.
    Make **On This Mac** functional first and expose **Photara Cloud** and future **iCloud** under
    Library & Sync without making network service availability block the app.
-5. **Usable Layout authoring.** Complete the real Layout Workspace and controls
+5. **Usable Layout authoring.** Complete the real Layout Work Surface and controls
    required by the Stage 9 gate: multiple Layout nodes, explicit asset placement,
    frame/cell structure, Fit/Fill/Crop, focal alignment, rotation, crop commits,
    resolved proxy-backed preview, validation, save/reopen, and coherent
@@ -885,7 +889,7 @@ open for real-fixture workflow hardening against the complete gate. Disk scans
 now run outside the main actor, Gallery uses Quick Look for immediate local
 thumbnails, and Layout upgrades its immediate native image to a 1K-default F16
 HDR-preserving verified proxy. Definition-owned double-click activation opens
-Disk in Finder or focuses Layout's Workspace. `Tab` is captured at window level
+Disk in Finder or focuses Layout's Library. `Tab` is captured at window level
 while Graph is visible and opens the catalog at the current graph pointer (or
 center before the pointer enters). Gallery opens a runtime representation in
 the user's default native viewer on double-click. Disk rebind clears its old
@@ -904,7 +908,7 @@ production adapter consumes immutable bridge DTOs, preserves package-authored
 SVG icons and accent colors, and commits connection, disconnection, routing,
 and node-position commands only at gesture boundaries. Selection uses the
 authored neutral node fill with a perimeter stroke; camera, overview, catalog,
-and tool-rail choices remain native workspace preferences. This completes the
+and tool-rail choices remain native library preferences. This completes the
 first Graph nodes-and-wiring slice; Stage 9 remains open for Gallery, Inspector,
 and Layout refinement.
 
@@ -985,22 +989,22 @@ project measured 22.5 ms total and 5.3 ms to the first image. Generator version
 the fast cache path.
 
 The native first-look refinement now separates Graph, standard Inspector,
-optional node Workspace, and project panels. Launch presents Create/Open/Recent
+optional node Work Surface, and project panels. Launch presents Create/Open/Recent
 with native-only recent state and no database. The facade provides generic
 typed port/connection/status/summary DTOs; Swift renders Project Assets and
 Layout through one Inspector shell. A primitive spatial graph replaces the
-engineering list, Layout Workspace opens explicitly, and Workspace → Restore
-Default Workspace recovers presentation state without semantic mutation.
+engineering list, Layout Work Surface opens explicitly, and Library → Restore
+Default Library recovers presentation state without semantic mutation.
 The Graph camera uses a viewport-sized procedural grid whose spacing follows
 zoom, supports drag/trackpad pan plus pinch/mouse-wheel zoom, and offers an
 optional bottom-left node/connection/viewport overview. Camera and overview
-state remain native workspace presentation only.
+state remain native library presentation only.
 
 The developer Theme Lab is the bounded palette-authoring side tool for the next
 UI pass. A versioned JSON document carries identical semantic slots for paired
 Light/Dark sRGB palettes, including status text and durable node color roles.
 Photara and the Lab compile the same Swift parser/resolver; the Lab previews
-the actual production Workspace, Layout Inspector, Graph, Gallery, and controls
+the actual production Library, Layout Inspector, Graph, Gallery, and controls
 against an isolated fixture project. A validated development override live-reloads in
 Photara while retaining the last valid palette. Built-in definitions now
 request `node.native` through presentation metadata and keep literal accents as
@@ -1009,7 +1013,7 @@ compatibility fallbacks. Themes remain client preference state.
 The application-frame and Library first model is implemented. Shell now hosts
 unchanged Graph content inside independently rounded module surfaces with
 semantic Light/Dark fills, gutters, icons, contained headers and authorable
-frame values. Workspace controls close/restore every surface and preserve
+frame values. Library controls close/restore every surface and preserve
 existing placement preferences. People, Locations, the transitional Scenes
 module, and Project Info have independent production-source labs with thumbnail,
 empty/loading/error fixtures. New Project reveals Project Info to search/assign Library records or
@@ -1061,7 +1065,7 @@ Stage 10 work; this does not close the remaining usable Layout authoring gate.
 - Choose release branding only if it is ready; code-name presentation is valid.
 
 **Release gate:** a new user can install the Mac application, create a clean
-workspace, load assets, visually author and persist useful Layout nodes, and
+library, load assets, visually author and persist useful Layout nodes, and
 recover safely from interruption without external legacy state.
 
 ## After 0.2.0
@@ -1116,7 +1120,7 @@ recover safely from interruption without external legacy state.
 - final brand, icons, website, or marketplace
 - complete graph visual language
 - complete package distribution/store lifecycle
-- advanced docking, floating, multi-display, and workspace management
+- advanced docking, floating, multi-display, and library management
 - macros/subgraphs
 - third-party loading
 - Windows implementation

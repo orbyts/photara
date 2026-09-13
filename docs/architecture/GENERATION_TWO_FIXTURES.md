@@ -5,7 +5,7 @@
 The [D19 fixture delta and gates](D19_STATIC_SCHEMA_DELTA.md#fixture-delta-implementation-slices-and-gates) now enumerate ten required conformance families and five future separate addenda. [CXT1a](CXT1A_CONTRACTS.md) adds the Rust-generated [d19-contracts.json](../fixtures/generation-two/d19-contracts.json) using the reserved `62000000-0000-4000-8000-…` synthetic namespace. Its canonical bytes are independently regenerated and checked by the SDK tests. Every pre-existing S6/D18 fixture, including the fixture README, is byte-identical. [CXT1b](CXT1B_CONTEXT_CONTRACTS.md) additionally generated [d19-context.json](../fixtures/generation-two/d19-context.json), independently checked by Rust for exact source/AST/snapshot/cache bytes. CXT1a and all earlier fixtures remain byte-identical. CXT3 and L3 proof remains gated; the two pure addenda do not certify those adapter scenario families.
 
 **D19 supersession note (2026-09-12):** [Libraries and node Work Surfaces](LIBRARY_AND_NODE_WORK_SURFACES.md)
-is the current conceptual target. Library replaces durable Workspace; each Project
+is the current conceptual target. Library is the durable ownership domain; each Project
 has one Library and explicit Project access. Graphs use connected AssetSets and
 declared frozen context; a private package ledger is not an ambient Gallery/asset
 union. Library management is app-owned; node Work Surfaces embed authorized host
@@ -43,13 +43,13 @@ These are test inputs, not migrations, seeds for a live service, or credentials.
 
 | Artifact | Exact role |
 | --- | --- |
-| [records.json](../fixtures/generation-two/records.json) | Account/Workspace, multi-role Person, client Organization, relationship, Kind/Location hierarchy, Node Store metadata, catalog and separately device-only locators |
+| [records.json](../fixtures/generation-two/records.json) | Account/Library, multi-role Person, client Organization, relationship, Kind/Location hierarchy, Node Store metadata, catalog and separately device-only locators |
 | [package-specimen.json](../fixtures/generation-two/package-specimen.json) | Inert archive of all 33 exact files in a new `.photara` specimen; 28 JSON objects, two commits, one managed blob, bootstrap and HEAD |
 | [canonical-vectors.json](../fixtures/generation-two/canonical-vectors.json) | Nine valid actual-Rust byte/hex/SHA-256 vectors and seven invalid-input expectations |
 | [sync-trace.json](../fixtures/generation-two/sync-trace.json) | Four exact sealed request bodies, offline A/B chain, acceptance/feed milestones, stale conflict and explicit rebase |
 | [normalization-and-limits.json](../fixtures/generation-two/normalization-and-limits.json) | Concrete proposed Unicode/alias policy, eight term vectors and finite bounds |
 | [scenarios.json](../fixtures/generation-two/scenarios.json) | 51 named scenario specifications plus 12 crash boundaries; every runtime result explicitly not run |
-| [social-export.json](../fixtures/generation-two/social-export.json) | D16/D17 addendum: three manual/provider profile examples, selected display snapshot, Workspace-wide subject collision and exact checksummed three-member logical export specimen |
+| [social-export.json](../fixtures/generation-two/social-export.json) | D16/D17 addendum: three manual/provider profile examples, selected display snapshot, Library-wide subject collision and exact checksummed three-member logical export specimen |
 
 An archive file entry is `{path, utf8, byte_length, sha256}`. Decode the JSON
 string to obtain exact UTF-8 file bytes; do not hash its JSON-escaped spelling or
@@ -68,7 +68,7 @@ deliberately absent. Node catalog metadata advertises no installed executable.
 ## Concrete package acceptance
 
 The specimen has ProjectId `60000000-0000-4000-8000-000000000011`, title
-“North Coast Fixture”, originating Workspace, Person/Organization assignments,
+“North Coast Fixture”, originating Library, Person/Organization assignments,
 and a dated Location assignment with matching LocationKind and participant.
 Snapshots are immutable typed subsets, with local source revision `1`; they do
 not carry Account records, current authorization, or whole Library exports.
@@ -101,7 +101,7 @@ sorted by kind then digest; it excludes itself, commit and HEAD to avoid cycles.
 The archive retains both commits and all their closures. HEAD commits to commit
 2, which commits to its parent and bootstrap. Current HEAD checksum:
 
-`e0a938eaa8b8ee4a8ef8e9df81fceb4f10cc535552510f5e8edda29b3e543e7e`
+`ac00dace7e99b909d9747c497ffbd9cb5762a6cfba74e5a9b5deddcdd9c1e3c0`
 
 This is the SHA-256 of the selected **commit file**, not the HEAD file. Each
 archive entry records its own separate hash. Rebuilding catalog indexes must use
@@ -134,7 +134,7 @@ Notable actual vectors:
 | Negative zero | parsed `[-0,-0.0,0,0.0]` becomes `[-0.0,-0.0,0,0.0]` |
 | Floating format | preserves `1.0`; writes `1e+20`, smallest subnormal `5e-324`, and finite maximum `1.7976931348623157e+308` |
 | Integer limits | retains i64 minimum and u64 maximum exactly; new revision/counter fields remain decimal strings |
-| S5 request | 837 bytes; SHA-256 `035103e3c2b8b4e4cf43ffd420c4361e86ff961057d34d73ce94c75ca0f40031` |
+| S5 request | 835 bytes; SHA-256 `f219f8c0bf4ccd85235f24bbb3e291ecf7aafdf0c8e28413e286255201e4dc42` |
 
 The codec is not RFC 8785. JSON.stringify/JSONB rendering/Swift JSONSerialization
 are not interchangeable substitutes. A future native encoder must pass every
@@ -164,7 +164,7 @@ Custom semantic aliases require explicit claims and user reconciliation.
 Crucially, creation from **either** `beach` or `beaches` must claim both keys;
 omitting the inverse alias is invalid. A key `beaches` is not itself normalized to
 `beach`: both terms resolve to one owner through shared claims. Rust local and
-service validators recompute closure; SQL's Workspace+term-key uniqueness then
+service validators recompute closure; SQL's Library+term-key uniqueness then
 protects claims under concurrency. Direct SQL alone cannot infer dictionary
 closure. Policy upgrades use a new immutable version and collision review, never
 in-place reinterpretation. Eight vectors are specified but the complete Unicode
@@ -177,7 +177,7 @@ characters. JSON depth is 64; display names 512 bytes, descriptions 8,192 bytes,
 extensions 65,536 bytes. Package control JSON is bounded at 16 MiB and managed
 blobs are streamed with declared length/storage-budget enforcement. These are
 proposed initial interoperability ceilings, not subscription entitlements or a
-promise every Workspace fits. Max/max+1 and multibyte tests must reject oversize
+promise every Library fits. Max/max+1 and multibyte tests must reject oversize
 atomically; batch splitting cannot weaken merge invariants.
 
 ## Scenario execution contract
@@ -195,7 +195,7 @@ database. SQL harnesses later use bound values and the published migration order
 | PKG-01–08 | Exact package closure; managed versus external; move/rebind/missing/duplicate; copy/fork provenance; corruption; stage/commit/HEAD/catalog crash boundaries; single-writer ownership; path safety |
 | RUN/NODE | Durable interrupted versus unknown effect; immutable receipt/evidence; append-only reconciliation; source digests unchanged; missing exact runtime preserves opaque state |
 | SYNC-01–07 | Offline chains; current authorization on dedup; receipt and feed milestones; whole-batch quarantine; explicit conflict/rebase; immutable request identities; bounded atomic snapshot install preserving device/recovery/overlays |
-| MEDIA/CAT | Immutable final object separate from staging; digest/length verification; safe unknown outcome; privacy profile and cross-Workspace redaction; observations never package authority |
+| MEDIA/CAT | Immutable final object separate from staging; digest/length verification; safe unknown outcome; privacy profile and cross-Library redaction; observations never package authority |
 | AUTH-01–04 | Synthetic JWT verification failures; actual runtime-role grants/RLS; membership/identity revocation races; last-owner guard; no billing or private identity access; entitlements do not grant membership |
 | LIMIT/VERSION | Byte/count/depth max/max+1; unsupported required features/schema/normalizer; preserved optional fields; no lossy saves/cursor movement |
 | STORE-01–03 | Both explicit Storexa 0.2 backends; lifecycle/acquire/health/version; commit/rollback/drop; file persistence; transaction-local scope reset; safe diagnostics; migration checksum drift |

@@ -54,9 +54,9 @@ pub struct NodePresentationMetadata {
     /// Neutral contribution identifier rendered inside the generic Inspector.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inspector_contribution_id: Option<String>,
-    /// Neutral contribution identifier for an optional rich authoring Workspace.
+    /// Neutral contribution identifier for an optional rich authoring Work Surface.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub workspace_contribution_id: Option<String>,
+    pub work_surface_contribution_id: Option<String>,
     /// Neutral client action invoked by the definition's primary activation
     /// gesture (double-click on desktop clients).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -92,7 +92,7 @@ impl NodePresentationMetadata {
         }
         for contribution in [
             self.inspector_contribution_id.as_deref(),
-            self.workspace_contribution_id.as_deref(),
+            self.work_surface_contribution_id.as_deref(),
             self.default_activation_id.as_deref(),
         ]
         .into_iter()

@@ -6,8 +6,8 @@ See [the native design language](../DESIGN_LANGUAGE.md) for the shared surface,
 toolbar, Liquid Glass, scrolling and lab-ownership rules.
 
 This directory is the native-client root. The production-shaped Rust
-facade is generated into Swift with workspace-pinned UniFFI and verified before
-the SwiftUI/AppKit workspace grows around it.
+facade is generated into Swift with editor-pinned UniFFI and verified before
+the SwiftUI/AppKit editor grows around it.
 
 On Quasar:
 
@@ -24,7 +24,7 @@ proves that Gallery selection/filter/visibility and Inspector placement cannot
 change the graph digest. Generated bindings and binaries stay under `.build`.
 
 The bridge imports no SwiftUI or AppKit API and has no macOS 27 dependency.
-The workspace UI consumes the same facade; it does not create a parallel
+The editor UI consumes the same facade; it does not create a parallel
 semantic state path.
 
 Compile the first native shell with:
@@ -47,7 +47,7 @@ its own macOS application identity, activation behavior, and menu bar.
 The shell stays deliberately small but now has recognizable product structure.
 With no active project it presents Create/Open/Recent; recent entries remain
 native client state and portable documents open through the filesystem facade,
-without a database. Assets, Graph, Layout Workspace, Inspector, and Diagnostics
+without a database. Assets, Graph, Layout Work Surface, Inspector, and Diagnostics
 are stable pane identities mapped into three resizable regions. They can move,
 hide, and restore independently of project state.
 
@@ -55,10 +55,10 @@ Graph is a primitive spatial canvas with node cards, typed ports, connections,
 selection, pan, and zoom. Selection drives one generic Inspector shell from
 typed bridge summaries. `Tab` or the graph add control opens the node menu;
 Available nodes come from the installed package catalog, including Disk and Layout.
-Double-click activates Layout's optional Workspace.
+Double-click activates Layout's optional Editor.
 The standard Inspector remains available for every node definition. Versioned
 definitions may later augment it with custom semantic controls independently of
-whether they advertise a full visual Workspace; Layout is simply the first node
+whether they advertise a full visual Editor; Layout is simply the first node
 that needs both.
 The app still populates Assets from Project Asset Context, binds only through
 explicit commands, and composes typed resolved Layout cells from shared proxy
@@ -77,7 +77,7 @@ platform/macos/photara-theme/build-theme-lab.sh
 ```
 
 The Lab and Photara compile the same parser/resolver source. The Lab build also
-compiles the current production Workspace, Layout Inspector, Graph, Gallery,
+compiles the current production Editor, Layout Inspector, Graph, Gallery,
 controls, and generated bridge facade against an isolated fixture project, so
 it does not maintain a duplicate UI preview. The portable theme contains paired
 Light/Dark sRGB values and never enters project state. Validate and activate an
@@ -100,7 +100,7 @@ The shared shell now uses one native toolbar and progressive disclosure. Opening
 shows Create/Open and collapsed Recents. An empty project gives Graph all content
 space; first node selection reveals Inspector, which remains stable on deselection.
 Gallery appears for asset context or an explicit request. Layout requires capability.
-Diagnostics are available from Workspace and actionable status without reserving an
+Diagnostics are available from Editor and actionable status without reserving an
 empty pane. Compact windows stack active regions. See [Shell Lab](../photara-shell-lab/README.md)
 for independent shell authoring and the versioned presentation preset shared here.
 

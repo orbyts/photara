@@ -6,7 +6,7 @@ import SwiftUI
 struct PhotaraThemeLabApp: App {
     @StateObject private var model = ThemeLabModel()
     @StateObject private var previewApp: AppModel
-    @StateObject private var previewWorkspace: WorkspaceModel
+    @StateObject private var previewEditor: EditorSessionModel
 
     init() {
         let defaults = UserDefaults(suiteName: "photara.theme-lab.preview") ?? .standard
@@ -18,7 +18,7 @@ struct PhotaraThemeLabApp: App {
             defaults: defaults,
             supportRootOverride: supportRoot
         ))
-        _previewWorkspace = StateObject(wrappedValue: WorkspaceModel(defaults: defaults))
+        _previewEditor = StateObject(wrappedValue: EditorSessionModel(defaults: defaults))
     }
 
     var body: some Scene {
@@ -26,7 +26,7 @@ struct PhotaraThemeLabApp: App {
             ThemeLabView()
                 .environmentObject(model)
                 .environmentObject(previewApp)
-                .environmentObject(previewWorkspace)
+                .environmentObject(previewEditor)
                 .frame(minWidth: 1_360, minHeight: 760)
         }
         .commands {

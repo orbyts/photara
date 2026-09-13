@@ -95,12 +95,12 @@ under the accepted offline contract. No offline lease is fabricated.
 
 ## Storage and typed context
 
-SQL preserves StorageRoot/Workspace UUIDs, enforces location kind/provider
+SQL preserves StorageRoot/Library UUIDs, enforces location kind/provider
 immutability, keeps names forever reserved and closes each current name through
 its scoped name claim. Deferred name FKs permit slot/claim and variable/claim
 creation in either safe statement order. Supporting composite UNIQUE indexes
 on service stream/batch scope implement the approved scoped FKs without adding
-identity columns. Local schema names remain physical compatibility adapters.
+identity columns. Local schema names use Library directly.
 
 An active slot requires an active classified root; root retirement blocks active
 slots and locators. Repository commands must update root/spec as one CAS aggregate,
@@ -199,7 +199,7 @@ Library access. Object-store verification and URL issuance occur outside SQL.
 
 ## RLS and privilege boundary
 
-0012 drops all 25 old workspace_scope policies before installing replacements.
+0012 drops all 25 old library_scope policies before installing replacements.
 It does not add an OR-able policy beside the broad baseline policy. API content
 policies check Library or Project actions; context children inherit the owning
 variable's sensitivity; locator writes additionally need manage-storage. Access
@@ -217,7 +217,7 @@ separate restrictions; their credentials are never a user-facing Project bypass.
 
 The controller role remains trusted server code, with scoped table privileges.
 RLS cannot make arbitrary SQL under that role safe: each route must call the
-appropriate authorization helper and return an allowlisted DTO. Workspaces full
+appropriate authorization helper and return an allowlisted DTO. Libraries full
 rows and Library directory queries require membership. Project-only access uses
 a separate bounded header/access DTO. Discovery returns only ProjectId, owning
 Library header and request-access availability; titles, counts, locators, previews,

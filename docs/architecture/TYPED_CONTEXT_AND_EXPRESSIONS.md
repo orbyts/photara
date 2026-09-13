@@ -21,7 +21,7 @@ are now specified; no old bytes or current API changed. R1–R8 were accepted as
 ## D19 supersession and implementation hold
 
 [D19](LIBRARY_AND_NODE_WORK_SURFACES.md) revises this proposal before CXT1:
-Library replaces the durable Workspace scope; graph assets come from explicit
+Library is the durable ownership domain; graph assets come from explicit
 `$input.<port>` values, never `$project.assets` or a project-wide Gallery union.
 Authoring visibility does not grant runtime access. Project membership/grants,
 bounded snapshots, typed value families and embedded host pickers follow D19.
@@ -501,7 +501,7 @@ Physical design **deferred**, not added to existing SQL in this amendment:
   cloud summary needs an explicit privacy projection and separate schema gate.
 - CXT2 must write ordered additive SQLite/PostgreSQL proposal DDL, migration
   ledger/floor changes, invariants, FK/delete policy, RLS/service allowlists and
-  fixture counts. Never rewrite applied L2 migrations 0001–0006. No broad Core,
+  fixture counts. Use the clean Library-named baseline; no deployed database migration is required. No broad Core,
   existing-adapter or Storexa change is implied.
 
 S5 gains versioned allowlisted variable commands/poststates only after CXT2;
@@ -567,7 +567,7 @@ these details or their implementation.
    checks and cache-key tests; no database, host effects or UI.
 5. **CXT3 — separately authorized disposable adapters:** reviewed codecs and
    additive Library migrations/repos, permission/project-only capture tests and
-   facade DTOs. Never rewrite applied L2 0001–0006. Temporary roots/DBs only.
+   facade DTOs. Use the clean Library-named baseline; no deployed database migration is required. Temporary roots/DBs only.
 6. **Resume L3 after CXT1–3 acceptance:** create one-Library packages using the
    settled format and prove staged publication/receipts. Package-target proposal
    application joins L3 crash tests. L2b remains independent and unexposed.

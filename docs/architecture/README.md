@@ -1,14 +1,11 @@
 # Generation-two architecture
 
-**2026-09-12: CXT1b pure context contracts complete.** [Implementation and verification](CXT1B_CONTEXT_CONTRACTS.md) cover explicit field parsing, ID-bound typed ASTs, variables, frozen captures, metadata queries, cache v2 and proposal planning. CXT1a/CXT2, old APIs/cache keys and all previous fixture/migration bytes are preserved. Next eligible slice is separately selected CXT3a; CXT3b/c and L3 remain unstarted.
-
-**Current amendment:** [D19 — Libraries, explicit dataflow and node Work Surfaces](LIBRARY_AND_NODE_WORK_SURFACES.md)
-records the conceptual architecture approved 2026-09-12. Library replaces the
-persistent Workspace domain; explicit node AssetSets replace ambient project
-assets; Layout/Gallery share host-owned components. D18 is revised under D19.
-The exact freeze, CXT2 inert DDL and CXT1a/b pure contracts are complete. Next is
-separately selected CXT3a, followed by CXT3b/c conformance before L3. Historical architecture
-and implementation notes below do not expand the current bounded scope.
+**2026-09-12: CXT3a and clean Library rebaseline complete.**
+[Package reader evidence](CXT3A_PACKAGE_READER.md) and
+[Library rebaseline](LIBRARY_NOMENCLATURE_REBASELINE.md) supersede earlier
+physical-name preservation and next-step labels. Library is the durable ownership
+domain; Project authored workflow remains package-authoritative and editor session
+preferences remain local. CXT3b/c and deployment are separate gates.
 
 Start active work with [the active handoff](../ACTIVE_HANDOFF.md) and the
 [versioned execution roadmap](../ROADMAP_0_2_EXECUTION.md). The current complete
@@ -63,9 +60,8 @@ additions cover typed manual-first social profiles and future non-gating portabl
 Library export/import. Their design approval does not authorize provider work;
 no provider adapter, importer or encryption was implemented. See
 [L2's precise API/runtime boundary](LOCAL_LIBRARY_IMPLEMENTATION.md), then review
-D19 consistency and the logical/package/NodeSDK freeze before selecting further
-implementation scope. S2–S6 Workspace/ProjectAsset spellings remain historical
-physical/codec identifiers until a reviewed migration/compatibility amendment.
+the verified CXT3a and Library rebaseline records before selecting CXT3b.
+The unshipped S2–S6 examples now use Library naming consistently.
 
 ## System shape
 

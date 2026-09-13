@@ -30,7 +30,7 @@ outbox/conflict/idempotency protocol.
 
 `gen2::LocalLibraryStore` is the additive async Storexa 0.2 / SQLx 0.9 adapter for
 the new `photara.local.g2` family. It never converts or silently opens a schema-v1
-file. Explicit create/open modes, six ordered migrations, typed Workspace Library
+file. Explicit create/open modes, six ordered migrations, typed Library Library
 records, CAS/tombstones, Unicode-16 Kind claims, immutable local changes and
 catalog/device projections are implemented. SQL/pool access remains private.
 

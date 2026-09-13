@@ -4,7 +4,7 @@ import SwiftUI
 struct LayoutCanvasView: View {
     let presentation: LayoutPresentation
     let actions: LayoutActions
-    @EnvironmentObject private var workspace: WorkspaceModel
+    @EnvironmentObject private var session: EditorSessionModel
     @Environment(\.photaraTheme) private var theme
     let node: NodeInspection
     let frame: LayoutFrameInspection
@@ -15,7 +15,7 @@ struct LayoutCanvasView: View {
         GeometryReader { available in
             let fitted = fittedCanvas(in: available.size)
             ZStack {
-                theme?.color(.workspaceSurround) ?? Color.black.opacity(0.06)
+                theme?.color(.editorSurround) ?? Color.black.opacity(0.06)
                 ZStack {
                     Color.white
                     ForEach(frame.cells, id: \.cellId) { cell in

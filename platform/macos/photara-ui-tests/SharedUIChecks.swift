@@ -85,27 +85,27 @@ struct SharedUIChecks {
         shellModel.scenario = .opening
         require(Set(ApplicationShellAvailability(presentation: shellModel.presentation).panels) == Set([.people, .locations, .scenes, .account]), "Opening exposed project commands")
         shellModel.scenario = .emptyProject
-        func visible() -> [WorkspacePanelID] {
+        func visible() -> [EditorPanelID] {
             let policy = ApplicationShellAvailability(presentation: shellModel.presentation)
-            return WorkspaceRegion.allCases.flatMap { policy.visiblePanels(in: $0, workspace: shellModel.workspace) }
+            return EditorRegion.allCases.flatMap { policy.visiblePanels(in: $0, session: shellModel.session) }
         }
         require(visible() == [.graph], "Empty project reserved a pane")
         require(ApplicationShellAvailability(presentation: shellModel.presentation).modes == [.graph], "Empty project exposed unavailable modes")
         shellModel.addNode()
-        require(shellModel.workspace.selectedNodeID == "disk" && visible().contains(.inspector), "First node did not reveal Inspector")
-        shellModel.workspace.selectedNodeID = nil
+        require(shellModel.session.selectedNodeID == "disk" && visible().contains(.inspector), "First node did not reveal Inspector")
+        shellModel.session.selectedNodeID = nil
         require(visible().contains(.inspector), "Clearing selection collapsed Inspector")
         require(!visible().contains(.assetGallery), "Gallery opened without context")
-        shellModel.workspace.show(.assetGallery)
+        shellModel.session.show(.assetGallery)
         require(visible().contains(.assetGallery), "Explicit Gallery request ignored")
-        shellModel.workspace.show(.diagnostics)
+        shellModel.session.show(.diagnostics)
         require(visible().contains(.diagnostics), "Explicit diagnostics request ignored")
         shellModel.scenario = .emptyProject
         require(visible() == [.graph], "New empty project leaked previous session disclosure")
         shellModel.scenario = .layout
         require(ApplicationShellAvailability(presentation: shellModel.presentation).modes == [.graph, .nodeWorkSurface], "Layout capability unavailable")
         var otherSurface = ShellScenario.layoutSurface
-        otherSurface.nodeID = "another-node"; otherSurface.contributionID = "example.other.workspace"
+        otherSurface.nodeID = "another-node"; otherSurface.contributionID = "example.other.session"
         otherSurface.iconResourceID = "example.other.icon"
         shellModel.presentation.workSurfaces.append(otherSurface)
         require(shellModel.presentation.workSurfaces.count == 2 && shellModel.presentation.workSurfaces.last?.iconResourceID == "example.other.icon",
@@ -114,12 +114,12 @@ struct SharedUIChecks {
         require(ApplicationShellAvailability(presentation: shellModel.presentation).modes == [.graph], "Removed surfaces left navigation behind")
         shellModel.scenario = .review
         require(ApplicationShellAvailability(presentation: shellModel.presentation).modes.contains(.review), "Review result unavailable")
-        shellModel.workspace.toggle(.assetGallery)
-        require(shellModel.workspace.mode == .graph, "Hiding the active review surface did not return to Graph")
-        shellModel.workspace.activateWorkspace(for: "layout")
-        shellModel.workspace.requestNodeMenu()
-        require(shellModel.workspace.mode == .graph && shellModel.workspace.consumeNodeMenuRequest(), "Catalog request lost while switching surfaces")
-        require(!shellModel.workspace.consumeNodeMenuRequest(), "Catalog request replayed")
+        shellModel.session.toggle(.assetGallery)
+        require(shellModel.session.mode == .graph, "Hiding the active review surface did not return to Graph")
+        shellModel.session.activateWorkSurface(for: "layout")
+        shellModel.session.requestNodeMenu()
+        require(shellModel.session.mode == .graph && shellModel.session.consumeNodeMenuRequest(), "Catalog request lost while switching surfaces")
+        require(!shellModel.session.consumeNodeMenuRequest(), "Catalog request replayed")
         shellModel.scenario = .saved
         require(ApplicationShellAvailability(presentation: shellModel.presentation).hasStatus, "Save status hidden")
         shellModel.scenario = .evaluating
@@ -128,7 +128,7 @@ struct SharedUIChecks {
         for dark in [false, true] {
             for scenario in ShellScenario.allCases {
                 shellModel.scenario = scenario; shellModel.dark = dark
-                try await capture(ShellLabPreview(model: shellModel, workspace: shellModel.workspace),
+                try await capture(ShellLabPreview(model: shellModel, session: shellModel.session),
                     name: "shell-\(scenario.rawValue)-\(dark)",
                     size: .init(width: scenario == .compact ? 820 : 1440, height: scenario == .compact ? 720 : 900), directory: directory)
             }
@@ -149,8 +149,8 @@ struct SharedUIChecks {
                 }
             }
             shellModel.scenario = .assets; shellModel.dark = dark
-            shellModel.workspace.show(.people); shellModel.workspace.show(.projectInfo)
-            try await capture(ShellLabPreview(model: shellModel, workspace: shellModel.workspace), name: "shell-library-\(dark)", size: .init(width: 1440, height: 900), directory: directory)
+            shellModel.session.show(.people); shellModel.session.show(.projectInfo)
+            try await capture(ShellLabPreview(model: shellModel, session: shellModel.session), name: "shell-library-\(dark)", size: .init(width: 1440, height: 900), directory: directory)
         }
         require(LibraryFixtures.items.allSatisfy { $0.thumbnailData != nil }, "Library thumbnail fixtures missing")
         require(Set(LibraryFixtures.assignments.filter { $0.kind == .scene }.map(\.id)).count == 2, "Scene occurrences collapsed")
@@ -190,25 +190,25 @@ struct SharedUIChecks {
         let suite = "photara.ui-tests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        let workspace = WorkspaceModel(defaults: defaults)
-        let original = workspace.placements
-        workspace.move(.assetGallery, to: .leading)
-        workspace.activateWorkspace(for: "layout")
-        require(workspace.isVisible(.graph) && workspace.isVisible(.layoutAuthoring), "Independent Graph and Work Surface visibility")
-        workspace.toggle(.graph)
-        require(!workspace.isVisible(.graph) && workspace.isVisible(.layoutAuthoring), "Closing Graph also closed Work Surface")
-        workspace.show(.graph)
-        for panel in WorkspacePanelID.allCases {
-            require(!panel.symbol.isEmpty, "Workspace module missing icon")
-            workspace.show(panel); workspace.toggle(panel)
-            require(!workspace.isVisible(panel), "Panel cannot close")
-            workspace.show(panel)
+        let session = EditorSessionModel(defaults: defaults)
+        let original = session.placements
+        session.move(.assetGallery, to: .leading)
+        session.activateWorkSurface(for: "layout")
+        require(session.isVisible(.graph) && session.isVisible(.layoutAuthoring), "Independent Graph and Work Surface visibility")
+        session.toggle(.graph)
+        require(!session.isVisible(.graph) && session.isVisible(.layoutAuthoring), "Closing Graph also closed Work Surface")
+        session.show(.graph)
+        for panel in EditorPanelID.allCases {
+            require(!panel.symbol.isEmpty, "Editor module missing icon")
+            session.show(panel); session.toggle(panel)
+            require(!session.isVisible(panel), "Panel cannot close")
+            session.show(panel)
         }
-        require(WorkspaceModel(defaults: defaults).placements == workspace.placements, "Workspace preference persistence")
-        workspace.selectedNodeID = "transient"
-        require(WorkspaceModel(defaults: defaults).selectedNodeID == nil, "Selection leaked into user preferences")
-        workspace.restoreLayoutAuthoringPreset()
-        require(workspace.placements == original, "Workspace restore")
+        require(EditorSessionModel(defaults: defaults).placements == session.placements, "Editor preference persistence")
+        session.selectedNodeID = "transient"
+        require(EditorSessionModel(defaults: defaults).selectedNodeID == nil, "Selection leaked into user preferences")
+        session.restoreLayoutAuthoringPreset()
+        require(session.placements == original, "Editor restore")
         var event = ""
         let actions = InspectorActions(chooseFolder: { event = $0 }, scanDisk: { event = $0 }, connectDisk: { event = $0 },
             structure: { id, _ in event = id }, cell: { id, frame, cell, _ in event = "\(id)/\(frame)/\(cell)" })
@@ -250,6 +250,6 @@ struct SharedUIChecks {
                 InspectorView(presentation: fixture.presentation, actions: actions, section: section)
             }, name: "section-\(section.rawValue)", size: .init(width: 320, height: 820), directory: directory)
         }
-        print("PASS: shared contracts, feature presets, float HDR/native policy, workspace preferences, Inspector targets, rendered Gallery/Inspector/Shell/Library states, thumbnails and independent modules")
+        print("PASS: shared contracts, feature presets, float HDR/native policy, session preferences, Inspector targets, rendered Gallery/Inspector/Shell/Library states, thumbnails and independent modules")
     }
 }

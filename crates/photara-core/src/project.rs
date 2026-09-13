@@ -161,7 +161,7 @@ pub struct ProjectResourceRef {
 /// Portable authoritative project semantics.
 ///
 /// Runtime/evaluation records, caches, secrets, credential material, host
-/// paths, and workspace UI state are intentionally absent.
+/// paths, and editor session UI state are intentionally absent.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ProjectDocument {
     pub schema_version: SchemaVersion,
@@ -556,7 +556,7 @@ fn validate_extension_keys(
         "credentials",
         "secrets",
         "environment",
-        "workspace",
+        "editor_session",
         "panels",
         "window_geometry",
         "gallery_selection",
@@ -776,7 +776,7 @@ mod tests {
     }
 
     #[test]
-    fn portable_schema_excludes_runtime_cache_secret_and_workspace_state() {
+    fn portable_schema_excludes_runtime_cache_secret_and_editor_session_state() {
         let json = serde_json::to_value(project()).unwrap();
         let fields = json.as_object().unwrap();
         assert_eq!(
@@ -799,7 +799,7 @@ mod tests {
             "cache",
             "credentials",
             "environment",
-            "workspace",
+            "editor_session",
             "panels",
             "window_geometry",
         ] {

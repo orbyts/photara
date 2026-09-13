@@ -18,8 +18,8 @@ No applied migration, source, fixture byte or runtime behavior changed.
 
 ## Library and Project boundaries
 
-**Library** replaces the persistent domain term **Workspace**. Like a Notion
-workspace, it is a durable, user-named catalog and collaboration boundary for an
+**Library** replaces the persistent domain term **Library**. Like a Notion
+library, it is a durable, user-named catalog and collaboration boundary for an
 individual or team. A user can have multiple Libraries. First installation
 automatically creates and opens a local **My Library**, without requiring an
 Account, sign-in or cloud choice. Renaming it preserves its stable LibraryId.
@@ -89,13 +89,13 @@ resolution, storage-class, variable and rebind rules are in
 | Gallery component | Asset-specific Browser/Gallery presentation reused in multiple Work Surfaces |
 | Gallery node | Built-in inspection node with explicit AssetSet ports and a Gallery Work Surface |
 
-Retire ambiguous product UI **Workspace** labels. A native window is bound to one
+Retire ambiguous product UI **Library** labels. A native window is bound to one
 Library; a Project window is additionally bound to one Project. Display both
 Library and Project scope. A project-only collaborator sees that bounded scope
 without acquiring catalog navigation. Different windows may target different
 Libraries. Window Layout, docking, selection, filters, zoom and restoration are
 client preferences; semantic authored edits cross revision-checked commands.
-Existing `WorkspaceModel`, `NSWorkspace`, manifest field names, module paths and
+Existing `EditorSessionModel`, `NSLibrary`, manifest field names, module paths and
 compiled labels are implementation/compatibility identifiers until a separate
 reviewed change. This amendment performs no physical source rename or UI work.
 
@@ -302,51 +302,36 @@ reads, refreshes and effects without falsifying history or promising erasure of
 already shared bytes. Sharing/cache reuse must not cross authorization boundaries
 merely because digests match.
 
-## Compatibility, physical review and exact next gates
+## Clean baseline and exact next gates
 
-S2–S6 and S7 D1–D17 remain the historical approved baseline. Existing physical
-`Workspace`/`workspace_id` names, ProjectAsset inventory contracts, package
-examples, endpoint paths and fixture bytes are **conceptually superseded where
-they conflict with D19**, pending a separately reviewed additive/rename/migration
-plan. This is not a global text rename or approval to reinterpret stored bytes.
-S3 remains **44 tables / 179 statements**; S4 remains **35 tables / 275 statements**.
-All six applied L2 migration files and checksums remain unchanged. S6 fixtures
-and the inert D18 addendum are preserved as baseline evidence, not D19 conformance.
+Suhail superseded R1 physical-name preservation on 2026-09-12. Generation Two
+is unshipped, so use a clean Library-named baseline throughout Rust, package,
+SQLite and PostgreSQL/service contracts. There is no rename migration, alias,
+shadow column or dual write. Existing v0.1.3/live databases remain untouched.
+A possible historical importer is optional and non-gating.
 
-The exact next gates, in order, are:
+CXT1a/b, CXT2 static review and CXT3a package reader are complete. The authorized
+Library rebaseline regenerates fixture references, canonical bytes, SQL hashes
+and inventories and verifies disposable SQLite and UI. Executable SQLite baseline:
+44 tables / 171 statements; S3 documentation adds eight example statements (179).
+PostgreSQL baseline: 35 tables / 263 statements; S4 adds twelve examples (275).
 
-1. **D19 documentation consistency review:** ratify cross-document ownership,
-   Project access, input semantics, vocabulary and taxonomy; record open details.
-2. **Logical/package/NodeSDK contract freeze:** specify LibraryId association,
-   ProjectAccessGrant/invitations/policies, private ledger versus port membership,
-   typed families/captures, Work Surface composition and compatible manifests.
-   Revise D18 and the CXT1 scope around these contracts before implementation.
-3. **CXT2 static exact schema delta review:** reconcile SQLite, PostgreSQL,
-   package and synchronization/export formats; review concrete fields, migrations,
-   API/RLS and project-filtered feed/snapshot/media/receipt authorization, rename
-   mapping, required features, counts and fixtures. No DDL execution at this gate.
-4. **Revised CXT1 then CXT3 implementation scopes:** separately authorize the
-   pure Core/NodeSDK foundation, then disposable migrations/adapters/codec and
-   authorization tests against the frozen contracts. Never rewrite migrations
-   0001–0006. Test old L1/L2 compatibility and project-only access explicitly.
-5. **Resume L3 only after those gates and CXT1–3 acceptance:** integrate package
-   creation/publication with one owning Library and the settled context format;
-   prove staged package/catalog recovery and effect-receipt publication boundaries.
-
-This replaces the former instruction to begin CXT1 directly from D18. No live
-database/service, runtime source, migration SQL, fixture baseline/hash, package
-manifest or UI source is changed by D19. No commit, staging, push, new cloud
-resource or deployment is part of this documentation task.
+Next separate sequence: verified rebaseline → CXT3b executable local SQLite and
+real app initialization → CXT3c disposable PostgreSQL/RLS → separately authorized
+fresh Generation Two Neon deployment → minimum usable Project/UI/node vertical
+slice. This task stops before CXT3b, PostgreSQL execution, Neon, deployment or
+commit/push. [Authority and evidence](LIBRARY_NOMENCLATURE_REBASELINE.md) and the
+[execution roadmap](../ROADMAP_0_2_EXECUTION.md) govern the next task.
 
 ## Canonical terminology policy
 
 The terms in [Presentation vocabulary and ownership](#presentation-vocabulary-and-ownership)
 and [Library and Project boundaries](#library-and-project-boundaries) are the
 canonical product, architecture, schema and future UI language. Earlier conversation,
-historical documents and current code may still use Workspace, Scene, project-wide
+historical documents and current code may still use Library, Scene, project-wide
 Gallery or similar pre-D19 names. Treat those as migration aliases, not competing
-concepts: persistent Workspace → Library; Scene → LocationKind where it means a
-reusable place classification; node workspace → Work Surface; spatial editor →
+concepts: persistent Library → Library; Scene → LocationKind where it means a
+reusable place classification; node library → Work Surface; spatial editor →
 Canvas; saved pane arrangement → Window Layout/Layout Preset. New contracts and
 UI copy use the canonical term unless a compatibility surface must show an older
 identifier explicitly.

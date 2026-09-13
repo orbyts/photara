@@ -1,6 +1,10 @@
 # Photara
 
-**2026-09-12: CXT1b pure context contracts complete.** [Implementation and verification](docs/architecture/CXT1B_CONTEXT_CONTRACTS.md) cover explicit field parsing, ID-bound typed ASTs, variables, frozen captures, metadata queries, cache v2 and proposal planning. CXT1a/CXT2, old APIs/cache keys and all previous fixture/migration bytes are preserved. Next eligible slice is separately selected CXT3a; CXT3b/c and L3 remain unstarted.
+**2026-09-12: CXT3a and the clean Library nomenclature rebaseline are complete.**
+[Verification and authority](docs/architecture/LIBRARY_NOMENCLATURE_REBASELINE.md)
+record 245 passing offline tests, regenerated schema/fixture hashes, checked SQLite
+integrity and passing Swift/bridge/UI verification. D19 R1 physical-name preservation
+is superseded. CXT3b is the next separately authorized gate.
 
 > Current planning entry point: [active handoff](docs/ACTIVE_HANDOFF.md) and
 > [Photara 0.2 execution roadmap](docs/ROADMAP_0_2_EXECUTION.md).
@@ -48,7 +52,7 @@ The repository is building generation two from a clean foundation toward
 Brand name, icons, website, marketplace presentation, and final visual language
 remain intentionally undecided while the working application evolves.
 
-## Cargo workspace
+## Cargo library
 
 ```text
 crates/
@@ -59,7 +63,7 @@ crates/
 ├── photara-proxy/      shared derived proxy generation and cache service
 └── photara-store/      backend-neutral authoritative persistence boundaries
 platform/macos/
-├── photara-app/            UniFFI verification and minimal native workspace
+├── photara-app/            UniFFI verification and minimal native library
 └── photara-proxy-imageio/  process-isolated ImageIO/Core Image helper
 nodes/
 ├── photara-asset-set/  explicit project AssetSet source node
@@ -72,7 +76,7 @@ contracts. Stage 9 is now building a separate visual Layout authoring surface
 over immutable resolved DTOs and shared proxies. Swift owns transient gesture
 presentation only; intentional edits and undo/redo remain Core commands.
 The native first-look shell launches through Create/Open/Recent and separates a
-spatial Graph, generic standard Inspector, optional Layout Workspace, and
+spatial Graph, generic standard Inspector, optional Layout Work Surface, and
 project-level Assets without introducing a database dependency.
 The immutable node catalog now drives branded hierarchical creation metadata,
 and the first live provider is an ordinary Disk node whose macOS folder grant
@@ -86,11 +90,11 @@ frame, local Library and project assignment workflow.
 
 ```console
 cargo fmt --check
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
+cargo test --library
+cargo clippy --library --all-targets -- -D warnings
 ```
 
-The workspace version is `0.2.0-alpha.0`. APIs are intentionally internal and
+The library version is `0.2.0-alpha.0`. APIs are intentionally internal and
 unstable while the first vertical application path is built.
 
 ## Documentation

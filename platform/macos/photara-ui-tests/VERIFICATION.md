@@ -26,7 +26,7 @@ its result was not accepted as green. The rerun uses the exact unchanged verific
 binary, with other native test windows closed and no concurrent native UI tests.
 
 Ownership: every node has an Inspector and may provide a node-owned work surface.
-Layout's surface stays in `photara-layout`. Production dispatch uses a node-contribution registry, with `photara.layout.workspace`
+Layout's surface stays in `photara-layout`. Production dispatch uses a node-contribution registry, with `photara.layout.work-surface`
 as the first registered renderer. Toolbar icons come from the contributing node;
 other contributions cannot accidentally route to Layout. A future Layout Node Lab, additional node
 surfaces, a specialized review workflow, cloud sync and physical HDR luminance checks
@@ -49,8 +49,8 @@ sources and both pre-existing verification scripts remain unchanged.
 | `photara-theme/build-theme-lab.sh` | Existing Theme host and inherited Glass experiment built successfully |
 | `photara-graph-lab/verify-interactions.sh` | Full unchanged suite: **15,562 assertions, 0 failures** |
 | `photara-app/verify-bridge.sh` | Passed; graph revision 19; evaluation and cancellation callbacks verified |
-| `photara-ui-tests/verify-shared-ui.sh` | Passed; preset roundtrip/rejection, HDR float data/native range/geometry, retained image dimensions, workspace preference isolation, callback targets, 26 compositor captures |
-| `photara-ui-tests/verify-production-ui.sh` | Passed; actual WorkspaceView/Graph/Gallery/Inspector/Layout assembly, typed adapter/Core edits, undo/redo, HDR proxy generation, binding, save, graph-digest viewing isolation |
+| `photara-ui-tests/verify-shared-ui.sh` | Passed; preset roundtrip/rejection, HDR float data/native range/geometry, retained image dimensions, editor preference isolation, callback targets, 26 compositor captures |
+| `photara-ui-tests/verify-production-ui.sh` | Passed; actual EditorSessionView/Graph/Gallery/Inspector/Layout assembly, typed adapter/Core edits, undo/redo, HDR proxy generation, binding, save, graph-digest viewing isolation |
 | `cargo test -p photara-bridge` | 7 passed, 0 failed |
 | `cargo clippy -p photara-bridge --all-targets -- -D warnings` | Passed |
 | Actual application launches | Graph Lab, Gallery Lab, Inspector Lab and Photara each opened independently |

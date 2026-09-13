@@ -6,7 +6,7 @@ The [accepted D19 freeze](D19_CONTRACT_FREEZE.md) and [CXT1 slices](D19_STATIC_S
 
 ## D19 domain and evaluation amendment — not current runtime
 
-[D19](LIBRARY_AND_NODE_WORK_SURFACES.md) replaces the persistent Workspace domain
+[D19](LIBRARY_AND_NODE_WORK_SURFACES.md) replaces the persistent Library domain
 with Library and requires exactly one owning Library per Project plus explicit
 Project-access policy/grants. Core models typed AssetSet graph inputs and the
 private identity/provenance/artifact ledger separately; it exposes no ambient

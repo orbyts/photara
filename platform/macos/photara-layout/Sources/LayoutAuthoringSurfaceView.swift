@@ -6,13 +6,13 @@ import SwiftUI
 struct LayoutAuthoringSurfaceView: View {
     let presentation: LayoutPresentation
     let actions: LayoutActions
-    @EnvironmentObject private var workspace: WorkspaceModel
+    @EnvironmentObject private var session: EditorSessionModel
 
     private var selectedNode: NodeInspection? { presentation.node }
 
     private func selectedFrame(in node: NodeInspection) -> LayoutFrameInspection? {
         let frames = node.layout?.frames ?? []
-        return frames.first { $0.frameId == workspace.selectedFrameID } ?? frames.first
+        return frames.first { $0.frameId == session.selectedFrameID } ?? frames.first
     }
 
     var body: some View {
@@ -22,11 +22,11 @@ struct LayoutAuthoringSurfaceView: View {
             VStack(spacing: 0) {
                 HStack {
                     Picker("Frame", selection: Binding(
-                        get: { workspace.selectedFrameID ?? frame.frameId },
+                        get: { session.selectedFrameID ?? frame.frameId },
                         set: { value in
-                            workspace.selectedNodeID = node.nodeId
-                            workspace.selectedFrameID = value
-                            workspace.selectedCellID = nil
+                            session.selectedNodeID = node.nodeId
+                            session.selectedFrameID = value
+                            session.selectedCellID = nil
                         }
                     )) {
                         ForEach(layout.frames, id: \.frameId) { candidate in
@@ -45,14 +45,14 @@ struct LayoutAuthoringSurfaceView: View {
                     .padding(20)
             }
             .task(id: layout.authoredStateDigest) {
-                if !layout.frames.contains(where: { $0.frameId == workspace.selectedFrameID }) {
-                    workspace.selectedFrameID = layout.frames.first?.frameId
+                if !layout.frames.contains(where: { $0.frameId == session.selectedFrameID }) {
+                    session.selectedFrameID = layout.frames.first?.frameId
                 }
                 let currentFrame = selectedFrame(in: node)
                 if currentFrame?.cells.contains(where: {
-                    $0.cellId == workspace.selectedCellID
+                    $0.cellId == session.selectedCellID
                 }) != true {
-                    workspace.selectedCellID = currentFrame?.cells.first?.cellId
+                    session.selectedCellID = currentFrame?.cells.first?.cellId
                 }
                 actions.requestPreviews(node.nodeId)
             }

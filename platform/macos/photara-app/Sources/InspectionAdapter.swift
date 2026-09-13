@@ -99,20 +99,20 @@ extension AppModel {
 
 struct ProductionInspectorView: View {
     @EnvironmentObject private var app: AppModel
-    @EnvironmentObject private var workspace: WorkspaceModel
+    @EnvironmentObject private var session: EditorSessionModel
     @State private var preset = InspectorPreset.developmentOrShipped
     var body: some View {
-        let node = app.snapshot?.nodes.first { $0.nodeId == workspace.selectedNodeID }
+        let node = app.snapshot?.nodes.first { $0.nodeId == session.selectedNodeID }
         InspectorView(presentation: .init(node: node.map(NodeInspection.init),
-            selectedFrameID: workspace.selectedFrameID, selectedCellID: workspace.selectedCellID,
+            selectedFrameID: session.selectedFrameID, selectedCellID: session.selectedCellID,
             previews: app.layoutCellProxies.mapValues { .init($0.descriptor()) },
             isScanning: node.map { app.scanningDiskNodeIDs.contains($0.nodeId) } ?? false,
             graphRevision: app.snapshot?.graph.revision ?? 0, progressLabel: app.progressLabel,
-            showsGraph: workspace.isVisible(.graph)),
+            showsGraph: session.isVisible(.graph)),
             actions: InspectorActions(chooseFolder: app.inspectorActions.chooseFolder,
                 scanDisk: app.inspectorActions.scanDisk, connectDisk: app.inspectorActions.connectDisk,
                 structure: app.inspectorActions.structure, cell: app.inspectorActions.cell,
-                showGraph: { workspace.activateGraph() }), preset: preset)
+                showGraph: { session.activateGraph() }), preset: preset)
             .task { await reloadDevelopmentPreset() }
     }
 
@@ -128,12 +128,12 @@ struct ProductionInspectorView: View {
 struct ProductionLayoutView: View {
     var nodeID: String? = nil
     @EnvironmentObject private var app: AppModel
-    @EnvironmentObject private var workspace: WorkspaceModel
+    @EnvironmentObject private var session: EditorSessionModel
     private var node: BridgeNodeDto? {
         let layouts = app.snapshot?.nodes.filter { $0.hasLayoutWorkSurface } ?? []
         if let nodeID { return layouts.first { $0.nodeId == nodeID } }
-        if let active = layouts.first(where: { $0.nodeId == workspace.activeWorkspaceNodeID }) { return active }
-        return layouts.first { $0.nodeId == workspace.selectedNodeID } ?? layouts.first
+        if let active = layouts.first(where: { $0.nodeId == session.activeWorkSurfaceNodeID }) { return active }
+        return layouts.first { $0.nodeId == session.selectedNodeID } ?? layouts.first
     }
     var body: some View {
         LayoutAuthoringSurfaceView(presentation: .init(node: node.map(NodeInspection.init),

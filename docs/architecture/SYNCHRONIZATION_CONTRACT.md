@@ -1,36 +1,16 @@
 # Synchronization and API contract
 
-## Current exact review packet — 2026-09-12
-
-The [D19 sync v2 delta](D19_STATIC_SCHEMA_DELTA.md#sync-v2-and-export) now specifies separate Library and Project channels, current actor/scope checks, authorization-generation snapshots, media and receipt filtering, privacy limits and v1 activation preflight. V1 sealed bytes/cursors are preserved, never reinterpreted as v2. R1–R8 were accepted as proposed 2026-09-12 and [inert scoped-sync DDL](proposals/d19-cxt2/README.md) is complete; the old v1 text below is historical design, not D19-conformant transport.
-
-## D19 supersession notice — physical/protocol baseline retained
-
-[D19](LIBRARY_AND_NODE_WORK_SURFACES.md) is the current conceptual authority:
-Library replaces persistent Workspace; every Project belongs to exactly one
-Library. Explicit ProjectAccessGrant/invitations and restricted/library-visible
-policies govern Project access independently of blanket membership. Project-only
-collaborators receive bounded assigned snapshots, not a full catalog, Library
-feed, reset snapshot, receipt or media projection. Package/SMB authorization
-remains separate device binding state.
-
-Graphs consume explicit AssetSet ports and declared frozen context. There is no
-ambient semantic project-wide Gallery, implicit asset union or `$project.assets`.
-A private package graph/run identity/provenance/artifact ledger may remain.
-Existing Workspace/ProjectAsset names, SQL, endpoint paths and baseline examples
-below are conceptually superseded where they conflict; they remain unchanged
-physical compatibility evidence pending an exact additive/rename/migration plan.
-
-S3 remains 44 tables/179 statements; S4 35 tables/275 statements; all six applied
-L2 migration files/checksums remain unchanged. Freeze logical/package/NodeSDK
-contracts, then review exact static SQLite/PostgreSQL/package/sync deltas,
-including LibraryId mapping, Project grants, filtered queries/feeds/snapshots/
-media/receipts, RLS and compatibility. Revised CXT1/CXT3 follow that review;
-L3 remains paused. This notice approves no new DDL, migration or service action.
+**Current baseline — 2026-09-12:** the user superseded D19 R1 physical-name
+preservation because Generation Two is unshipped. Domain, package and SQL names
+below use Library consistently. This is a clean baseline rewrite, with no rename
+migration, alias, shadow column or live database change. See the
+[rebaseline authority and evidence](LIBRARY_NOMENCLATURE_REBASELINE.md) and
+[current execution order](../ROADMAP_0_2_EXECUTION.md). CXT3a is complete; local
+D19 execution/app initialization and PostgreSQL/RLS remain separate CXT3b/c gates.
 
 ## D18 extension — pending contract/schema review
 
-[D18](TYPED_CONTEXT_AND_EXPRESSIONS.md) proposes versioned allowlisted Workspace
+[D18](TYPED_CONTEXT_AND_EXPRESSIONS.md) proposes versioned allowlisted Library
 variable commands/poststates and permitted immutable captures. Existing sealed
 bytes, local/server revision separation, receipt idempotency, offline chains,
 tombstone reservation and explicit conflict/rebase rules still apply. No new
@@ -38,7 +18,7 @@ command is accepted merely because it fits `extensions`; CXT2 must freeze its
 schema/capability negotiation and CXT3 must prove local boundaries. No D18 API or
 DDL is implemented here. Expression ASTs are data, never service-executed code.
 
-Workspace authorization covers definition/value reads and transitive dependency
+Library authorization covers definition/value reads and transitive dependency
 resolution; a portable Project's capture conveys no live Library grant. SecretRefs,
 provider tokens, device/root bindings and raw secret digests never sync/export.
 Personal/restricted data require explicit allowed projections; omitted required
@@ -46,7 +26,7 @@ dependencies remain visibly unavailable. D17 imports report/rebind typed variabl
 IDs and AST dependencies transactionally without reactivating grants. Local
 Set Variable application and later server acceptance/conflict are separate facts;
 an offline receipt cannot assert cloud acceptance. No cross-authority atomic
-Workspace-plus-package write or CloudKit evaluator is implied.
+Library-plus-package write or CloudKit evaluator is implied.
 
 Status: S5 proposal prepared for review, 2026-09-11. This defines a proposed
 version-one protocol and reconciles S2–S4; it is not an implemented API, deployed
@@ -63,7 +43,7 @@ gate. No service connection or database operation was used to prepare this slice
 
 ## V1 decisions and authority
 
-- Sync replicates typed Workspace Library and explicit discovery metadata, not
+- Sync replicates typed Library records and explicit discovery metadata, not
   SQL rows, a global file archive, authored Graphs or live package contents.
 - Local edits commit durably before network access. The server accepts/rejects
   versioned typed commands against per-record expected server revisions.
@@ -75,12 +55,12 @@ gate. No service connection or database operation was used to prepare this slice
   no page and do not advance the cursor. This makes immutable page identity
   unambiguous for S3's single pending inbox.
 - V1 uses bounded single-response snapshots, not an open transaction held across
-  interactive page requests. Oversized Workspaces return an explicit unsupported
+  interactive page requests. Oversized Libraries return an explicit unsupported
   snapshot-size error until an export protocol is separately designed.
 - Recommend explicit atomic Location Kind claim transfer for v1. Retired IDs and
-  term provenance remain; one Workspace/concept key has exactly one current
+  term provenance remain; one Library/concept key has exactly one current
   owner. This replaces the earlier S3/S4 physical reservation limitation.
-- One Photara Cloud target per Workspace. CloudKit is a later independent sync
+- One Photara Cloud target per Library. CloudKit is a later independent sync
   adapter, not another writer to the same target and not a SQL/HTTP translation.
 
 Project saves/runs remain S2 package operations. Neither a server receipt nor a
@@ -93,7 +73,7 @@ boundaries; there is no cross-store ACID transaction.
 All paths below are proposed relative paths, not a live hostname. Environment
 selection is an explicit developer/user configuration: On This Mac or a named
 Photara Cloud environment. Selecting an environment cannot retarget an existing
-Workspace's pending queue to a different account/service silently. Endpoint
+Library's pending queue to a different account/service silently. Endpoint
 allowlists and TLS validation prevent sending a bearer token to an arbitrary
 URL or redirected host.
 
@@ -101,7 +81,7 @@ The API validates the Auth0 issuer, audience, signature, expiry and authenticati
 policy. Exact issuer/subject maps to AccountId; emails and People do not.
 AccountId/IdentityId and action permissions come from that validation, never from
 request JSON. Registered DeviceId is attribution, not authentication. Each
-Workspace endpoint rechecks current Account/identity/membership; possession of a
+Library endpoint rechecks current Account/identity/membership; possession of a
 cursor, object digest, receipt ID or package is not permission.
 
 The service uses the S4 authorization helper and transaction-local scope before
@@ -114,23 +94,23 @@ but cached permissions cannot authorize a new server operation.
 | Method/path | Contract |
 | --- | --- |
 | GET /v1/capabilities | Authenticated protocol/codec/features, supported normalizers and size limits |
-| POST /v1/workspaces/claim | Explicit Account-scoped idempotent claim of a new local WorkspaceId; first owner + stream |
-| GET /v1/workspaces/{workspace}/access | Current membership, Workspace state and bounded entitlement/cache revisions |
-| POST /v1/workspaces/{workspace}/mutations | One sealed typed command; final immutable receipt or transport/protocol error |
-| GET /v1/workspaces/{workspace}/mutations/{mutation} | Authorized receipt lookup; absence is not proof an in-flight request cannot commit |
-| GET /v1/workspaces/{workspace}/changes?cursor={opaque} | Exactly the next complete batch, or 204 with no cursor change |
-| POST /v1/workspaces/{workspace}/snapshots | Bounded full snapshot with epoch/high-water cursor |
-| POST /v1/workspaces/{workspace}/acknowledgements | Monotonic acknowledgement of a locally committed cursor |
-| POST /v1/workspaces/{workspace}/media/uploads | Authorized staging upload session for declared digest/size/type |
-| POST /v1/workspaces/{workspace}/media/uploads/{upload}/complete | Verify uploaded bytes and finalize immutable object availability |
-| GET /v1/workspaces/{workspace}/media/{digest}/download | Reauthorize access and issue a short-lived download capability |
+| POST /v1/libraries/claim | Explicit Account-scoped idempotent claim of a new local LibraryId; first owner + stream |
+| GET /v1/libraries/{library}/access | Current membership, Library state and bounded entitlement/cache revisions |
+| POST /v1/libraries/{library}/mutations | One sealed typed command; final immutable receipt or transport/protocol error |
+| GET /v1/libraries/{library}/mutations/{mutation} | Authorized receipt lookup; absence is not proof an in-flight request cannot commit |
+| GET /v1/libraries/{library}/changes?cursor={opaque} | Exactly the next complete batch, or 204 with no cursor change |
+| POST /v1/libraries/{library}/snapshots | Bounded full snapshot with epoch/high-water cursor |
+| POST /v1/libraries/{library}/acknowledgements | Monotonic acknowledgement of a locally committed cursor |
+| POST /v1/libraries/{library}/media/uploads | Authorized staging upload session for declared digest/size/type |
+| POST /v1/libraries/{library}/media/uploads/{upload}/complete | Verify uploaded bytes and finalize immutable object availability |
+| GET /v1/libraries/{library}/media/{digest}/download | Reauthorize access and issue a short-lived download capability |
 
 Identity linking, invitations and plan administration use separate authenticated
 control contracts, not Library mutation kinds or client-authored membership rows.
 Claim uses an Account-scoped ClaimId and immutable request/response receipt; it
-must never turn an existing WorkspaceId collision into ownership. A retry of a
+must never turn an existing LibraryId collision into ownership. A retry of a
 successful claim returns that Account's exact prior result. Joining uses an
-already authorized Workspace identity, not claim or an email-based identity
+already authorized Library identity, not claim or an email-based identity
 merge. Local-only mode never fabricates a service Account/membership.
 
 ## Canonical bytes, versions and limits
@@ -181,7 +161,7 @@ an atomic operation that exceeds limits; do not silently split a merge that
 needs one transaction. Snapshot responses are assembled under a bounded
 repeatable-read transaction, committed before the response is sent. Exceeding
 size/time limits returns snapshot_too_large or retryable busy—not partial data
-labelled complete. Large-Workspace snapshot export is a later explicitly scoped
+labelled complete. Large-Library snapshot export is a later explicitly scoped
 feature; S7 must approve this initial product limit.
 
 ## Identity and revision vocabulary
@@ -189,12 +169,12 @@ feature; S7 must approve this initial product limit.
 | Value | Meaning and comparison |
 | --- | --- |
 | Local revision | Positive SQLite aggregate revision; local CAS only |
-| Server revision | Opaque sr1:<positive-decimal> token for one Workspace/kind/ID; compare expected equality |
-| MutationId | One immutable command intent/request identity scoped to its Workspace |
+| Server revision | Opaque sr1:<positive-decimal> token for one Library/kind/ID; compare expected equality |
+| MutationId | One immutable command intent/request identity scoped to its Library |
 | ClaimId | Account-scoped creation intent, separate from Library MutationId |
-| Stream epoch | Server Workspace feed generation; not a record revision |
+| Stream epoch | Server Library feed generation; not a record revision |
 | Batch sequence | Commit order within an epoch; never a per-record revision |
-| Cursor | Opaque authenticated position in that Workspace/epoch |
+| Cursor | Opaque authenticated position in that Library/epoch |
 | Project/Graph revision, CommitId/checksum | Package/Graph provenance only; never a Library precondition |
 
 The client may parse its own local revision, but does not order arbitrary opaque
@@ -221,7 +201,7 @@ A sealed request contains exactly:
 | Field | Rule |
 | --- | --- |
 | protocol, codec | Fixed negotiated v1 identifiers |
-| workspace_id, stream_epoch | Must match the route and current target; epoch prevents replay into an unknown reset generation |
+| library_id, stream_epoch | Must match the route and current target; epoch prevents replay into an unknown reset generation |
 | mutation_id, device_id, created_at | Stable intent/attribution facts, preserved through retries |
 | required_features | Sorted unique namespaced feature identifiers |
 | preconditions | Sorted unique (entity kind, ID) expectations for every affected existing/new root |
@@ -241,7 +221,7 @@ V1 command families are typed create/replace/tombstone/merge operations for
 Person, Organization, relationship, Location Kind, Location, StorageRoot,
 ProjectCatalog and ProjectLocator. catalog.observe.v1 appends a derived
 observation while advancing the catalog root. kind.reconcile_collision.v1 is
-the explicit collision-resolution operation described below. Workspace claiming,
+the explicit collision-resolution operation described below. Library claiming,
 membership, billing and media-upload authorization are separate controllers.
 No generic table name, SQL, JSON Patch interpreter, executable script, Graph
 operation or node effect is accepted in a sync command.
@@ -259,7 +239,7 @@ Illustrative typed request (readable formatting; not itself canonical bytes):
 {
   "protocol": "photara.sync.v1",
   "codec": "photara.canonical-json.v1",
-  "workspace_id": "10000000-0000-4000-8000-000000000001",
+  "library_id": "10000000-0000-4000-8000-000000000001",
   "stream_epoch": "20000000-0000-4000-8000-000000000001",
   "mutation_id": "30000000-0000-4000-8000-000000000001",
   "device_id": "40000000-0000-4000-8000-000000000001",
@@ -291,7 +271,7 @@ Illustrative typed request (readable formatting; not itself canonical bytes):
 ```
 
 The ASCII-only example above has a reference canonical length of 837 bytes and
-SHA-256 035103e3c2b8b4e4cf43ffd420c4361e86ff961057d34d73ce94c75ca0f40031.
+SHA-256 f219f8c0bf4ccd85235f24bbb3e291ecf7aafdf0c8e28413e286255201e4dc42.
 This was checked statically; S6 must match it with the actual Rust codec and
 extend coverage to the non-ASCII/number edge cases before freezing the codec.
 
@@ -307,7 +287,7 @@ For each affected root, store either the known server baseline, an explicit
 absent expectation, or the preceding pending local command. Dependencies form a
 DAG; a multi-root command waits for every predecessor. Commands with overlapping
 roots preserve order. Independent roots can proceed, although the first server
-implementation serializes accepted Workspace writes.
+implementation serializes accepted Library writes.
 
 Before sealing, ensure required media is remotely verified, resolve all
 predecessor results through the feed, and validate that the command still
@@ -339,14 +319,14 @@ without an explicit reassociation/recovery decision.
 
 ## Receipts and idempotency
 
-The receipt's canonical body has protocol, Workspace/MutationId, request digest,
+The receipt's canonical body has protocol, Library/MutationId, request digest,
 outcome, per-root result versions/digests, and either accepted {epoch,sequence,
 batch_sha256} or a typed error/conflict result. Accepted receipts do not need to
 duplicate the whole batch. No volatile replay flag/server-now field is inside
 the immutable body. Header-only replay diagnostics may vary.
 
-The service validates current authorization, locks the Workspace and checks
-(workspace,mutation_id) before execution. Identical actor/request bytes return
+The service validates current authorization, locks the Library and checks
+(library,mutation_id) before execution. Identical actor/request bytes return
 the stored result. Different bytes/actor return idempotency_conflict without
 leaking the previous body. Existing authorized receipts may still be returned
 after an epoch change; an unknown receipt plus mismatched epoch never executes.
@@ -380,18 +360,18 @@ claimed; idempotent server acceptance is the guarantee.
 
 ## Feed, inbox and acknowledgement
 
-A feed batch has immutable Workspace/epoch/sequence, originating MutationId,
+A feed batch has immutable Library/epoch/sequence, originating MutationId,
 ordered root changes and typed attachments. Each change has ordinal, entity
 kind/ID, server revision, change kind, record schema, canonical typed post-state
 and digest. The post-state includes the complete aggregate child sets; it never
 means "join this historical ID to the latest row."
 
-The feed wrapper contains protocol, codec, Workspace/epoch, cursor_before,
+The feed wrapper contains protocol, codec, Library/epoch, cursor_before,
 cursor_after and exactly one complete batch. It excludes live high-water,
 server-now and has-more flags that could change bytes for the same position.
 If no next batch exists, return 204 and do not persist an empty inbox row.
 
-Cursors are opaque authenticated encodings of version, Workspace, epoch,
+Cursors are opaque authenticated encodings of version, Library, epoch,
 sequence and signing-key identifier. Decimal sequence zero denotes a snapshot/
 initial high-water with no applied batch. The service validates scope, bounds,
 signature and current access. For a request cursor, its next cursor uses the same
@@ -421,9 +401,9 @@ persist it before application. In one local write transaction:
 
 A remote batch's wire MutationId is provenance, not necessarily the SQLite
 mutation primary key. Allocate a distinct local ingest ID for unrelated remote
-commands and retain the wire origin; this avoids collisions across Workspaces
+commands and retain the wire origin; this avoids collisions across Libraries
 and with an existing own-command intent. Correlate own echoes using target,
-Workspace, actor/device, MutationId and receipt digest, not UUID coincidence.
+Library, actor/device, MutationId and receipt digest, not UUID coincidence.
 
 If receipt arrives before feed, it cannot skip earlier batches. If feed arrives
 first, verify its own-command receipt/origin before resolving the local outbox;
@@ -474,7 +454,7 @@ creates another explicit conflict, not permission to overwrite.
 Recommend **supporting** canonical promotion and concurrent offline-creation
 reconciliation in v1, with this narrow operation—not arbitrary term reassignment.
 
-The current owner of a (WorkspaceId,normalized term key) is unique across
+The current owner of a (LibraryId,normalized term key) is unique across
 canonical and alias terms. An active/tombstoned Kind owns its current claims;
 a merged Kind owns none and retains a redirect plus immutable retirement-term
 snapshot. That snapshot records its pre-retirement canonical descriptor and
@@ -483,10 +463,10 @@ term keys/spellings/policy version. It is provenance, not another current claim.
 For merge A -> B, the command captures expected revisions and all affected
 Locations/relationships, then atomically:
 
-1. Validates same Workspace, active B, no cycle and the precise dependent set.
+1. Validates same Library, active B, no cycle and the precise dependent set.
 2. Rebinds live references explicitly, capturing affected root revisions.
 3. Captures A's retirement terms and marks A merged -> B.
-4. Transfers A's existing term claim rows to B; the workspace/key PK never changes.
+4. Transfers A's existing term claim rows to B; the library/key PK never changes.
 5. Optionally promotes one now-owned term as B's canonical key/display.
 6. Advances each affected root once and publishes one complete batch.
 
@@ -500,7 +480,7 @@ reassignment, unmerge or resurrection command.
 Physical reconciliation in both proposals uses two generated columns on Kind:
 
 - claim_owner_id = KindId unless state is merged, otherwise NULL; unique with
-  WorkspaceId. Current term owner FK references this eligible-owner pair,
+  LibraryId. Current term owner FK references this eligible-owner pair,
   deferred until commit, so a merged Kind cannot retain any current claims.
 - required_canonical_key = canonical_key unless state is merged, otherwise NULL.
   The canonical same-owner FK uses this field; merged historical descriptors no
@@ -508,7 +488,7 @@ Physical reconciliation in both proposals uses two generated columns on Kind:
 
 retirement_terms is a typed immutable snapshot for retired rows, NULL while
 active. Current term owner may change only during a validated merge from its
-old owner's direct redirect to an active target. Key, Workspace and policy stay
+old owner's direct redirect to an active target. Key, Library and policy stay
 immutable. Canonical/alias normalization remains the same pinned policy;
 Beach/beach/beaches cannot become separate concepts in either backend.
 
@@ -531,7 +511,7 @@ both physical schemas against the same collision/promotion fixtures.
 
 ## Snapshot bootstrap and reset
 
-A snapshot response contains protocol/codec, SnapshotId, WorkspaceId, epoch,
+A snapshot response contains protocol/codec, SnapshotId, LibraryId, epoch,
 high-water cursor, complete typed current records (including tombstones/merged
 identities and retirement terms), media descriptors, catalog/locator metadata
 and opted-in bounded observation attachments. It contains no device bindings,
@@ -577,7 +557,7 @@ external effect or erase unsynced data.
 ## Media, catalog, devices and privacy
 
 Media bytes never appear in mutation/feed/snapshot bodies. Their typed descriptor
-contains WorkspaceId, SHA-256, byte length, MIME type and optional dimensions.
+contains LibraryId, SHA-256, byte length, MIME type and optional dimensions.
 A command advertising newly uploaded media waits for verified remote
 availability; receiving clients may retain metadata while bytes are pending.
 
@@ -600,10 +580,10 @@ disagreement is a report conflict, not proof the service can repair a package.
 
 V1 cloud catalog observation upload is explicit. Default discovery sync carries
 logical root/locator and minimal title/count/provenance; richer party/location
-snapshots require explicit sharing within that Workspace. The projection sharing
-profile is encoded as minimal or workspace-rich in the typed
+snapshots require explicit sharing within that Library. The projection sharing
+profile is encoded as minimal or library-rich in the typed
 observation attachment; minimal rejects nonempty party/location snapshots.
-Cross-Workspace Library snapshot details are omitted from cloud catalog reports in v1; the local
+Cross-Library records snapshot details are omitted from cloud catalog reports in v1; the local
 package retains them. No absolute paths, bookmarks, signed provider URLs,
 credentials or local availability/selection fields enter attachments.
 Schema allowlists reject structured secret/device fields; they cannot promise
@@ -641,7 +621,7 @@ canonical serialization require another codec/version, not a dependency upgrade
 that silently changes signatures/digests.
 
 Normalization-policy upgrades require shared vectors and collision reporting,
-then an explicit Workspace-wide migration. They are not a background preference
+then an explicit Library-wide migration. They are not a background preference
 toggle. Version negotiation never lets an old client write keys using a
 different policy. Batch schema/canonical bytes remain immutable once published.
 
@@ -655,7 +635,7 @@ own records, change tokens, conflicts and partial failures. It cannot impersonat
 a Photara Cloud cursor/receipt, provide this service's atomic multi-root batch by
 assumption, or implement SQL transactions. Enabling it requires a separate target
 identity, capability matrix and conformance tests. V1 does not dual-write one
-Workspace to Photara Cloud and CloudKit; migration between targets is explicit,
+Library to Photara Cloud and CloudKit; migration between targets is explicit,
 not a change of enum while pending outbox items exist.
 
 ## Required physical reconciliation and local durability
@@ -672,7 +652,7 @@ not executed migrations:
 | S3 local_mutation_dispositions | Append-only discard/supersession decision and replacement intent link |
 | S3 outbox | Distinct superseded/discarded states for unsealed local intent; never fabricate server rejection |
 | S3 sync_snapshot_installs | Durable complete snapshot bytes/hash, target/epoch/cursor and install state |
-| S4 workspace_claim_receipts | Account-scoped claim idempotency independent of an already existing Workspace |
+| S4 library_claim_receipts | Account-scoped claim idempotency independent of an already existing Library |
 | S4 media_upload_sessions | Private staging-session identity/key, expected descriptor, expiry and verified completion |
 
 Receipt/inbox/snapshot payloads are immutable once received; only their local
@@ -696,7 +676,7 @@ shipping local/service interpretation is permitted.
 ## S7 social-profile and export additions
 
 [D16/D17](SOCIAL_PROFILES_AND_LIBRARY_EXPORT.md) add `social-profile` as a typed
-Workspace Library root with create/replace/tombstone commands, ordinary expected
+Library records root with create/replace/tombstone commands, ordinary expected
 revisions, accepted post-states, receipts, whole-batch feed and snapshot handling.
 Negotiate required feature `photara.social-profiles.v1`; old clients must stop
 atomically on unsupported records, never drop profiles while acknowledging a
@@ -710,7 +690,7 @@ or merge explicitly includes every affected active ProfileId/revision and retire
 it; bound subjects remain reserved and cannot be cloned onto the target. Manual
 unbound successors require new IDs/provenance in the same atomic command. A future
 bound-subject transfer requires separate policy approval. Validate parent availability
-and Workspace-wide scoped subject uniqueness under the Workspace lock. A cross-owner
+and Library-wide scoped subject uniqueness under the Library lock. A cross-owner
 bound subject match rejects the command; manual handle matches warn, never merge
 identities. Imported/provider-authorized provenance grants no access.
 
@@ -720,7 +700,7 @@ explicit revision-checked operations. Cloud avatar attachment requires rights fo
 that transfer; cache-only/expired/disallowed bytes stay out. Project snapshots
 carry selected profile display facts through ordinary typed party assignments,
 not social credentials/subject identifiers or independently writable profiles.
-Minimal catalog reports gain no social fields automatically; rich same-Workspace
+Minimal catalog reports gain no social fields automatically; rich same-Library
 sharing still needs opt-in. Provider deletion/expiry must invalidate caches and
 applicable bytes according to reviewed policy; tombstone/history retention cannot
 be cited as permission to retain prohibited personal data forever.
@@ -754,7 +734,7 @@ No live account, real database or cloud deployment is required to specify them.
    full rollback, whole-batch bounds and no automatic split.
 6. Kind transfer: Beach/beach/beaches in either creation order, canonical/alias
    collision, source retirement snapshot, all claims moved, canonical promotion,
-   chain A->B->C, tombstone reservation, wrong target/policy/Workspace rejection.
+   chain A->B->C, tombstone reservation, wrong target/policy/Library rejection.
 7. Offline Kind collision: failed create A vs accepted B, explicit reconcile
    creates merged historical A without a second active owner, dependent intents
    rebase and package snapshots preserve original IDs.
@@ -773,7 +753,7 @@ No live account, real database or cloud deployment is required to specify them.
 12. Media: staging URL cannot overwrite finalized object; size/hash mismatch,
     expired upload, completion retry, unknown outcome, authorized descriptor-only
     sync and missing local bytes.
-13. Catalog: minimal vs opted-in rich projection, cross-Workspace redaction,
+13. Catalog: minimal vs opted-in rich projection, cross-Library redaction,
     structured path/bookmark rejection, duplicated package IDs, reported-vs-
     verified provenance and no Graph/run/package mutation.
 14. Version evolution: unknown required features stop atomically, optional
@@ -802,7 +782,7 @@ Recommend approving v1 only with:
 - Initial retention of receipts, tombstones, term provenance and change history.
   Operational size limits and a later erasure/retention protocol remain explicit
   product/security work; no indefinite-storage promise is inferred.
-- Explicit cloud catalog sharing and no cross-Workspace rich snapshot upload in
+- Explicit cloud catalog sharing and no cross-Library rich snapshot upload in
   v1; no silent Account/environment retargeting or CloudKit dual-write.
 - The negotiated limits, normalizer/codec vectors, role/revocation rules and
   media staging/finalization safety validated by S6.

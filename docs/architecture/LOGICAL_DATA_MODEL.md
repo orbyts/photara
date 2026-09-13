@@ -12,7 +12,7 @@ Storexa 0.2.0 supplies database mechanics; Photara owns this model.
 ## D19 current conceptual model
 
 [D19](LIBRARY_AND_NODE_WORK_SURFACES.md) is the current conceptual authority:
-Library replaces the durable domain Workspace; each Project belongs to exactly
+Library is the durable ownership domain; each Project belongs to exactly
 one Library, with explicit Project access independent of blanket membership.
 The model below incorporates those semantics. Existing S2–S6 physical names and
 bytes remain the approved historical baseline pending exact contract/schema

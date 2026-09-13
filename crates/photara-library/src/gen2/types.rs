@@ -31,7 +31,7 @@ macro_rules! ids {
     )+};
 }
 ids!(
-    WorkspaceId,
+    LibraryId,
     PersonId,
     OrganizationId,
     RelationshipId,
@@ -131,7 +131,7 @@ impl Lifecycle {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Metadata<I> {
     pub id: I,
-    pub workspace_id: WorkspaceId,
+    pub library_id: LibraryId,
     pub revision: Revision,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
@@ -139,10 +139,10 @@ pub struct Metadata<I> {
 }
 impl<I> Metadata<I> {
     #[must_use]
-    pub const fn new(id: I, workspace_id: WorkspaceId, at: Timestamp) -> Self {
+    pub const fn new(id: I, library_id: LibraryId, at: Timestamp) -> Self {
         Self {
             id,
-            workspace_id,
+            library_id,
             revision: Revision::INITIAL,
             created_at: at,
             updated_at: at,
@@ -176,8 +176,8 @@ impl<I> Metadata<I> {
 pub type Extensions = BTreeMap<String, serde_json::Value>;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Workspace {
-    pub meta: Metadata<WorkspaceId>,
+pub struct Library {
+    pub meta: Metadata<LibraryId>,
     pub display_name: String,
     pub extensions: Extensions,
 }
@@ -343,7 +343,7 @@ impl std::fmt::Debug for DeviceBinding {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RootBinding {
-    pub workspace_id: WorkspaceId,
+    pub library_id: LibraryId,
     pub storage_root_id: StorageRootId,
     pub binding: DeviceBinding,
     pub revision: Revision,
@@ -378,7 +378,7 @@ pub struct LocalChange {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProjectObservation {
     pub id: ObservationId,
-    pub workspace_id: WorkspaceId,
+    pub library_id: LibraryId,
     pub project_id: ProjectId,
     pub locator_id: LocatorId,
     pub commit_id: CommitId,

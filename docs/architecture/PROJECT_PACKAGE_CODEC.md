@@ -1,22 +1,12 @@
 # L1 read-only package codec and validator
 
-## Current exact review packet — 2026-09-12
-
-The [D19 static proposal](D19_STATIC_SCHEMA_DELTA.md#package-object-delta-and-closure) is complete for review. L1 still supports only its recorded old envelopes; package 1.1, new closure and owner association remain CXT3a work after accepted R1–R8 and separate CXT3a scope selection. No source, supported-version constant, fixture or hash changed.
-
-**D19 supersession note (2026-09-12):** [Libraries and node Work Surfaces](LIBRARY_AND_NODE_WORK_SURFACES.md)
-is the current conceptual target. Library replaces durable Workspace; each Project
-has one Library and explicit Project access. Graphs use connected AssetSets and
-declared frozen context; a private package ledger is not an ambient Gallery/asset
-union. Library management is app-owned; node Work Surfaces embed authorized host
-pickers/components. First install opens local My Library. The pre-D19 implementation,
-physical identifiers, examples and fixture contracts below remain baseline evidence,
-not approval to reinterpret stored bytes. Exact contract/static schema review and
-revised CXT1/CXT3 precede L3; no migration, source or fixture bytes change here.
-
-Status: bounded implementation complete, 2026-09-11, after [S7 D1–D17 approval](SCHEMA_REVIEW.md).
-This is the read-only subset of [S2](PROJECT_PACKAGE_SCHEMA.md) needed to validate
-the [S6 inert specimen](GENERATION_TWO_FIXTURES.md), not a production package store.
+**Current baseline — 2026-09-12:** the user superseded D19 R1 physical-name
+preservation because Generation Two is unshipped. Domain, package and SQL names
+below use Library consistently. This is a clean baseline rewrite, with no rename
+migration, alias, shadow column or live database change. See the
+[rebaseline authority and evidence](LIBRARY_NOMENCLATURE_REBASELINE.md) and
+[current execution order](../ROADMAP_0_2_EXECUTION.md). CXT3a is complete; local
+D19 execution/app initialization and PostgreSQL/RLS remain separate CXT3b/c gates.
 
 ## API and ownership
 
@@ -109,8 +99,8 @@ linkages, unknown-field retention and existing document round trips. The valid
 two named Graphs and one managed blob.
 
 Also passed offline: 24 Core tests, three NodeSDK tests, two retained store tests,
-their doc tests, store all-target Clippy `-D warnings`, fmt check and whole-workspace
-all-target compile. No database was opened. Workspace tests were intentionally
+their doc tests, store all-target Clippy `-D warnings`, fmt check and whole-repository
+all-target compile. No database was opened. Library tests were intentionally
 not executed because Library tests create databases. These results do not certify
 unimplemented schema, service, writer, erasure, export or SMB scenario families.
 

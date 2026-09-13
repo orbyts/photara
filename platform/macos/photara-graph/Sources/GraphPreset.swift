@@ -38,7 +38,7 @@ struct PhotaraGraphPalettePreset: Codable, Equatable {
 }
 
 /// Versioned shipped visual defaults shared by Photara and Graph Lab. User
-/// workspace choices intentionally live in each application's own defaults.
+/// session choices intentionally live in each application's own defaults.
 struct PhotaraGraphPresentationPreset: Codable, Equatable {
     let schemaVersion: Int
     var pattern: PhotaraGraphPattern

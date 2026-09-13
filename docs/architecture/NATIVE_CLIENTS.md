@@ -13,10 +13,10 @@ binds one Project; both scopes are visible. Project-only collaborators receive
 assigned snapshots without full Library navigation. Cloud/library membership,
 Project policy/grants and native package/SMB authorization remain separate.
 
-Retire ambiguous Workspace UI labels: node-provided UI is a **Work Surface**, its
+Retire ambiguous Editor UI labels: node-provided UI is a **Work Surface**, its
 spatial editor a **Canvas**, arrangement a **Window Layout / Layout Preset**, a
 dockable region a **Panel**, and list/grid/card primitive a **Browser**. Current
-WorkspaceModel/NSWorkspace/source paths and labels below describe existing code;
+EditorSessionModel/NSLibrary/source paths and labels below describe existing code;
 this amendment renames no source or UI implementation.
 
 People, Organizations, SocialProfiles, LocationKinds, Locations and Project catalog
@@ -75,7 +75,7 @@ required before visual implementation. L3 is paused for the context gates.
 ## Current macOS 0.2.0 implementation evidence
 
 The following describes the compiled pre-D19 shell. Its project-wide Gallery,
-Workspace labels and launcher are transitional implementation facts. They do not
+Library labels and launcher are transitional implementation facts. They do not
 override the Library onboarding, explicit node inputs or Work Surface target above.
 
 The first product client is macOS-only and uses SwiftUI/AppKit. AppKit/Metal may
@@ -93,7 +93,7 @@ valuable. Large proxies should cross as verified cache/file references or a
 measured low-copy representation rather than repeated JSON/pixel copies.
 
 The disposable spike is complete and recorded in `SWIFT_BRIDGE_SPIKE.md`. Its
-production replacement now uses workspace-pinned UniFFI 0.32 in library mode.
+production replacement now uses library-pinned UniFFI 0.32 in library mode.
 The facade owns application-shaped project sessions and exposes generated Swift
 records, enums, objects, and a foreign progress observer. A handwritten C ABI
 would add manual ownership and unsafe surface without improving the semantic
@@ -116,7 +116,7 @@ into presentation-oriented canvas, frame, cell, placement, content-mode,
 rotation, and authored-digest DTOs. Layout intent is resolved inside Rust.
 Accepted Layout edits, undo, and redo
 all cross the authoritative graph boundary as Core `SetAuthoredState` commands;
-Swift never edits persisted JSON directly. Workspace placement, visibility,
+Swift never edits persisted JSON directly. Library placement, visibility,
 selection, and restoration remain separate Swift-owned state and invoke no
 semantic bridge method.
 
@@ -136,11 +136,11 @@ SDK-specific types into Core DTOs or portable documents.
 The production client uses independently identified dockable panels/surfaces.
 Panel identity is separate from placement: `AssetGallery` does not mean left
 sidebar, and `Inspector` does not mean right pane. A default Layout Authoring
-workspace may initially use an Assets/Workspace/Inspector three-region preset,
+library may initially use an Assets/Library/Inspector three-region preset,
 while leaving room for resizing, rearrangement, splits, tabs, visibility,
 floating windows, multiple displays, named presets, and restoration.
 
-Workspace presentation state is client-owned and does not dirty a graph. Node
+Library presentation state is client-owned and does not dirty a graph. Node
 selection and semantic edits still cross the facade as identities and Core
 commands, so the real Layout Inspector works wherever its panel is placed. The
 first native milestone implements only the docking/restoration depth required
@@ -151,16 +151,16 @@ The recognizable native product distinguishes four concepts:
 1. Graph contains nodes and explicit typed data flow.
 2. A standard Inspector explains every selected node through identity, typed
    ports, parameters, output summaries, evaluation state, and diagnostics.
-3. A node may optionally advertise a rich Workspace; Layout is the first.
+3. A node may optionally advertise a rich Library; Layout is the first.
 4. Project panels such as Assets and Diagnostics expose shared project context
    independently of any node.
 
 Every exact node-definition version owns presentation metadata in addition to
 its typed semantic contract: its independent brand identity, package-owned
 neutral icon resource, hierarchical catalog path and search terms, generic
-Inspector contribution, and optional rich Workspace contribution. The generic Inspector shell always
+Inspector contribution, and optional rich Work Surface contribution. The generic Inspector shell always
 remains available; a definition may augment it with a node-specific control
-surface for semantic parameters and commands. A rich canvas Workspace is a
+surface for semantic parameters and commands. A rich canvas Library is a
 separate, optional capability rather than something every node must implement.
 Layout needs one for visual frame and crop authoring, while a future automation
 node may need only menus, script choices, and status controls. Platform control
@@ -175,19 +175,19 @@ The bridge supplies generic immutable port inspection records with direction,
 value-type identity/version, connected-node identity, and node/runtime-produced
 summary fields. Swift renders the standard shell without assuming photography
 or Layout. A built-in may add parameter controls inside that shell, but opaque
-authored state remains interpreted by Rust. Workspace availability and
+authored state remains interpreted by Rust. Library availability and
 brand/icon information are immutable UI-facing definition metadata returned by
 the facade, not a new Core node kind.
 
 The compiled shell uses three resizable regions and independently identified
-Assets, Graph, Layout Workspace, Inspector, and Diagnostics surfaces. Panels can
-move or hide, and the native Workspace menu restores the default without
+Assets, Graph, Layout Work Surface, Inspector, and Diagnostics surfaces. Panels can
+move or hide, and the native Library menu restores the default without
 altering project semantics. Graph is now a deliberately primitive spatial
 canvas with dots, node cards, typed port indicators, connections, selection,
 pan, and zoom. Single-click drives the standard Inspector. Every exact node
 definition may advertise a neutral default-activation contribution, invoked by
 double-click on desktop clients. Layout's activation focuses or reveals its
-existing authoring Workspace; Disk's opens its granted folder in Finder. Future
+existing authoring Work Surface; Disk's opens its granted folder in Finder. Future
 host nodes may activate their native application without making that platform
 action a Core semantic command. Graph owns the node-creation
 interaction: `Tab` (and the equivalent add control) opens a definition menu in
@@ -196,7 +196,7 @@ definition, but the menu and shell are not modeled as Layout-specific. Final
 graph editing and visual language remain deferred.
 
 Gallery double-click is native activation, not graph execution: the macOS
-client resolves an available runtime representation and asks `NSWorkspace` to
+client resolves an available runtime representation and asks `NSLibrary` to
 open it with the user's system default application. A later synchronized
 preferred-viewer setting may override that default without entering the
 portable asset or graph model.

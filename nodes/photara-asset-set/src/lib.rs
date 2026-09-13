@@ -73,7 +73,7 @@ impl NodePackage for AssetSetNodePackage {
                 search_terms: vec!["assets".to_owned(), "project".to_owned()],
                 catalog_visibility: NodeCatalogVisibility::Hidden,
                 inspector_contribution_id: Some("photara.asset-set.inspector".to_owned()),
-                workspace_contribution_id: None,
+                work_surface_contribution_id: None,
                 default_activation_id: None,
             },
         )

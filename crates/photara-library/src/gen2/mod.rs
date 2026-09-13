@@ -212,13 +212,13 @@ impl LocalLibraryStore {
     /// Rejects invalid bounds or damaged stored bytes/digests.
     pub async fn changes(
         &self,
-        workspace: WorkspaceId,
+        library: LibraryId,
         after: i64,
         limit: u32,
     ) -> Result<Vec<LocalChange>> {
         page(after, limit)?;
-        let rows=sqlx::query("SELECT sequence,mutation_id,entity_kind,entity_id,local_revision,change_kind,post_state_json,post_state_sha256 FROM local_changes WHERE workspace_id=? AND sequence>? ORDER BY sequence LIMIT ?")
-            .bind(workspace.bytes()).bind(after).bind(limit).fetch_all(self.db.pool()).await?;
+        let rows=sqlx::query("SELECT sequence,mutation_id,entity_kind,entity_id,local_revision,change_kind,post_state_json,post_state_sha256 FROM local_changes WHERE library_id=? AND sequence>? ORDER BY sequence LIMIT ?")
+            .bind(library.bytes()).bind(after).bind(limit).fetch_all(self.db.pool()).await?;
         rows.into_iter()
             .map(|row| {
                 let bytes: String = row.try_get("post_state_json")?;
@@ -407,7 +407,7 @@ async fn check_metadata(conn: &mut SqliteConnection, device: DeviceId) -> Result
         // Cloud-associated stores require a later adapter with durable outbox semantics.
         // Never silently treat such a store as local-only.
         {
-            let unsupported:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sync_targets) OR EXISTS(SELECT 1 FROM workspaces WHERE term_policy_version<>1)").fetch_one(&mut *conn).await?;
+            let unsupported:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sync_targets) OR EXISTS(SELECT 1 FROM libraries WHERE term_policy_version<>1)").fetch_one(&mut *conn).await?;
             if unsupported {return Err(Error::Unsupported);}
         sqlx::query_scalar("SELECT device_id FROM local_device WHERE singleton=1")
             .fetch_one(&mut *conn)
@@ -431,7 +431,7 @@ async fn check_metadata(conn: &mut SqliteConnection, device: DeviceId) -> Result
 
 #[derive(Clone, Copy)]
 enum Table {
-    Workspace,
+    Library,
     Person,
     Organization,
     Relationship,
@@ -445,7 +445,7 @@ enum Table {
 impl Table {
     const fn names(self) -> (&'static str, &'static str, &'static str) {
         match self {
-            Self::Workspace => ("workspaces", "workspace_id", "workspace"),
+            Self::Library => ("libraries", "library_id", "library"),
             Self::Person => ("people", "person_id", "person"),
             Self::Organization => ("organizations", "organization_id", "organization"),
             Self::Relationship => (
@@ -480,16 +480,16 @@ where
     // Identifiers come exclusively from the closed Table enum, never caller input.
     let scoped = matches!(table, Table::Catalog);
     let sql = sqlx::AssertSqlSafe(format!(
-        "SELECT workspace_id,local_revision,created_at_ms,{state} AS state FROM {name} WHERE {id}=? AND (? OR workspace_id=?)"
+        "SELECT library_id,local_revision,created_at_ms,{state} AS state FROM {name} WHERE {id}=? AND (? OR library_id=?)"
     ));
     let row = sqlx::query(sql)
         .bind(Uuid::from(meta.id).as_bytes().to_vec())
         .bind(!scoped)
-        .bind(meta.workspace_id.bytes())
+        .bind(meta.library_id.bytes())
         .fetch_optional(&mut *conn)
         .await?;
     if let Some(row) = &row
-        && row.try_get::<Vec<u8>, _>("workspace_id")? != meta.workspace_id.bytes()
+        && row.try_get::<Vec<u8>, _>("library_id")? != meta.library_id.bytes()
     {
         return Err(Error::Conflict);
     }
@@ -511,11 +511,11 @@ where
         }
         _ => return Err(Error::Conflict),
     }
-    if !matches!(table, Table::Workspace) {
+    if !matches!(table, Table::Library) {
         let active: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM workspaces WHERE workspace_id=? AND state='active')",
+            "SELECT EXISTS(SELECT 1 FROM libraries WHERE library_id=? AND state='active')",
         )
-        .bind(meta.workspace_id.bytes())
+        .bind(meta.library_id.bytes())
         .fetch_one(&mut *conn)
         .await?;
         if !active {
@@ -550,10 +550,10 @@ where
     let envelope = canonical(
         &serde_json::json!({"schema":"photara.local-command.v1","kind":table.names().2,"entity_id":Uuid::from(meta.id),"expected_local_revision":expected,"change":change,"post_state_sha256":hex(&sha(post.as_bytes()))}),
     )?;
-    sqlx::query("INSERT INTO mutations(mutation_id,workspace_id,source_device_id,origin,command_schema,primary_entity_kind,primary_entity_id,created_at_ms,envelope_json,envelope_sha256) VALUES(?,?,?,'local',1,?,?,?,?,?)")
-        .bind(mutation.bytes()).bind(meta.workspace_id.bytes()).bind(device.bytes()).bind(table.names().2).bind(Uuid::from(meta.id).as_bytes().to_vec()).bind(meta.updated_at.get()).bind(&envelope).bind(sha(envelope.as_bytes()).to_vec()).execute(&mut *conn).await?;
-    sqlx::query("INSERT INTO local_changes(workspace_id,mutation_id,entity_kind,entity_id,local_revision,change_kind,changed_at_ms,post_state_json,post_state_sha256) VALUES(?,?,?,?,?,?,?,?,?)")
-        .bind(meta.workspace_id.bytes()).bind(mutation.bytes()).bind(table.names().2).bind(Uuid::from(meta.id).as_bytes().to_vec()).bind(meta.revision.get()).bind(change).bind(meta.updated_at.get()).bind(&post).bind(sha(post.as_bytes()).to_vec()).execute(&mut *conn).await?;
+    sqlx::query("INSERT INTO mutations(mutation_id,library_id,source_device_id,origin,command_schema,primary_entity_kind,primary_entity_id,created_at_ms,envelope_json,envelope_sha256) VALUES(?,?,?,'local',1,?,?,?,?,?)")
+        .bind(mutation.bytes()).bind(meta.library_id.bytes()).bind(device.bytes()).bind(table.names().2).bind(Uuid::from(meta.id).as_bytes().to_vec()).bind(meta.updated_at.get()).bind(&envelope).bind(sha(envelope.as_bytes()).to_vec()).execute(&mut *conn).await?;
+    sqlx::query("INSERT INTO local_changes(library_id,mutation_id,entity_kind,entity_id,local_revision,change_kind,changed_at_ms,post_state_json,post_state_sha256) VALUES(?,?,?,?,?,?,?,?,?)")
+        .bind(meta.library_id.bytes()).bind(mutation.bytes()).bind(table.names().2).bind(Uuid::from(meta.id).as_bytes().to_vec()).bind(meta.revision.get()).bind(change).bind(meta.updated_at.get()).bind(&post).bind(sha(post.as_bytes()).to_vec()).execute(&mut *conn).await?;
     Ok(WriteOutcome {
         mutation_id: mutation,
         duplicate_manual_handles: Vec::new(),
@@ -597,7 +597,7 @@ fn metadata<I: TryFrom<Uuid, Error = Error>>(
     let state: String = row.try_get("state")?;
     Ok(Metadata {
         id: I::try_from(uuid)?,
-        workspace_id: WorkspaceId::from_bytes(&row.try_get::<Vec<u8>, _>("workspace_id")?)?,
+        library_id: LibraryId::from_bytes(&row.try_get::<Vec<u8>, _>("library_id")?)?,
         revision: Revision::try_from(row.try_get::<i64, _>("local_revision")?)?,
         created_at: Timestamp::try_from(row.try_get::<i64, _>("created_at_ms")?)?,
         updated_at: Timestamp::try_from(row.try_get::<i64, _>("updated_at_ms")?)?,

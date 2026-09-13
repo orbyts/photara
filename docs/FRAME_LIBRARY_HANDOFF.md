@@ -17,7 +17,7 @@ Library. Graph and Graph Lab source/resources remain unchanged.
 - Shell Lab → Application Surfaces → **Global module corner radius** authors one
   radius for all modules. Canvas/material/fill, insets, gutter, border/elevation,
   emphasis, header treatment and bottom/status shape are authorable there too.
-- Workspace menu/toolbar restores every module, including Graph and optional
+- Library menu/toolbar restores every module, including Graph and optional
   Work Surface. Account, People, Locations and Scenes have direct shortcuts.
   Visibility/placement preferences migrate without discarding older placements.
 - New Project reveals Project Info. Assign from Library searches reusable records;
@@ -76,9 +76,9 @@ preset/draft/export/override workflows.
 ## Verification
 
 - `cargo fmt --all --check`
-- `cargo test --workspace` — 64 tests passed, plus doc tests.
+- `cargo test --library` — 64 tests passed, plus doc tests.
 - `cargo clippy -p photara-library --all-targets -- -D warnings`
-- `cargo clippy --workspace --all-targets -- -D warnings`
+- `cargo clippy --library --all-targets -- -D warnings`
 - `platform/macos/build-ui.sh` — all eight labs and Photara built.
 - `platform/macos/photara-app/verify-bridge.sh` — passed.
 - `platform/macos/photara-ui-tests/verify-shared-ui.sh` — passed; inspected native

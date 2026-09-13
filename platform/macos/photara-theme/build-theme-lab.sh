@@ -47,7 +47,7 @@ xcrun swiftc \
   "$PHOTARA_APP_ROOT/Sources/ProductionGraphView.swift" \
   "$PHOTARA_APP_ROOT/Sources/InspectionAdapter.swift" \
   "$PHOTARA_APP_ROOT/Sources/ApplicationAdapter.swift" \
-  "$PHOTARA_APP_ROOT/Sources/WorkspaceView.swift" \
+  "$PHOTARA_APP_ROOT/Sources/EditorSessionView.swift" \
   "${THEME_EXPERIMENT_SOURCES[@]}" \
   "$SCRIPT_ROOT/Sources/ThemeLabView.swift" \
   "$SCRIPT_ROOT/Sources/ThemeLabApp.swift" \

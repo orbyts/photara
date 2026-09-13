@@ -5,7 +5,7 @@ enum ShellScenario: String, CaseIterable, Identifiable {
     case opening, recentsCollapsed, recentsExpanded, emptyProject, firstNode, selectionCleared
     case assets, layout, review, evaluating, diagnostics, compact, saved, syncing
     var id: String { rawValue }
-    static let layoutSurface = NodeWorkSurfacePresentation(nodeID: "layout", contributionID: "photara.layout.workspace",
+    static let layoutSurface = NodeWorkSurfacePresentation(nodeID: "layout", contributionID: "photara.layout.work-surface",
         title: "Layout", iconResourceID: "photara.layout.compose", accentHex: "#A682CF")
     var presentation: ApplicationPresentation {
         let opening = [.opening, .recentsCollapsed, .recentsExpanded].contains(self)
@@ -52,7 +52,7 @@ final class ShellLabModel: ObservableObject {
     @Published var dark = false
     @Published var identifiesControls = false
     @Published var lastAction = "Choose a scenario to author the shell."
-    let workspace = WorkspaceModel(persists: false)
+    let session = EditorSessionModel(persists: false)
     let assets = GalleryFixtures.assets()
     private static let draftKey = "photara.shell-lab.authoring-draft.v1"
     private static let themeDraftKey = "photara.shell-lab.theme-draft.v1"
@@ -112,15 +112,15 @@ final class ShellLabModel: ObservableObject {
         lastAction = "Restored the shipped preset in Shell Lab."
     }
     func reset() {
-        workspace.synchronizeProject(id: nil, nodeIDs: [])
-        workspace.restoreLayoutAuthoringPreset()
+        session.synchronizeProject(id: nil, nodeIDs: [])
+        session.restoreLayoutAuthoringPreset()
         presentation = scenario.presentation
         presentation.title = fixtureProjectTitle
-        workspace.synchronizeProject(id: presentation.projectID, nodeIDs: presentation.nodeIDs)
-        workspace.showsRecentProjects = scenario == .recentsExpanded
-        if scenario == .selectionCleared { workspace.selectedNodeID = nil }
-        if scenario == .layout { workspace.selectedNodeID = "layout"; workspace.activateWorkspace(for: "layout") }
-        if scenario == .review { workspace.activateReview() }
+        session.synchronizeProject(id: presentation.projectID, nodeIDs: presentation.nodeIDs)
+        session.showsRecentProjects = scenario == .recentsExpanded
+        if scenario == .selectionCleared { session.selectedNodeID = nil }
+        if scenario == .layout { session.selectedNodeID = "layout"; session.activateWorkSurface(for: "layout") }
+        if scenario == .review { session.activateReview() }
     }
 
     private static func loadShippedTheme() -> PhotaraThemeDocument {
@@ -147,14 +147,14 @@ final class ShellLabModel: ObservableObject {
         presentation.nodeCount = presentation.nodeIDs.count
         if id == "layout" { presentation.workSurfaces = [ShellScenario.layoutSurface] }
         presentation.isDirty = true
-        workspace.synchronizeProject(id: presentation.projectID, nodeIDs: presentation.nodeIDs)
+        session.synchronizeProject(id: presentation.projectID, nodeIDs: presentation.nodeIDs)
         lastAction = "Added \(id) fixture through catalog request"
     }
 }
 
 struct ShellLabPreview: View {
     @ObservedObject var model: ShellLabModel
-    @ObservedObject var workspace: WorkspaceModel
+    @ObservedObject var session: EditorSessionModel
     var body: some View {
         let appearance: PhotaraThemeAppearance = model.dark ? .dark : .light
         let theme = model.themeDocument.resolved(for: appearance)
@@ -169,27 +169,27 @@ struct ShellLabPreview: View {
                 case .scenes: ScenesView(presentation: LibraryFixtures.presentation(.populated), actions: .init(send: { model.lastAction = String(describing: $0) }))
                 case .projectInfo: ProjectInfoView(presentation: .init(title: model.presentation.title, revision: 1, assignments: LibraryFixtures.assignments, library: LibraryFixtures.presentation(.populated), phase: .ready, hasProject: true), actions: .init(send: { model.lastAction = String(describing: $0) }))
                 case .account: LibrarySyncView()
-                case .graph: ShellFixtureGraph(model: model, workspace: workspace).id(model.scenario)
+                case .graph: ShellFixtureGraph(model: model, session: session).id(model.scenario)
                 case .assetGallery:
                     AssetGalleryView(presentation: .init(assets: model.presentation.hasAssets ? model.assets : [],
                         canAssign: false, hasSourceNodes: model.presentation.hasAssetProducingContext),
                         actions: .init(open: { model.lastAction = "Open \($0)" }, assign: { model.lastAction = "Assign \($0)" },
-                            requestPreview: { _ in }, addSourceNode: { workspace.activateGraph(); workspace.requestNodeMenu() },
+                            requestPreview: { _ in }, addSourceNode: { session.activateGraph(); session.requestNodeMenu() },
                             runWorkflow: { model.send(.evaluate) }),
-                        filter: $workspace.galleryFilter, selectedAssetID: $workspace.selectedAssetID)
+                        filter: $session.galleryFilter, selectedAssetID: $session.selectedAssetID)
                 case .inspector:
                     InspectorView(presentation: inspection, actions: .init(
                         chooseFolder: { model.lastAction = "Choose folder \($0)" }, scanDisk: { model.lastAction = "Scan \($0)" },
                         connectDisk: { model.lastAction = "Connect \($0)" }, structure: { id, _ in model.lastAction = "Structure \(id)" },
                         cell: { id, _, _, _ in model.lastAction = "Cell \(id)" },
-                        showGraph: { workspace.activateGraph() }))
+                        showGraph: { session.activateGraph() }))
                 case .nodeWorkSurface: EmptyView() // Hosted by the fixture contribution adapter.
                 case .diagnostics:
                     DiagnosticsView(diagnostics: model.presentation.diagnosticCount > 0
                         ? [.init(code: "source.offline", message: "Reconnect the source folder to continue."),
                            .init(code: "asset.unavailable", message: "One source image needs to be located.")] : [])
                 }
-            }.environmentObject(workspace)
+            }.environmentObject(session)
             .environment(\.photaraTheme, theme)
             .tint(theme.color(.borderFocus))
             .preferredColorScheme(model.dark ? .dark : .light)
@@ -201,7 +201,7 @@ struct ShellLabPreview: View {
             }
     }
     private var inspection: InspectorPresentation {
-        guard let id = workspace.selectedNodeID else { return .init(node: nil) }
+        guard let id = session.selectedNodeID else { return .init(node: nil) }
         return id == "layout" ? InspectorFixture.layout.presentation : InspectorFixture.disk.presentation
     }
 }
@@ -260,7 +260,7 @@ private struct ShellControlInspectorOverlay: View {
         let outer = preset.frame.outerInset
         let statusTop = size.height - outer - preset.statusBarHeight - preset.frame.gutter / 2
         if point.y >= statusTop {
-            return "Workspace Chrome → Status bar height, text size, inset and spacing\nProject Chrome Colors → Header and status background"
+            return "Editor Chrome → Status bar height, text size, inset and spacing\nProject Chrome Colors → Header and status background"
         }
 
         let nearOuterEdge = point.x < outer + preset.frame.gutter
@@ -316,7 +316,7 @@ private struct ShellControlInspectorOverlay: View {
 /// Fixture adapter composes the unchanged production Graph views and shipped preset.
 private struct ShellFixtureGraph: View {
     @ObservedObject var model: ShellLabModel
-    @ObservedObject var workspace: WorkspaceModel
+    @ObservedObject var session: EditorSessionModel
     @Environment(\.colorScheme) private var colorScheme
     @State private var controller = PhotaraGraphInteractionController(document: .init(nodes: [], connections: []))
     @State private var catalog = false
@@ -339,15 +339,15 @@ private struct ShellFixtureGraph: View {
             .popover(isPresented: $catalog) {
                 Button("Add fixture node") { model.addNode(); catalog = false }.padding(20)
             }
-            .onAppear { controller.configure(.init(portOffset: preset.portOffset, noodleStyle: .curved)); synchronize(); if workspace.consumeNodeMenuRequest() { catalog = true } }
+            .onAppear { controller.configure(.init(portOffset: preset.portOffset, noodleStyle: .curved)); synchronize(); if session.consumeNodeMenuRequest() { catalog = true } }
             .onChange(of: model.presentation.nodeIDs) { synchronize() }
-            .onChange(of: workspace.nodeMenuRequest) { if workspace.consumeNodeMenuRequest() { catalog = true } }
+            .onChange(of: session.nodeMenuRequest) { if session.consumeNodeMenuRequest() { catalog = true } }
             .onChange(of: controller.selection) {
-                if case .node(let id) = controller.selection { workspace.selectedNodeID = id }
-                else { workspace.selectedNodeID = nil }
+                if case .node(let id) = controller.selection { session.selectedNodeID = id }
+                else { session.selectedNodeID = nil }
             }
     }
-    private func center() { controller.center(positions: [:], selectedNode: workspace.selectedNodeID) }
+    private func center() { controller.center(positions: [:], selectedNode: session.selectedNodeID) }
     private func synchronize() {
         let nodes = model.presentation.nodeIDs.enumerated().map { index, id in
             PhotaraGraphNode(id: id, kind: id, title: id == "disk" ? "Disk Folder" : "Layout", subtitle: "",

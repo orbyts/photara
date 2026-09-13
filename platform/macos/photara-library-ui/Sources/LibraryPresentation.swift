@@ -38,7 +38,7 @@ struct LibraryPresentation: Sendable {
     let phase: LibraryPhase
     static let loading = Self(items: [], phase: .loading)
 }
-/// Disposable editor state; identity and optimistic revision come from the observed value.
+/// Disposable session state; identity and optimistic revision come from the observed value.
 struct LibraryDraft: Identifiable, Sendable {
     var id: String { recordID ?? "new-\(kind.rawValue)" }
     let recordID: String?

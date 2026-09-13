@@ -166,8 +166,8 @@ fn every_new_id_rejects_nil_and_noncanonical_wire() {
 #[test]
 fn compatibility_adapters_preserve_exact_uuid_and_old_json() {
     let old = uid(123);
-    let lib = LibraryId::from_legacy_workspace_uuid(old).unwrap();
-    assert_eq!(lib.legacy_workspace_uuid().as_bytes(), old.as_bytes());
+    let lib = LibraryId::from_uuid(old).unwrap();
+    assert_eq!(lib.uuid().as_bytes(), old.as_bytes());
     assert_eq!(
         StorageLocationId::from_legacy_storage_root_uuid(old)
             .unwrap()

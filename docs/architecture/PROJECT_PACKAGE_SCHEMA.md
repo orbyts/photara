@@ -1,40 +1,18 @@
 # Project package schema
 
-## Current exact review packet — 2026-09-12
-
-The [D19 package delta](D19_STATIC_SCHEMA_DELTA.md#package-object-delta-and-closure) now specifies package 1.1 required features, authored owner association, versioned ledger/context/resource/history objects and exact closure. Existing bootstrap/ancestor/fixture bytes stay unchanged; a successor commit carries new semantics. Packages never carry executable ACLs or host grants. R1–R8 were accepted as proposed 2026-09-12; this is accepted design, not codec or writer implementation.
-
-## D19 supersession notice — baseline bytes retained
-
-[D19](LIBRARY_AND_NODE_WORK_SURFACES.md) is the current conceptual authority.
-Library replaces persistent Workspace; every Project has exactly one owning
-Library. Explicit ProjectAccessGrant/invitations and restricted/library-visible
-policies govern Project access independently of blanket Library membership.
-Project-only collaborators receive bounded assigned snapshots, not full catalog,
-Library feed, media or reset-snapshot access. Package/SMB grants remain separate.
-
-Graph assets are explicit connected AssetSet values (`$input.<port>`), with
-no `$project.assets` or ambient semantic Gallery/project union. The package may
-retain a private graph/run identity/provenance/artifact ledger; old ProjectAsset
-inventory fields are compatibility structures, not implicit node inputs.
-
-The S2–S6 names, DDL, endpoint paths, JSON examples and baseline fixture bytes
-below remain unchanged except explanatory amendment prose. Their Workspace,
-ProjectAsset, nullable-origin and membership-wide access assumptions are
-conceptually superseded where they conflict with D19. They require a separately
-reviewed additive/rename/migration plan, **not** direct implementation or silent
-reinterpretation. S3 remains 44 tables/179 statements; S4 35 tables/275 statements;
-all six applied L2 migration files/checksums are unchanged. Freeze logical/package/
-NodeSDK contracts, then review exact static SQLite/PostgreSQL/package/sync deltas,
-including grants, project-filtered queries/feeds/snapshots/media/receipts and
-compatibility. Revised CXT1 and CXT3 follow that review; L3 remains paused.
-
+**Current baseline — 2026-09-12:** the user superseded D19 R1 physical-name
+preservation because Generation Two is unshipped. Domain, package and SQL names
+below use Library consistently. This is a clean baseline rewrite, with no rename
+migration, alias, shadow column or live database change. See the
+[rebaseline authority and evidence](LIBRARY_NOMENCLATURE_REBASELINE.md) and
+[current execution order](../ROADMAP_0_2_EXECUTION.md). CXT3a is complete; local
+D19 execution/app initialization and PostgreSQL/RLS remain separate CXT3b/c gates.
 
 ## D18 amendment boundary — pending detailed approval
 
 [Typed context and expressions](TYPED_CONTEXT_AND_EXPRESSIONS.md) proposes a
 required `photara.context.v1` feature and exact schema-selected references for
-Project/Graph/node variables, typed AST/source records, Workspace captures,
+Project/Graph/node variables, typed AST/source records, Library captures,
 metadata selections, immutable Run ContextSnapshots and proposal/application
 evidence. Project/Graph variable edits and metadata selections enter authored
 digests; recording a Run/snapshot/receipt alone does not change authored Graph
@@ -140,7 +118,7 @@ An `ObjectRef` is `{ "kind": "json" | "blob", "sha256": <digest>,
 there is no caller-supplied object path. SHA-256 verifies exact stored bytes.
 Every authoritative JSON object has a schema ID/version and ProjectId except
 package-release manifests, which use their exact package identity. A copied
-Library snapshot carries the owning ProjectId as well as its source WorkspaceId.
+Library snapshot carries the owning ProjectId as well as its source LibraryId.
 
 Keep these digests distinct:
 
@@ -207,21 +185,21 @@ permissions or prove trusted executable installation.
 
 The authored root has schema `photara.project.authored` version 1 and contains:
 
-- ProjectId; nullable originating WorkspaceId for unassociated current-format
+- ProjectId; nullable originating LibraryId for unassociated current-format
   imports; Project creation/update times; title; description; `active | archived`;
 - a monotonically checked authored revision, distinct from package save revision;
 - party-assignment, Location-assignment, asset-inventory and resource-inventory
   ObjectRefs, plus a GraphId-sorted list of named Graph ObjectRefs;
 - preserved namespaced extension data and explicitly marked compatibility facts.
 
-New Projects receive the selected local/cloud WorkspaceId. A nullable origin
-does not imply membership or authorization. Cross-Workspace snapshot references
+New Projects receive the selected local/cloud LibraryId. A nullable origin
+does not imply membership or authorization. Cross-Library snapshot references
 are permitted as historical data: importing a package conveys only contained
 facts, never permission to fetch the source Library. Refreshing a snapshot needs
-an authorized lookup in its source Workspace.
+an authorized lookup in its source Library.
 
 Each typed `LibraryReferenceSnapshot` has a SnapshotId, owning ProjectId, source
-WorkspaceId/record ID/kind/revision, captured time, display name and typed payload.
+LibraryId/record ID/kind/revision, captured time, display name and typed payload.
 Snapshot payloads contain the fields needed by the assignment, not an entire
 Account/Library export. Supported kinds are Person, Organization, Location and
 LocationKind. Source revision is interpreted in its source authority, never
@@ -231,7 +209,7 @@ explicit refresh creates another snapshot and authored revision.
 Party assignments have AssignmentId, ProjectId, Person-or-Organization snapshot
 reference, a nonempty set of namespaced project roles, notes, revision and
 creation/update times. Active assignments are unique by Project plus source
-Workspace/kind/record ID; several roles share that assignment.
+Library/kind/record ID; several roles share that assignment.
 
 Location assignments have their own ID/revision/times and exactly one Location
 snapshot plus its LocationKind snapshot. The Location snapshot's source kind ID
@@ -494,7 +472,7 @@ Selection of an active copy is explicit; divergent copies are never auto-merged.
 
 Fork remaps Graph, NodeInstance, Connection, party/Location assignment, snapshot,
 Asset, Representation/content revision, Resource and external binding-handle IDs,
-updating all known owned references. Source Library IDs/Workspace provenance and
+updating all known owned references. Source Library IDs/Library provenance and
 content fingerprints stay unchanged. Device grants/bookmarks are not copied.
 Package/definition/value/schema/category identifiers remain exact external
 coordinates. Byte blobs may be copied/reflinked safely; mutable outside hardlinks
@@ -690,8 +668,8 @@ Effect uncertainty remains separate from the attempt's terminal fact:
    and blocking remap when unknown node state cannot be transformed safely.
 7. Read-only damaged/unsupported handling, explicit current-document conversion,
    unresolved Library compatibility facts and no silent lossy export.
-8. Historical cross-Workspace references do not grant source access; nullable
-   Workspace origin is limited to unassociated current-format imports.
+8. Historical cross-Library references do not grant source access; nullable
+   Library origin is limited to unassociated current-format imports.
 
 ## S2 acceptance checklist
 

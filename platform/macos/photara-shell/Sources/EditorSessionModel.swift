@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-enum WorkspacePanelID: String, CaseIterable, Codable, Identifiable, Sendable {
+enum EditorPanelID: String, CaseIterable, Codable, Identifiable, Sendable {
     case assetGallery
     case graph
     case nodeWorkSurface = "layoutAuthoring"
@@ -43,13 +43,13 @@ enum WorkspacePanelID: String, CaseIterable, Codable, Identifiable, Sendable {
     }
 }
 
-enum WorkspaceRegion: String, CaseIterable, Codable, Sendable {
+enum EditorRegion: String, CaseIterable, Codable, Sendable {
     case leading
     case content
     case trailing
 }
 
-enum WorkspaceMode: String, CaseIterable, Sendable {
+enum EditorMode: String, CaseIterable, Sendable {
     case graph
     case nodeWorkSurface = "layout"
     static var layout: Self { .nodeWorkSurface } // Compatibility with the first Layout-only host.
@@ -67,15 +67,15 @@ enum WorkspaceMode: String, CaseIterable, Sendable {
 }
 
 struct PanelPlacement: Codable, Equatable, Identifiable, Sendable {
-    var id: WorkspacePanelID
-    var region: WorkspaceRegion
+    var id: EditorPanelID
+    var region: EditorRegion
     var order: Int
     var isVisible: Bool
 }
 
 @MainActor
-final class WorkspaceModel: ObservableObject {
-    @Published var focusedPanel: WorkspacePanelID?
+final class EditorSessionModel: ObservableObject {
+    @Published var focusedPanel: EditorPanelID?
     @Published private(set) var placements: [PanelPlacement]
     @Published var selectedNodeID: String? {
         didSet { if selectedNodeID != nil { inspectorActivated = true } }
@@ -89,13 +89,13 @@ final class WorkspaceModel: ObservableObject {
     @Published var selectedAssetID: String?
     @Published var selectedFrameID: String?
     @Published var selectedCellID: String?
-    @Published var activeWorkspaceNodeID: String?
+    @Published var activeWorkSurfaceNodeID: String?
     @Published var galleryFilter = ""
-    @Published private(set) var mode: WorkspaceMode = .graph
+    @Published private(set) var mode: EditorMode = .graph
     private var nodeMenuPending = false
     @Published private(set) var nodeMenuRequest: UInt64 = 0
 
-    private static let persistenceKey = "photara.workspace.layout-authoring.v1"
+    private static let persistenceKey = "photara.session.layout-authoring.v1"
     private let defaults: UserDefaults
     private let persists: Bool
 
@@ -112,18 +112,18 @@ final class WorkspaceModel: ObservableObject {
         }
     }
 
-    func visiblePanels(in region: WorkspaceRegion) -> [WorkspacePanelID] {
+    func visiblePanels(in region: EditorRegion) -> [EditorPanelID] {
         placements
             .filter { $0.region == region && $0.isVisible }
             .sorted { $0.order < $1.order }
             .map(\.id)
     }
 
-    func isVisible(_ panel: WorkspacePanelID) -> Bool {
+    func isVisible(_ panel: EditorPanelID) -> Bool {
         placements.first { $0.id == panel }?.isVisible == true
     }
 
-    func toggle(_ panel: WorkspacePanelID) {
+    func toggle(_ panel: EditorPanelID) {
         if panel == .assetGallery && mode == .review { activateGraph() }
         if panel == .assetGallery { galleryExplicitlyOpened = !isVisible(panel) || !galleryExplicitlyOpened }
         if panel == .inspector { inspectorActivated = true }
@@ -131,7 +131,7 @@ final class WorkspaceModel: ObservableObject {
         update(panel) { $0.isVisible.toggle() }
     }
 
-    func show(_ panel: WorkspacePanelID) {
+    func show(_ panel: EditorPanelID) {
         focusedPanel = panel
         if panel == .nodeWorkSurface { mode = .nodeWorkSurface }
         if panel == .graph { mode = .graph }
@@ -141,8 +141,8 @@ final class WorkspaceModel: ObservableObject {
         update(panel) { $0.isVisible = true }
     }
 
-    func activateWorkspace(for nodeID: String) {
-        activeWorkspaceNodeID = nodeID
+    func activateWorkSurface(for nodeID: String) {
+        activeWorkSurfaceNodeID = nodeID
         mode = .nodeWorkSurface
         show(.nodeWorkSurface)
     }
@@ -170,7 +170,7 @@ final class WorkspaceModel: ObservableObject {
         return pending
     }
 
-    func move(_ panel: WorkspacePanelID, to region: WorkspaceRegion) {
+    func move(_ panel: EditorPanelID, to region: EditorRegion) {
         let nextOrder = placements
             .filter { $0.region == region }
             .map(\.order)
@@ -205,7 +205,7 @@ final class WorkspaceModel: ObservableObject {
             galleryExplicitlyOpened = false
             diagnosticsExplicitlyOpened = false
             selectedAssetID = nil; selectedFrameID = nil; selectedCellID = nil
-            activeWorkspaceNodeID = nil
+            activeWorkSurfaceNodeID = nil
             mode = .graph
             focusedPanel = .graph
         }
@@ -219,7 +219,7 @@ final class WorkspaceModel: ObservableObject {
         knownNodeIDs = ids
     }
 
-    private func update(_ panel: WorkspacePanelID, mutation: (inout PanelPlacement) -> Void) {
+    private func update(_ panel: EditorPanelID, mutation: (inout PanelPlacement) -> Void) {
         guard let index = placements.firstIndex(where: { $0.id == panel }) else { return }
         mutation(&placements[index])
         persist()

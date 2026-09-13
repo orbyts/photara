@@ -2,7 +2,7 @@
 
 ## Current exact review packet — 2026-09-12
 
-The [D19 exact static delta](D19_STATIC_SCHEMA_DELTA.md) now distinguishes package 1.1 authority, additive Library/access/storage/context tables, device recovery and v2 scoped transport. Physical Workspace/StorageRoot identifiers remain compatibility names. Current store implementation below is retained; R1–R8 were accepted as proposed 2026-09-12. CXT2 inert DDL is complete; CXT1a and CXT3 still require separate scope selection.
+The [D19 exact static delta](D19_STATIC_SCHEMA_DELTA.md) now distinguishes package 1.1 authority, additive Library/access/storage/context tables, device recovery and v2 scoped transport. Library identifiers are canonical in the forward physical schema. Current store implementation below is retained; R1–R8 were accepted as proposed 2026-09-12. CXT2 inert DDL is complete; CXT1a/b and CXT3a are complete; CXT3b/c require separate scope selection.
 
 ## D19 persistence amendment — contracts pending, no DDL
 
@@ -19,12 +19,11 @@ not a semantic project asset union or `$project.assets`. Typed metadata enrichme
 produces AssetSet/MetadataPatch; effect nodes materialize outputs and retain typed
 receipts. Connector secrets/device paths remain host/account capabilities.
 
-Existing S2–S6 Workspace/ProjectAsset names and six L2 migrations are retained as
-physical compatibility baselines, conceptually superseded where D19 conflicts.
-No new grant table, rename, nullable-origin reinterpretation, schema or format is
-approved here. Logical/package/NodeSDK freeze and static exact SQLite/PostgreSQL/
-sync deltas precede revised CXT1/CXT3 and L3. The implementation account below is
-historical/current store evidence, not the amended target's access contract.
+The S2–S6 records and six L2 migrations have been explicitly rebaselined to
+Library naming. Authored Project/package authority and access contracts remain
+unchanged. CXT1a/b and CXT3a are complete; D19 local/service execution remains
+separately gated CXT3b/c work. The implementation account below describes the
+existing store behavior, not an application cutover.
 
 The Stage 4A implementation below remains the current store. The reviewable
 [S2 project package schema](PROJECT_PACKAGE_SCHEMA.md) proposes its evolution
@@ -43,7 +42,7 @@ package records; Run overrides/context/metadata evidence are immutable history.
 Account scope is preferences only, superseding any implication below of ambient
 user-scope semantic variables. Reusable presets become authored values only by
 explicit application. CXT2 will review additive physical/package fields, required
-features and apply/idempotency receipts; existing L2 migrations stay unchanged.
+features and apply/idempotency receipts; the unshipped L2 migrations now use the clean Library baseline.
 One command covers one Library transaction or one package commit, never a
 distributed transaction across both. Private grants/SecretRefs remain host-only.
 

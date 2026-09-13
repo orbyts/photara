@@ -29,7 +29,7 @@ spacing, vertical position and maximum text width. Lab drafts are saved automati
 production Inspector reloads; Remove returns to the bundled default. There is no
 second Inspector implementation. Lab selections and scenario controls are transient.
 
-Every node has a contract Inspector. Node-specific authoring workspaces are
+Every node has a contract Inspector. Node-specific authoring editors are
 optional; Layout's authoring canvas lives separately in `../photara-layout`.
 See [shared architecture and handoff](../SHARED_UI.md).
 

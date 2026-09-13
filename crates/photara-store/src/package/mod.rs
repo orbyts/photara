@@ -4,10 +4,12 @@
 //! side effects. It never resolves external resource handles. Original canonical
 //! object bytes remain available; validation does not rewrite unknown fields.
 
+pub mod compatibility;
 mod json;
 mod reader;
 mod records;
 mod types;
+pub mod v1_1;
 
 pub use json::{JsonLimits, parse_canonical_json, parse_json};
 pub use reader::validate_resource_path;
@@ -157,6 +159,7 @@ pub fn validate_directory(
         return Err(PackageError::Integrity);
     }
     let mut context = Context {
+        generation_two: false,
         reader,
         limits,
         project_id: bootstrap.project_id,
@@ -262,6 +265,7 @@ pub fn validate_directory(
 }
 
 pub(super) struct Context {
+    generation_two: bool,
     reader: reader::Reader,
     limits: PackageLimits,
     project_id: photara_core::ProjectId,
@@ -308,7 +312,11 @@ impl Context {
             return Err(PackageError::Integrity);
         }
         let value = parse_canonical_json(&bytes, self.limits.json)?;
-        records::validate_record(&value, self.project_id, &mut self.diagnostics)?;
+        if self.generation_two {
+            v1_1::validate_record(&value, self.project_id, &mut self.diagnostics)?;
+        } else {
+            records::validate_record(&value, self.project_id, &mut self.diagnostics)?;
+        }
         self.objects.insert(
             r.sha256.clone(),
             VerifiedObject {
@@ -329,7 +337,11 @@ impl Context {
             match reference.kind {
                 ObjectKind::Json => {
                     let value = self.load_json(&reference)?;
-                    records::references(&value, &mut pending)?;
+                    if self.generation_two {
+                        v1_1::references(&value, &mut pending)?;
+                    } else {
+                        records::references(&value, &mut pending)?;
+                    }
                 }
                 ObjectKind::Blob => {
                     if let Some(old) = self.blobs.get(&reference.sha256) {
@@ -389,4 +401,24 @@ fn features(values: &[String]) -> Result<(), PackageError> {
         return Err(PackageError::UnsupportedFeature);
     }
     Ok(())
+}
+
+// Internal read-only view lets 1.1 reuse invariant v1 graph/history checks.
+pub(super) trait ObjectLookup {
+    fn objects(&self) -> &BTreeMap<Sha256Hex, VerifiedObject>;
+    fn object(&self, r: &ObjectRef) -> Result<&VerifiedObject, PackageError> {
+        let o = self
+            .objects()
+            .get(&r.sha256)
+            .ok_or(PackageError::Integrity)?;
+        if o.reference != *r || r.kind != ObjectKind::Json {
+            return Err(PackageError::Integrity);
+        }
+        Ok(o)
+    }
+}
+impl ObjectLookup for Context {
+    fn objects(&self) -> &BTreeMap<Sha256Hex, VerifiedObject> {
+        &self.objects
+    }
 }

@@ -203,7 +203,7 @@ pub fn standard_gallery_preview_profile() -> ProxyProfile {
 /// This is intentionally not a high-quality editing or export representation.
 /// Final authored geometry remains normalized Core state applied to originals
 /// by downstream provider/render nodes. Native clients constrain its displayed
-/// headroom for mixed thumbnail/workspace presentation and let the OS tone-map
+/// headroom for mixed thumbnail/library presentation and let the OS tone-map
 /// it on SDR displays.
 ///
 /// # Panics

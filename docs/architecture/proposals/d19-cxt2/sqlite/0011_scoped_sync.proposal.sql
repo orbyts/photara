@@ -7,7 +7,7 @@
 
 -- P1: approved signature in D19_STATIC_SCHEMA_DELTA.md.
 CREATE TABLE project_media_links (
-  workspace_id BLOB NOT NULL CHECK (length(workspace_id)=16 AND workspace_id<>zeroblob(16)),
+  library_id BLOB NOT NULL CHECK (length(library_id)=16 AND library_id<>zeroblob(16)),
   project_id BLOB NOT NULL CHECK (length(project_id)=16 AND project_id<>zeroblob(16)),
   sha256 BLOB NOT NULL CHECK (length(sha256)=32),
   purpose TEXT NOT NULL,
@@ -20,23 +20,23 @@ CREATE TABLE project_media_links (
   local_revision INTEGER NOT NULL CHECK (local_revision>=1),
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
-  PRIMARY KEY (workspace_id,project_id,sha256,purpose),
-  FOREIGN KEY (workspace_id,project_id) REFERENCES project_ownership (workspace_id,project_id) ON DELETE RESTRICT,
-  FOREIGN KEY (workspace_id,sha256) REFERENCES library_media (workspace_id,sha256) ON DELETE RESTRICT,
+  PRIMARY KEY (library_id,project_id,sha256,purpose),
+  FOREIGN KEY (library_id,project_id) REFERENCES project_ownership (library_id,project_id) ON DELETE RESTRICT,
+  FOREIGN KEY (library_id,sha256) REFERENCES library_media (library_id,sha256) ON DELETE RESTRICT,
   CHECK (purpose IN ('cover','assigned-snapshot')),
   CHECK (state IN ('active','tombstoned')),
   CHECK ((state='tombstoned')=(retired_at IS NOT NULL)),
-  FOREIGN KEY (workspace_id) REFERENCES workspaces (workspace_id) ON DELETE RESTRICT,
+  FOREIGN KEY (library_id) REFERENCES libraries (library_id) ON DELETE RESTRICT,
   CHECK (record_schema=1),
   CHECK (updated_at>=created_at)
 ) STRICT;
 
-CREATE INDEX d19_project_media_links_media ON project_media_links (workspace_id,sha256,state,project_id);
+CREATE INDEX d19_project_media_links_media ON project_media_links (library_id,sha256,state,project_id);
 
 -- Q1: approved signature in D19_STATIC_SCHEMA_DELTA.md.
 CREATE TABLE scoped_sync_channels (
   channel_id BLOB NOT NULL CHECK (length(channel_id)=16 AND channel_id<>zeroblob(16)),
-  workspace_id BLOB NOT NULL CHECK (length(workspace_id)=16 AND workspace_id<>zeroblob(16)),
+  library_id BLOB NOT NULL CHECK (length(library_id)=16 AND library_id<>zeroblob(16)),
   account_id BLOB NOT NULL CHECK (length(account_id)=16 AND account_id<>zeroblob(16)),
   environment_id TEXT NOT NULL,
   scope_kind TEXT NOT NULL,
@@ -51,14 +51,14 @@ CREATE TABLE scoped_sync_channels (
   FOREIGN KEY (account_id) REFERENCES account_cache (account_id) ON DELETE RESTRICT,
   CHECK (scope_kind IN ('library','project')),
   CHECK ((scope_kind='project')=(project_id IS NOT NULL)),
-  FOREIGN KEY (workspace_id,project_id) REFERENCES project_ownership (workspace_id,project_id) ON DELETE RESTRICT,
+  FOREIGN KEY (library_id,project_id) REFERENCES project_ownership (library_id,project_id) ON DELETE RESTRICT,
   CHECK (state IN ('active','paused','access-lost','snapshot-required')),
-  FOREIGN KEY (workspace_id) REFERENCES workspaces (workspace_id) ON DELETE RESTRICT
+  FOREIGN KEY (library_id) REFERENCES libraries (library_id) ON DELETE RESTRICT
 ) STRICT;
 
-CREATE UNIQUE INDEX d19_scoped_sync_channels_library ON scoped_sync_channels (workspace_id,account_id,environment_id) WHERE scope_kind='library';
+CREATE UNIQUE INDEX d19_scoped_sync_channels_library ON scoped_sync_channels (library_id,account_id,environment_id) WHERE scope_kind='library';
 
-CREATE UNIQUE INDEX d19_scoped_sync_channels_project ON scoped_sync_channels (workspace_id,project_id,account_id,environment_id) WHERE scope_kind='project';
+CREATE UNIQUE INDEX d19_scoped_sync_channels_project ON scoped_sync_channels (library_id,project_id,account_id,environment_id) WHERE scope_kind='project';
 
 -- Q2: approved signature in D19_STATIC_SCHEMA_DELTA.md.
 CREATE TABLE scoped_sync_operations (
@@ -180,7 +180,7 @@ CREATE UNIQUE INDEX d19_scoped_sync_snapshot_installs_pending ON scoped_sync_sna
 
 CREATE INDEX d19_scoped_sync_channels_fk1 ON scoped_sync_channels (account_id);
 
-CREATE INDEX d19_scoped_sync_channels_fk4 ON scoped_sync_channels (workspace_id,project_id);
+CREATE INDEX d19_scoped_sync_channels_fk4 ON scoped_sync_channels (library_id,project_id);
 
 CREATE INDEX d19_scoped_sync_operations_fk3 ON scoped_sync_operations (channel_id,replacement_operation_id);
 

@@ -1,5 +1,57 @@
 # Active handoff
 
+Updated 2026-09-12. **CXT3a and the separately authorized Library nomenclature
+rebaseline are complete and verified.** Nothing is committed or pushed.
+
+Read the [CXT3a reader/API record](architecture/CXT3A_PACKAGE_READER.md),
+[rebaseline authority/evidence](architecture/LIBRARY_NOMENCLATURE_REBASELINE.md)
+and [exact file/hash inventory](architecture/LIBRARY_REBASELINE_INVENTORY.md).
+The [execution roadmap](ROADMAP_0_2_EXECUTION.md) is the current gate order.
+
+Suhail superseded D19 R1 physical-name preservation: unshipped Generation Two uses
+`Library`, `LibraryId`, `libraries`, `library_id` throughout Rust, package, SQLite,
+PostgreSQL proposals and service vocabulary. There are no rename migrations,
+aliases, shadow columns, dual writes or runtime naming adapters. The old v0.1.3
+and live databases are untouched. An optional future historical importer is
+non-gating; it has not been implemented.
+
+**Verification:** 245 full offline Rust tests pass; all-target compilation, Clippy,
+formatting and whitespace checks pass. Fresh SQLite baseline: 44 tables, 30 explicit
+indexes, 95 triggers, 171 statements; integrity and FK checks pass. S3/S4 documentation
+totals include examples (179/275); PostgreSQL baseline DDL is 263 statements and was
+never executed. D19 static proposals retain 26/20 new tables, 139/431 statements,
+46 checked signatures and 104 FKs. All 12 canonical fixture containers and 92 embedded
+byte records pass Rust codec/hash verification. Naming checks, Swift/Rust bridge,
+98 shared UI snapshots and 10 production snapshots pass; representative Light/Dark
+screens were visually checked.
+
+## Authority and exact next task
+
+Library/account/catalog/access/device-binding records belong in local/cloud
+databases. Authored Project graphs, nodes, connections, configuration, Work Surface
+state, variables and asset/resource ledgers belong in `.photara`, with the designed
+catalog/sync projections. Immutable runs/evidence follow package/cloud projection
+rules. UI tokens are code/presets. Window geometry, panes, selection, zoom, scroll,
+transient progress and unsaved edits are per-device preferences/session state.
+The shell now calls that model `EditorSessionModel`; it is not Library data.
+
+**Next separately authorize CXT3b:** use the clean Library baseline and accepted
+D19 proposals to implement executable local SQLite repositories/facade and real
+Generation Two app initialization. Prove fresh disposable migrations, floor refusal,
+rollback/FKs, scoped permission/CAS behavior and local recovery with fake hosts.
+Initialize local My Library explicitly; do not route through a legacy importer.
+The current app's existing Library/UI regression is not a claim that D19 app
+initialization or the new repositories are implemented.
+
+Then CXT3c proves disposable PostgreSQL/RLS and scoped service behavior. Fresh
+Generation Two Neon deployment requires its own authorization after those checks.
+The minimum usable Project/UI/node vertical slice follows that deployment gate.
+No CXT3b implementation, D19 migration execution, PostgreSQL/Neon execution,
+service deployment, live database change, staging, commit or push occurred here.
+
+## Historical CXT1b handoff — superseded next-step labels
+
+
 Updated 2026-09-12. **CXT1b pure Rust context contracts are complete.** Suhail
 separately selected this slice after CXT1a. Read the [implementation/API/grammar/
 verification record](architecture/CXT1B_CONTEXT_CONTRACTS.md), then the
@@ -19,7 +71,7 @@ tests, three new serialization compile-fail tests and 99 retained CXT1a/Core/SDK
 tests. New coverage includes a 441-case deterministic arithmetic matrix. The separate
 [d19-context.json](fixtures/generation-two/d19-context.json) was generated and checked
 by the unchanged Rust canonical encoder; previous fixture bytes remain exact.
-Affected formatting, all-target workspace compilation, Clippy with `-D warnings`,
+Affected formatting, all-target library compilation, Clippy with `-D warnings`,
 whitespace, Markdown links and pre-slice hash checks pass. Database suites were not
 executed; retained node tests use disposable filesystem fixtures.
 
@@ -85,7 +137,7 @@ package 1.1 codec or host/database adapter is included.
 
 **Verification passed offline: 99 tests** (58 new integration, two compile-fail,
 39 retained Core/SDK/node tests), plus explicit golden generation and the final
-SDK rerun. Affected-crate formatting, whole-workspace all-target compilation and
+SDK rerun. Affected-crate formatting, whole-library all-target compilation and
 Clippy with `-D warnings` pass. Database suites were not executed. The pre-slice
 SHA-256 inventory confirms 302 pre-existing files remain byte-identical and preserves existing dirty work, v1 source/API/cache behavior,
 Cargo files, all six L2 migrations, all 14 CXT2 proposal files and all nine
@@ -259,7 +311,7 @@ exists. Current one-JSON ProjectDocument import/export and Core are unchanged.
 
 The S6 33-file inert archive is materialized only in fresh temporary roots.
 All 25 focused tests and 29 retained Core/NodeSDK/store tests passed; selected doc
-tests passed. Store all-target Clippy with warnings denied and whole-workspace
+tests passed. Store all-target Clippy with warnings denied and whole-library
 all-target compilation passed offline. No database, service, user Project or SMB
 storage was opened. Full Unicode graph-name uniqueness, embedded manifest support,
 application integration, conversion, publication and recovery remain outside this
@@ -273,7 +325,7 @@ Unicode-16 Kind claims, local changes and catalog/device/verified-observation
 foundations. Storexa 0.2/SQLx 0.9 is adopted privately; existing v1 APIs are intact.
 The necessary rusqlite compatibility pin is 0.39.0/libsqlite3-sys 0.37.0. All five
 retained Library tests and 16 new L2 tests pass; selected regression total is 75,
-with doc tests, workspace Clippy `-D warnings` and whole-workspace compile passing.
+with doc tests, library Clippy `-D warnings` and whole-library compile passing.
 See [L2 scope and limits](architecture/LOCAL_LIBRARY_IMPLEMENTATION.md).
 
 **Next: separately select CXT3a.** R1–R8, CXT2 inert DDL and CXT1a/b pure contracts
@@ -303,7 +355,7 @@ protocol is approved design, not an fsync/rename/SMB guarantee.
 
 ## Working tree warning
 
-The canonical tree already contains substantial uncommitted docs, shell/workspace
+The canonical tree already contains substantial uncommitted docs, shell/library
 presentation, Inspector, lab, build configuration and UI verification work.
 These belong to the user/ongoing work and were preserved. The planning docs and
 L1 sources are also uncommitted. Inspect live status; do not reset, restore, clean,
@@ -490,6 +542,6 @@ cargo check --offline --workspace --all-targets
 ```
 
 Untracked files need explicit inspection; ordinary git diff omits them. Whole-
-workspace tests were not needed for this bounded slice; selected Library tests
+library tests were not needed for this bounded slice; selected Library tests
 now run with L2's temporary-database authority. Compilation is not service or
 package-publication verification.

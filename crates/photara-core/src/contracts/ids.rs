@@ -75,18 +75,6 @@ ids!(
     LocationKindId
 );
 
-impl LibraryId {
-    /// Explicit adapter for the unchanged physical Workspace UUID.
-    /// # Errors
-    /// Rejects nil; performs no claim or association.
-    pub const fn from_legacy_workspace_uuid(value: Uuid) -> Result<Self> {
-        Self::from_uuid(value)
-    }
-    #[must_use]
-    pub const fn legacy_workspace_uuid(self) -> Uuid {
-        self.uuid()
-    }
-}
 impl StorageLocationId {
     /// Explicit adapter for the unchanged physical `StorageRoot` UUID.
     /// # Errors

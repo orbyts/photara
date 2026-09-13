@@ -39,7 +39,7 @@ These continue the [Core](CORE.md), [node package](NODE_PACKAGES.md),
 ## Approved target product model
 
 An **Account** is an authenticated identity. A **Library** is the durable,
-user-named catalog/collaboration boundary, analogous to a Notion workspace.
+user-named catalog/collaboration boundary, analogous to a Notion library.
 Users can own or join multiple Libraries. First installation automatically
 creates and opens local **My Library** without sign-in. LibraryId survives rename
 and explicit local-to-cloud association; joining an existing Library is distinct.
@@ -232,7 +232,7 @@ and resolved remains an approval decision.
 D19 standardizes **Work Surface** for node-provided UI, **Canvas** for a spatial
 editor, **Window Layout / Layout Preset** for native arrangement, **Panel** for a
 dockable region and **Browser** for list/grid/card primitives. Retire ambiguous UI
-Workspace labels without renaming source identifiers in this documentation slice.
+Library labels without renaming source identifiers in this documentation slice.
 Each window binds one Library; Project windows also bind one Project and display
 both scopes. Library management Browsers are app-owned. Node Work Surfaces embed
 host-owned People/Location pickers and Browser/Gallery components with declared
@@ -338,7 +338,7 @@ mistaken for approval of this target model or silently migrated.
 The list below records the original architecture questions; S7 accepted D1–D17
 on 2026-09-11. D19 now supplies the conceptual Library, access, dataflow and Work
 Surface decisions. Remaining exact contracts follow
-[D19's next gates](LIBRARY_AND_NODE_WORK_SURFACES.md#compatibility-physical-review-and-exact-next-gates),
+[D19's next gates](LIBRARY_AND_NODE_WORK_SURFACES.md#clean-baseline-and-exact-next-gates),
 not a restart of S7 or automatic implementation permission.
 
 1. Ratify the remaining target entity/ownership model around the confirmed

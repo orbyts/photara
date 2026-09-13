@@ -5,7 +5,7 @@
 The [D19 static delta](D19_STATIC_SCHEMA_DELTA.md) is complete for review and requires no Storexa API change. Photara owns additive schemas, scoped authorization/sync and package contracts. R1–R8 were accepted as proposed 2026-09-12; CXT2 inert DDL is complete, followed by separately selected CXT1a/CXT3; L3 remains paused.
 
 **2026-09-12 D19 amendment:** [Library and node contracts](LIBRARY_AND_NODE_WORK_SURFACES.md)
-and revised D18 pause L3. Library replaces persistent Workspace; Project grants,
+and revised D18 pause L3. Library is the persistent ownership domain; Project grants,
 typed variable SQL and project-filtered authorization remain Photara-owned.
 Consistency review and logical/package/NodeSDK freeze precede static exact CXT2
 DDL/sync review, then revised CXT1/CXT3. No new Storexa abstraction or change to

@@ -4,7 +4,7 @@ Owns launcher, native toolbar, navigation, pane placement/disclosure, panel head
 host empty states and contextual status. It accepts `ApplicationPresentation` and
 semantic `ApplicationActions`; feature rendering belongs to the supplied panel closure.
 
-`ApplicationShellAvailability` is typed capability policy. `WorkspaceModel` owns
+`ApplicationShellAvailability` is typed capability policy. `EditorSessionModel` owns
 client preferences and transient selection/disclosure. Every node can reveal the
 shared Inspector; optional Layout authoring requires a capability. Session state
 resets per project and never enters Project Documents or graph digests.
@@ -59,4 +59,4 @@ canvas gutters and an integrated icon/header. Theme owns the application base,
 module base, optional inset-content surface and selection tint. New Library modules and Account are peers.
 Graph and the optional Work Surface have independent visibility; neither's
 renderer owns Shell clipping or insets. Existing saved placements migrate by
-adding only missing identities, and Restore Workspace remains recoverable.
+adding only missing identities, and Restore Editor remains recoverable.

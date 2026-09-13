@@ -5,7 +5,7 @@ fn at() -> Timestamp {
     Timestamp::try_from(1_789_142_400_000).unwrap()
 }
 
-async fn fixture() -> (tempfile::TempDir, LocalLibraryStore, Workspace) {
+async fn fixture() -> (tempfile::TempDir, LocalLibraryStore, Library) {
     let temp = tempfile::tempdir_in("/private/tmp").unwrap();
     let store = LocalLibraryStore::open(
         temp.path().join("local-g2.sqlite"),
@@ -15,14 +15,14 @@ async fn fixture() -> (tempfile::TempDir, LocalLibraryStore, Workspace) {
     )
     .await
     .unwrap();
-    let id = WorkspaceId::new();
-    let workspace = Workspace {
+    let id = LibraryId::new();
+    let library = Library {
         meta: Metadata::new(id, id, at()),
         display_name: "Studio".into(),
         extensions: Extensions::new(),
     };
-    store.put_workspace(&workspace, None).await.unwrap();
-    (temp, store, workspace)
+    store.put_library(&library, None).await.unwrap();
+    (temp, store, library)
 }
 fn party(name: &str) -> PartyDetails {
     PartyDetails {
@@ -30,9 +30,9 @@ fn party(name: &str) -> PartyDetails {
         ..PartyDetails::default()
     }
 }
-fn person(workspace: WorkspaceId) -> Person {
+fn person(library: LibraryId) -> Person {
     Person {
-        meta: Metadata::new(PersonId::new(), workspace, at()),
+        meta: Metadata::new(PersonId::new(), library, at()),
         details: party("Alex"),
         capabilities: [
             "photara.role.photographer".into(),
@@ -41,24 +41,24 @@ fn person(workspace: WorkspaceId) -> Person {
         .into(),
     }
 }
-fn organization(workspace: WorkspaceId) -> Organization {
+fn organization(library: LibraryId) -> Organization {
     Organization {
-        meta: Metadata::new(OrganizationId::new(), workspace, at()),
+        meta: Metadata::new(OrganizationId::new(), library, at()),
         details: party("Client Organization"),
     }
 }
-fn kind(workspace: WorkspaceId, name: &str) -> LocationKind {
+fn kind(library: LibraryId, name: &str) -> LocationKind {
     LocationKind {
-        meta: Metadata::new(LocationKindId::new(), workspace, at()),
+        meta: Metadata::new(LocationKindId::new(), library, at()),
         canonical_display: name.into(),
         description: String::new(),
         aliases: BTreeSet::default(),
         extensions: Extensions::new(),
     }
 }
-fn location(workspace: WorkspaceId, kind: LocationKindId, parent: Option<LocationId>) -> Location {
+fn location(library: LibraryId, kind: LocationKindId, parent: Option<LocationId>) -> Location {
     Location {
-        meta: Metadata::new(LocationId::new(), workspace, at()),
+        meta: Metadata::new(LocationId::new(), library, at()),
         kind_id: kind,
         parent_id: parent,
         details: party("Ocean Beach"),
@@ -67,12 +67,12 @@ fn location(workspace: WorkspaceId, kind: LocationKindId, parent: Option<Locatio
     }
 }
 fn relationship(
-    workspace: WorkspaceId,
+    library: LibraryId,
     person: PersonId,
     organization: OrganizationId,
 ) -> Relationship {
     Relationship {
-        meta: Metadata::new(RelationshipId::new(), workspace, at()),
+        meta: Metadata::new(RelationshipId::new(), library, at()),
         person_id: person,
         organization_id: organization,
         relationship_type: "photara.relationship.client".into(),
@@ -83,9 +83,9 @@ fn relationship(
         extensions: Extensions::new(),
     }
 }
-fn social(workspace: WorkspaceId, owner: SocialOwner) -> SocialProfile {
+fn social(library: LibraryId, owner: SocialOwner) -> SocialProfile {
     SocialProfile {
-        meta: Metadata::new(SocialProfileId::new(), workspace, at()),
+        meta: Metadata::new(SocialProfileId::new(), library, at()),
         owner,
         provider_id: "example.social".into(),
         subject: None,
@@ -130,7 +130,7 @@ async fn migrations_initialize_reopen_and_preserve_family() {
 
 #[tokio::test]
 async fn full_schema_pragmas_and_storexa_lifecycle() {
-    let (_temp, store, workspace) = fixture().await;
+    let (_temp, store, library) = fixture().await;
     let tables:i64=sqlx::query_scalar("SELECT count(*) FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name<>'_sqlx_migrations'").fetch_one(store.db.pool()).await.unwrap();
     assert_eq!(tables, 44);
     assert_eq!(store.info().migration_count, 6);
@@ -186,10 +186,7 @@ async fn full_schema_pragmas_and_storexa_lifecycle() {
             .unwrap(),
         0
     );
-    assert_eq!(
-        store.workspace(workspace.meta.id).await.unwrap(),
-        Some(workspace)
-    );
+    assert_eq!(store.library(library.meta.id).await.unwrap(), Some(library));
     let clone = store.clone();
     store.close().await;
     assert!(clone.stats().closed);
@@ -283,7 +280,7 @@ async fn migration_checksum_newer_family_device_and_existing_v1_refusal() {
 }
 
 #[tokio::test]
-async fn workspace_person_organization_crud_cas_history_and_tombstones() {
+async fn library_person_organization_crud_cas_history_and_tombstones() {
     let (_temp, store, mut ws) = fixture().await;
     let w = ws.meta.id;
     let mut p = person(w);
@@ -315,7 +312,7 @@ async fn workspace_person_organization_crud_cas_history_and_tombstones() {
     assert_eq!(changes[3].post_state["details"]["display_name"], "Renamed");
     assert!(
         store
-            .person(WorkspaceId::new(), p.meta.id)
+            .person(LibraryId::new(), p.meta.id)
             .await
             .unwrap()
             .is_none()
@@ -330,11 +327,11 @@ async fn workspace_person_organization_crud_cas_history_and_tombstones() {
     let expected = org.meta.tombstone(at()).unwrap();
     store.put_organization(&org, Some(expected)).await.unwrap();
     let expected = ws.meta.advance(at()).unwrap();
-    ws.display_name = "Renamed workspace".into();
-    store.put_workspace(&ws, Some(expected)).await.unwrap();
+    ws.display_name = "Renamed library".into();
+    store.put_library(&ws, Some(expected)).await.unwrap();
     let expected = ws.meta.tombstone(at()).unwrap();
-    store.put_workspace(&ws, Some(expected)).await.unwrap();
-    assert!(store.workspaces(None, 10, false).await.unwrap().is_empty());
+    store.put_library(&ws, Some(expected)).await.unwrap();
+    assert!(store.libraries(None, 10, false).await.unwrap().is_empty());
     assert_eq!(
         store.put_person(&person(w), None).await,
         Err(Error::Constraint)
@@ -343,20 +340,20 @@ async fn workspace_person_organization_crud_cas_history_and_tombstones() {
 }
 
 #[tokio::test]
-async fn global_identity_cannot_cross_workspace_or_change_created_timestamp() {
+async fn global_identity_cannot_cross_library_or_change_created_timestamp() {
     let (_temp, store, ws) = fixture().await;
     let mut p = person(ws.meta.id);
     store.put_person(&p, None).await.unwrap();
-    let id = WorkspaceId::new();
-    let other = Workspace {
+    let id = LibraryId::new();
+    let other = Library {
         meta: Metadata::new(id, id, at()),
         display_name: "Other".into(),
         extensions: Extensions::default(),
     };
-    store.put_workspace(&other, None).await.unwrap();
-    p.meta.workspace_id = id;
+    store.put_library(&other, None).await.unwrap();
+    p.meta.library_id = id;
     assert_eq!(store.put_person(&p, None).await, Err(Error::Conflict));
-    p.meta.workspace_id = ws.meta.id;
+    p.meta.library_id = ws.meta.id;
     let expected = p.meta.advance(at()).unwrap();
     p.meta.created_at = Timestamp::try_from(0).unwrap();
     assert_eq!(
@@ -490,7 +487,7 @@ async fn competing_independent_pools_create_one_concept_only() {
 }
 
 #[tokio::test]
-async fn required_kind_hierarchy_cross_workspace_and_retirement_guards() {
+async fn required_kind_hierarchy_cross_library_and_retirement_guards() {
     let (_temp, store, ws) = fixture().await;
     let mut k = kind(ws.meta.id, "Beach");
     store.put_location_kind(&k, None).await.unwrap();
@@ -521,13 +518,13 @@ async fn required_kind_hierarchy_cross_workspace_and_retirement_guards() {
         store.put_location_kind(&k, Some(ke)).await,
         Err(Error::Constraint)
     );
-    let other = WorkspaceId::new();
-    let w2 = Workspace {
+    let other = LibraryId::new();
+    let w2 = Library {
         meta: Metadata::new(other, other, at()),
         display_name: "Other".into(),
         extensions: Extensions::default(),
     };
-    store.put_workspace(&w2, None).await.unwrap();
+    store.put_library(&w2, None).await.unwrap();
     assert_eq!(
         store
             .put_location(&location(other, k.meta.id, None), None)
@@ -670,7 +667,7 @@ async fn typed_limits_and_diagnostics_do_not_leak_values() {
         store.put_social_profile(&profile, None).await,
         Err(Error::Invalid)
     );
-    let sql_error = sqlx::query("SELECT secret_missing_column FROM workspaces")
+    let sql_error = sqlx::query("SELECT secret_missing_column FROM libraries")
         .fetch_all(store.db.pool())
         .await
         .unwrap_err();
@@ -718,7 +715,7 @@ async fn catalog_roots_locators_bindings_are_device_only_and_cas_checked() {
     assert_eq!(store.put_locator(&bad, None).await, Err(Error::Invalid));
     let before = store.changes(w, 0, 100).await.unwrap().len();
     let mut binding = RootBinding {
-        workspace_id: w,
+        library_id: w,
         storage_root_id: root.meta.id,
         binding: DeviceBinding::Path("/Volumes/Private/Projects".into()),
         revision: Revision::INITIAL,
@@ -808,7 +805,7 @@ async fn verified_observations_select_explicitly_and_never_publish_packages() {
     store
         .put_root_binding(
             &RootBinding {
-                workspace_id: w,
+                library_id: w,
                 storage_root_id: root.meta.id,
                 binding: DeviceBinding::Path(temp.path().to_owned()),
                 revision: Revision::INITIAL,
@@ -932,11 +929,11 @@ async fn deferred_claim_and_unexposed_merge_paths_fail_atomically() {
     store.put_location_kind(&a, None).await.unwrap();
     store.put_location_kind(&b, None).await.unwrap();
     let mut tx = store.write().await.unwrap();
-    assert!(sqlx::query("UPDATE location_kind_terms SET location_kind_id=? WHERE workspace_id=? AND term_key='beach'").bind(b.meta.id.bytes()).bind(ws.meta.id.bytes()).execute(&mut *tx).await.is_err());
+    assert!(sqlx::query("UPDATE location_kind_terms SET location_kind_id=? WHERE library_id=? AND term_key='beach'").bind(b.meta.id.bytes()).bind(ws.meta.id.bytes()).execute(&mut *tx).await.is_err());
     tx.rollback().await.unwrap();
     let mut tx = store.write().await.unwrap();
     assert!(
-        sqlx::query("DELETE FROM location_kind_terms WHERE workspace_id=? AND term_key='beach'")
+        sqlx::query("DELETE FROM location_kind_terms WHERE library_id=? AND term_key='beach'")
             .bind(ws.meta.id.bytes())
             .execute(&mut *tx)
             .await
@@ -1030,7 +1027,7 @@ async fn cloud_association_and_unknown_normalizer_are_not_silently_local() {
             .execute(store.db.pool())
             .await
             .unwrap();
-            sqlx::query("UPDATE workspaces SET term_policy_version=2,local_revision=local_revision+1 WHERE workspace_id=?").bind(ws.meta.id.bytes()).execute(store.db.pool()).await.unwrap();
+            sqlx::query("UPDATE libraries SET term_policy_version=2,local_revision=local_revision+1 WHERE library_id=?").bind(ws.meta.id.bytes()).execute(store.db.pool()).await.unwrap();
         }
         store.close().await;
         assert_eq!(

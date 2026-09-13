@@ -1,5 +1,10 @@
 # CXT1a — portable Core and NodeSDK contracts
 
+Historical slice/review record. Current naming and gates are governed by the
+[Library rebaseline](LIBRARY_NOMENCLATURE_REBASELINE.md) and
+[execution roadmap](../ROADMAP_0_2_EXECUTION.md); earlier byte-preservation and
+next-step labels below refer to their original verification date.
+
 Status: **complete, 2026-09-12**, following Suhail's explicit selection of CXT1a.
 This records the implemented extent of the [accepted D19 contract](D19_CONTRACT_FREEZE.md)
 and [bounded gates](D19_STATIC_SCHEMA_DELTA.md#fixture-delta-implementation-slices-and-gates).
@@ -16,7 +21,7 @@ existing behavior. No dependency or Cargo lockfile change belongs to this slice.
 
 | Surface | Implemented contract |
 | --- | --- |
-| [IDs](../../crates/photara-core/src/contracts/ids.rs) | 35 distinct nonnil UUID types; canonical lowercase hyphenated wire strings; explicit same-UUID Workspace/Library and StorageRoot/StorageLocation adapters; checked legacy Core adapters. Legacy external resolver identity cannot coerce into HostBindingId. |
+| [IDs](../../crates/photara-core/src/contracts/ids.rs) | 35 distinct nonnil UUID types; canonical lowercase hyphenated wire strings; explicit same-UUID Library and StorageRoot/StorageLocation adapters; checked legacy Core adapters. Legacy external resolver identity cannot coerce into HostBindingId. |
 | [Access](../../crates/photara-core/src/contracts/access.rs) | Eight action bits, prerequisite validation, exact six presets, explicit restricted/library-visible policy, per-role inheritance, scoped grants and deny precedence, distinct local controller/account principals, Library invitation ceilings and pure freshness/offline decisions. |
 | [Schemas](../../crates/photara-core/src/contracts/schema.rs) | Exact names/type/schema/version coordinates, canonical decimal u64 and SHA-256, positive local revisions, S2 ObjectRef shape, bounded recursive variable-family admission, duplicate-key-rejecting JSON decoding and MIME media types. |
 | [Resources](../../crates/photara-core/src/contracts/resource.rs) | Logical locations/slots and capture pins, filesystem/provider coordinate unions, immutable external/managed resource contracts, rights and storage classes, closed host status, bounded operation-bound resolution requests, nonserializable live leases and secrets. |
@@ -147,7 +152,7 @@ The tests exhaust every u16 action-mask candidate and valid-mask union pair,
 exercise access/policy matrices, malformed unions, exact boundary limits,
 ID/adapters, path controls and UTF-8 preservation, live lease privacy, AssetSet
 ordering/ownership/digest/page tampering, variable-family recursion and manifest
-version/capability/cache/presentation/migration/fallback cases. The full workspace
+version/capability/cache/presentation/migration/fallback cases. The full library
 was compiled and linted; database suites were not executed. Retained node tests
 use disposable filesystem fixtures, never user Projects or SMB.
 

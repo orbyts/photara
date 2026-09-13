@@ -1,5 +1,10 @@
 # CXT1b — pure typed context contracts
 
+Historical slice/review record. Current naming and gates are governed by the
+[Library rebaseline](LIBRARY_NOMENCLATURE_REBASELINE.md) and
+[execution roadmap](../ROADMAP_0_2_EXECUTION.md); earlier byte-preservation and
+next-step labels below refer to their original verification date.
+
 Status: **complete, 2026-09-12**, after Suhail separately selected CXT1b.
 This is the implementation record for [D18](TYPED_CONTEXT_AND_EXPRESSIONS.md),
 the [accepted D19 freeze](D19_CONTRACT_FREEZE.md) and its
@@ -209,7 +214,7 @@ cargo test --offline -p photara-core -p photara-node-sdk -p photara-layout-node 
 cargo test --offline -p photara-core --test context generate_d19_context_golden -- --ignored
 ```
 
-The full workspace was compiled/linted; database suites were not executed. Retained
+The full library was compiled/linted; database suites were not executed. Retained
 node tests use disposable filesystem fixtures. The pre-slice audit confirms 317 pre-existing files are byte-identical and verifies CXT1a sources,
 tests and implementation record, all prior fixtures, six applied L2 migrations,
 14 CXT2 proposal files and unrelated existing files. Git whitespace and local Markdown

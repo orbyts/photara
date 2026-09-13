@@ -4,9 +4,9 @@ struct ProjectLauncherView: View {
     let presentation: ApplicationPresentation
     let actions: ApplicationActions
     var preset: ApplicationShellPreset = .shipped
-    @EnvironmentObject private var workspace: WorkspaceModel
+    @EnvironmentObject private var session: EditorSessionModel
     @Environment(\.colorScheme) private var colorScheme
-    private var showsRecentProjects: Bool { workspace.showsRecentProjects }
+    private var showsRecentProjects: Bool { session.showsRecentProjects }
 
     private let cardColumns = [
         GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 16)
@@ -103,7 +103,7 @@ struct ProjectLauncherView: View {
                 .tint(preset.launcherOpenButtonTint.color(colorScheme))
 
                 Button {
-                    workspace.showsRecentProjects.toggle()
+                    session.showsRecentProjects.toggle()
                 } label: {
                     Label(
                         showsRecentProjects ? "Hide Recents" : "Recent Projects",

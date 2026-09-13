@@ -4,7 +4,7 @@ import SwiftUI
 struct LayoutCanvasCell: View {
     let presentation: LayoutPresentation
     let actions: LayoutActions
-    @EnvironmentObject private var workspace: WorkspaceModel
+    @EnvironmentObject private var session: EditorSessionModel
     let node: NodeInspection
     let frame: LayoutFrameInspection
     let cell: LayoutCellInspection
@@ -53,16 +53,16 @@ struct LayoutCanvasCell: View {
         .overlay {
             Rectangle()
                 .stroke(
-                    workspace.selectedCellID == cell.cellId ? Color.accentColor : .white.opacity(0.8),
-                    lineWidth: workspace.selectedCellID == cell.cellId ? 3 : 1
+                    session.selectedCellID == cell.cellId ? Color.accentColor : .white.opacity(0.8),
+                    lineWidth: session.selectedCellID == cell.cellId ? 3 : 1
                 )
         }
         .contentShape(Rectangle())
         .position(x: x, y: y)
         .onTapGesture {
-            workspace.selectedNodeID = node.nodeId
-            workspace.selectedFrameID = frame.frameId
-            workspace.selectedCellID = cell.cellId
+            session.selectedNodeID = node.nodeId
+            session.selectedFrameID = frame.frameId
+            session.selectedCellID = cell.cellId
         }
         .gesture(cropGesture(cellSize: CGSize(width: width, height: height)))
     }
@@ -88,12 +88,12 @@ struct LayoutCanvasCell: View {
     private func cropGesture(cellSize: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 2)
             .onChanged { value in
-                guard workspace.selectedCellID == cell.cellId, cell.cropRect != nil else { return }
+                guard session.selectedCellID == cell.cellId, cell.cropRect != nil else { return }
                 draftTranslation = value.translation
             }
             .onEnded { value in
                 defer { draftTranslation = .zero }
-                guard workspace.selectedCellID == cell.cellId,
+                guard session.selectedCellID == cell.cellId,
                       let crop = cell.cropRect,
                       cellSize.width > 0,
                       cellSize.height > 0

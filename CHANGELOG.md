@@ -11,13 +11,13 @@
   contracts.
 - Reset the active repository for generation two while retaining the official
   historical release in Git.
-- Establish a `0.2.0-alpha.0` Rust workspace with separate Core, node SDK,
+- Establish a `0.2.0-alpha.0` Rust library with separate Core, node SDK,
   persistence, native-client bridge, and independently namespaced built-in
   Layout packages.
 - Replace historical operator documentation with the focused roadmap to the
   macOS SwiftUI/AppKit application over the portable Rust Core.
 - Refine the `0.2.0` critical path around a minimum package/persistence
-  foundation, an early interoperability spike, and a flexible native workspace
+  foundation, an early interoperability spike, and a flexible native library
   leading to the real Layout Inspector.
 - Add distinct package, definition, value-type, and schema versions; generic
   typed-value and port compatibility contracts; identified graph connections;
@@ -29,7 +29,7 @@
   error, graph-snapshot, and evaluation-progress DTOs for the native bridge.
 - Add validated portable Project Documents with exact package requirements,
   embedded authored graphs, project-relative resources, canonical digests, and
-  explicit exclusion of runtime/cache/secret/workspace state.
+  explicit exclusion of runtime/cache/secret/editor session state.
 - Add standalone Node Graph Documents so configured node topology can be shared
   independently of project identity and resource inventory.
 - Prove the native-client facade shape with a disposable Swift 6.3/Foundation
@@ -85,14 +85,14 @@
   independent Layouts reuse a shared derived proxy while their authored state,
   plans, crops, save/reopen, and undo remain intact after complete cache
   deletion.
-- Replace the disposable bridge transport with a workspace-pinned UniFFI 0.32
+- Replace the disposable bridge transport with a library-pinned UniFFI 0.32
   facade exposing durable project sessions, immutable project/node/asset DTOs,
   structured semantic command responses and diagnostics, evaluation progress,
   and explicit cooperative cancellation.
 - Verify the generated bindings with Swift 6.3.3 and Xcode 26.6 on macOS 26.5.2,
   including create/save/reopen, stale command rejection, Layout crop and undo
   through Core commands, progress callbacks, and Swift-triggered cancellation.
-- Begin the native workspace with independently identified movable panels in
+- Begin the native library with independently identified movable panels in
   three resizable regions, a deliberately primitive node list, project-backed
   Gallery and diagnostics views, and the first Layout Inspector controls.
 - Replace Layout authored-state JSON at the Swift boundary with immutable typed
@@ -116,13 +116,13 @@
   project launcher backed by portable project documents, filesystem storage,
   and client-only recent state—without adding a cloud database.
 - Add generic node inspection DTOs for typed ports, connections, status,
-  workspace/icon hints, and node-produced summaries; render Project Assets and
+  library/icon hints, and node-produced summaries; render Project Assets and
   Layout through one standard Inspector shell.
 - Replace the engineering node list with a primitive spatial graph canvas and
-  explicit optional Layout Workspace activation, while preserving movable
-  project panels and adding Restore Default Workspace.
+  explicit optional Layout Work Surface activation, while preserving movable
+  project panels and adding Restore Default Library.
 - Move node brand identity, neutral package icon resources, hierarchical
-  catalog paths, search terms, Inspector contributions, and optional Workspace
+  catalog paths, search terms, Inspector contributions, and optional Work Surface
   contributions onto exact versioned node definitions; expose the visible
   catalog through immutable UniFFI DTOs instead of Swift node-type switches.
 - Add the ordinary independently branded `photara.disk.folder` package. Its
@@ -138,7 +138,7 @@
   and use a 1K-default F16 HDR-preserving Layout authoring profile with
   constrained HDR presentation.
 - Add definition-owned default activation metadata: double-clicking Disk opens
-  its granted Finder folder, while Layout focuses its existing Workspace.
+  its granted Finder folder, while Layout focuses its existing Library.
 - Make bare `Tab` reliably open the node catalog at the graph pointer, with the
   graph center as its initial fallback; retain the toolbar add button.
 - Open Gallery assets in the user's macOS default application on double-click,
