@@ -1,8 +1,8 @@
 # Active handoff
 
 Updated 2026-09-13. **CXT3d Neon Generation Two schema activation is complete.**
-CXT3c was committed and pushed as `be1ed80`; CXT3d live activation is documented
-separately and has not yet been committed. Read the
+CXT3c was committed and pushed as `be1ed80`; CXT3d was committed and pushed as
+`699395f`. Read the
 [live topology, inventory, and onboarding boundary](architecture/CXT3D_NEON_ACTIVATION.md).
 
 The existing Neon `photara` project was retained. Its empty primary/default
@@ -14,10 +14,14 @@ The existing Neon `photara` project was retained. Its empty primary/default
 RLS tables force RLS. All migration checksums match CXT3c, and a second migration
 run accepted the deployed ledger. Accounts, Libraries, and Projects are all empty.
 
-**Next separately authorize:** implement the real Auth0 native onboarding and
-idempotent local/cloud Account, device, and default `My Library` bootstrap. Do not
-manually seed around that experience. No runtime login/password or service secret
-was created, and no privileged Neon credential may enter the desktop app.
+**Next separately authorize:** CXT4a, the Astra-led onboarding/security contract
+and Chordrift Auth0 reference audit. Follow the exact bounded sequence in
+[CXT4 onboarding and opening Library shell](architecture/CXT4_ONBOARDING_AND_OPENING.md):
+CXT4a contract → CXT4b minimal cloud service → CXT4c native opening Library shell
+→ CXT4d native Auth0 integration → CXT4e first-Account acceptance. Stop before
+each gate. Do not manually seed around the product experience. No runtime login,
+password, or service secret exists, and no privileged Neon credential may enter
+the desktop app.
 
 ## Historical CXT3c handoff
 

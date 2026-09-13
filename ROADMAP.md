@@ -3,7 +3,8 @@
 **2026-09-13: CXT3d Neon Generation Two schema activation is complete.**
 [Live topology and verification](docs/architecture/CXT3D_NEON_ACTIVATION.md)
 record the exact 13-migration deployment on Neon `main`, preservation of
-`legacy-v0.1.x`, an empty user-data baseline, and the real onboarding next gate.
+`legacy-v0.1.x`, an empty user-data baseline, and the
+[CXT4 onboarding/opening-shell sequence](docs/architecture/CXT4_ONBOARDING_AND_OPENING.md).
 
 **2026-09-12: CXT3a and the clean Library nomenclature rebaseline are complete.**
 [Verification and authority](docs/architecture/LIBRARY_NOMENCLATURE_REBASELINE.md)

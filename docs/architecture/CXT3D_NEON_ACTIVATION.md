@@ -64,7 +64,10 @@ Every live SQLx SHA-384 checksum for versions 1–13 equals
 remain the executable authorization proof; this activation did not manufacture
 runtime logins merely to repeat those tests against production.
 
-## Next separately bounded slice: real onboarding
+## Next separately bounded sequence: CXT4 onboarding and opening shell
+
+The detailed approved sequence is now
+[CXT4 onboarding and opening Library shell](CXT4_ONBOARDING_AND_OPENING.md).
 
 Do not replace onboarding with a developer seed. Implement and prove the actual
 native user path:

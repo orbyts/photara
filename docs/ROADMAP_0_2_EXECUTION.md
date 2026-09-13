@@ -13,10 +13,12 @@ migrations and four non-login role boundaries are installed on empty `main`.
 The live inventory and every ledger checksum match CXT3c; Accounts, Libraries,
 and Projects remain empty. No runtime credentials or service deployment exists.
 
-The next separately bounded slice is the real onboarding path, not a manual seed:
-Auth0 native PKCE, production verification, idempotent Account/device creation or
-recovery, and reconciled local/cloud default `My Library` bootstrap. It must keep
-all privileged Neon credentials out of the desktop application.
+The next separately bounded sequence is
+[CXT4 onboarding and opening Library shell](architecture/CXT4_ONBOARDING_AND_OPENING.md),
+not a manual seed: Astra-led security/contract review, minimal cloud service,
+native system-owned opening sidebar plus Photara's neutral content hierarchy,
+Auth0 integration, and first-Account acceptance. Stop at each gate. All privileged
+Neon credentials stay outside the desktop application.
 
 ## Historical CXT3c disposable service proof completion
 
@@ -304,11 +306,17 @@ cancelled runs retain truthful history without changing authored graph state.
 
 ## 0.2.0-alpha.4 — Photara Cloud foundation
 
+**Immediate execution order:** CXT4a contract → CXT4b minimal cloud service →
+CXT4c native opening Library shell → CXT4d Auth0 integration → CXT4e first-Account
+acceptance. The [bounded record](architecture/CXT4_ONBOARDING_AND_OPENING.md)
+defines ownership, states, UI/system boundaries, tests, and approval stops.
+
 - **C1 — service/schema complete:** the Photara service boundary and exact Neon
   migrations are implemented and active; the desktop client never receives
   privileged Neon credentials. Runtime service deployment remains separate.
-- **C2 — next gate:** add Auth0 native Authorization Code + PKCE and Google sign-in
-  onboarding, including cancellation, local-only choice, and retry/recovery.
+- **C2 — CXT4a next gate:** audit Chordrift and freeze Auth0 native Authorization
+  Code + PKCE, Google sign-in, service security, bootstrap/recovery, and local/cloud
+  reconciliation contracts using Astra High.
 - **C3:** create or claim a Library and provision the developer's account and
   entitlement separately from future billing.
 - **C4:** synchronize Library records, media references, and Project Catalog entries
@@ -322,6 +330,10 @@ cancelled runs retain truthful history without changing authored graph state.
 two Macs while project packages remain correctly resolved and independently safe.
 
 ## 0.2.0-alpha.5 — opening and project browser
+
+The opening Library shell foundation moves forward into CXT4c so the real Auth0
+flow is tested in its intended native window. Later O-slices retain project-browser
+depth, recent/missing/moved Project states, and post-onboarding refinement.
 
 - **O1 — mockups:** automatic local My Library creation/open on first launch,
   named/multiple Libraries, explicit Library/Project window scope, optional cloud
