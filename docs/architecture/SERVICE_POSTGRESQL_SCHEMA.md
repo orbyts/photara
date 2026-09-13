@@ -6,7 +6,10 @@ below use Library consistently. This is a clean baseline rewrite, with no rename
 migration, alias, shadow column or live database change. See the
 [rebaseline authority and evidence](LIBRARY_NOMENCLATURE_REBASELINE.md) and
 [current execution order](../ROADMAP_0_2_EXECUTION.md). CXT3a is complete; local
-D19 execution/app initialization and PostgreSQL/RLS remain separate CXT3b/c gates.
+D19 execution/app initialization completed in CXT3b. CXT3c promoted the SQL below
+and accepted D19 proposals into executable migrations and proved them in disposable
+PostgreSQL. See [runtime boundaries and measured evidence](CXT3C_SERVICE_RUNTIME.md).
+The historical sections below retain their original design-stage labels.
 
 ## D18 amendment — logical requirements only, DDL deferred
 

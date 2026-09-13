@@ -1,5 +1,43 @@
 # Active handoff
 
+Updated 2026-09-13. **CXT3c disposable PostgreSQL/service proof is complete.**
+Started from clean synchronized `7e6d794`; no commit or push was made. Stop here.
+Read [service routes, limits and the next Neon plan](architecture/CXT3C_SERVICE_RUNTIME.md),
+[implementation and regression inventory](architecture/CXT3C_IMPLEMENTATION_INVENTORY.md)
+and [measured PostgreSQL objects/checksums](architecture/CXT3C_POSTGRES_INVENTORY.json).
+
+The new `photara-service` crate owns typed service controllers above Storexa,
+13 executable migrations, separated unprivileged pools and fake identity/media/
+sync ports. PostgreSQL 18.6 executed 697 migration statements: 55 domain tables,
+569 columns, 153 indexes, 115 triggers, 48 functions and 173 RLS policies.
+Five real PostgreSQL suites pass, including 678 access/privilege/sensitivity cells,
+CAS/concurrency, last-manager and last-identity guards, rollback, checksums/floors,
+pooled GUC cleanup, invitations, scoped receipts/media and lost-response recovery.
+Every disposable PostgreSQL cluster is stopped; no service was deployed.
+
+The full offline Rust suite passes 258 tests. Its nine ignored tests comprise
+four existing fixture-generation checks plus the five PostgreSQL suites that the
+explicit disposable runner executes successfully. All-target check, strict Clippy,
+fmt, schema/naming/fixture guards, bridge and production UI pass. Graph Lab's
+initial randomized prerequisite failure (15,050 assertions, one failure) is retained;
+exact seed replay passed 548 assertions, then the full rerun passed 15,586/zero.
+All 42 Graph/Graph Lab source files and all UI/Core/SDK/package/local runtime
+sources remain byte-for-byte unchanged. The real CXT3b database still matches its
+starting SHA-256 and size, 1,179,648 bytes; it was not opened or migrated here.
+
+The authorized slice exercises online transport with an in-memory fake. It does
+not activate the native SQLite online worker. Its closed content codecs expose
+Library storage and per-Project catalog projections, not a complete backup of
+all installed tables. Real identity/media adapters, native online activation and
+package publication are not fabricated by this proof.
+
+**Next separately authorize:** the minimal fresh Neon role/schema/explicit seed
+plan in the runtime record. Confirm the exact destination and seed identity/Library
+coordinates first. No Neon, real Auth0/CloudKit/media, v0.1.3 data, package publishing,
+commit or push is authorized by this completion.
+
+## Historical CXT3b handoff
+
 Updated 2026-09-12. **CXT3b local runtime and app initialization are complete.**
 Started from clean `415039e`; this slice is uncommitted and unpushed. Stop here.
 Read [runtime/API boundaries and inspection commands](architecture/CXT3B_LOCAL_RUNTIME.md)

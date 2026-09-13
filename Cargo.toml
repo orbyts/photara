@@ -6,6 +6,7 @@ members = [
     "crates/photara-proxy",
     "crates/photara-store",
     "crates/photara-library",
+    "crates/photara-service",
     "nodes/photara-layout",
     "nodes/photara-asset-set",
     "nodes/photara-disk",

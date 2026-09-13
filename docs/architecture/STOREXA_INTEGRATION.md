@@ -148,3 +148,12 @@ coverage; local verification used Rust 1.95.
 L2's 16 new temporary-database tests and retained regressions pass; no cloud
 backend was executed. Next is D19 consistency and contract/static review; L3 is paused. Neither a legacy
 importer nor automatic application cutover is required.
+
+## CXT3c PostgreSQL adoption
+
+The Photara service now uses Storexa 0.2.0 pools and transactions with separate
+API/control/auth-read runtime roles and a migration-only owner. Five Photara
+PostgreSQL proof suites execute against disposable PostgreSQL 18.6, including
+RLS, CAS, rollback, migration checksums and pooled transaction-local context.
+This does not change Storexa or deploy a service. See the [CXT3c runtime record](CXT3C_SERVICE_RUNTIME.md)
+and [measured schema inventory](CXT3C_POSTGRES_INVENTORY.json).
