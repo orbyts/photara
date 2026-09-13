@@ -1,5 +1,11 @@
 # Generation-two architecture
 
+**2026-09-13: CXT4a onboarding/security contract approved.**
+The [contract and Chordrift reference audit](CXT4A_ONBOARDING_SECURITY_CONTRACT.md)
+define the accepted contract after completed CXT3b/c/d. CXT4b implementation is
+separately gated; the [CXT4 sequence](CXT4_ONBOARDING_AND_OPENING.md)
+preserves the approved native opening-shell boundary.
+
 **2026-09-12: CXT3a and clean Library rebaseline complete.**
 [Package reader evidence](CXT3A_PACKAGE_READER.md) and
 [Library rebaseline](LIBRARY_NOMENCLATURE_REBASELINE.md) supersede earlier

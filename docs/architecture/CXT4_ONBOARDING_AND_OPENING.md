@@ -22,6 +22,15 @@ Library reconciliation, security boundaries, retries, and returning-user behavio
 
 ## CXT4a — onboarding and security contract
 
+**2026-09-13: contract and read-only reference audit approved.** Google is the
+only initial Auth0 connection and the opening action is `Sign in with Google`.
+Additional providers remain additive future work with explicit identity linking,
+never email-based merging.
+Read [the implementation-ready review candidate](CXT4A_ONBOARDING_SECURITY_CONTRACT.md)
+for exact DTOs, lifecycle/verification policy, persistence gaps, local/cloud
+reconciliation, threat model, test matrix and unresolved configuration decisions.
+This completes and approves the documentation slice, not CXT4b implementation.
+
 **Recommended owner:** Astra High, because this crosses authentication, service
 deployment, PostgreSQL authorization, local/cloud reconciliation, and native app
 security. Stop for user review before implementation.

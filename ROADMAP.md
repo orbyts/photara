@@ -1,5 +1,11 @@
 # Roadmap to Photara 0.2.0
 
+**2026-09-13: CXT4a contract and Chordrift reference audit are approved.**
+The [onboarding/security contract](docs/architecture/CXT4A_ONBOARDING_SECURITY_CONTRACT.md)
+uses Google as the only initial Auth0 connection and preserves additive future
+providers without email-based identity merging. Separately select CXT4b with
+concrete deployment inputs. Native CXT4c opening-shell scope remains intact.
+
 **2026-09-13: CXT3d Neon Generation Two schema activation is complete.**
 [Live topology and verification](docs/architecture/CXT3D_NEON_ACTIVATION.md)
 record the exact 13-migration deployment on Neon `main`, preservation of
@@ -18,9 +24,9 @@ is superseded. CXT3b is the next separately authorized gate.
 > S7 D1–D17 and bounded L1/L2 are complete. The current conceptual amendment is
 > [D19](docs/architecture/LIBRARY_AND_NODE_WORK_SURFACES.md), approved 2026-09-12.
 > CXT2, CXT1a/b, CXT3a, the clean Library rebaseline, CXT3b, CXT3c, and CXT3d
-> Neon schema activation are complete. Next: separately authorize real Auth0
-> onboarding and idempotent local/cloud default-Library bootstrap; do not substitute
-> a manual developer seed.
+> Neon schema activation and the approved CXT4a onboarding/security contract are
+> complete. Next separately select CXT4b; do not substitute a
+> manual developer seed for real onboarding and local/cloud default-Library bootstrap.
 
 D19 supersedes earlier Library, whole-project Gallery/Project Asset Context
 and sole-built-in assumptions in the historical stages and catalog below. Library

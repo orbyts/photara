@@ -4,6 +4,17 @@ This is the authoritative execution order for generation two. `ROADMAP.md` retai
 the broader product and node-contract rationale; this document defines what task
 starts next, its bounded slices, and where user approval stops progress.
 
+## CXT4a contract approved and complete
+
+The [onboarding/security contract](architecture/CXT4A_ONBOARDING_SECURITY_CONTRACT.md)
+and Chordrift read-only audit are approved. Google is the only initial Auth0
+connection and the user-facing action is `Sign in with Google`; future providers
+are additive and cannot merge identities by email. The device credential, token
+policy, additive persistence/floors, bootstrap state machine and reconciliation
+boundaries are accepted. Separately select CXT4b with exact Auth0, signing and
+service-host inputs. CXT4c's approved native opening-shell boundary is unchanged.
+No provider, credential, database or production code was changed in CXT4a.
+
 ## CXT3d Neon schema activation complete
 
 [CXT3d](architecture/CXT3D_NEON_ACTIVATION.md) is complete in the existing Neon
@@ -314,9 +325,10 @@ defines ownership, states, UI/system boundaries, tests, and approval stops.
 - **C1 — service/schema complete:** the Photara service boundary and exact Neon
   migrations are implemented and active; the desktop client never receives
   privileged Neon credentials. Runtime service deployment remains separate.
-- **C2 — CXT4a next gate:** audit Chordrift and freeze Auth0 native Authorization
-  Code + PKCE, Google sign-in, service security, bootstrap/recovery, and local/cloud
-  reconciliation contracts using Astra High.
+- **C2 — CXT4a contract complete:** Chordrift reference audit and Auth0 native
+  Authorization Code + PKCE, Google sign-in, service security, bootstrap/recovery,
+  and local/cloud reconciliation contract are approved. Google is the only initial
+  provider; CXT4b implementation remains separately bounded.
 - **C3:** create or claim a Library and provision the developer's account and
   entitlement separately from future billing.
 - **C4:** synchronize Library records, media references, and Project Catalog entries

@@ -1,5 +1,36 @@
 # Active handoff
 
+Updated 2026-09-13. **CXT4a onboarding/security contract and Chordrift reference
+audit are approved and complete.** Read the
+[approved implementation contract](architecture/CXT4A_ONBOARDING_SECURITY_CONTRACT.md).
+This documentation-only slice starts from clean `main` at `c90274b` and remains
+uncommitted/unpushed. The contract does not mark authentication or deployment done.
+
+It specifies native PKCE, exact token verification, Keychain/refresh/logout,
+bootstrap DTOs and transactions, additive persistence prerequisites, same-ID local
+Library reconciliation, returning-user/collision handling, threat model and tests.
+The user approved Google as the only initial Auth0 connection, the
+`Sign in with Google` action, device credential, token policy, additive migration/
+floor approach and empty-Library enrollment limit. Future providers such as Yahoo
+remain additive and require explicit identity linking rather than email matching.
+Exact Auth0 coordinates, bundle/signing inputs and host/secret store are concrete
+CXT4b inputs, not unresolved CXT4a architecture.
+Existing CXT3b startup only accepts local-only authority; CXT3c has no durable
+Account default pointer or pre-Account bootstrap receipt. Those require bounded
+CXT4b/d changes, not manual seeding or edits to deployed migration checksums.
+
+**Current gate: separately select CXT4b and its concrete deployment inputs.** The already-approved
+[CXT4c native opening-shell boundary](architecture/CXT4_ONBOARDING_AND_OPENING.md#cxt4c--native-opening-library-shell)
+is preserved intact and remains before real native Auth0 integration. No production
+Rust/Swift/service code, provider state, credentials or database was changed.
+
+**Verification before approval:** naming guard passes 362 files; schema guard passes 46 signatures
+and 104 scoped FKs; fixture guard passes 12 canonical containers and 92 embedded
+records; `git diff --check` passes. See the contract's exact six-file inventory
+and preservation/verification limits. Runtime acceptance tests remain future work.
+
+## Historical CXT3d handoff
+
 Updated 2026-09-13. **CXT3d Neon Generation Two schema activation is complete.**
 CXT3c was committed and pushed as `be1ed80`; CXT3d was committed and pushed as
 `699395f`. Read the
@@ -14,8 +45,8 @@ The existing Neon `photara` project was retained. Its empty primary/default
 RLS tables force RLS. All migration checksums match CXT3c, and a second migration
 run accepted the deployed ledger. Accounts, Libraries, and Projects are all empty.
 
-**Next separately authorize:** CXT4a, the Astra-led onboarding/security contract
-and Chordrift Auth0 reference audit. Follow the exact bounded sequence in
+**Historical next step, now prepared above:** CXT4a, the Astra-led onboarding/security
+contract and Chordrift Auth0 reference audit. Follow the exact bounded sequence in
 [CXT4 onboarding and opening Library shell](architecture/CXT4_ONBOARDING_AND_OPENING.md):
 CXT4a contract → CXT4b minimal cloud service → CXT4c native opening Library shell
 → CXT4d native Auth0 integration → CXT4e first-Account acceptance. Stop before
