@@ -1,7 +1,28 @@
 # Active handoff
 
+Updated 2026-09-13. **CXT3d Neon Generation Two schema activation is complete.**
+CXT3c was committed and pushed as `be1ed80`; CXT3d live activation is documented
+separately and has not yet been committed. Read the
+[live topology, inventory, and onboarding boundary](architecture/CXT3D_NEON_ACTIVATION.md).
+
+The existing Neon `photara` project was retained. Its empty primary/default
+`production` branch is now `main`; populated `development` is now
+`legacy-v0.1.x`. The latter remains unchanged with 34 public tables and its
+20-entry legacy ledger. On `main`, four non-login capability roles and the exact
+13 checked migrations are installed. The live inventory is 55 domain tables,
+569 columns, 153 indexes, 115 triggers, 48 functions and 173 policies; all 45
+RLS tables force RLS. All migration checksums match CXT3c, and a second migration
+run accepted the deployed ledger. Accounts, Libraries, and Projects are all empty.
+
+**Next separately authorize:** implement the real Auth0 native onboarding and
+idempotent local/cloud Account, device, and default `My Library` bootstrap. Do not
+manually seed around that experience. No runtime login/password or service secret
+was created, and no privileged Neon credential may enter the desktop app.
+
+## Historical CXT3c handoff
+
 Updated 2026-09-13. **CXT3c disposable PostgreSQL/service proof is complete.**
-Started from clean synchronized `7e6d794`; no commit or push was made. Stop here.
+Started from clean synchronized `7e6d794`; committed and pushed as `be1ed80`.
 Read [service routes, limits and the next Neon plan](architecture/CXT3C_SERVICE_RUNTIME.md),
 [implementation and regression inventory](architecture/CXT3C_IMPLEMENTATION_INVENTORY.md)
 and [measured PostgreSQL objects/checksums](architecture/CXT3C_POSTGRES_INVENTORY.json).
@@ -31,10 +52,8 @@ Library storage and per-Project catalog projections, not a complete backup of
 all installed tables. Real identity/media adapters, native online activation and
 package publication are not fabricated by this proof.
 
-**Next separately authorize:** the minimal fresh Neon role/schema/explicit seed
-plan in the runtime record. Confirm the exact destination and seed identity/Library
-coordinates first. No Neon, real Auth0/CloudKit/media, v0.1.3 data, package publishing,
-commit or push is authorized by this completion.
+The subsequent CXT3d activation is recorded above. CXT3c itself did not contact
+Neon or activate real Auth0/CloudKit/media adapters.
 
 ## Historical CXT3b handoff
 

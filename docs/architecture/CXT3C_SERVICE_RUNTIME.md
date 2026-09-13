@@ -145,7 +145,11 @@ revoked devices, scoped media and fake transport recovery.
 Full Rust, native and preservation evidence is recorded in
 [CXT3c implementation inventory](CXT3C_IMPLEMENTATION_INVENTORY.md).
 
-## Next separately gated action: fresh Neon schema and explicit seed
+## Historical next action: fresh Neon schema and explicit seed
+
+The schema/role portion of this plan was subsequently completed as
+[CXT3d](CXT3D_NEON_ACTIVATION.md). The user selected real onboarding instead of
+manual identity/Library seeding; that bounded slice is now the next gate.
 
 1. Confirm the exact fresh Generation Two Neon project/branch/database and approved
    service-host secret storage. Inspect that destination before any write; refuse

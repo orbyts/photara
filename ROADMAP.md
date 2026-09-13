@@ -1,5 +1,10 @@
 # Roadmap to Photara 0.2.0
 
+**2026-09-13: CXT3d Neon Generation Two schema activation is complete.**
+[Live topology and verification](docs/architecture/CXT3D_NEON_ACTIVATION.md)
+record the exact 13-migration deployment on Neon `main`, preservation of
+`legacy-v0.1.x`, an empty user-data baseline, and the real onboarding next gate.
+
 **2026-09-12: CXT3a and the clean Library nomenclature rebaseline are complete.**
 [Verification and authority](docs/architecture/LIBRARY_NOMENCLATURE_REBASELINE.md)
 record 245 passing offline tests, regenerated schema/fixture hashes, checked SQLite
@@ -11,7 +16,10 @@ is superseded. CXT3b is the next separately authorized gate.
 > task/model handoff protocol. It supersedes older stage ordering when they conflict.
 > S7 D1–D17 and bounded L1/L2 are complete. The current conceptual amendment is
 > [D19](docs/architecture/LIBRARY_AND_NODE_WORK_SURFACES.md), approved 2026-09-12.
-> CXT2, CXT1a/b, CXT3a and the clean Library rebaseline are complete. Next: separately select CXT3b, then CXT3c and separately authorized fresh Neon deployment. No deployed database was migrated.
+> CXT2, CXT1a/b, CXT3a, the clean Library rebaseline, CXT3b, CXT3c, and CXT3d
+> Neon schema activation are complete. Next: separately authorize real Auth0
+> onboarding and idempotent local/cloud default-Library bootstrap; do not substitute
+> a manual developer seed.
 
 D19 supersedes earlier Library, whole-project Gallery/Project Asset Context
 and sole-built-in assumptions in the historical stages and catalog below. Library

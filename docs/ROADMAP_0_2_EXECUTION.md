@@ -4,10 +4,24 @@ This is the authoritative execution order for generation two. `ROADMAP.md` retai
 the broader product and node-contract rationale; this document defines what task
 starts next, its bounded slices, and where user approval stops progress.
 
-## CXT3c disposable service proof complete
+## CXT3d Neon schema activation complete
+
+[CXT3d](architecture/CXT3D_NEON_ACTIVATION.md) is complete in the existing Neon
+`photara` project. Primary/default `production` is now `main`; populated
+`development` is preserved unchanged as `legacy-v0.1.x`. The exact 13 checked
+migrations and four non-login role boundaries are installed on empty `main`.
+The live inventory and every ledger checksum match CXT3c; Accounts, Libraries,
+and Projects remain empty. No runtime credentials or service deployment exists.
+
+The next separately bounded slice is the real onboarding path, not a manual seed:
+Auth0 native PKCE, production verification, idempotent Account/device creation or
+recovery, and reconciled local/cloud default `My Library` bootstrap. It must keep
+all privileged Neon credentials out of the desktop application.
+
+## Historical CXT3c disposable service proof completion
 
 [CXT3c](architecture/CXT3C_SERVICE_RUNTIME.md) is complete from clean synchronized
-`7e6d794`, uncommitted and unpushed. Thirteen migrations execute in disposable
+`7e6d794`, committed and pushed as `be1ed80`. Thirteen migrations execute in disposable
 PostgreSQL 18.6 through Storexa. Five real PostgreSQL suites pass with 678 counted
 authorization/privilege/sensitivity cells plus scoped command, media and fake sync
 recovery proofs. The [exact inventory](architecture/CXT3C_IMPLEMENTATION_INVENTORY.md)
@@ -18,9 +32,9 @@ the real CXT3b database is byte-identical. All disposable clusters are stopped.
 The 2026-09-12 authorization scoped this slice to the service boundary and injected
 fakes. Native SQLite online-worker activation remains inactive; current service
 content codecs cover Library storage and Project catalog projections. The fake is
-not a full database backup or native online cutover. **Stop after CXT3c.** Next is
-the separately authorized fresh Neon role/schema/explicit seed plan in the runtime
-record. Real providers and package publication require their corresponding gates.
+not a full database backup or native online cutover. The subsequently authorized
+CXT3d schema activation is recorded above. Real providers and package publication
+still require their corresponding gates.
 
 ## Historical CXT3b local runtime completion
 
@@ -223,7 +237,10 @@ Publication/writer locking, conversion, application cutover and live storage rem
   generation-two typed Library CRUD/CAS/tombstones/claims and catalog/device
   foundations. Sixteen new and five retained Library tests pass. Merge/claim
   transfer remains a separately scoped **L2b** with no exposed API; sync/media/
-  recovery workers and application cutover remain deferred. CXT2, CXT1a/b, CXT3a and the clean Library rebaseline are complete; R1 naming is superseded and CXT3b local runtime is now complete; CXT3c disposable service proof is complete; fresh Neon role/schema/seed is the next separate gate.
+  recovery workers and application cutover remain deferred. CXT2, CXT1a/b, CXT3a
+  and the clean Library rebaseline are complete; R1 naming is superseded, CXT3b
+  local runtime and CXT3c service proof are complete, and CXT3d activated the
+  empty Generation Two Neon schema. Real onboarding is the next separate gate.
 - **D19 / CXT0 — complete:** review approved conceptual direction
   and revised D18 together: Library/Project ownership and grants, explicit ports,
   frozen context, shared host components and taxonomy. Inert baseline cases remain
@@ -251,8 +268,11 @@ Publication/writer locking, conversion, application cutover and live storage rem
   schema, unprivileged RLS, typed controllers, scoped receipts/media and fake online
   transport/bootstrap/recovery. Native SQLite worker activation and additional
   content codecs remain inactive, as documented in the service runtime record.
-  Fresh Neon role/schema/explicit seed is the next separately authorized action.
   Package-target application joins L3; no cross-store atomicity claim.
+- **CXT3d — complete:** the exact schema and non-login role boundaries are active
+  on Neon `main`; `legacy-v0.1.x` is preserved and user-data tables are empty.
+  The next action is real Auth0 onboarding and default-Library reconciliation,
+  not a manual seed.
 - **L3 — paused until the above and CXT1–3 accepted:** create a package with exactly
   one owning Library and a catalog record through a recoverable staged operation;
   default to `~/Pictures/Photara/Projects` and allow another authorized root.
@@ -284,9 +304,11 @@ cancelled runs retain truthful history without changing authored graph state.
 
 ## 0.2.0-alpha.4 — Photara Cloud foundation
 
-- **C1:** implement the Photara service boundary and Neon migrations; the desktop
-  client never receives privileged Neon credentials.
-- **C2:** add Auth0 native Authorization Code + PKCE and Google sign-in onboarding.
+- **C1 — service/schema complete:** the Photara service boundary and exact Neon
+  migrations are implemented and active; the desktop client never receives
+  privileged Neon credentials. Runtime service deployment remains separate.
+- **C2 — next gate:** add Auth0 native Authorization Code + PKCE and Google sign-in
+  onboarding, including cancellation, local-only choice, and retry/recovery.
 - **C3:** create or claim a Library and provision the developer's account and
   entitlement separately from future billing.
 - **C4:** synchronize Library records, media references, and Project Catalog entries
