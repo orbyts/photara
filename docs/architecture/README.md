@@ -1,5 +1,8 @@
 # Generation-two architecture
 
+- [UI ladder and authoring sequence](UI_LADDER_AND_AUTHORING_SEQUENCE.md) — proposed
+  three-step neutral token system, lab ownership and UI0–UI6 execution order.
+
 **2026-09-13: development-cloud and replaceable-product-identity policy approved.**
 The [authoritative policy](CXT4_DEVELOPMENT_CLOUD_AND_PRODUCT_IDENTITY.md) keeps
 Neon `main` usable from multiple configured development Macs through a loopback

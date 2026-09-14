@@ -1,5 +1,20 @@
 # Active handoff
 
+## 2026-09-14 committed checkpoint and proposed UI0
+
+The user confirms the live first-Mac Google/cloud flow works and supplied Light/Dark
+opening captures. CXT4b–d, recovery, account controls and their test furnaces were
+committed and pushed to `origin/main` as `45ddedf`. CXT4e second-Mac hydration and a
+complete independently captured aggregate audit remain open.
+
+The next proposed work is documented in
+[UI ladder and authoring sequence](architecture/UI_LADDER_AND_AUTHORING_SEQUENCE.md).
+Preserve Graph Lab. UI0 freezes a reusable three-step neutral ladder, rebuilds
+Theme/Shell Lab ownership, removes the Opening content tint, renders real Light/Dark
+production states and stops for approval. UI1 then designs and wires the first real
+Create Project operation across Library catalog, initial Graph, package and cloud
+projection. Do not begin UI1 implementation before its mockups are approved.
+
 Updated 2026-09-13 for the account sidebar aesthetic cleanup.
 
 The user confirmed live sign-in/sign-out and library selection work. Their next

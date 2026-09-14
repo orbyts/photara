@@ -4,6 +4,22 @@ This is the authoritative execution order for generation two. `ROADMAP.md` retai
 the broader product and node-contract rationale; this document defines what task
 starts next, its bounded slices, and where user approval stops progress.
 
+## 2026-09-14 checkpoint and next UI sequence
+
+The user confirms the signed application now completes live Google enrollment,
+shows the cloud Library, supports sign-out, and restores the account presentation.
+This closes the first-Mac CXT4d experience. CXT4e still owns second-Mac hydration,
+complete aggregate auditing and cross-host recovery; it is not implied complete.
+
+The next proposed slice is **UI0 — ladder and lab foundation**, followed by
+**UI1 — Create Project**. The authoritative scope and full UI0–UI6 sequence are in
+[UI ladder and authoring sequence](architecture/UI_LADDER_AND_AUTHORING_SEQUENCE.md).
+Graph Lab is preserved. Theme Lab authors the paired Light/Dark three-step neutral
+ladder once; Shell Lab becomes an integrated production-state browser; feature labs
+inherit shared tokens. Opening loses its custom blue/tinted content treatment before
+Create Project is wired. Stop for user approval after UI0 renders and again after the
+Create Project Light/Dark mockups.
+
 ## CXT4b-dev runtime provisioning and live readiness verified
 
 The first development Mac now has three distinct SQL-created least-privilege

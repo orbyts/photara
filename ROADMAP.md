@@ -1,7 +1,19 @@
 # Roadmap to Photara 0.2.0
 
-**2026-09-13: CXT4d has a signed, compiled first-enrollment path; real sign-in
-acceptance remains open.** A legitimate Apple Development
+**2026-09-14: first-Mac cloud onboarding is user-accepted; UI0 is proposed next.**
+The user confirmed live Google enrollment, cloud Library readiness, sign-out and
+returning account presentation in the signed macOS app, with a corresponding Neon
+record. This is first-Mac acceptance, not the still-open CXT4e second-Mac hydration
+and full aggregate audit. Accounts now lives at the bottom of the native Library
+sidebar with a bounded circular avatar/sign-in state. The Auth0 audience correction,
+terminal-operation recovery and real Rust/PostgreSQL furnace are committed and pushed
+as `45ddedf`. Next, review the
+[UI ladder and authoring sequence](docs/architecture/UI_LADDER_AND_AUTHORING_SEQUENCE.md):
+preserve Graph Lab, author the three-step neutral ladder once, rebuild Theme/Shell Lab
+responsibilities, remove the Opening content tint, and then approve/wire Create Project.
+
+**Historical 2026-09-13 checkpoint: CXT4d had a signed, compiled first-enrollment
+path; real sign-in remained open and is superseded by the status above.** A legitimate Apple Development
 identity and two Xcode-managed profiles now authorize distinct desktop and operator
 application identifiers. The checked operator removes deprecated Keychain
 behavior; native foundations cover PKCE/system browser, strict signed ID tokens,
@@ -120,10 +132,9 @@ is superseded. CXT3b is the next separately authorized gate.
 > task/model handoff protocol. It supersedes older stage ordering when they conflict.
 > S7 D1–D17 and bounded L1/L2 are complete. The current conceptual amendment is
 > [D19](docs/architecture/LIBRARY_AND_NODE_WORK_SURFACES.md), approved 2026-09-12.
-> CXT2, CXT1a/b, CXT3a, the clean Library rebaseline, CXT3b, CXT3c, and CXT3d
-> Neon schema activation and the approved CXT4a onboarding/security contract are
-> complete. CXT4b now has a verified local checkpoint and an approved development-
-> cloud profile. CXT4b-dev identity/environment wiring precedes CXT4d; permanent
+> CXT2, CXT1a/b, CXT3a, the clean Library rebaseline, CXT3b, CXT3c, CXT3d,
+> CXT4a/b/c/d and first-Mac live cloud onboarding are complete. CXT4e second-Mac
+> hydration remains open. UI0 then UI1 are the selected planning sequence; permanent
 > Fly deployment is deferred to production and must not be substituted with a
 > manual developer seed for real onboarding and local/cloud default-Library bootstrap.
 
