@@ -8,6 +8,8 @@ pub struct BridgeLocalState {
     pub device_id: String,
     pub library_id: String,
     pub principal_id: String,
+    /// `principal_id` is historical evidence only when `authority_mode` is cloud-member.
+    pub authority_mode: String,
 }
 /// Initializes or verifies the explicit local `SQLite` path and default Library.
 /// # Errors
@@ -39,6 +41,7 @@ pub fn initialize_local_state(path: String) -> Result<BridgeLocalState, BridgeEr
             device_id: id.device_id.uuid().to_string(),
             library_id: id.library_id.uuid().to_string(),
             principal_id: id.principal_id.to_string(),
+            authority_mode: id.authority_mode,
         })
     })
 }

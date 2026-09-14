@@ -11,3 +11,5 @@ nvim.log
 
 /platform/macos/photara-*-lab/.build
 /platform/macos/photara-ui-tests/.build
+/platform/macos/photara-ui-foundation/.build
+/scripts/__pycache__/

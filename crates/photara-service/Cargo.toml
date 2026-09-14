@@ -17,7 +17,22 @@ thiserror.workspace = true
 uuid.workspace = true
 storexa = "=0.2.0"
 sqlx = { version = "=0.9.0", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "json", "migrate", "macros"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "sync", "time"] }
+base64 = "=0.22.1"
+ring = "=0.17.14"
+reqwest = { version = "=0.13.4", default-features = false, features = ["rustls"] }
+axum = "=0.8.9"
+
+[dev-dependencies]
+tower = { version = "=0.5.3", features = ["util"] }
+
+[[bin]]
+name = "photara-service"
+path = "src/bin/photara-service.rs"
+
+[[bin]]
+name = "photara-migrate"
+path = "src/bin/photara-migrate.rs"
 
 [lints]
 workspace = true

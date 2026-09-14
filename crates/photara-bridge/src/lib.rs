@@ -7,6 +7,8 @@ mod evaluation;
 mod library;
 mod local_state;
 pub use local_state::*;
+mod onboarding;
+pub use onboarding::*;
 mod production;
 pub use library::*;
 mod runtime_registry;

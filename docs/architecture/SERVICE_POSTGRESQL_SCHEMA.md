@@ -1,5 +1,12 @@
 # Service PostgreSQL schema
 
+**2026-09-13 local CXT4b delta:** additive migration 0014 installs Account defaults,
+device credentials, onboarding challenges and immutable receipts, raising the
+local service floor to 3. The [checkpoint](CXT4B_SERVICE_CHECKPOINT.md) and
+[measured inventory](CXT4B_POSTGRES_INVENTORY.json) distinguish the 59-table local
+schema from deployed Neon 0013/floor 2. No historical migration/checksum or live
+database was changed. Deployment remains gated on concrete host/Auth0/signing inputs.
+
 **Current baseline — 2026-09-12:** the user superseded D19 R1 physical-name
 preservation because Generation Two is unshipped. Domain, package and SQL names
 below use Library consistently. This is a clean baseline rewrite, with no rename

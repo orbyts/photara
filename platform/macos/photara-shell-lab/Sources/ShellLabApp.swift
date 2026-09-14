@@ -7,7 +7,9 @@ struct ShellLabApp: App {
     var body: some Scene {
         Window("Photara — Shell Preview", id: "preview") {
             PreviewWindow(model: model)
-        }.defaultSize(width: 1440, height: 900)
+        }
+        .windowToolbarStyle(.unified)
+        .defaultSize(width: 1440, height: 900)
         Window("Shell Authoring", id: "controls") {
             ShellControls(model: model)
         }.defaultSize(width: 360, height: 760)
@@ -47,7 +49,15 @@ private struct ShellControls: View {
                 }
                 Button("Open Preview") { openWindow(id: "preview") }
             }
-            Section("Launcher") {
+            if usesNativeOpening {
+                Section("Opening Library") {
+                    themeColorPicker("Library content surface", .surfaceCanvas)
+                    Text("macOS owns the sidebar material, selection shape, row metrics, vibrancy, and titlebar integration. Photara authors only its destinations and behavior.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+            Section("Legacy launcher") {
                 slider("Title size", \.launcherTitleSize, 24...56)
                 Picker("Title font", selection: $model.preset.launcherTitleFont) {
                     ForEach(ApplicationShellPreset.TitleFontFamily.allCases, id: \.self) {
@@ -98,6 +108,7 @@ private struct ShellControls: View {
                 Text("Colors edit the currently selected Light or Dark appearance.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
             }
             Section("Shared visual system") {
                 themeColorPicker("Application base", .surfaceCanvas)
@@ -232,6 +243,14 @@ private struct ShellControls: View {
     private func resize(width: Double, height: Double) {
         guard let window = NSApp.windows.first(where: { $0.title == "Photara — Shell Preview" }) else { return }
         window.setContentSize(.init(width: width, height: height))
+    }
+    private var usesNativeOpening: Bool {
+        switch model.scenario {
+        case .opening, .recentsCollapsed, .recentsExpanded:
+            true
+        default:
+            false
+        }
     }
 }
 

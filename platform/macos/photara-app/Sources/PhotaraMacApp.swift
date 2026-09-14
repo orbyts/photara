@@ -2,17 +2,23 @@ import SwiftUI
 
 @main
 struct PhotaraMacApp: App {
+    private let configuration = ReleaseConfiguration.current
     @StateObject private var app = AppModel()
     @StateObject private var session = EditorSessionModel()
     @StateObject private var theme = PhotaraThemeStore()
 
     var body: some Scene {
-        WindowGroup("Photara") {
+        WindowGroup(configuration.identity.displayName) {
             ThemedEditorRoot()
                 .environmentObject(app)
                 .environmentObject(session)
                 .environmentObject(theme)
+                .onAppear {
+                    // Public channel only; never log tokens or service settings.
+                    print("release-channel:\(configuration.environment.channel.rawValue)")
+                }
         }
+        .windowToolbarStyle(.unified)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Project") { app.newProject() }
@@ -68,10 +74,16 @@ private struct ThemedEditorRoot: View {
     @EnvironmentObject private var theme: PhotaraThemeStore
     @State private var shellPreset = ApplicationShellPreset.developmentOrShipped
 
+    private var brandedShellPreset: ApplicationShellPreset {
+        var preset = shellPreset
+        preset.toolbarApplicationTitle = ReleaseConfiguration.current.identity.displayName
+        return preset
+    }
+
     var body: some View {
         let appearance: PhotaraThemeAppearance = colorScheme == .dark ? .dark : .light
         let resolved = theme.document.resolved(for: appearance)
-        EditorSessionView(shellPreset: shellPreset)
+        EditorSessionView(shellPreset: brandedShellPreset)
             .environment(\.photaraTheme, resolved)
             .tint(resolved.color(.borderFocus))
             .task {

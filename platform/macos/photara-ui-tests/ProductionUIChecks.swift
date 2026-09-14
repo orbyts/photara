@@ -2,8 +2,38 @@ import AppKit
 import SwiftUI
 import CoreImage
 
+@MainActor
+private final class SavedOpeningDriver: OpeningCloudDriver {
+    let availability = OpeningCloudAvailability.available
+    let saved: NativeOnboardingState
+    let avatar: Data?
+    var calls = 0
+    init(_ saved: NativeOnboardingState, avatar: Data? = nil) { self.saved = saved; self.avatar = avatar }
+    func savedState() async throws -> NativeOnboardingState? { saved }
+    func accountProfile(refreshAvatar: Bool) async throws -> NativeAccountProfile? {
+        NativeAccountProfile(name: "Alex Morgan", email: "alex@example.invalid", picture: nil, avatar: avatar)
+    }
+    func signIn(progress: @escaping @MainActor (NativeOnboardingState) -> Void) async throws -> NativeOnboardingState {
+        calls += 1; return .cloudReady
+    }
+}
+
 @main
 struct ProductionUIChecks {
+    /// A deliberately large, nonsquare raster exercises the native Menu image
+    /// path, which a fallback SF Symbol does not cover.
+    @MainActor private static func avatarFixture() -> Data {
+        let context = CGContext(data: nil, width: 512, height: 320, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(NSColor.systemPurple.cgColor)
+        context.fill(CGRect(x: 0, y: 0, width: 512, height: 320))
+        context.setFillColor(NSColor.systemTeal.cgColor)
+        context.fillEllipse(in: CGRect(x: 110, y: 20, width: 270, height: 270))
+        context.setFillColor(NSColor.systemOrange.cgColor)
+        context.fill(CGRect(x: 0, y: 0, width: 100, height: 320))
+        return NSBitmapImageRep(cgImage: context.makeImage()!).representation(using: .png, properties: [:])!
+    }
+
     @MainActor static func main() async throws {
         NSApplication.shared.setActivationPolicy(.accessory)
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
@@ -174,5 +204,42 @@ struct ProductionUIChecks {
         print("PASS: production composition, inspection adapter, Core action/undo/redo, HDR proxy, SQLite Library, thumbnails, project snapshots, save/reopen, presentation purity")
         print("Verification project ID: \(projectID)")
         app.closeProject()
+        let avatar = avatarFixture()
+        for (name, saved) in [("first-launch", NativeOnboardingState.localReady), ("sign-in-again", .freshSignInRequired), ("signed-out", .signedOutCached), ("returning", .cloudOffline)] {
+            let driver = SavedOpeningDriver(saved, avatar: avatar)
+            let cloud = OpeningCloudModel(driver: driver)
+            cloud.loadSavedState()
+            for _ in 0..<20 { await Task.yield() }
+            require(cloud.state == saved && !cloud.isWorking && driver.calls == 0, "Opening started authentication")
+            require(cloud.showsSignIn == (saved != .cloudOffline), "Returning connection prompted for sign-in")
+            if saved == .cloudOffline {
+                require(cloud.account?.avatar == avatar, "Raster avatar was not loaded into the production presentation")
+            }
+            for dark in [false, true] {
+                try await capture(LabAppearance(dark: dark) {
+                    ApplicationShell(presentation: app.applicationPresentation(session),
+                        actions: .init(send: app.performApplicationAction), openingCloud: cloud,
+                        workSurface: { ProductionWorkSurfaceRegistry.view(for: $0) }, panel: { _ in EmptyView() })
+                        .environmentObject(session)
+                }, name: "production-opening-\(name)-\(dark)", size: .init(width: 760, height: 560), directory: root)
+            }
+        }
+        let account = OpeningCloudModel(driver: SavedOpeningDriver(.cloudOffline, avatar: avatar))
+        account.loadSavedState()
+        for _ in 0..<20 { await Task.yield() }
+        for dark in [false, true] {
+            try await capture(LabAppearance(dark: dark) {
+                CloudLibraryPicker(choices: [.init(id: "synthetic-library", name: "My Library")], select: { _ in }, cancel: {})
+            }, name: "production-choose-library-\(dark)", size: .init(width: 420, height: 240), directory: root)
+            try await capture(LabAppearance(dark: dark) {
+                SidebarAccountControls(cloud: account).padding(16).frame(width: 238, height: 72)
+            }, name: "production-accounts-\(dark)", size: .init(width: 420, height: 80), directory: root)
+            try await capture(LabAppearance(dark: dark) {
+                ApplicationShell(presentation: app.applicationPresentation(session),
+                    actions: .init(send: app.performApplicationAction), openingCloud: account,
+                    workSurface: { ProductionWorkSurfaceRegistry.view(for: $0) }, panel: { _ in EmptyView() })
+                    .environmentObject(session)
+            }, name: "production-opening-returning-wide-\(dark)", size: .init(width: 1280, height: 820), directory: root)
+        }
     }
 }

@@ -7,19 +7,32 @@ BUILD_ROOT="$SCRIPT_ROOT/.build/app"
 RUST_TARGET="${PHOTARA_APP_RUST_TARGET:-$BUILD_ROOT/rust-target}"
 GENERATED_ROOT="$BUILD_ROOT/generated"
 MODULE_CACHE="$BUILD_ROOT/module-cache"
-APP_BUNDLE="$BUILD_ROOT/Photara.app"
+PRODUCT_CHANNEL="${PHOTARA_RELEASE_CHANNEL:-development}"
+PRODUCT_NAME="$(python3 "$REPOSITORY_ROOT/scripts/generate_product_configuration.py" \
+  --channel "$PRODUCT_CHANNEL" --output "$GENERATED_ROOT")"
+SIGNING_PROFILE="${PHOTARA_MACOS_PROVISIONING_PROFILE:-}"
+SIGNING_ENTITLEMENTS="$GENERATED_ROOT/Photara.entitlements"
+SIGNING_IDENTITY="-"
+APP_BUNDLE="$BUILD_ROOT/$PRODUCT_NAME.app"
 CONTENTS="$APP_BUNDLE/Contents"
 MACOS="$CONTENTS/MacOS"
 FRAMEWORKS="$CONTENTS/Frameworks"
 RESOURCES="$CONTENTS/Resources"
 THEME_ROOT="$REPOSITORY_ROOT/platform/macos/photara-theme"
-EXECUTABLE="$MACOS/Photara"
+EXECUTABLE="$MACOS/$PRODUCT_NAME"
 PROXY_HELPER_BUILD="$BUILD_ROOT/proxy-helper-build"
 PROXY_HELPER="$MACOS/photara-proxy-imageio"
 
 mkdir -p "$GENERATED_ROOT" "$MODULE_CACHE" "$MACOS" "$FRAMEWORKS" "$RESOURCES"
 cp -p "$REPOSITORY_ROOT/platform/macos/photara-shell/Resources/photara-application-presentation-v1.json" "$RESOURCES/"
-cp -p "$SCRIPT_ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
+python3 "$REPOSITORY_ROOT/scripts/generate_product_configuration.py" \
+  --channel "$PRODUCT_CHANNEL" --output "$GENERATED_ROOT" --plist "$CONTENTS/Info.plist" >/dev/null
+PRODUCT_BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw "$CONTENTS/Info.plist")"
+if [[ -n "$SIGNING_PROFILE" ]]; then
+  SIGNING_IDENTITY="$(python3 "$REPOSITORY_ROOT/scripts/prepare_macos_signing.py" \
+    --profile "$SIGNING_PROFILE" --bundle-id "$PRODUCT_BUNDLE_ID" \
+    --entitlements "$SIGNING_ENTITLEMENTS")"
+fi
 cp -p "$REPOSITORY_ROOT/platform/macos/photara-gallery/Resources/photara-gallery-presentation-v1.json" "$RESOURCES/"
 cp -p "$REPOSITORY_ROOT/platform/macos/photara-inspector/Resources/photara-inspector-presentation-v1.json" "$RESOURCES/"
 mkdir -p "$RESOURCES/Themes"
@@ -64,6 +77,7 @@ xcrun swiftc \
   "$SCRIPT_ROOT/Sources/ProductionGraphView.swift" \
   "$SCRIPT_ROOT/Sources/InspectionAdapter.swift" \
   "$SCRIPT_ROOT/Sources/ApplicationAdapter.swift" \
+  "$SCRIPT_ROOT/Sources/ProductionOpeningCloudDriver.swift" \
   "$SCRIPT_ROOT/Sources/EditorSessionView.swift" \
   "$SCRIPT_ROOT/Sources/PhotaraMacApp.swift" \
   -Xcc "-fmodule-map-file=$GENERATED_ROOT/PhotaraBridgeFFI.modulemap" \
@@ -88,9 +102,16 @@ install_name_tool \
 # generated bundle contents. That metadata is not part of the product and makes
 # codesign reject an otherwise valid development build.
 xattr -cr "$APP_BUNDLE"
-codesign --force --sign - "$PROXY_HELPER"
-codesign --force --sign - "$FRAMEWORKS/libphotara_bridge.dylib"
+codesign --force --sign "$SIGNING_IDENTITY" --timestamp=none "$PROXY_HELPER"
+codesign --force --sign "$SIGNING_IDENTITY" --timestamp=none "$FRAMEWORKS/libphotara_bridge.dylib"
 xattr -cr "$APP_BUNDLE"
-codesign --force --deep --sign - "$APP_BUNDLE"
+if [[ -n "$SIGNING_PROFILE" ]]; then
+  cp -p "$SIGNING_PROFILE" "$CONTENTS/embedded.provisionprofile"
+  codesign --force --sign "$SIGNING_IDENTITY" --entitlements "$SIGNING_ENTITLEMENTS" \
+    --timestamp=none --generate-entitlement-der "$APP_BUNDLE"
+else
+  codesign --force --sign - "$APP_BUNDLE"
+fi
+codesign --verify --strict --verbose=2 "$APP_BUNDLE"
 
 print -r -- "$APP_BUNDLE"

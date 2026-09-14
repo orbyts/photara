@@ -53,13 +53,33 @@ impl Service {
             }
             return Err(ServiceError::Conflict);
         }
-        if r.generation != 1 {
+        let receipt = self.claim_in_transaction(&mut tx, actor, r, c).await?;
+        tx.commit().await?;
+        Ok(receipt)
+    }
+    pub(crate) async fn claim_in_transaction(
+        &self,
+        tx: &mut storexa::Transaction,
+        actor: &Actor,
+        r: Request,
+        c: &ClaimLibrary,
+    ) -> Result<ControlReceipt> {
+        let body = (r.scope, "claim-library", c);
+        if r.generation != 1
+            || r.scope.project().is_some()
+            || c.display_name.trim().is_empty()
+            || c.display_name.len() > 512
+        {
             return Err(ServiceError::Invalid);
         }
-        sqlx::query("INSERT INTO photara.libraries VALUES($1,$2,'active',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL,1,'{}')").bind(r.scope.library().uuid()).bind(&c.display_name).execute(&mut *tx).await?;
-        sqlx::query("INSERT INTO photara.library_contract_state VALUES($1,1,'cloud-member',NULL,1,1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(r.scope.library().uuid()).execute(&mut *tx).await?;
-        sqlx::query("INSERT INTO photara_identity.memberships VALUES($1,$2,$3,'owner','active',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)").bind(Uuid::new_v4()).bind(r.scope.library().uuid()).bind(actor.account.uuid()).execute(&mut *tx).await?;
-        sqlx::query("INSERT INTO photara_private.scoped_streams VALUES($1,$2,'library',NULL,$3,0,CURRENT_TIMESTAMP)").bind(Uuid::new_v4()).bind(r.scope.library().uuid()).bind(Uuid::new_v4()).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO photara.libraries VALUES($1,$2,'active',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL,1,'{}')").bind(r.scope.library().uuid()).bind(&c.display_name).execute(&mut **tx).await?;
+        self.onboarding_checkpoint(11)?;
+        sqlx::query("INSERT INTO photara.library_contract_state VALUES($1,1,'cloud-member',NULL,1,1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(r.scope.library().uuid()).execute(&mut **tx).await?;
+        self.onboarding_checkpoint(12)?;
+        sqlx::query("INSERT INTO photara_identity.memberships VALUES($1,$2,$3,'owner','active',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)").bind(Uuid::new_v4()).bind(r.scope.library().uuid()).bind(actor.account.uuid()).execute(&mut **tx).await?;
+        self.onboarding_checkpoint(13)?;
+        sqlx::query("INSERT INTO photara_private.scoped_streams VALUES($1,$2,'library',NULL,$3,0,CURRENT_TIMESTAMP)").bind(Uuid::new_v4()).bind(r.scope.library().uuid()).bind(Uuid::new_v4()).execute(&mut **tx).await?;
+        self.onboarding_checkpoint(14)?;
         let receipt = ControlReceipt {
             operation: c.operation,
             generation: 1,
@@ -67,9 +87,10 @@ impl Service {
         };
         let request = canonical(&body)?;
         let response = canonical(&receipt)?;
-        sqlx::query("INSERT INTO photara_private.library_claim_receipts VALUES($1,$2,$3,$3,$4,$5,'claimed',$6,$7,CURRENT_TIMESTAMP)").bind(actor.account.uuid()).bind(c.operation.uuid()).bind(r.scope.library().uuid()).bind(&request).bind(hash(&request).to_vec()).bind(&response).bind(hash(&response).to_vec()).execute(&mut *tx).await?;
-        record(&mut tx, actor, r, &body, "claim-library", &receipt).await?;
-        tx.commit().await?;
+        sqlx::query("INSERT INTO photara_private.library_claim_receipts VALUES($1,$2,$3,$3,$4,$5,'claimed',$6,$7,CURRENT_TIMESTAMP)").bind(actor.account.uuid()).bind(c.operation.uuid()).bind(r.scope.library().uuid()).bind(&request).bind(hash(&request).to_vec()).bind(&response).bind(hash(&response).to_vec()).execute(&mut **tx).await?;
+        self.onboarding_checkpoint(15)?;
+        record(tx, actor, r, &body, "claim-library", &receipt).await?;
+        self.onboarding_checkpoint(16)?;
         Ok(receipt)
     }
     /// Atomic transfer permits a temporary no-manager state within the transaction.

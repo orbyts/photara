@@ -64,6 +64,8 @@ pub struct Request {
 }
 /// Holds separate least-privileged Storexa pools. No raw connection is exported.
 pub struct Service {
+    #[cfg(test)]
+    pub(crate) fault_phase: std::sync::atomic::AtomicU8,
     pub(crate) api: Database,
     pub(crate) control: Database,
     pub(crate) auth: Database,
@@ -74,6 +76,22 @@ pub struct Service {
     pub(crate) cursor_key: [u8; 32],
 }
 impl Service {
+    /// # Errors
+    /// Rechecks exact ledger/floor and runtime-role drift without exposing connection data.
+    pub async fn readiness(&self) -> Result<()> {
+        for (db, role) in [
+            (&self.api, "photara_api"),
+            (&self.control, "photara_control"),
+            (&self.auth, "photara_auth_read"),
+        ] {
+            validate_schema(db).await?;
+            let safe:bool=sqlx::query_scalar("SELECT rolcanlogin AND NOT rolsuper AND NOT rolbypassrls AND NOT rolcreaterole AND NOT rolcreatedb AND NOT rolreplication AND NOT pg_has_role(current_user,'photara_owner','MEMBER') AND pg_has_role(current_user,$1,'MEMBER') AND NOT EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname IN ('photara_api','photara_control','photara_auth_read') AND r.rolname<>$1 AND pg_has_role(current_user,r.oid,'MEMBER')) FROM pg_roles WHERE rolname=current_user").bind(role).fetch_one(db.pool()).await?;
+            if !safe {
+                return Err(ServiceError::Forbidden);
+            }
+        }
+        Ok(())
+    }
     pub(crate) fn sign(&self, domain: &str, bytes: &[u8]) -> Result<[u8; 32]> {
         if domain.contains('\0') {
             return Err(ServiceError::Invalid);
@@ -115,7 +133,7 @@ impl Service {
             (&control, "photara_control"),
             (&auth, "photara_auth_read"),
         ] {
-            let safe:bool=sqlx::query_scalar("SELECT NOT rolsuper AND NOT rolbypassrls AND NOT rolcreaterole AND NOT pg_has_role(current_user,'photara_owner','MEMBER') AND pg_has_role(current_user,$1,'MEMBER') FROM pg_roles WHERE rolname=current_user").bind(role).fetch_one(db.pool()).await?;
+            let safe:bool=sqlx::query_scalar("SELECT rolcanlogin AND NOT rolsuper AND NOT rolbypassrls AND NOT rolcreaterole AND NOT rolcreatedb AND NOT rolreplication AND NOT pg_has_role(current_user,'photara_owner','MEMBER') AND pg_has_role(current_user,$1,'MEMBER') FROM pg_roles WHERE rolname=current_user").bind(role).fetch_one(db.pool()).await?;
             if !safe {
                 return Err(ServiceError::Forbidden);
             }
@@ -126,6 +144,8 @@ impl Service {
             validate_schema(db).await?;
         }
         Ok(Self {
+            #[cfg(test)]
+            fault_phase: std::sync::atomic::AtomicU8::new(0),
             api,
             control,
             auth,
@@ -171,7 +191,7 @@ impl Service {
         )
         .fetch_one(&mut *tx)
         .await?;
-        if floor != 2 {
+        if floor != 3 {
             return Err(ServiceError::Unsupported);
         }
         // Lock all Accounts first, then all Identities, in stable UUID order.
@@ -249,7 +269,7 @@ impl Service {
     }
 }
 pub(crate) async fn validate_schema(db: &Database) -> Result<()> {
-    let valid:bool=sqlx::query_scalar("SELECT schema_family='photara.service.g2' AND schema_epoch=1 AND minimum_api=2 AND canonical_codec='photara.canonical-json.v1' FROM photara.schema_metadata WHERE singleton").fetch_one(db.pool()).await?;
+    let valid:bool=sqlx::query_scalar("SELECT schema_family='photara.service.g2' AND schema_epoch=1 AND minimum_api=3 AND canonical_codec='photara.canonical-json.v1' FROM photara.schema_metadata WHERE singleton").fetch_one(db.pool()).await?;
     if !valid {
         return Err(ServiceError::Unsupported);
     }

@@ -1,0 +1,41 @@
+{
+  "identity": {
+    "displayName": "Photara",
+    "shortName": "Photara",
+    "isCodename": true,
+    "bundleIdentifier": "com.photara.desktop",
+    "keychainService": "com.photara.desktop.auth",
+    "callbackScheme": "com.photara.desktop",
+    "projectPackageDisplayType": "Photara Project",
+    "projectPackageExtension": "photara",
+    "apiAudienceNamespace": "urn:photara:api",
+    "serviceHostname": null,
+    "userAgent": "Photara/0.2.0",
+    "applicationSupportDirectory": "Photara",
+    "cacheDirectory": "Photara",
+    "defaultLibraryName": "My Library",
+    "websiteURL": null,
+    "supportURL": null,
+    "privacyURL": null,
+    "storeURL": null
+  },
+  "environments": {
+    "development": {
+      "channel": "development",
+      "environmentId": "photara-development",
+      "apiOrigin": "http://127.0.0.1:8080/",
+      "auth0Issuer": "https://dev-nmturasdrkz7up27.us.auth0.com/",
+      "auth0Audience": "urn:photara:api:development",
+      "nativeClientId": "CJ3hH2CUSkEk0vSbdvHMJLEqD4gYWGkW",
+      "callbackURL": "com.photara.desktop://dev-nmturasdrkz7up27.us.auth0.com/macos/com.photara.desktop/callback",
+      "logoutURL": "com.photara.desktop://dev-nmturasdrkz7up27.us.auth0.com/macos/com.photara.desktop/callback",
+      "schemaFamily": "photara.service.g2",
+      "schemaEpoch": 1,
+      "minimumAPI": 3,
+      "loggingPolicy": "redacted-status-only",
+      "telemetryEnabled": false
+    },
+    "remoteAcceptance": null,
+    "production": null
+  }
+}

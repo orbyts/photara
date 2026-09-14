@@ -1,5 +1,22 @@
 # Generation-two architecture
 
+**2026-09-13: development-cloud and replaceable-product-identity policy approved.**
+The [authoritative policy](CXT4_DEVELOPMENT_CLOUD_AND_PRODUCT_IDENTITY.md) keeps
+Neon `main` usable from multiple configured development Macs through a loopback
+instance of the production API contract, reserves Fly.io for brief remote acceptance
+and permanent production, and defines one coordinated pre-release brand cutover.
+
+**2026-09-13: CXT4c opening-shell first visual baseline accepted.** The shared
+production/Lab implementation uses the native macOS split-view/sidebar hierarchy;
+minor sizing polish is non-gating. Real authentication remains CXT4d work.
+
+**2026-09-13: CXT4b local service checkpoint verified, not deployed.**
+The [checkpoint and exact remaining inputs](CXT4B_SERVICE_CHECKPOINT.md) and
+[measured local PostgreSQL inventory](CXT4B_POSTGRES_INVENTORY.json) record additive
+onboarding, production token verification, atomic receipts and disposable proof.
+The Auth0 tuple and live Neon floor are concrete. Typed development environment/
+identity wiring is next; Fly HTTPS and release signing remain remote/release gates.
+
 **2026-09-13: CXT4a onboarding/security contract approved.**
 The [contract and Chordrift reference audit](CXT4A_ONBOARDING_SECURITY_CONTRACT.md)
 define the accepted contract after completed CXT3b/c/d. CXT4b implementation is
@@ -49,6 +66,7 @@ govern conflicts in the older physical/package/sync baseline below.
 20. [Native clients](NATIVE_CLIENTS.md)
 21. [Native presentation themes](THEMES.md)
 22. [Swift bridge spike](SWIFT_BRIDGE_SPIKE.md)
+23. [CXT4 development cloud and product identity](CXT4_DEVELOPMENT_CLOUD_AND_PRODUCT_IDENTITY.md)
 
 `docs/ROADMAP_0_2_EXECUTION.md` is authoritative for implementation order and
 approval gates. `ROADMAP.md` retains the broader product rationale.

@@ -1,5 +1,102 @@
 # Roadmap to Photara 0.2.0
 
+**2026-09-13: CXT4d has a signed, compiled first-enrollment path; real sign-in
+acceptance remains open.** A legitimate Apple Development
+identity and two Xcode-managed profiles now authorize distinct desktop and operator
+application identifiers. The checked operator removes deprecated Keychain
+behavior; native foundations cover PKCE/system browser, strict signed ID tokens,
+device-only DP-Keychain storage, cross-process refresh protection, pinned HTTP,
+discovery/JWKS caching, code/refresh exchange and onboarding presentation. The
+shared opening UI visibly disables unavailable cloud sign-in. 135 synthetic
+assertions, 44 library tests and 8 bridge tests pass. Additive local migration
+0013/floor 3, durable intent/receipt recovery, transactional same-ID reconciliation,
+association-aware restart and explicit existing-cloud choice are verified; the
+typed Swift bridge and production app rebuild pass. Both native hosts compiled
+with the authentication foundations. The real Photara app is Apple-signed, the
+operator is installed at its fixed host-local path, and the existing runtime bundle
+was transferred in memory into a device-only Data Protection Keychain item without
+printing or file persistence. A desktop-signed process is denied the operator group.
+The new operator passed Keychain restart and two live Auth0/Neon readiness/liveness
+runs; the service is stopped. The legacy helper/item remain recovery-only.
+The production app now injects the Rust-backed enrollment driver. It verifies the
+service contract, uses Rust-authored challenge/bootstrap bytes, drives Auth0 PKCE,
+stores modern Keychain credentials, journals unknown outcome before dispatch, and
+applies the current cloud session transactionally. The signed operator embeds the
+development service and its installed launch path is verified. Live user enrollment
+now requires the real Google callback and Neon audit. Content hydration
+and remote Library metadata remain later acceptance work. The intended live proof
+uses one bounded Fly deployment, then retires its unneeded compute; ongoing personal
+development uses the local service against shared Neon. Xcode Personal Team profiles
+are seven-day development artifacts and must be renewed; their expiry is enforced by
+the build helper rather than silently falling back to ad-hoc signing.
+See the [exact CXT4d checkpoint](docs/architecture/CXT4D_NATIVE_AUTHENTICATION_CHECKPOINT.md).
+
+**2026-09-13: CXT4b-dev live loopback readiness is verified.** Three distinct
+SQL-created Neon `main` runtime logins authenticate only through their existing
+API/control/auth-read capability roles. Their URLs and a stable random 32-byte
+cursor key reside in one non-sync macOS Keychain item; the native operator
+launcher injects them directly into the separate service process. Live readiness
+and a restart both return HTTP 200. Accounts, Libraries, defaults and receipts
+remain zero. The foreground proof service is stopped. Next is separately selected
+CXT4d native PKCE/Keychain/bootstrap; multi-Mac hydration remains CXT4e acceptance.
+See [runtime evidence and launch instructions](docs/architecture/CXT4B_SERVICE_CHECKPOINT.md#cxt4b-dev-runtime-provisioning-and-live-readiness).
+
+**2026-09-13: CXT4b-dev configuration implementation is verified; live readiness
+awaits separately provisioned runtime credentials.** One checked public identity
+descriptor supplies generated typed Swift/build metadata and the Rust service
+profile. Development explicitly binds `127.0.0.1:8080` using the existing Auth0,
+HTTP and three-role database contract. Production and remote acceptance fail
+closed until their reviewed descriptors exist. No runtime credential, provider
+state, user Account or Fly resource was created. See the
+[checkpoint and exact next gate](docs/architecture/CXT4B_SERVICE_CHECKPOINT.md#cxt4b-dev-configuration-checkpoint).
+
+**2026-09-13: development-cloud and replaceable-product-identity policy approved.**
+During development, Suhail may use Auth0 plus the shared Neon `main` database from
+multiple configured Macs through the same Rust API contract running locally; Fly.io
+is reserved for brief remote-acceptance deployments and permanent production.
+This retains seamless cloud Libraries without an idle hosted-compute bill. One
+typed identity/environment seam must contain the current `Photara` codename,
+bundle/callback/package/API coordinates so the coordinated pre-release rename is
+bounded. See the
+[authoritative policy](docs/architecture/CXT4_DEVELOPMENT_CLOUD_AND_PRODUCT_IDENTITY.md).
+
+**2026-09-13: CXT4b Auth0 development resources are configured.** The dedicated
+`Photara macOS` Native public client and `Photara API` resource now use the exact
+development issuer/audience/client/callback tuple recorded in the
+[service checkpoint](docs/architecture/CXT4B_SERVICE_CHECKPOINT.md). Google is
+the client's only enabled connection; Authorization Code plus rotating refresh
+tokens, the ten-minute RS256 API token policy, offline access, and the sole
+`photara:onboard` permission are configured. No user signed in and no Account or
+Library was created.
+
+**2026-09-13: CXT4b migration 0014 is active on Neon `main`.** The operator
+migrator advanced `photara.service.g2` from minimum API 2 to 3 and the SQLx
+ledger from 13 to 14 successful entries. The four onboarding relations are
+present; Accounts, Libraries, account defaults, and onboarding receipts remain
+empty. `legacy-v0.1.x` was not touched.
+
+**2026-09-13: Fly.io selected for production and remote acceptance.** A runnable Axum
+entry point, separate operator migration executable, non-root Docker image and
+validated Fly HTTPS/health/concurrency manifest are implemented. Billing is now
+enabled, but continuous deployment is deliberately deferred. Remote acceptance
+will provision the service briefly and destroy its Machine afterward; no Fly
+resource, runtime credential, charge, or user-data mutation has yet occurred.
+
+**2026-09-13: CXT4c native opening-shell first visual baseline is accepted.**
+Production and Shell Lab now consume the same `NavigationSplitView` opening
+source with a system-rendered macOS sidebar. The accepted baseline keeps the
+centered application title free of a glass capsule and aligns local/cloud status
+at the sidebar leading edge. Minor sizing refinement is explicitly non-gating;
+the remaining authentication, failure, returning-user, Dark appearance and
+behavioral states will be exercised while wiring CXT4d.
+
+**2026-09-13: CXT4b host-independent service checkpoint is implemented and verified.**
+Read the [implementation, measured inventory and remaining inputs](docs/architecture/CXT4B_SERVICE_CHECKPOINT.md).
+Deployment remains blocked on the Fly app/HTTPS/secret-store and release-signing
+inputs; the Auth0 development tuple is concrete. Migration 0014 is now live as recorded above; no runtime
+credential or real Account was created. CXT4b is not deployed; CXT4d/e remain
+separate gates.
+
 **2026-09-13: CXT4a contract and Chordrift reference audit are approved.**
 The [onboarding/security contract](docs/architecture/CXT4A_ONBOARDING_SECURITY_CONTRACT.md)
 uses Google as the only initial Auth0 connection and preserves additive future
@@ -25,7 +122,9 @@ is superseded. CXT3b is the next separately authorized gate.
 > [D19](docs/architecture/LIBRARY_AND_NODE_WORK_SURFACES.md), approved 2026-09-12.
 > CXT2, CXT1a/b, CXT3a, the clean Library rebaseline, CXT3b, CXT3c, and CXT3d
 > Neon schema activation and the approved CXT4a onboarding/security contract are
-> complete. Next separately select CXT4b; do not substitute a
+> complete. CXT4b now has a verified local checkpoint and an approved development-
+> cloud profile. CXT4b-dev identity/environment wiring precedes CXT4d; permanent
+> Fly deployment is deferred to production and must not be substituted with a
 > manual developer seed for real onboarding and local/cloud default-Library bootstrap.
 
 D19 supersedes earlier Library, whole-project Gallery/Project Asset Context

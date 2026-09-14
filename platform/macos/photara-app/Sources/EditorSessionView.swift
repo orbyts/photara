@@ -10,6 +10,7 @@ struct EditorSessionView: View {
         ApplicationShell(presentation: app.applicationPresentation(session),
                          actions: .init(send: app.performApplicationAction),
                          preset: shellPreset,
+                         openingCloud: app.openingCloud,
                          workSurface: { ProductionWorkSurfaceRegistry.view(for: $0) }) { panel in
             switch panel {
             case .people, .locations, .scenes, .account: ProductionLibraryModule(panel: panel, library: app.library)

@@ -10,6 +10,9 @@ pub struct LocalIdentity {
     pub device_id: DeviceId,
     pub library_id: LibraryId,
     pub principal_id: LocalPrincipalId,
+    /// When cloud-member, `principal_id` is retained historical local evidence;
+    /// it cannot pass the local controller's authority checks.
+    pub authority_mode: String,
 }
 
 #[derive(Clone, Debug)]
@@ -43,7 +46,7 @@ impl LocalLibraryStore {
                 let (family, reader, writer, epoch): (String, i64, i64, i64) = connection.query_row("SELECT schema_family,minimum_reader,minimum_writer,schema_epoch FROM schema_metadata WHERE singleton=1", [], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).map_err(|_| Error::ForeignDatabase)?;
                 if family != "photara.local.g2"
                     || epoch != 1
-                    || !(1..=2).contains(&reader)
+                    || !(1..=4).contains(&reader)
                     || writer != reader
                 {
                     return Err(Error::Unsupported);
@@ -108,17 +111,44 @@ impl LocalLibraryStore {
                 .execute(&mut *tx)
                 .await?;
         }
-        let bytes: Vec<u8> = sqlx::query_scalar("SELECT local_principal_id FROM library_contract_state WHERE library_id=? AND authority_mode='local-only'").bind(id.bytes()).fetch_one(&mut *tx).await?;
+        let authority_mode: String = sqlx::query_scalar(
+            "SELECT authority_mode FROM library_contract_state WHERE library_id=?",
+        )
+        .bind(id.bytes())
+        .fetch_one(&mut *tx)
+        .await?;
+        let bytes: Vec<u8> = if authority_mode == "local-only" {
+            sqlx::query_scalar(
+                "SELECT local_principal_id FROM library_contract_state WHERE library_id=?",
+            )
+            .bind(id.bytes())
+            .fetch_one(&mut *tx)
+            .await?
+        } else if authority_mode == "cloud-member" {
+            if super::onboarding::cached_binding(&mut tx, id)
+                .await?
+                .is_none()
+            {
+                return Err(Error::Corrupt);
+            }
+            sqlx::query_scalar("SELECT i.local_principal_id FROM library_cloud_bindings b JOIN onboarding_intents i USING(operation_id) WHERE b.library_id=? AND i.library_id=?")
+                .bind(id.bytes()).bind(id.bytes()).fetch_one(&mut *tx).await?
+        } else {
+            return Err(Error::Unsupported);
+        };
         let principal =
             LocalPrincipalId::from_uuid(Uuid::from_slice(&bytes).map_err(|_| Error::Corrupt)?)
                 .map_err(|_| Error::Corrupt)?;
-        local_authority(&mut tx, id, principal).await?;
+        if authority_mode == "local-only" {
+            local_authority(&mut tx, id, principal).await?;
+        }
         tx.commit().await?;
         Ok(LocalIdentity {
             database_id: self.info.database_id,
             device_id: self.info.device_id,
             library_id: id,
             principal_id: principal,
+            authority_mode,
         })
     }
 
@@ -386,7 +416,7 @@ mod tests {
         let (store, first) = LocalLibraryStore::open_app_state(&path, at())
             .await
             .unwrap();
-        assert_eq!(store.info().migration_count, 12);
+        assert_eq!(store.info().migration_count, 14);
         assert_eq!(store.libraries(None, 100, false).await.unwrap().len(), 1);
         store.verify_integrity().await.unwrap();
         store.close().await;
@@ -622,7 +652,7 @@ mod migration_tests {
         let (store, _) = LocalLibraryStore::open_app_state(&path, at())
             .await
             .unwrap();
-        assert_eq!(store.info().migration_count, 12);
+        assert_eq!(store.info().migration_count, 14);
         store.verify_integrity().await.unwrap();
         store.close().await;
         let bad = dir.path().join("failure.sqlite");
@@ -687,7 +717,7 @@ mod migration_tests {
         let connection = rusqlite::Connection::open(&fresh).unwrap();
         connection
             .execute(
-                "UPDATE schema_metadata SET minimum_reader=3,minimum_writer=3",
+                "UPDATE schema_metadata SET minimum_reader=5,minimum_writer=5",
                 [],
             )
             .unwrap();

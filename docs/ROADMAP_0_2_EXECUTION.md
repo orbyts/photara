@@ -4,7 +4,66 @@ This is the authoritative execution order for generation two. `ROADMAP.md` retai
 the broader product and node-contract rationale; this document defines what task
 starts next, its bounded slices, and where user approval stops progress.
 
-## CXT4a contract approved and complete
+## CXT4b-dev runtime provisioning and live readiness verified
+
+The first development Mac now has three distinct SQL-created least-privilege
+Neon `main` logins and a stable cursor key stored only in a non-sync macOS
+Keychain bundle. The native operator launcher directly starts the checked
+development service with a minimal environment. Real Auth0 JWKS initialization,
+certificate-verified Neon pools, role admission and exact ledger readiness pass;
+both health endpoints return HTTP 200, including readiness after restart.
+Accounts/Libraries/defaults/receipts remain zero. The proof service is stopped.
+See [exact evidence and limits](architecture/CXT4B_SERVICE_CHECKPOINT.md#cxt4b-dev-runtime-provisioning-and-live-readiness).
+
+**CXT4d-dev has a signed first-enrollment path.** Apple Development signing now
+authorizes separate desktop and operator application identifiers. Existing runtime
+credentials were copied in memory into the operator's device-only Data Protection
+Keychain item; desktop access is denied and two post-install/restart service runs
+reached Auth0/Neon readiness. The legacy item remains recovery-only. The current
+The production app now injects the Rust-backed driver: checked capabilities,
+Rust-authored canonical challenge/bootstrap bytes, Auth0 PKCE, modern Keychain,
+durable unknown-outcome dispatch, receipt retention and session reconciliation are
+wired. The installed signed operator embeds the local service. CXT4d's real
+sign-in/restart/lifecycle acceptance remains; CXT4e owns the full first-Account and
+second-Mac audit. Fly resources and native sign-in have not been activated.
+
+## Earlier CXT4b-dev configuration checkpoint
+
+The identity/environment seam and secure loopback profile are implemented and
+verified with offline configuration/native checks. One checked public descriptor
+drives typed Rust, generated Swift and native bundle identity/callback metadata.
+The development profile binds only `127.0.0.1:8080` and reuses the original
+production verifier, HTTP routes and database role/ledger checks. Unconfigured
+hosted profiles refuse. No credentials, provider changes, Fly resources or user
+data were created. See [the exact checkpoint](architecture/CXT4B_SERVICE_CHECKPOINT.md#cxt4b-dev-configuration-checkpoint).
+
+**Historical next gate, completed above:** separately provision host-only least-privilege runtime credentials
+and a stable cursor key for Neon `main`; prove readiness with no user seed/sign-in.
+CXT4d/e remain separate. Daily cloud switching between Macs is an acceptance
+target, not functionality activated by the descriptor alone.
+
+## Earlier CXT4b checkpoint and selected development policy
+
+[CXT4b implementation and verification](architecture/CXT4B_SERVICE_CHECKPOINT.md)
+records the bounded service code and ten passing disposable PostgreSQL suites.
+Migration 0014/service floor 3 are active on Neon `main`; the dedicated Auth0
+development client/API tuple is configured. No runtime database identities or
+secrets, hosted origin or release-signing identity exists. The local service
+profile has since been implemented as recorded above.
+Remote host/HTTPS/secret-injection proof is deliberately deferred rather than a
+blocker for development-cloud onboarding.
+Do not describe CXT4b as remotely deployed or advance CXT4d/e automatically. The complete
+approved CXT4c native-shell text is preserved byte-for-byte.
+
+The 2026-09-13 development policy makes the next bounded slice **CXT4b-dev**:
+add the typed environment/product-identity seam and run the same service contract
+locally against Neon `main`. This allows real multi-Mac development cloud use.
+Fly.io is separately exercised only for a brief remote-acceptance gate and is kept
+continuously deployed only after the production identity and operating prerequisites
+are ready. Read the
+[authoritative policy](architecture/CXT4_DEVELOPMENT_CLOUD_AND_PRODUCT_IDENTITY.md).
+
+## Historical CXT4a contract approved and complete
 
 The [onboarding/security contract](architecture/CXT4A_ONBOARDING_SECURITY_CONTRACT.md)
 and Chordrift read-only audit are approved. Google is the only initial Auth0
@@ -317,8 +376,9 @@ cancelled runs retain truthful history without changing authored graph state.
 
 ## 0.2.0-alpha.4 — Photara Cloud foundation
 
-**Immediate execution order:** CXT4a contract → CXT4b minimal cloud service →
-CXT4c native opening Library shell → CXT4d Auth0 integration → CXT4e first-Account
+**Immediate execution order:** CXT4a contract → CXT4b host-independent service →
+CXT4c native opening Library shell → CXT4b-dev identity/environment and loopback
+service → CXT4d Auth0 integration → CXT4e first-Account/multi-Mac
 acceptance. The [bounded record](architecture/CXT4_ONBOARDING_AND_OPENING.md)
 defines ownership, states, UI/system boundaries, tests, and approval stops.
 

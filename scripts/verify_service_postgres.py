@@ -29,6 +29,11 @@ def run(cmd):
 
 psql = ['psql','-X','-h',str(socket),'-p','55439','-U','photara_test_admin','-v','ON_ERROR_STOP=1']
 try:
+    # The native executable crosses real TCP/router/database boundaries. Build
+    # it for every proof so an old helper cannot silently satisfy the gate.
+    native_build = run(['zsh', str(ROOT/'scripts/build-native-service-furnace.sh')])
+    env['PHOTARA_NATIVE_FURNACE_BINARY'] = native_build.strip().splitlines()[-1]
+    assert env['PHOTARA_NATIVE_FURNACE_BINARY'].startswith('/private/tmp/photara-native-service-')
     run(['initdb','-D',str(base/'data'),'-U','photara_test_admin','-A','trust','--no-locale','-E','UTF8'])
     run([pg_ctl,'-D',str(base/'data'),'-l',str(base/'postgres.log'),'-o',f"-k {socket} -h '' -p 55439 -c timezone=UTC",'-w','start'])
     started = True
@@ -38,12 +43,11 @@ CREATE ROLE photara_api NOLOGIN NOSUPERUSER NOBYPASSRLS;
 CREATE ROLE photara_control NOLOGIN NOSUPERUSER NOBYPASSRLS;
 CREATE ROLE photara_auth_read NOLOGIN NOSUPERUSER NOBYPASSRLS;
 CREATE ROLE photara_test_migrator LOGIN NOSUPERUSER NOBYPASSRLS IN ROLE photara_owner;
-CREATE ROLE photara_test_api LOGIN NOSUPERUSER NOBYPASSRLS IN ROLE photara_api;
-CREATE ROLE photara_test_control LOGIN NOSUPERUSER NOBYPASSRLS IN ROLE photara_control;
-CREATE ROLE photara_test_auth LOGIN NOSUPERUSER NOBYPASSRLS IN ROLE photara_auth_read;
 CREATE DATABASE photara_cxt3c OWNER photara_owner;
+CREATE DATABASE photara_cxt3c_upgrade OWNER photara_owner;
 ''')
     run(psql+['-d','postgres','-f',str(roles)])
+    run(psql+['-d','postgres','-v','api_login=photara_test_api','-v','control_login=photara_test_control','-v','auth_login=photara_test_auth','-f',str(ROOT/'crates/photara-service/deploy/runtime_roles.sql')])
     output=run(['cargo','test','--offline','-p','photara-service','--lib','postgres_','--','--ignored','--nocapture','--test-threads=1'])
     print(output)
     def query(sql): return json.loads(run(psql+['-d','photara_cxt3c','-At','-c',sql]))
@@ -73,7 +77,7 @@ CREATE DATABASE photara_cxt3c OWNER photara_owner;
     report['schema'].pop('created_at',None)
     report['counts']={k:len(report[k]) for k in ('tables','columns','constraints','policies','functions','triggers','indexes','ledger')}
     report['counts']['statements']=sum(m['statements'] for m in report['migrations'])
-    assert report['counts']['tables']==55
+    assert report['counts']['tables']==59
     assert all(t['owner']=='photara_owner' for t in report['tables'])
     assert all(not r['rolsuper'] and not r['rolbypassrls'] for r in report['roles'] if r['rolname']!='photara_test_admin')
     if args.inventory:

@@ -8,6 +8,13 @@ The objective is not merely to make Google sign-in return a token. The acceptanc
 result is a native first-launch experience that proves exact identity, local/cloud
 Library reconciliation, security boundaries, retries, and returning-user behavior.
 
+The approved development deployment and future rename policy is defined in
+[CXT4 development cloud and product identity](CXT4_DEVELOPMENT_CLOUD_AND_PRODUCT_IDENTITY.md).
+It permits Suhail's real multi-Mac development cloud use without making an
+always-running Fly Machine a gate: the identical service contract runs at loopback
+and Neon remains the shared cloud authority. Fly is exercised briefly at remote
+acceptance and becomes permanent only for production.
+
 ## Current starting point
 
 - CXT3b opens a real local SQLite database and has already created one local
@@ -62,6 +69,11 @@ coordinates, hosting/secret boundary, reconciliation algorithm, and test matrix.
 
 ## CXT4b — minimal cloud service
 
+During development, “deploy” below may mean the approved loopback service profile.
+It must retain the production HTTP/auth/database-role contract and keep secrets in
+host-local secure operator configuration, never in the app bundle. Public HTTPS
+and Fly secret injection remain a separate remote-acceptance proof before release.
+
 1. Provision three separate runtime LOGIN identities behind the existing
    `photara_api`, `photara_control`, and `photara_auth_read` capability roles.
    They must not inherit the migration owner, one another, superuser, CREATEROLE,
@@ -83,6 +95,13 @@ aggregate without exposing Neon credentials to a client. Do not create Suhail's
 real Account through a developer seed or command-line shortcut.
 
 ## CXT4c — native opening Library shell
+
+**First visual baseline accepted 2026-09-13.** The user accepted the real Shell
+Lab render using the system sidebar, a plain centered `Photara` title, and
+leading-aligned local/cloud status. Minor button sizing remains authorable later
+and is not a gate for CXT4d. The additional authentication, error, returning-user,
+Dark appearance and behavioral states below are to be driven and verified as the
+real CXT4d state machine is connected rather than frozen as duplicate fake UI.
 
 Implement the approved opening hierarchy before embedding the real login flow.
 This slice uses fake onboarding states only and must not contact Auth0 or Neon.
@@ -171,6 +190,9 @@ Light/Dark snapshots pass.
 4. Drive the exact opening-shell states for progress, cancellation, offline
    continuation, retry, account switch, logout, and returning users.
 5. Preserve the system-owned sidebar and toolbar appearance across all states.
+6. Resolve API/Auth0 coordinates from the typed release environment and resolve
+   product-facing identifiers from the centralized identity boundary. Development
+   may select loopback; production must fail closed on development coordinates.
 
 **Gate:** a real sign-in reaches a stable cloud-backed `My Library`, restart and
 retry are idempotent, and local-only operation remains usable.
@@ -187,6 +209,8 @@ Perform the first real product-path signup/sign-in through Photara, then verify:
 5. restart and repeated sign-in create no duplicates;
 6. logout, offline launch, cancellation, and recoverable failure behave as approved;
 7. database/RLS checks pass without using a privileged credential from the app.
+8. a second configured development Mac signs in as the same identity, hydrates the
+   same Account/default Library from Neon, and creates no duplicate aggregate.
 
 Stop after the empty Library is visible and verified. Creating the first Project
 is the next separately authorized product slice.

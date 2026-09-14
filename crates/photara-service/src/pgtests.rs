@@ -6,17 +6,21 @@ use photara_core::contracts::*;
 use std::sync::Arc;
 use uuid::Uuid;
 
-struct Fixture {
-    service: Service,
+pub(crate) struct Fixture {
+    pub(crate) service: Service,
     owner: storexa::Database,
     actors: Vec<Actor>,
     device: DeviceId,
     library: LibraryId,
-    clock: Arc<auth::FakeClock>,
+    pub(crate) clock: Arc<auth::FakeClock>,
     auth: Arc<auth::FakeAuth0>,
 }
 impl Fixture {
-    async fn new() -> Self {
+    pub(crate) async fn into_service(self) -> Service {
+        self.owner.close().await;
+        self.service
+    }
+    pub(crate) async fn new() -> Self {
         let base = std::env::var("PHOTARA_TEST_MIGRATOR_URL")
             .expect("use scripts/verify_service_postgres.py");
         assert!(
@@ -129,7 +133,7 @@ impl Fixture {
             .unwrap();
         (project, result.generation)
     }
-    async fn finish(self) {
+    pub(crate) async fn finish(self) {
         self.service.close().await;
         self.owner.close().await;
     }
@@ -1221,7 +1225,7 @@ async fn postgres_access_races_and_guards() {
         .execute(&mut *tx)
         .await
         .unwrap();
-    sqlx::query("UPDATE photara.schema_metadata SET minimum_api=3")
+    sqlx::query("UPDATE photara.schema_metadata SET minimum_api=4")
         .execute(&mut *tx)
         .await
         .unwrap();
@@ -1237,7 +1241,7 @@ async fn postgres_access_races_and_guards() {
         .execute(&mut *tx)
         .await
         .unwrap();
-    sqlx::query("UPDATE photara.schema_metadata SET minimum_api=2")
+    sqlx::query("UPDATE photara.schema_metadata SET minimum_api=3")
         .execute(&mut *tx)
         .await
         .unwrap();
@@ -1502,7 +1506,7 @@ async fn postgres_inherited_matrix_and_revocation() {
 async fn postgres_schema_and_runtime_refusal() {
     let fixture = Fixture::new().await;
     let url = std::env::var("PHOTARA_TEST_MIGRATOR_URL").unwrap();
-    for floor in [1, 3] {
+    for floor in [1, 4] {
         let mut tx = fixture.owner.begin().await.unwrap();
         sqlx::query("SET LOCAL ROLE photara_owner")
             .execute(&mut *tx)
@@ -1529,7 +1533,7 @@ async fn postgres_schema_and_runtime_refusal() {
                 .await
                 .unwrap();
         assert_eq!(retained, floor);
-        sqlx::query("UPDATE photara.schema_metadata SET minimum_api=2")
+        sqlx::query("UPDATE photara.schema_metadata SET minimum_api=3")
             .execute(&mut *tx)
             .await
             .unwrap();

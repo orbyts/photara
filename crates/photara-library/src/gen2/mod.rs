@@ -4,6 +4,8 @@ mod catalog;
 mod context;
 pub use context::{DeviceContextCapture, DeviceContextEvidence};
 mod local;
+mod onboarding;
+pub use onboarding::*;
 mod recovery;
 mod scoped;
 mod storage;
@@ -208,6 +210,7 @@ impl LocalLibraryStore {
         {
             return Err(Error::Corrupt);
         }
+        onboarding::verify_onboarding(&mut tx).await?;
         tx.commit().await?;
         Ok(())
     }
@@ -442,7 +445,7 @@ async fn check_metadata(
         return Err(Error::ForeignDatabase);
     }
     if row.try_get::<i64, _>("schema_epoch")? != 1
-        || !(if activated { 2..=2 } else { 1..=2 })
+        || !(if activated { 4..=4 } else { 1..=4 })
             .contains(&row.try_get::<i64, _>("minimum_reader")?)
         || row.try_get::<i64, _>("minimum_writer")? != row.try_get::<i64, _>("minimum_reader")?
         || row.try_get::<String, _>("canonical_codec")? != "photara.canonical-json.v1"

@@ -3,7 +3,11 @@
 mod access;
 pub mod auth;
 mod fake_sync;
+pub mod http;
 mod management;
+pub mod oidc;
+pub mod onboarding;
+pub mod release;
 pub use fake_sync::{FakeSync, IntentState};
 mod media;
 mod runtime;
@@ -28,6 +32,10 @@ use thiserror::Error;
 pub type Result<T> = std::result::Result<T, ServiceError>;
 #[derive(Debug, Error)]
 pub enum ServiceError {
+    #[error("transaction-retry-required")]
+    RetryTransaction,
+    #[error("throttled")]
+    Throttled,
     #[error("not-found-or-forbidden")]
     Forbidden,
     #[error("invalid-request")]
@@ -48,7 +56,8 @@ impl From<sqlx::Error> for ServiceError {
         if let Some(db) = error.as_database_error() {
             match db.code().as_deref() {
                 Some("42501") => Self::Forbidden,
-                Some("23505" | "23514" | "40001" | "40P01") => Self::Conflict,
+                Some("40001" | "40P01" | "55P03") => Self::RetryTransaction,
+                Some("23505" | "23514") => Self::Conflict,
                 Some("23503" | "22P02" | "22003") => Self::Invalid,
                 _ => Self::Storage,
             }
@@ -87,12 +96,9 @@ pub async fn migrate(config: DatabaseConfig) -> Result<()> {
         let row=sqlx::query("SELECT schema_family,schema_epoch,minimum_api,canonical_codec FROM photara.schema_metadata WHERE singleton").fetch_one(&mut *tx).await?;
         if row.try_get::<String, _>("schema_family")? != "photara.service.g2"
             || row.try_get::<i32, _>("schema_epoch")? != 1
-            || !(1..=2).contains(&row.try_get::<i32, _>("minimum_api")?)
+            || !(2..=3).contains(&row.try_get::<i32, _>("minimum_api")?)
             || row.try_get::<String, _>("canonical_codec")? != "photara.canonical-json.v1"
         {
-            return Err(ServiceError::Unsupported);
-        }
-        if row.try_get::<i32, _>("minimum_api")? != 2 {
             return Err(ServiceError::Unsupported);
         }
     } else {
@@ -126,7 +132,7 @@ pub async fn migrate(config: DatabaseConfig) -> Result<()> {
         sqlx::query_scalar("SELECT minimum_api FROM photara.schema_metadata WHERE singleton")
             .fetch_one(&mut *tx)
             .await?;
-    if floor != 2 {
+    if floor != 3 {
         return Err(ServiceError::Unsupported);
     }
     tx.commit().await?;
@@ -144,6 +150,8 @@ fn canonical<T: Serialize>(value: &T) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
+#[cfg(test)]
+mod onboarding_pgtests;
 #[cfg(test)]
 mod pgtests;
 

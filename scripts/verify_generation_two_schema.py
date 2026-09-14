@@ -4,7 +4,9 @@ from pathlib import Path
 from collections import Counter
 import re,json,hashlib,subprocess,sys
 ROOT=Path.cwd();OUT=ROOT/'docs/architecture/proposals/d19-cxt2'
-BEFORE={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for folder,pattern in [('crates/photara-library/migrations/generation_two','*.sql'),('docs/fixtures/generation-two','*.json')] for p in Path(folder).glob(pattern)}
+# D19's reviewed inventory is frozen at migration 0012. Later additive schemas
+# have executable migration tests; do not rewrite the historical proposal here.
+BEFORE={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for folder,pattern in [('crates/photara-library/migrations/generation_two','*.sql'),('docs/fixtures/generation-two','*.json')] for p in Path(folder).glob(pattern) if p.suffix != '.sql' or int(p.name.split('_')[0]) <= 12}
 # Lexical scanner: exact top-level statements, quoted strings/dollar bodies,
 # comments, balanced delimiters; intentionally not a SQL grammar/engine check.
 def lex(s):

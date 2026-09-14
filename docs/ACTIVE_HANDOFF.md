@@ -1,5 +1,298 @@
 # Active handoff
 
+Updated 2026-09-13 for the account sidebar aesthetic cleanup.
+
+The user confirmed live sign-in/sign-out and library selection work. Their next
+request was visual: move Accounts to the bottom-left library sidebar, shrink the
+avatar, and show a person icon with **Sign in** when signed out. The account entry
+now sits under the library status in the sidebar; the project editor uses the
+same lower-left control. Clicking the compact avatar/name opens the existing
+account menu. Settings is accessible there, replacing the empty top-right gear.
+The top-right account control is removed. There is no signed-in banner.
+
+The photo is rendered into a circular **20-point** NSImage as well as constrained
+in SwiftUI. This fixes native Menu label image extraction bypassing the former
+view-only frame/clip and displaying the larger cached photo. A **512×320 raster**
+fixture now exercises that path in the production shell, including Light/Dark,
+first launch, signed out, returning sessions, and 760×560 / 1280×820 windows.
+
+Signed build + production UI verification passed (exit 0), with visual inspection
+of the account/footer and project views. Log: `/private/tmp/photara-sidebar-accounts-ui.log`.
+Current UI evidence: `platform/macos/photara-app/.build/cxt4d-gates/sidebar-ui-passed.json`.
+Only **4 UI/fixture files** differ from the previous full gate; its **101 other
+source hashes** still match. Authentication, service and storage code is unchanged.
+The full gate below is historical evidence for that unchanged functionality; it
+was not rerun for this presentation-only change.
+
+Current signed app: `/Users/suhail/.codex/worktrees/84ad/photara/platform/macos/photara-app/.build/app/Photara.app`.
+Executable SHA-256: `a87e52ccbb977d31d90706ba579a9fed075ddeb7f0c4d9392c07271db2372661`.
+No live login/logout, credential change, Neon write, service replacement, commit
+or push occurred. Quit/reopen the app to see the layout change.
+
+## Earlier Accounts and library-selection checkpoint
+
+Updated 2026-09-13 for Accounts, explicit logout/rejoin and library selection.
+
+The user confirmed that the previous fix completed live Google sign-in and
+created a Neon record, and supplied the cloud-library opening screenshot. That
+is user-reported live success; this task has not independently queried the new
+production account or receipt. The earlier blocked live-attempt notes below are
+historical, not the current status.
+
+The new Accounts menu exposes profile name/email, a circular Google avatar when
+available, and Sign Out. A deliberate sign-in now presents **Choose a library**,
+including when only **My Library** is available. Normal launches restore the
+selected session quietly without a prompt or signed-in label. The current service
+contract exposes one owned default library; additional created/invited libraries,
+billing and account settings remain future work, without placeholder actions.
+
+Logout durably marks the session signed out, then clears the refresh token under
+the existing attempt/refresh locks. The device secret and library/receipt evidence
+remain intact. Rejoin verifies fresh Google issuer/subject, reuses the exact device
+and original enrollment, reads current `/v1/session`, and waits for selection.
+Access is fetched again after the selection before Rust applies it. No bootstrap,
+new device or account/library creation occurs on rejoin. Wrong-account and cancelled
+selection remain signed out. A failed Keychain cleanup cannot restore local session
+authority and is retried before the next deliberate authorization.
+
+Name/email/picture come only from a verified ID token and are presentation data.
+The local display cache is scoped to environment and local library. Startup reads
+that cache without Keychain/network access. Google avatar downloads happen after
+successful explicit sign-in, allow only HTTPS googleusercontent.com subdomains,
+refuse redirects/cookies/credentials, bound size/time and store a small raster
+thumbnail. The existing signed-in user will get the new profile cache on the next
+deliberate login. Missing profile/photo uses the circular person icon.
+
+The complete Accounts gate run exited **0**:
+`/private/tmp/photara-cxt4d-accounts-gates.log`. Its passing manifest records
+**105** unchanged source hashes, independently rechecked with the executable.
+Evidence: **94 + 58 + 64** native security/Auth0/presentation assertions,
+**124** production-driver boundary assertions, **253** native service assertions
+across **17** real TCP/Rust/PostgreSQL scenarios including account restart stages,
+all **11** disposable PostgreSQL tests, **99** process assertions across **13**
+scenarios, **10** installed-service checks with unchanged port ownership, **8**
+signed Keychain checks, and **62** ordinary Rust tests. Bridge/product/schema/naming,
+formatting, Clippy with warnings denied, shared UI, production UI and strict signing
+checks passed. Light/Dark library-picker and account-control captures were visually
+inspected. The shared session survives opening/project-view transitions.
+
+Signed app: `/Users/suhail/.codex/worktrees/84ad/photara/platform/macos/photara-app/.build/app/Photara.app`.
+Executable SHA-256: `b6a04b3637e0347635782a95fb614de5e645585193aa13f4c187e7f3f2a890eb`.
+The user should quit/reopen this build for their manual Accounts → Sign Out →
+Sign in again → My Library check. No live sign-in/logout, Neon write, service
+replacement, commit or push was performed by this feature task. Existing dirty
+work is preserved.
+
+## Earlier terminal-expiry and passive-launch checkpoint
+
+Updated 2026-09-13 for deliberate sign-in, passive launch and terminal expiry recovery.
+
+Opening now reads only local Rust journal/binding metadata. It does not read
+Keychain, start/refresh authentication, launch the service or open a browser.
+The first local opening offers **Sign in with Google**. A returning cached cloud
+connection opens quietly, with neither a sign-in prompt nor a **Signed in** label.
+The prompt is hidden until the local read finishes to avoid a launch-time flash.
+Saved signed-out/access-disabled bindings remain distinct; cached presentation
+never establishes current online authority. This follows the user's latest
+Notion-style preference and supersedes the earlier automatic recovery behavior.
+
+An unfinished attempt presents **Sign in again**. That explicit click first
+reconciles the exact retained operation. When authenticated operation lookup,
+a proofless exact replay, and a final authenticated lookup confirm no receipt
+and the original enrollment proof is unavailable/expired, Rust appends the
+terminal disposition **abandoned-expired**. An additive local migration 0014
+retains the original command, principal, operation, credential reference and any
+later receipt. No deployed migration checksum is rewritten. Local reader/writer
+floor 4 keeps old readers from misinterpreting this state.
+
+The deliberate click may then perform exactly one new browser authorization.
+The replacement has a new operation/proof and explicit lineage, and reuses the
+same Library, Device and credential commitment. The same principal is mandatory.
+The native attempt lock and Rust transaction guards serialize competing clicks.
+Cancelling or crashing before dispatch keeps the shared original credential.
+A late old receipt remains evidence and cannot change the active library selection.
+Real Rust/PostgreSQL tests prove one Account/Identity/Device/default My Library
+and membership even if the old operation commits before or after the replacement.
+Two valid operation receipts in that race are retained, not treated as duplicate
+accounts or libraries.
+
+**Neon has tables:** prior deployed-database verification established 14 successful
+service migrations and resolved the onboarding relations. Zero account/library
+rows did not mean missing tables. The confirmed earlier defect was the service
+rejecting Auth0's API plus issuer `/userinfo` audience pair. The corrected strict
+policy and capability marker remain installed. See the historical evidence in
+[CXT4d checkpoint](architecture/CXT4D_NATIVE_AUTHENTICATION_CHECKPOINT.md).
+
+The live retained operation remains `35d65e1f-48bb-4fb0-ab06-b4ced18cd4f1`.
+This task has not run another live Google sign-in, changed its live journal,
+written directly to Neon, or claimed successful live cloud enrollment. The user
+can choose the explicit sign-in action in the new signed build. All original
+live evidence is preserved; the earlier prohibition on initiating another live
+sign-in was respected throughout implementation and verification.
+
+The complete `scripts/verify-cxt4d-gates.sh` run exited **0**. Log:
+`/private/tmp/photara-cxt4d-terminal-gates.log`. The passing manifest at
+`platform/macos/photara-app/.build/cxt4d-gates/passed.json` records **103**
+unchanged source hashes; they and the executable hash were checked after completion.
+
+Evidence: **94 + 52 + 56** native security/Auth0/presentation assertions,
+**106** browser/journal assertions, **225** native service-flow assertions across
+**16** real TCP/Rust/PostgreSQL scenarios (including restart stages), all **11**
+executed disposable PostgreSQL tests, **99** process-furnace assertions across
+**13** scenarios, **10** installed-service checks with unchanged port ownership,
+**6** signed Keychain checks, and **61** ordinary Rust tests. Bridge execution,
+product/schema/naming/whitespace, shared UI and signed production UI checks passed.
+Separate Rust formatting and Clippy with warnings denied passed. Minimum opening
+captures in Light/Dark were visually inspected; the fixture now prevents automatic
+window expansion and asserts the requested 560-point content height.
+
+Signed app: `/Users/suhail/.codex/worktrees/84ad/photara/platform/macos/photara-app/.build/app/Photara.app`.
+Executable SHA-256: `86d7ca25a946b4932edf3fc32bb2c208465d1772eaad1375f3844117f4630de0`.
+The app was built and signature-verified without starting a live Google sign-in.
+
+Existing dirty CXT4b/c/d, graph and lab changes are preserved. No commit, push or
+publication occurred.
+
+## Earlier CXT4b-dev runtime checkpoint
+
+Updated 2026-09-13. **CXT4b-dev runtime provisioning and live readiness are
+complete on this development Mac.** The three Neon `main/neondb` logins
+`photara_dev_api`, `photara_dev_control`, and `photara_dev_auth_read` each inherit
+exactly their corresponding existing capability role. Live authentication/audits
+prove no owner, Neon-elevated or cross-capability membership, privileged role
+flags, object ownership, database CREATE permission or admin-option grants;
+each login has a six-connection ceiling.
+
+One non-sync macOS Keychain item stores the three certificate-verified URLs and
+a stable random 32-byte cursor key. A native operator-only launcher retrieves the
+bundle, strips inherited configuration and directly executes the development
+service. Both `/health/ready` and `/health/live` returned HTTP 200 at
+2026-09-13 19:36:54 UTC; restart readiness passed at 19:38:18 UTC. Postflight
+Accounts/Libraries/defaults/receipts remain `0/0/0/0`; schema epoch/floor is `1/3`
+with 14 successful migrations. The proof service is stopped, not installed as a
+background daemon. No sign-in, seed, Auth0 change or Fly resource was created.
+
+**Next bounded gate: CXT4d-dev native integration.** Consume the checked identity
+descriptor for browser PKCE, user-token Keychain storage, loopback HTTP and local
+Library reconciliation. CXT4e still owns first real sign-in and second-Mac
+acceptance; secure provisioning of that second host remains outstanding. Read
+[runtime checkpoint](architecture/CXT4B_SERVICE_CHECKPOINT.md#cxt4b-dev-runtime-provisioning-and-live-readiness)
+and [exact host runbook](../crates/photara-service/deploy/README.md#host-local-keychain-launcher).
+
+## Earlier CXT4b-dev configuration checkpoint
+
+Updated 2026-09-13. **CXT4b-dev configuration implementation is verified; live
+loopback readiness remains gated on host-only runtime credential provisioning.**
+The checked `config/product-identity.json` feeds typed Rust and generated Swift,
+the application title/support-directory seam and bundle/callback metadata.
+Explicit development binds `127.0.0.1:8080` through the original service verifier,
+pool/role/schema checks and router. No native sign-in or content worker is active.
+Hosted channels remain unconfigured and fail closed. Read the
+[exact files, evidence, limits and next gate](architecture/CXT4B_SERVICE_CHECKPOINT.md#cxt4b-dev-configuration-checkpoint)
+and [operator profile](../crates/photara-service/deploy/README.md).
+
+Next: separately provision three least-privilege runtime login credentials and a
+stable cursor key into approved host-local secure operator storage for Neon `main`,
+then prove loopback `/health/ready` without signing in or seeding user data. CXT4d
+native PKCE/Keychain/bootstrap and CXT4e multi-Mac acceptance remain later gates.
+The source/config seam is complete; real multi-Mac cloud use is not yet active.
+
+## Earlier development-policy decision
+
+Updated 2026-09-13. **The development-cloud and replaceable-product-identity
+policy is approved; CXT4b-dev was selected next.** Suhail needs cloud Libraries to follow
+him across development Macs, but does not want idle Fly compute before production.
+Use the identical Rust/Axum contract at loopback on each explicitly configured
+development Mac, with host-only secrets and Neon `main` as cloud source of truth.
+Fly.io is retained for brief remote-acceptance deployments and permanent production;
+destroy test Machines after evidence. Add one typed environment/product-identity
+seam before native integration so `Photara`, bundle/callback/package/API coordinates
+have one coordinated pre-release cutover. Read
+[the authoritative policy](architecture/CXT4_DEVELOPMENT_CLOUD_AND_PRODUCT_IDENTITY.md).
+
+Updated 2026-09-13. **Additive CXT4b migration 0014 is installed on Neon
+`photara` / `main`; no user data was seeded.** Read-only preflight proved
+`photara.service.g2`, epoch 1, minimum API 2, 13 ledger entries, zero Accounts,
+and zero Libraries. The operator-only `photara-migrate` binary then installed
+0014. Postflight proves minimum API 3, 14 successful ledger entries, and checksum
+`adeadf906a1cd1e97fbc3b31d2dafe3f54435a10224c47ba8254cfa521f7d2ebf97f30a10c6c45e6116be5aad0f91dec`.
+`account_defaults`, `device_credentials`, `onboarding_receipts`, and
+`onboarding_challenges` resolve in their expected schemas. Accounts, Libraries,
+defaults, and receipts are all still zero. `legacy-v0.1.x` was not opened or
+changed.
+
+Updated 2026-09-13. **The dedicated Auth0 development client/API boundary is
+configured; no user has signed in.** The exact public tuple is:
+
+- issuer `https://dev-nmturasdrkz7up27.us.auth0.com/`;
+- API audience `urn:photara:api:development` (API id
+  `6aa6e96c3595ecc7d9ad79f1`);
+- Native public client `Photara macOS`, client id
+  `CJ3hH2CUSkEk0vSbdvHMJLEqD4gYWGkW`;
+- callback/logout return
+  `com.photara.desktop://dev-nmturasdrkz7up27.us.auth0.com/macos/com.photara.desktop/callback`.
+
+The Native client uses Authorization Code and Refresh Token grants, no implicit
+grant, seven-day idle/thirty-day absolute rotating refresh tokens, and Google as
+its only enabled connection. The API uses the Auth0 JWT profile, RS256,
+ten-minute access tokens, offline access, per-app user authorization, no client
+access, and the sole `photara:onboard` permission; the Native client has 1/1 of
+that permission. Username/password was disabled for this client only. Existing
+Chordrift clients/connections were not edited. No Auth0 user, Account, Device,
+Library, credential, Neon row, or product sign-in was created.
+
+Updated 2026-09-13. **CXT4b now has a selected Fly.io production/acceptance adapter
+and verified runnable artifacts; billing is configured and live creation is
+deliberately deferred.** Added
+separate `photara-service` and operator-only `photara-migrate` binaries, a
+non-root multi-stage Docker image, `.dockerignore`, and a valid Fly manifest with
+managed HTTPS/readiness/concurrency policy. Release compilation, service tests,
+strict Clippy, formatting and `fly config validate` pass. Fly CLI 0.4.102 is
+installed and authenticated as the user's account. `fly apps create photara-api`
+created nothing during the earlier billing prerequisite. Billing has since been
+added, but no retry is authorized under the approved development profile. Auth0's
+development resources and Neon migration 0014 have since been configured as
+recorded above. No Fly app, runtime credential, user-data row or charge was
+created. Do not create persistent Fly resources during CXT4b-dev; use a separately
+authorized, short-lived remote-acceptance deployment and destroy its Machines.
+
+Updated 2026-09-13. **The user accepted the CXT4c native opening-shell first
+visual baseline and explicitly made minor sizing refinement non-gating.** Shared
+production/Shell Lab source now uses `NavigationSplitView`, a native sidebar
+`List`, unified toolbar, system accent/selection/material, a plain centered
+`Photara` title, and leading-aligned local/cloud status. The opening UI remains
+presentation-only: its Google action does not contact Auth0, the service, or Neon.
+Both Shell Lab and the production app build successfully. Continue with CXT4b-dev
+typed identity/environment and loopback-service wiring, then CXT4d; do not mistake
+the rendered fake state for
+working authentication.
+
+Updated 2026-09-13. **CXT4b has a verified host-independent service checkpoint;
+it is not deployed and its gate is not complete.** Started clean at approved
+`14f77ee`; nothing is staged, committed or pushed. Read the
+[exact implementation, inventory, tests and remaining inputs](architecture/CXT4B_SERVICE_CHECKPOINT.md).
+
+Additive migration 0014/service floor 3, pinned RS256/JWKS verification, typed
+HTTP onboarding/session routes, atomic bootstrap/replay, device logout/resume and
+the password-disabled three-login operator template are implemented locally.
+Ten disposable PostgreSQL suites pass; all prior migration checksums remain exact.
+The live Neon floor is now 3 with 14 migrations and no user data created here.
+
+**Deferred remote-deployment inputs:** the Fly app/HTTPS origin and encrypted runtime
+secret injection; operator/deployment identity; confirmed release
+signing access group and supported macOS range. The Auth0 development tuple is
+now concrete above and no value was inferred from Chordrift. Host-specific
+packaging, encrypted credential injection, provider settings, backup restoration
+and a controlled live smoke test remain unperformed. Do not seed around onboarding.
+
+Full offline Rust, strict Clippy/all-target checks, schema/naming/fixture guards,
+native bridge and production UI pass. Serial Graph rerun passes 15,562 assertions;
+the preceding overlapping native run's focus/menu failures remain documented.
+All platform/Graph/local/package/fixture sources outside the bounded opening-shell
+files are preserved. Real local SQLite was never opened.
+
+## Historical CXT4a approval handoff
+
 Updated 2026-09-13. **CXT4a onboarding/security contract and Chordrift reference
 audit are approved and complete.** Read the
 [approved implementation contract](architecture/CXT4A_ONBOARDING_SECURITY_CONTRACT.md).
@@ -19,7 +312,7 @@ Existing CXT3b startup only accepts local-only authority; CXT3c has no durable
 Account default pointer or pre-Account bootstrap receipt. Those require bounded
 CXT4b/d changes, not manual seeding or edits to deployed migration checksums.
 
-**Current gate: separately select CXT4b and its concrete deployment inputs.** The already-approved
+**Historical gate:** separately select CXT4b and its concrete deployment inputs. The already-approved
 [CXT4c native opening-shell boundary](architecture/CXT4_ONBOARDING_AND_OPENING.md#cxt4c--native-opening-library-shell)
 is preserved intact and remains before real native Auth0 integration. No production
 Rust/Swift/service code, provider state, credentials or database was changed.

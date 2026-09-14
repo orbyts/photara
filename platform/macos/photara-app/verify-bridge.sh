@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_ROOT="${0:A:h}"
 REPOSITORY_ROOT="${SCRIPT_ROOT:h:h:h}"
 BUILD_ROOT="$SCRIPT_ROOT/.build/bridge-verification"
-RUST_TARGET="$BUILD_ROOT/rust-target"
+RUST_TARGET="${PHOTARA_BRIDGE_RUST_TARGET:-$BUILD_ROOT/rust-target}"
 GENERATED_ROOT="$BUILD_ROOT/generated"
 MODULE_CACHE="$BUILD_ROOT/module-cache"
 EXECUTABLE="$BUILD_ROOT/photara-bridge-verification"

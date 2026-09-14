@@ -44,6 +44,7 @@ actor NativeThumbnailScheduler {
 
 @MainActor
 final class AppModel: ObservableObject {
+    let openingCloud = OpeningCloudModel(driver: ProductionOpeningCloudDriver())
     @Published private(set) var snapshot: BridgeProjectSnapshotDto?
     @Published private(set) var progressLabel = "Idle"
     @Published private(set) var isEvaluating = false
@@ -95,7 +96,7 @@ final class AppModel: ObservableObject {
                 in: .userDomainMask,
                 appropriateFor: nil,
                 create: true
-            ).appending(path: "Photara")
+            ).appending(path: ReleaseConfiguration.current.identity.applicationSupportDirectory)
             localState = try initializeLocalState(path: support.appending(path: "State/photara-local-v2.sqlite").path)
             let storeRoot = support.appending(path: "GenerationTwo")
             let proxyCacheRoot = support.appending(path: "ProxyCache")
@@ -225,7 +226,7 @@ final class AppModel: ObservableObject {
     func chooseAndOpenProject() {
         guard let application else { return }
         let panel = NSOpenPanel()
-        panel.title = "Open Photara Project"
+        panel.title = "Open \(ReleaseConfiguration.current.identity.projectPackageDisplayType)"
         panel.message = "Choose a portable .photara-project.json document."
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false

@@ -5,6 +5,7 @@ struct ApplicationShell<Panel: View>: View {
     let presentation: ApplicationPresentation
     let actions: ApplicationActions
     var preset: ApplicationShellPreset = .shipped
+    var openingCloud: OpeningCloudModel?
     @EnvironmentObject private var session: EditorSessionModel
     @Environment(\.photaraTheme) private var theme
     @Environment(\.colorScheme) private var colorScheme
@@ -14,7 +15,7 @@ struct ApplicationShell<Panel: View>: View {
 
     var body: some View {
         Group {
-            if presentation.hasOpenProject || hasLibraryPanels {
+            if presentation.hasOpenProject {
                 GeometryReader { geometry in
                     VStack(spacing: preset.frame.gutter / 2) {
                         if geometry.size.width < preset.frame.compactBreakpoint {
@@ -22,21 +23,32 @@ struct ApplicationShell<Panel: View>: View {
                         } else {
                             regularEditor
                         }
-                        if availability.hasStatus {
-                            ProjectStatusBar(presentation: presentation, preset: preset)
-                                .clipShape(RoundedRectangle(cornerRadius: preset.frame.separateStatusSurface ? preset.frame.cornerRadius : 0))
-                                .padding(.horizontal, preset.frame.gutter / 2)
+                        if availability.hasStatus || openingCloud != nil {
+                            HStack(spacing: 8) {
+                                if let openingCloud {
+                                    SidebarAccountControls(cloud: openingCloud, showLibrarySettings: { session.show(.account) })
+                                        .frame(width: 220)
+                                        .padding(.leading, 16)
+                                }
+                                if availability.hasStatus {
+                                    ProjectStatusBar(presentation: presentation, preset: preset)
+                                        .clipShape(RoundedRectangle(cornerRadius: preset.frame.separateStatusSurface ? preset.frame.cornerRadius : 0))
+                                } else { Spacer(minLength: 0) }
+                            }
+                            .padding(.horizontal, preset.frame.gutter / 2)
                         }
                     }.padding(max(0, preset.frame.outerInset - preset.frame.gutter / 2))
                 }
             } else {
-                ProjectLauncherView(presentation: presentation, actions: actions, preset: preset)
+                OpeningLibraryView(presentation: presentation, actions: actions, cloud: openingCloud)
             }
         }
         .frame(minWidth: 760, minHeight: 560)
         .background { canvasBackground }
         .containerBackground(canvasFill, for: .window)
-        .background(WindowTitleVisibilityController())
+        // Remove SwiftUI's automatic leading window title. The principal item
+        // below owns the centered product name, including after split updates.
+        .toolbar(removing: .title)
         .toolbar {
             if presentation.hasOpenProject {
                 ToolbarItem(placement: .navigation) {
@@ -44,13 +56,13 @@ struct ApplicationShell<Panel: View>: View {
                 }
             }
             ToolbarItem(placement: .principal) { applicationIdentity }
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button("Account", systemImage: "person.crop.circle") { session.show(.account) }.help("Account · Library & Sync")
-                Button("People", systemImage: "person.2") { session.show(.people) }.help("People and Clients")
-                Button("Locations", systemImage: "mappin.and.ellipse") { session.show(.locations) }.help("Locations")
-                Button("Scenes", systemImage: "rectangle.stack") { session.show(.scenes) }.help("Scenes")
-            }
+                .sharedBackgroundVisibility(.hidden)
             if presentation.hasOpenProject {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Button("People", systemImage: "person.2") { session.show(.people) }.help("People and Clients")
+                    Button("Locations", systemImage: "mappin.and.ellipse") { session.show(.locations) }.help("Locations")
+                    Button("Location Kinds", systemImage: "tag") { session.show(.scenes) }.help("Location Kinds")
+                }
                 ToolbarSpacer(.fixed, placement: .primaryAction)
                 ToolbarItemGroup(placement: .primaryAction) {
                     editorModeControls
@@ -59,12 +71,10 @@ struct ApplicationShell<Panel: View>: View {
                 ToolbarItemGroup(placement: .primaryAction) {
                     projectActionControls
                 }
-            } else {
-                ToolbarSpacer(.fixed, placement: .primaryAction)
-                ToolbarItem(placement: .primaryAction) { panelsMenu }
             }
         }
-        .onAppear { synchronize() }
+        .modifier(OptionalCloudAccountPresentation(cloud: openingCloud))
+        .onAppear { synchronize(); openingCloud?.loadSavedState() }
         .onChange(of: presentation.projectID) { synchronize() }
         .onChange(of: presentation.nodeIDs) { synchronize() }
         .onChange(of: presentation.workSurfaces) {
@@ -344,21 +354,5 @@ struct ApplicationShell<Panel: View>: View {
             }
             Button("Restore Editor") { session.restoreLayoutAuthoringPreset() }
         }
-    }
-}
-
-private struct WindowTitleVisibilityController: NSViewRepresentable {
-    func makeNSView(context: Context) -> WindowTitleObserverView { WindowTitleObserverView() }
-    func updateNSView(_ nsView: WindowTitleObserverView, context: Context) { nsView.apply() }
-}
-
-private final class WindowTitleObserverView: NSView {
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        apply()
-    }
-
-    func apply() {
-        window?.titleVisibility = .hidden
     }
 }
