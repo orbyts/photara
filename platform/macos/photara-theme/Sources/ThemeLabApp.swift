@@ -5,29 +5,11 @@ import SwiftUI
 @MainActor
 struct PhotaraThemeLabApp: App {
     @StateObject private var model = ThemeLabModel()
-    @StateObject private var previewApp: AppModel
-    @StateObject private var previewEditor: EditorSessionModel
-
-    init() {
-        let defaults = UserDefaults(suiteName: "photara.theme-lab.preview") ?? .standard
-        defaults.removePersistentDomain(forName: "photara.theme-lab.preview")
-        let supportRoot = FileManager.default.temporaryDirectory
-            .appending(path: "PhotaraThemeLab")
-            .appending(path: String(ProcessInfo.processInfo.processIdentifier))
-        _previewApp = StateObject(wrappedValue: AppModel(
-            defaults: defaults,
-            supportRootOverride: supportRoot
-        ))
-        _previewEditor = StateObject(wrappedValue: EditorSessionModel(defaults: defaults))
-    }
-
     var body: some Scene {
         WindowGroup("Photara Theme Lab") {
             ThemeLabView()
                 .environmentObject(model)
-                .environmentObject(previewApp)
-                .environmentObject(previewEditor)
-                .frame(minWidth: 1_360, minHeight: 760)
+                .frame(minWidth: 1_260, minHeight: 760)
         }
         .commands {
             CommandGroup(replacing: .newItem) {
@@ -71,12 +53,12 @@ final class ThemeLabModel: ObservableObject {
     }
 
     var warnings: [String] {
-        document.contrastWarnings()
+        document.neutralityWarnings() + document.contrastWarnings()
     }
 
-    func colorBinding(_ role: PhotaraThemeRole) -> Binding<Color> {
+    func colorBinding(_ role: PhotaraThemeRole, appearance: PhotaraThemeAppearance) -> Binding<Color> {
         Binding(
-            get: { self.resolved.color(role) },
+            get: { self.document.resolved(for: appearance).color(role) },
             set: { newColor in
                 guard let converted = NSColor(newColor).usingColorSpace(.sRGB) else { return }
                 let rgba = PhotaraRGBA(
@@ -88,28 +70,28 @@ final class ThemeLabModel: ObservableObject {
                 self.document.setColor(
                     rgba.hex,
                     for: role,
-                    appearance: self.appearance
+                    appearance: appearance
                 )
-                self.hexDrafts[self.draftKey(role)] = rgba.hex
+                self.hexDrafts[self.draftKey(role, appearance: appearance)] = rgba.hex
                 self.message = "Modified \(role.rawValue)"
             }
         )
     }
 
-    func hexBinding(_ role: PhotaraThemeRole) -> Binding<String> {
+    func hexBinding(_ role: PhotaraThemeRole, appearance: PhotaraThemeAppearance) -> Binding<String> {
         Binding(
             get: {
-                self.hexDrafts[self.draftKey(role)]
-                    ?? self.document.mode(self.appearance).colors[role.rawValue]
+                self.hexDrafts[self.draftKey(role, appearance: appearance)]
+                    ?? self.document.mode(appearance).colors[role.rawValue]
                     ?? ""
             },
             set: { value in
-                self.hexDrafts[self.draftKey(role)] = value
+                self.hexDrafts[self.draftKey(role, appearance: appearance)] = value
                 guard PhotaraRGBA(hex: value) != nil else {
                     self.message = "Enter #RRGGBB or #RRGGBBAA"
                     return
                 }
-                self.document.setColor(value.uppercased(), for: role, appearance: self.appearance)
+                self.document.setColor(value.uppercased(), for: role, appearance: appearance)
                 self.message = "Modified \(role.rawValue)"
             }
         )
@@ -155,7 +137,26 @@ final class ThemeLabModel: ObservableObject {
         }
     }
 
-    private func draftKey(_ role: PhotaraThemeRole) -> String {
+    func apply() {
+        do {
+            try document.validate()
+            guard warnings.isEmpty else { message = "Resolve validation warnings before applying."; return }
+            let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appending(path: "Photara/Developer", directoryHint: .isDirectory)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            let url = root.appending(path: "ThemeLabTheme.json")
+            try document.write(to: url)
+            PhotaraThemeDevelopmentSettings.setOverrideURL(url)
+            message = "Applied the shared palette to development hosts."
+        } catch { message = error.localizedDescription }
+    }
+
+    func removeOverride() {
+        PhotaraThemeDevelopmentSettings.setOverrideURL(nil)
+        message = "Development hosts use their bundled palette."
+    }
+
+    private func draftKey(_ role: PhotaraThemeRole, appearance: PhotaraThemeAppearance) -> String {
         "\(appearance.rawValue).\(role.rawValue)"
     }
 }

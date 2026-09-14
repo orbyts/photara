@@ -1,12 +1,40 @@
 import AppKit
 import SwiftUI
 
+/// Use the real App lifecycle so macOS registers the test host with accessibility.
+/// An async command-line main can render layers but has no application AX tree.
 @main
+struct SharedUIVerificationApp: App {
+    @NSApplicationDelegateAdaptor(SharedUIVerificationDelegate.self) private var delegate
+    var body: some Scene { Settings { EmptyView() } }
+}
+
+@MainActor
+final class SharedUIVerificationDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        Task { @MainActor in
+            do {
+                try await SharedUIChecks.run()
+                exit(0)
+            } catch {
+                FileHandle.standardError.write(Data("\(error)\n".utf8))
+                exit(1)
+            }
+        }
+    }
+}
+
 struct SharedUIChecks {
-    @MainActor static func main() async throws {
-        NSApplication.shared.setActivationPolicy(.accessory)
+    @MainActor static func run() async throws {
         let directory = URL(fileURLWithPath: CommandLine.arguments[1])
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let themeURL = Bundle.main.url(forResource: "photara-default", withExtension: "json")!
+        try verifyUI0Theme(themeURL)
+        verifyUI0Scenarios(ShellLabModel())
+        try await capture(ThemeLadderSpecimen(document: PhotaraThemeDocument.load(from: themeURL)),
+            name: "ui0-ladder", size: .init(width: 880, height: 460), directory: directory)
+        try await verifyUI0Opening(directory: directory)
+        try await verifyUI1CreateProject(directory: directory)
         let preset = GalleryPreset.shipped
         let decoded = try GalleryPreset.decode(preset.encoded())
         require(decoded == preset, "Gallery preset round trip")
@@ -132,6 +160,23 @@ struct SharedUIChecks {
                     name: "shell-\(scenario.rawValue)-\(dark)",
                     size: .init(width: scenario == .compact ? 820 : 1440, height: scenario == .compact ? 720 : 900), directory: directory)
             }
+            for style in CreateProjectPresentation.allCases {
+                try await capture(
+                    LabAppearance(dark: dark, usesDevelopmentTheme: false) {
+                        CreateProjectView(
+                            libraryName: "My Library",
+                            isCloudLibrary: true,
+                            chooseDestination: {},
+                            cancel: {},
+                            create: { _ in },
+                            presentation: style
+                        )
+                    },
+                    name: "create-project-\(style.rawValue)-\(dark)",
+                    size: .init(width: 760, height: 620),
+                    directory: directory
+                )
+            }
         }
         for dark in [false, true] {
             for fixture in LibraryFixtureState.allCases {
@@ -145,7 +190,7 @@ struct SharedUIChecks {
                         assignments: fixture == .populated ? LibraryFixtures.assignments : [], library: library, phase: library.phase, hasProject: true), actions: .init(send: { _ in }))))
                 ]
                 for (name, view) in views {
-                    try await capture(LabAppearance(dark: dark) { view }, name: "library-\(name)-\(fixture.rawValue)-\(dark)", size: .init(width: 440, height: 720), directory: directory)
+                    try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) { view }, name: "library-\(name)-\(fixture.rawValue)-\(dark)", size: .init(width: 440, height: 720), directory: directory)
                 }
             }
             shellModel.scenario = .assets; shellModel.dark = dark
@@ -220,7 +265,7 @@ struct SharedUIChecks {
         require(event == "layout", "Inspector structure callback lost node identity")
         for dark in [false, true] {
             for style in [GalleryViewStyle.photoGrid, .squareGrid] {
-                try await capture(LabAppearance(dark: dark) {
+                try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) {
                     AssetGalleryView(presentation: .init(assets: assets, canAssign: true),
                         actions: .init(open: { _ in }, assign: { _ in }, requestPreview: { _ in }),
                         initialStyle: style, filter: .constant(""), selectedAssetID: .constant("asset-1"))
@@ -232,21 +277,21 @@ struct SharedUIChecks {
                 ("no-matches", .init(assets: assets, canAssign: false, hasSourceNodes: true), "No fixture matches"),
             ]
             for state in galleryEmptyStates {
-                try await capture(LabAppearance(dark: dark) {
+                try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) {
                     AssetGalleryView(presentation: state.1,
                         actions: .init(open: { _ in }, assign: { _ in }, requestPreview: { _ in }),
                         filter: .constant(state.2), selectedAssetID: .constant(nil))
                 }, name: "gallery-\(state.0)-\(dark)", size: .init(width: 720, height: 620), directory: directory)
             }
             for fixture in InspectorFixture.allCases {
-                try await capture(LabAppearance(dark: dark) {
+                try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) {
                     InspectorView(presentation: fixture.presentation, actions: actions)
                 }, name: "inspector-\(fixture.rawValue)-\(dark)", size: .init(width: 360, height: 900), directory: directory)
             }
         }
         for section in InspectorSection.allCases where section != .all {
             let fixture = section == .disk ? InspectorFixture.disk : section == .diagnostics ? .diagnostics : .layout
-            try await capture(LabAppearance(dark: true) {
+            try await capture(LabAppearance(dark: true, usesDevelopmentTheme: false) {
                 InspectorView(presentation: fixture.presentation, actions: actions, section: section)
             }, name: "section-\(section.rawValue)", size: .init(width: 320, height: 820), directory: directory)
         }

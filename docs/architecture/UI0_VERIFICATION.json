@@ -1,0 +1,356 @@
+{
+  "schema_version": 3,
+  "date": "2026-09-14",
+  "status": "UI0 and UI1 Compact visual checkpoint accepted; all final Xcode 27 gates pass; real project creation wiring remains separate",
+  "baseline_commit": "ef3fc00c9a86b4f19dd8290ddf4414050cdccab8",
+  "includes_45ddedf": true,
+  "toolchain": {
+    "macOS": "27.0",
+    "OS_build": "26A428",
+    "Xcode": "27.0",
+    "Xcode_build": "27A266a",
+    "macOS_SDK": "27.0",
+    "Swift": "6.4"
+  },
+  "accepted_presentation": {
+    "opening": "Native macOS window background and primary/secondary text",
+    "project_surfaces": [
+      "Foundation",
+      "Primary",
+      "Inset"
+    ],
+    "create_project_default": "Compact",
+    "lab_comparisons": [
+      "Compact",
+      "Balanced",
+      "Spacious"
+    ]
+  },
+  "publication_policy": "Commit and normal fast-forward push after all gates pass; never force.",
+  "scope_limit": "UI1 shared view is a Shell Lab fixture preview. Real package/catalog/cloud creation is not wired. Library deletion is separate future work and must never delete packages or external archives.",
+  "implementation_sha256": {
+    "platform/macos/photara-app/Sources/PhotaraMacApp.swift": "c2afd7836c0d6329307c31914b0a8d966be95565a502bf597d0ad47a687be98f",
+    "platform/macos/photara-gallery/Sources/GalleryCard.swift": "1a1408594eed74e06fa07f60fb90acb614aa444fe7c1741d9d7c433c648880c0",
+    "platform/macos/photara-gallery/Sources/GalleryFullImageView.swift": "f9d37462f26a6f520d4b0a0d19debd965475f2b1ed0d1de8e9b93325fb161519",
+    "platform/macos/photara-graph-lab/Sources/GraphLabApp.swift": "e650f9cfa5edf43ba734557e2e94b645284713e9cd405d347a3b47dcb708322b",
+    "platform/macos/photara-graph-lab/Sources/GraphLabView.swift": "6fe2748f591955a55ff8b799b3f0ef77725501056a9e330de9c774814d54675a",
+    "platform/macos/photara-graph-lab/Tests/GraphInteractionChecks.swift": "7521e954a1c34deacadd956f516496b150a0f6d0f102a5c68b44fce0fb1aa0ff",
+    "platform/macos/photara-graph-lab/Tests/GraphNativeInput.swift": "30b82f4cdd5f4917f648f65afa7d9fbcec354fb8621f043301e1686287fd38ca",
+    "platform/macos/photara-graph-lab/Tests/GraphPermissionProbe.swift": "c2c1eac7db2a47916425a7272721945ed1adee8bd0a5788257b66b506938315c",
+    "platform/macos/photara-graph-lab/Tests/GraphVerificationHost.swift": "cb05299875b4c82310d72c5fb229dad1dd38a136a57cd3aa55da92b6c9a37a06",
+    "platform/macos/photara-graph-lab/verify-interactions.sh": "b38829c7e2bf1ee515568c27578a875c11e7d121f56de4a3ec66b9d8d404bf6f",
+    "platform/macos/photara-graph-lab/verify-permissions.sh": "14606ee1c8707dfe838aa9e1acdcf1c7d1e98ffe60722a9d94ae030b15173e98",
+    "platform/macos/photara-graph/Sources/GraphPresentation.swift": "d32697479f5a1302dde92d902c16c81be4259b9aff5695d10dff2b4982c157aa",
+    "platform/macos/photara-lab-support/Sources/LabAppearance.swift": "2347114f1c22143f449c28855fb82fbbd5cb3821d883bb43a5eae24facf1d4c4",
+    "platform/macos/photara-lab-support/Sources/ShellFixtures.swift": "83cdc310153e25ae53f756109204cfb59d4ba37d5c9c5d70714baf95ea6f9944",
+    "platform/macos/photara-shell-lab/Sources/ShellLabApp.swift": "455e1dbbd9b8f8c4abadd48d1b6bb5ada86af97320d6c5279a214d2679e3494b",
+    "platform/macos/photara-shell-lab/build-shell-lab.sh": "e721efd271d57f24b81056481e671ab0b552cc77e350411132f89d28a708039f",
+    "platform/macos/photara-shell/Sources/ApplicationShell.swift": "0adec076b78b7daf69d9513dc3d4716fcfa599f2f71811573a6f274ab574c623",
+    "platform/macos/photara-shell/Sources/CreateProjectView.swift": "a6db8784cf3c81aebc761eca7d9d0dc24b8022bb6b0bb5d5495a23383216da1a",
+    "platform/macos/photara-shell/Sources/OpeningLibraryView.swift": "4e3868b993ff4062ce071c554bf5defa509006123f4efd82d33cd3b8cb44038e",
+    "platform/macos/photara-theme/Resources/photara-default.json": "10c049f63a0c82b9c0aeb1a1171069cf3ce97b346150e219205c8c15a0ecff8f",
+    "platform/macos/photara-theme/Sources/PhotaraTheme.swift": "dd2fb36a69af0965328c4127b4d19f6aa5966b228039172a3137e2a770733c42",
+    "platform/macos/photara-theme/Sources/ThemeCLI.swift": "2cbe171d07df5e3da359d20fe4b06626243eec071838eced2e6448efcfafb498",
+    "platform/macos/photara-theme/Sources/ThemeLabApp.swift": "8e46c5bcd7b4690dd6806805d094ca60fbd830238d6287aeb86bc94b5a72c2e5",
+    "platform/macos/photara-theme/Sources/ThemeLabView.swift": "228fc810a9512cab291a87236ce64a0dd61e6b2ad8eb66604c5fc83e8d8825b8",
+    "platform/macos/photara-theme/build-theme-lab.sh": "cd518ab15be34b75c1c1bd3edf0e245f6164b062ec85da363f98aa6d7c818531",
+    "platform/macos/photara-ui-foundation/Sources/ThemeLadderSpecimen.swift": "f03295dbc027cdeaa64cef5ad878fd4e933e7e080a9ee91c493f88eb2f72da42",
+    "platform/macos/photara-ui-foundation/Sources/ThemeStore.swift": "f944d190153650187f0777508d84efe6133d31fd0d9ad07e1f0febde89b7bbb8",
+    "platform/macos/photara-ui-tests/Capture.swift": "6c9fdc2940ac3a33fdc718f8fe80ad93bf384bd067714d38333c1ea356fa8f83",
+    "platform/macos/photara-ui-tests/OpeningAccessibilityProbe.swift": "8a06841c16c4936af23f700c63d1fa85f7023b9ac19bc38da9b51f5079151eb7",
+    "platform/macos/photara-ui-tests/ProductionUIChecks.swift": "18ad3e90056769e93bcdb0beb705067cd64d81cf85214db3dff22f6d7476148e",
+    "platform/macos/photara-ui-tests/SharedUIChecks.swift": "5b02ccd92b55a32d1c1180802a5a7bae342ae8fca67c5bb1657744e1ab2ef731",
+    "platform/macos/photara-ui-tests/UI0Checks.swift": "d190ae93bf67451fdb5a5f85286f6fcab0aaebb265aee15fb80f9b092d012c47",
+    "platform/macos/photara-ui-tests/verify-shared-ui.sh": "dcb178e0c7ec3d0199b23b6ea647c0ed19c004c91a66369b7b88137bb81a9e77",
+    "scripts/verify_ui0_contract.py": "40feceed08512dd9c8d97db75e006f04510b25344027471039bed58c380f52c3",
+    "scripts/verify_ui0_rasters.py": "ff4769f44309c4d6e172bed52d7aaac8abcc9eaac6de44f98159bcc03d638ea0"
+  },
+  "guarded_graph_sha256": {
+    "platform/macos/photara-graph-lab/Sources/GraphLabApp.swift": "e650f9cfa5edf43ba734557e2e94b645284713e9cd405d347a3b47dcb708322b",
+    "platform/macos/photara-graph-lab/Sources/GraphLabCanvas.swift": "69c85a30b007e7f48b32e1b7a89c2abb5524b58b0d705fa379f2a2a0b7ab7f80",
+    "platform/macos/photara-graph-lab/Sources/GraphLabFixtures.swift": "ef243b5b70e4ad7ed6c0b71d2a72274e5b8ab02c85240fa142125a4d77791517",
+    "platform/macos/photara-graph-lab/Sources/GraphLabTooling.swift": "fda663dc5fa9d783aec003e69987ea915a0d6f5063f57e9050dc121b2b781e2b",
+    "platform/macos/photara-graph-lab/Sources/GraphLabView.swift": "6fe2748f591955a55ff8b799b3f0ef77725501056a9e330de9c774814d54675a",
+    "platform/macos/photara-graph-lab/Tests/GraphBranchOverviewChecks.swift": "9b5f58cfd769c26b2fc355cd0ba04f18eaa67e09ebe21360a53e99c8999d5f15",
+    "platform/macos/photara-graph-lab/Tests/GraphGestureOracle.swift": "1c4572fbda1f3c03363d690bfc77a37b44e3cd8f7848cfa6c35076881589fcaa",
+    "platform/macos/photara-graph-lab/Tests/GraphInteractionChecks.swift": "7521e954a1c34deacadd956f516496b150a0f6d0f102a5c68b44fce0fb1aa0ff",
+    "platform/macos/photara-graph-lab/Tests/GraphNativeInput.swift": "30b82f4cdd5f4917f648f65afa7d9fbcec354fb8621f043301e1686287fd38ca",
+    "platform/macos/photara-graph-lab/Tests/GraphPermissionProbe.swift": "c2c1eac7db2a47916425a7272721945ed1adee8bd0a5788257b66b506938315c",
+    "platform/macos/photara-graph-lab/Tests/GraphRandomGestures.swift": "07d19be9a5c93a614a5fe231f58c2d0864feaccad02d84120395fcc1894f65df",
+    "platform/macos/photara-graph-lab/Tests/GraphVerificationHost.swift": "cb05299875b4c82310d72c5fb229dad1dd38a136a57cd3aa55da92b6c9a37a06",
+    "platform/macos/photara-graph-lab/build-graph-lab.sh": "904b7b3f3ff8133bdaaf8c670383d7afcdc6ce295a616788bc751fb2c9962d9e",
+    "platform/macos/photara-graph-lab/export-shared-preset.swift": "b7420f7ee63e8bc6332ece24514c08dc8907838e80d4b3439feb24c624d08aa0",
+    "platform/macos/photara-graph-lab/verify-interactions.sh": "b38829c7e2bf1ee515568c27578a875c11e7d121f56de4a3ec66b9d8d404bf6f",
+    "platform/macos/photara-graph-lab/verify-permissions.sh": "14606ee1c8707dfe838aa9e1acdcf1c7d1e98ffe60722a9d94ae030b15173e98",
+    "platform/macos/photara-graph/Resources/NodeIcons/node-ai-workflow.svg": "5843789b50c24adbce669a300872db881c265560930b8bb90e7d6e591d16f3b7",
+    "platform/macos/photara-graph/Resources/NodeIcons/node-disk-folder.svg": "a909cc3d720b5b6b33f8067640efa58150973441f85520cf5808edbc0c51b7a1",
+    "platform/macos/photara-graph/Resources/NodeIcons/node-export.svg": "7e477e1d4f2009f679537bed51b59f83b5329bb7a9963acb92aabce25e4b3442",
+    "platform/macos/photara-graph/Resources/NodeIcons/node-layout.svg": "d19be313ee04a0a36f472796033ef8387fc0bbfa5937ab16337b1c9be08696d8",
+    "platform/macos/photara-graph/Resources/NodeIcons/node-metadata.svg": "7068e1bebbebdb21c23a619b35f74772fb01b66de5cadfa5af8c41c9a7c66bd0",
+    "platform/macos/photara-graph/Resources/NodeIcons/node-query.svg": "1adb2ced27c587c91c80decbf58a3090fd4a8376c570a9eb03b9b33abf3f99c2",
+    "platform/macos/photara-graph/Resources/NodeIcons/node-rotate.svg": "e0406645da385f2ebf5f689f260a9165170a44c2d569cbdd5e543933f249aa29",
+    "platform/macos/photara-graph/Resources/NodeIcons/node-union.svg": "0503cd1bbdae8e9f97fd3a7594bfcf2f7a5e02b549d03ac7ec2412eddd2067e1",
+    "platform/macos/photara-graph/Resources/ToolIcons/tool-knife.svg": "1d478e2961e17f81371682c5c43d035ebedc181bc0f0188fdb54df80868d874d",
+    "platform/macos/photara-graph/Resources/photara-graph-presentation-v1.json": "3d26d416d4f8555c4b2eb03a4d599c5c13393cc669778c9fb1baddf422c71452",
+    "platform/macos/photara-graph/Sources/GraphCanvas.swift": "7ae28dc60f0f9ae9d23d9b9a7a542b9bdaa3a2b5014b3b8e3c28fc14222e8fbd",
+    "platform/macos/photara-graph/Sources/GraphDocument.swift": "ad9565d47a578cab737dad185b25c1156e1a19bfe8fd898f83be73a2f0197a4c",
+    "platform/macos/photara-graph/Sources/GraphEventSurface.swift": "67b92bd95d913e4fcc03d893d520d700eec2873e0750885e550b7cec1130f3d0",
+    "platform/macos/photara-graph/Sources/GraphGeometry.swift": "faf83eb42a69ae277af645ab38da0fc885c3ad27ab2c66d2b2a3c181644fef76",
+    "platform/macos/photara-graph/Sources/GraphInteraction.swift": "c1312afb7076d5d9f5262c1731df936ed67f87670d598c6d32e1ff282405ad4a",
+    "platform/macos/photara-graph/Sources/GraphNodeView.swift": "72db1d400ec0bdf30d98511df3fd4ea5125796f7a9050d4e8a4309cef499ff14",
+    "platform/macos/photara-graph/Sources/GraphOverview.swift": "7e53074a143ca4ee5079d2b63201ba42102aa9234b731176d4f4fa4abe7e10d5",
+    "platform/macos/photara-graph/Sources/GraphPresentation.swift": "d32697479f5a1302dde92d902c16c81be4259b9aff5695d10dff2b4982c157aa",
+    "platform/macos/photara-graph/Sources/GraphPreset.swift": "7ba18d3f75c0a9855c08ef90708ad4d8886bdae4cc680708907cfbe02686131a",
+    "platform/macos/photara-graph/Sources/GraphToolIcons.swift": "573121092b4981bc55be0b8e6dfaefdc20c654c25712e4380b514f1bc5f7e707",
+    "platform/macos/photara-graph/Sources/GraphToolRail.swift": "0273f643181e78f3fbfbb2ddb7e596d82e52f6ff167b5e5bc0511432408cd5d9"
+  },
+  "graph_allowed_changes": [
+    "Shared Foundation background precedence",
+    "Read-only Foundation field in Graph Lab",
+    "Live shared Theme store",
+    "Verification-only launch/signing/permission/capability/coordinate plumbing; every original behavioral assertion and oracle preserved"
+  ],
+  "approval_raster_sha256": {
+    "docs/architecture/mockups/ui0/ladder.png": "0d87990fcbab334aa93e3e97ce6b0154e4d1cb047a85dbc7374cad1a24b829b4",
+    "docs/architecture/mockups/ui0/opening-dark-narrow.png": "6ff0f3fd17784452d2d1bef2548a7578b87031da9ef879fb548a77ab91668ef0",
+    "docs/architecture/mockups/ui0/opening-dark-standard.png": "6700fd9e68a8eb562e1956106f9264687c5092e3c0d842d11c53a6083eeca1ea",
+    "docs/architecture/mockups/ui0/opening-light-narrow.png": "42b48d43625630f279385d02843300530a7b2cf21ecfce45fa137e6abd9f6f08",
+    "docs/architecture/mockups/ui0/opening-light-standard.png": "deb53d8c45e129ae01ded4408167530cdb65c416e72a1f11e3d34ce79fa7b038",
+    "docs/architecture/mockups/ui1/create-project-compact-dark.png": "868d0aa71be49766735e4927ad8f8da551b25e26c0f2ce466f050614a6ce79b4",
+    "docs/architecture/mockups/ui1/create-project-compact-light.png": "40af8be8a5de604f80c39a8034db0682f3fce31ff6cfc5264a4f56f72c17a7ce"
+  },
+  "checks": {
+    "graph": {
+      "passed": true,
+      "assertions": 15644,
+      "failures": 0,
+      "exit_code": 0,
+      "matrix_configurations": 12,
+      "random_sequences_completed": 12,
+      "random_actions_per_sequence": 180,
+      "native_coordinate_preflight_deliveries": 81,
+      "original_behavioral_assertions_and_oracles_unchanged": true
+    },
+    "native_capabilities": {
+      "accessibility": true,
+      "screen_capture": true,
+      "post_events": true,
+      "hid_received_types": [
+        1,
+        6,
+        2
+      ],
+      "screencapturekit_calibration": true,
+      "cgwindow_capture_exit_code": 0,
+      "cgwindow_calibration": true,
+      "self_ax_press_error": -25200,
+      "self_ax_callback_count": 1,
+      "self_ax_is_diagnostic_only": true,
+      "note": "Nonzero AX error is not called success. Self-targeted AX is not Graph input; readiness uses public authorization and actual HID receipt."
+    },
+    "capture_validation": {
+      "real_managed_images": 2,
+      "lifted_channel_fixture_passed": true,
+      "invalid_fixtures_rejected": 5,
+      "method": "Convert to sRGB; validate opaque uniform patches, relative hue and contrast"
+    },
+    "signing": {
+      "bundle_identifier": "com.photara.graph-lab.verification",
+      "team_identifier": "524GTA93Q3",
+      "designated_requirement_sha256": "ec79c9c10d93f1a6f5ac398a76b6af7086bef30b08801de56a1a6b507279253b",
+      "stable_across_rebuilds": true,
+      "exact_certificate_constraint_verified": true,
+      "wrong_identity_team_ad_hoc_unsigned_rejected": true,
+      "verification_binary_sha256": "803d5fae8c00cb150792780e9d11a8433de29df327e83fe73f5eea8ca82b0905"
+    },
+    "shared_ui": {
+      "passed": true,
+      "scenario_transitions": 225,
+      "contrast_pairs": 50,
+      "opening_accessibility_states": 4,
+      "ui1_native_action_paths": 4,
+      "png_count": 117
+    },
+    "production_ui": {
+      "passed": true,
+      "png_count": 25,
+      "verification_project_id": "d31665d1-d6af-46aa-8843-d58d7b4c2b0d",
+      "coverage": [
+        "existing creation intent on mounted view",
+        "typed adapters",
+        "Core edit/undo/redo",
+        "HDR proxy",
+        "disposable SQLite",
+        "thumbnails",
+        "snapshots",
+        "save/reopen",
+        "graph digest purity"
+      ]
+    },
+    "bridge": {
+      "passed": true,
+      "progress_events": 3,
+      "cancellation_events": 2
+    },
+    "builds": {
+      "theme_lab": true,
+      "shell_lab": true,
+      "graph_lab": true,
+      "production_app_and_signature": true,
+      "shared_ui": true,
+      "production_ui": true
+    },
+    "theme_validation": true,
+    "graph_source_guard": true,
+    "rust_format": true,
+    "focused_swift_format": true,
+    "git_diff_check": true,
+    "raster_checks": {
+      "opening-light-narrow.png": {
+        "pixels": [
+          1520,
+          1224
+        ],
+        "blank_content_srgb": [
+          255,
+          255,
+          255
+        ],
+        "samples": 12,
+        "surface_owner": "macOS"
+      },
+      "opening-light-standard.png": {
+        "pixels": [
+          2560,
+          1744
+        ],
+        "blank_content_srgb": [
+          255,
+          255,
+          255
+        ],
+        "samples": 12,
+        "surface_owner": "macOS"
+      },
+      "opening-dark-narrow.png": {
+        "pixels": [
+          1520,
+          1224
+        ],
+        "blank_content_srgb": [
+          30,
+          30,
+          30
+        ],
+        "samples": 12,
+        "surface_owner": "macOS"
+      },
+      "opening-dark-standard.png": {
+        "pixels": [
+          2560,
+          1744
+        ],
+        "blank_content_srgb": [
+          30,
+          30,
+          30
+        ],
+        "samples": 12,
+        "surface_owner": "macOS"
+      },
+      "ladder-light": [
+        [
+          238,
+          238,
+          238
+        ],
+        [
+          247,
+          247,
+          247
+        ],
+        [
+          255,
+          255,
+          255
+        ]
+      ],
+      "ladder-dark": [
+        [
+          32,
+          32,
+          32
+        ],
+        [
+          41,
+          41,
+          41
+        ],
+        [
+          51,
+          51,
+          51
+        ]
+      ]
+    }
+  },
+  "test_harness_repairs": [
+    "Original SwiftUI WindowGroup retained; LaunchServices and atomic result handle startup/crash failures.",
+    "Correct native NSEvent point retained; old normalization only for initially wrong coordinates; original tolerance unchanged.",
+    "Stable development signature, verifier-only purpose string, launch-completion wait, explicit manual permission requests and bounded capability probe.",
+    "UI1 native text entry updates SwiftUI bindings; production creation intent exercised while its observing view is mounted."
+  ],
+  "historical_failures": [
+    {
+      "assertions": 9742,
+      "failures": 181,
+      "cause": "Old unconditional CGEvent.location normalization invalidated native coordinates."
+    },
+    {
+      "assertions": 15644,
+      "failures": 1,
+      "cause": "Intermediate NSHostingView hierarchy changed native zoom hit priority; host removed, assertion preserved."
+    },
+    {
+      "assertions": 9944,
+      "failures": 49,
+      "cause": "LaunchServices verifier lacked native input/capture permission."
+    }
+  ],
+  "permission_repair": {
+    "explicit_user_approved_reset": "tccutil reset Accessibility com.photara.graph-lab.verification",
+    "reason": "Stored Accessibility requirement was an old ad-hoc cdhash; targeted TCC logs confirmed mismatch.",
+    "manual_consent_completed": true,
+    "global_reset_performed": false
+  },
+  "local_log_sha256": {
+    "/private/tmp/photara-checkpoint-shared-build.log": "459dee2cb417ca323f35ef4f55606f55f66537489354589bde969d0bae282f0b",
+    "/private/tmp/photara-checkpoint-shared.log": "77aebe35bfef17d0611bf48ac191af05f98711dd169019725bc863864a21e479",
+    "/private/tmp/photara-checkpoint-production-build.log": "6f49abf5ac122649ad97e0fdaa82a0eaeec0bbafb05529c825053b8d19d03709",
+    "/private/tmp/photara-checkpoint-production.log": "7377b16bde1910cde1944e6932e79b7dcd27d1e49dfe5610ede00eadd37d75fa",
+    "/private/tmp/photara-checkpoint-theme-build.log": "d124ac43e2665477023469791159c6e75409dcf78d03b20c63de701475433c4a",
+    "/private/tmp/photara-checkpoint-theme-validate.log": "a57355d3611e33c9fa71d0f277fe078014ba8e91c81e8001b3f1094bc2ff14ca",
+    "/private/tmp/photara-checkpoint-shell-build.log": "038057aec6bd965419f5d74599a2ca0cef1ecd28452b998d98f8925af998a441",
+    "/private/tmp/photara-checkpoint-graph-build.log": "3b4cb8c2eb18b1e8257d8dcc0e9f169c3aed2f6d1d4f655adb4ee210f15dd433",
+    "/private/tmp/photara-checkpoint-bridge.log": "7aa25da515099f0cecf845ee6c08255b899482dcd1c74e46e31e6d7d09d87baf",
+    "/private/tmp/photara-checkpoint-contract.log": "4a58a7a8cd538eaf16b57a9ba011edb6305c7cde697fc8c1344d55ced324046c",
+    "/private/tmp/photara-checkpoint-swift-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/private/tmp/photara-checkpoint-rasters.json": "1f8586ae6f01dfe157fc674c245ef5f3960527f161e023c60921bd3aaae969ad",
+    "/private/tmp/photara-graph-green-final.log": "3768c1701d270df1486d0f0d93aaaa014c2729a342a8157373a5dc645c9a7456",
+    "/private/tmp/photara-capture-calibration-checks.log": "3be25baec5c83924c93a8d0b7e5478a7b99e81428195f25e8912f973e8aba122",
+    "/private/tmp/photara-graph-signing-stability.json": "77150365870f589d27651c153232998c5b5265cd8c979d3fb554efbc0193e02e",
+    "/private/tmp/photara-graph-modern-signature-tests.json": "3fd3da5fc48570b4411578e067922b781712d3139fcca44bfbad037ab674a1bc",
+    "/private/tmp/photara-checkpoint-graph.log": "105781b416b71150d48751b057862e57ae639e62182692ffd42eb5467d37581f",
+    "/private/tmp/photara-harness-initial-host.log": "b05dde611bf80067712ff9c440050825abee7a62e9cb3b24a3624d47194964f7",
+    "/private/tmp/photara-harness-graph-full.log": "d7bc0aaf1db9672e6b6547bbdfd39b16b40dd5d9157bd7fe348fdf8c8a4e1d2e",
+    "/private/tmp/photara-event-probe.log": "6a7469b0a6052d2d657cbb67115fd0b7d81f0354a74c132a65aacbb87ee32649",
+    "/private/tmp/photara-graph-reset-request.log": "03c1de9d2ffc1baf0a439e28ce4fd7bec46aa1a309c8d1605aac8ed6676924d9"
+  },
+  "limitations": [
+    "No real UI1 package/database/cloud creation was implemented.",
+    "Account/project tests use disposable data; no live cloud or authentication claim.",
+    "Manual VoiceOver, physical trackpad comparison and alternate system accessibility settings were not exercised.",
+    "Native Opening colors are OS-owned; exact custom neutral values apply to the project ladder.",
+    "Seven approval PNGs are retained; temporary logs and full snapshot sets are local."
+  ]
+}

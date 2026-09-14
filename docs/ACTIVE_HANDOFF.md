@@ -1,5 +1,59 @@
 # Active handoff
 
+## 2026-09-14 UI0 accepted; UI1 Compact visual checkpoint accepted
+
+**Final checkpoint verification passes on Xcode 27:** Graph 15,644 assertions,
+zero failures, all 12 configurations and 12×180 seeded actions; shared UI 225
+transitions/50 contrast pairs/117 captures; production UI 25 captures; bridge,
+Theme validation, Theme/Shell/Graph/production builds, signature checks, source
+guard, formats and neutral raster checks. The 37-file Graph guard preserves every
+original behavioral assertion/oracle and permits only the three approved production
+Theme edits plus the explicitly authorized verification-harness adaptation.
+
+The verifier now has stable development signing, a screen-capture purpose string,
+confirmed AppKit launch readiness and real native-input/capture probes. The user's
+approved app-specific Accessibility reset removed an old ad-hoc identity record;
+manual authorization is complete and survives the final rebuild. No global TCC
+reset, automated consent, production Graph behavior change or new UI1 creation
+transaction was performed. The self-targeted AX diagnostic's error remains logged;
+actual HID receipt and the original Graph matrix establish interaction readiness.
+
+This checkpoint starts from `ef3fc00` on `codex/ui0-ui1-visual-checkpoint`.
+The machine-readable evidence and approval images are linked below. Delivery is
+an authorized normal fast-forward push only; never force.
+
+Suhail approved UI0 and the rendered shared Create Project view, selecting **Compact**
+as the shipped default. Balanced and Spacious remain Shell Lab comparison options.
+The checkpoint starts from `ef3fc00` and preserves all existing UI0 edits plus the
+reviewed native Opening and UI1 mock. The default is defined once by
+`CreateProjectPresentation.shipped`; the shared view and Lab model consume it.
+
+Opening uses native `windowBackgroundColor` and primary/secondary text. It is the
+native exception before Photara's authored Foundation/Primary/Inset ladder begins.
+Graph's background shares Foundation; its accepted nodes, ports, noodles, controls,
+controller, geometry and presets remain unchanged apart from UI0's three exact
+Theme-consumption edits. Test assertions and oracles are preserved; only authorized
+verification launch/input plumbing and preflight were adapted. Theme Lab owns the palette, and Shell
+Lab owns scenario-specific geometry plus the three Create Project comparisons.
+
+`CreateProjectView` is shared production source displayed by Shell Lab. Its native
+Choose/Cancel/Create buttons invoke fixture callbacks only in the preview. The real
+production creation route is not connected to the new sheet. No real package,
+database or cloud creation workflow has been implemented. Existing production/Core
+behavior is preserved. Name trimming and nonempty enablement are presentation checks,
+not complete path, collision, permission or transactional validation.
+
+See the [accepted checkpoint, Xcode 27 verification and approval images](architecture/UI_LADDER_AND_AUTHORING_SEQUENCE.md#accepted-ui0-and-ui1-visual-checkpoint).
+Compact Light/Dark captures are retained under `docs/architecture/mockups/ui1`;
+the full verification run also captures Balanced and Spacious. The refreshed Opening
+rasters retain native macOS appearance. All account/project test state is disposable.
+
+Next: separately scope and implement UI1 creation wiring. Library lifecycle remains
+a separate future slice: deletion transactionally removes catalog Project records
+and references, never `.photara` packages or external archives. No live Neon/Auth0/
+Keychain data or service deployment is part of this checkpoint. Commit and normal
+fast-forward push are authorized only after the checkpoint checks pass.
+
 ## 2026-09-14 committed checkpoint and proposed UI0
 
 The user confirms the live first-Mac Google/cloud flow works and supplied Light/Dark

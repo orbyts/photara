@@ -38,6 +38,48 @@ enum PhotaraThemeRole: String, CaseIterable, Identifiable {
     case nodeCompute = "node.compute"
 
     var id: String { rawValue }
+
+    /// Compatibility names resolve here, never to separately authored backgrounds.
+    var canonical: Self {
+        switch self {
+        case .surfaceControl, .graphNode, .galleryCell: .surfaceElevated
+        case .graphBackground: .surfaceCanvas
+        case .graphGrid: .borderSubtle
+        case .graphNodeSelected: .borderFocus
+        case .galleryBackground: .surfacePanel
+        default: self
+        }
+    }
+
+    var isAuthored: Bool { canonical == self }
+    static var authored: [Self] { allCases.filter(\.isAuthored) }
+    static var aliases: [Self] { allCases.filter { !$0.isAuthored } }
+
+    var authoringLabel: String {
+        switch self {
+        case .surfaceCanvas: "Foundation"
+        case .surfacePanel: "Primary"
+        case .surfaceElevated: "Inset"
+        case .editorSurround: "Photograph reference surround"
+        default: rawValue
+        }
+    }
+}
+
+/// A local composition root chooses from the same three steps; there is no depth
+/// counter and no derivation of additional greys as independently owned roots nest.
+enum PhotaraSurfaceLevel: String, CaseIterable, Identifiable {
+    case foundation = "Foundation"
+    case primary = "Primary"
+    case inset = "Inset"
+    var id: String { rawValue }
+    var role: PhotaraThemeRole {
+        switch self {
+        case .foundation: .surfaceCanvas
+        case .primary: .surfacePanel
+        case .inset: .surfaceElevated
+        }
+    }
 }
 
 enum PhotaraThemeAppearance: String, CaseIterable, Identifiable {
@@ -49,6 +91,32 @@ enum PhotaraThemeAppearance: String, CaseIterable, Identifiable {
 
 struct PhotaraThemeMode: Codable, Equatable {
     var colors: [String: String]
+
+    init(colors: [String: String]) { self.colors = colors }
+    private enum CodingKeys: String, CodingKey { case colors }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let legacy = try container.decode([String: String].self, forKey: .colors)
+        for (slot, value) in legacy {
+            guard PhotaraThemeRole(rawValue: slot) != nil else {
+                throw PhotaraThemeError.unknownSlots([slot])
+            }
+            guard PhotaraRGBA(hex: value) != nil else {
+                throw PhotaraThemeError.invalidColor(appearance: "import", slot: slot, value: value)
+            }
+        }
+        // Schema-1 exports used literal duplicate colors. Canonical authored roles
+        // win even when those old literals disagree; aliases need no stored value.
+        colors = legacy.filter { PhotaraThemeRole(rawValue: $0.key)?.isAuthored == true }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(colors.filter {
+            PhotaraThemeRole(rawValue: $0.key)?.isAuthored != false
+        }, forKey: .colors)
+    }
 }
 
 struct PhotaraThemeModes: Codable, Equatable {
@@ -99,7 +167,10 @@ struct PhotaraThemeDocument: Codable, Equatable {
                 darkOnly: darkKeys.subtracting(lightKeys).sorted()
             )
         }
-        let required = Set(PhotaraThemeRole.allCases.map(\.rawValue))
+        let known = Set(PhotaraThemeRole.allCases.map(\.rawValue))
+        let unknown = lightKeys.subtracting(known).sorted()
+        guard unknown.isEmpty else { throw PhotaraThemeError.unknownSlots(unknown) }
+        let required = Set(PhotaraThemeRole.authored.map(\.rawValue))
         let missing = required.subtracting(lightKeys).sorted()
         guard missing.isEmpty else {
             throw PhotaraThemeError.missingSlots(missing)
@@ -127,9 +198,9 @@ struct PhotaraThemeDocument: Codable, Equatable {
         appearance: PhotaraThemeAppearance
     ) {
         if appearance == .dark {
-            modes.dark.colors[role.rawValue] = hex
+            modes.dark.colors[role.canonical.rawValue] = hex
         } else {
-            modes.light.colors[role.rawValue] = hex
+            modes.light.colors[role.canonical.rawValue] = hex
         }
     }
 
@@ -142,12 +213,31 @@ struct PhotaraThemeDocument: Codable, Equatable {
         )
     }
 
+    func neutralityWarnings() -> [String] {
+        PhotaraThemeAppearance.allCases.flatMap { appearance in
+            let palette = resolved(for: appearance)
+            let levels = PhotaraSurfaceLevel.allCases.compactMap { palette.rgba($0.role) }
+            var warnings = (PhotaraSurfaceLevel.allCases.map(\.role) + [.editorSurround]).compactMap { role -> String? in
+                guard let value = palette.rgba(role), value.isOpaqueNeutral else {
+                    return "\(appearance.rawValue) \(role.authoringLabel) must be opaque and color-neutral."
+                }
+                return nil
+            }
+            if levels.count == 3 && !(levels[0].red < levels[1].red && levels[1].red < levels[2].red) {
+                warnings.append("\(appearance.rawValue) ladder must get lighter from Foundation to Primary to Inset.")
+            }
+            return warnings
+        }
+    }
+
     func contrastWarnings() -> [String] {
-        let pairs: [(PhotaraThemeRole, PhotaraThemeRole, Double)] = [
-            (.textPrimary, .surfaceCanvas, 4.5),
-            (.textPrimary, .surfacePanel, 4.5),
-            (.selectionForeground, .selectionBackground, 4.5),
-        ]
+        let readable: [PhotaraThemeRole] = [.textPrimary, .textSecondary,
+            .statusTextNeutral, .statusTextRunning, .statusTextSuccess,
+            .statusTextWarning, .statusTextError, .statusTextCancelled]
+        let pairs: [(PhotaraThemeRole, PhotaraThemeRole, Double)] =
+            PhotaraSurfaceLevel.allCases.flatMap { level in
+                readable.map { ($0, level.role, 4.5) }
+            } + [(.selectionForeground, .selectionBackground, 4.5)]
         return PhotaraThemeAppearance.allCases.flatMap { appearance in
             let palette = resolved(for: appearance)
             return pairs.compactMap { pair -> String? in
@@ -173,12 +263,14 @@ struct PhotaraResolvedTheme: Equatable {
     fileprivate let colors: [String: PhotaraRGBA]
 
     func rgba(_ role: PhotaraThemeRole) -> PhotaraRGBA? {
-        colors[role.rawValue]
+        colors[role.canonical.rawValue]
     }
 
     func color(_ role: PhotaraThemeRole) -> Color {
-        colors[role.rawValue]?.color ?? .pink
+        rgba(role)?.color ?? .pink
     }
+
+    func surface(_ level: PhotaraSurfaceLevel) -> Color { color(level.role) }
 }
 
 struct PhotaraRGBA: Equatable {
@@ -227,7 +319,9 @@ struct PhotaraRGBA: Equatable {
         )
     }
 
-    fileprivate func contrastRatio(with other: Self) -> Double {
+    var isOpaqueNeutral: Bool { red == green && green == blue && alpha == 1 }
+
+    func contrastRatio(with other: Self) -> Double {
         let light = max(relativeLuminance, other.relativeLuminance)
         let dark = min(relativeLuminance, other.relativeLuminance)
         return (light + 0.05) / (dark + 0.05)
@@ -250,6 +344,7 @@ enum PhotaraThemeError: LocalizedError {
     case unsupportedColorSpace(String)
     case appearanceSlotMismatch(lightOnly: [String], darkOnly: [String])
     case missingSlots([String])
+    case unknownSlots([String])
     case invalidColor(appearance: String, slot: String, value: String)
 
     var errorDescription: String? {
@@ -265,6 +360,8 @@ enum PhotaraThemeError: LocalizedError {
         case let .appearanceSlotMismatch(lightOnly, darkOnly):
             "light and dark modes must contain identical slots "
                 + "(light-only: \(lightOnly), dark-only: \(darkOnly))"
+        case let .unknownSlots(slots):
+            "unknown theme slots: \(slots.joined(separator: ", ")); use the shared semantic roles"
         case let .missingSlots(slots):
             "theme is missing required slots: \(slots.joined(separator: ", "))"
         case let .invalidColor(appearance, slot, value):

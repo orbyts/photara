@@ -15,7 +15,7 @@ cp -p "$UI_ROOT/photara-inspector/Resources/photara-inspector-presentation-v1.js
 cp -p "$UI_ROOT/photara-graph/Resources/photara-graph-presentation-v1.json" "$RESOURCES/"
 ditto "$UI_ROOT/photara-graph/Resources/NodeIcons" "$RESOURCES/NodeIcons"
 ditto "$UI_ROOT/photara-graph/Resources/ToolIcons" "$RESOURCES/ToolIcons"
-xcrun swiftc -swift-version 6 -parse-as-library -module-cache-path "$BUILD_ROOT/module-cache" \
+xcrun swiftc -target arm64-apple-macosx26.0 -swift-version 6 -parse-as-library -module-cache-path "$BUILD_ROOT/module-cache" \
   "${SHARED_UI_SOURCES[@]}" "$UI_ROOT"/photara-lab-support/Sources/*.swift \
   "$SCRIPT_ROOT"/Sources/*.swift -framework SwiftUI -framework AppKit \
   -o "$APP_BUNDLE/Contents/MacOS/PhotaraShellLab"

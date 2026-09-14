@@ -2,13 +2,31 @@ import AppKit
 import SwiftUI
 
 enum ShellScenario: String, CaseIterable, Identifiable {
-    case opening, recentsCollapsed, recentsExpanded, emptyProject, firstNode, selectionCleared
+    case opening, createProject, recentsCollapsed, recentsExpanded, emptyProject, firstNode, selectionCleared
     case assets, layout, review, evaluating, diagnostics, compact, saved, syncing
     var id: String { rawValue }
+    var isOpening: Bool { [.opening, .createProject, .recentsCollapsed, .recentsExpanded].contains(self) }
+    var title: String {
+        switch self {
+        case .opening: "Opening"
+        case .createProject: "Create Project"
+        case .recentsCollapsed: "Opening · legacy recents collapsed"
+        case .recentsExpanded: "Opening · legacy recents expanded"
+        case .emptyProject: "Project / Graph · empty"
+        case .firstNode: "Project / Graph · first node"
+        case .selectionCleared: "Inspector · selection cleared"
+        case .layout: "Node Work Surface · Layout"
+        default: rawValue.capitalized
+        }
+    }
+    /// Only scenarios with a Project render the shared module geometry.
+    var authorsModuleGeometry: Bool { !isOpening }
+    static var browserCases: [Self] { allCases.filter { ![.recentsCollapsed, .recentsExpanded].contains($0) } }
+
     static let layoutSurface = NodeWorkSurfacePresentation(nodeID: "layout", contributionID: "photara.layout.work-surface",
         title: "Layout", iconResourceID: "photara.layout.compose", accentHex: "#A682CF")
     var presentation: ApplicationPresentation {
-        let opening = [.opening, .recentsCollapsed, .recentsExpanded].contains(self)
+        let opening = [.opening, .createProject, .recentsCollapsed, .recentsExpanded].contains(self)
         let empty = self == .emptyProject
         let layout = [.layout, .review].contains(self)
         let nodes = opening || empty ? [] : layout ? ["disk", "layout"] : ["disk"]
@@ -42,34 +60,19 @@ final class ShellLabModel: ObservableObject {
             draftDefaults.set(data, forKey: Self.draftKey)
         }
     }
-    @Published var themeDocument: PhotaraThemeDocument {
-        didSet {
-            guard persistsDraft, (try? themeDocument.validate()) != nil,
-                  let data = try? JSONEncoder().encode(themeDocument) else { return }
-            draftDefaults.set(data, forKey: Self.themeDraftKey)
-        }
-    }
     @Published var dark = false
+    @Published var createProjectPresentation: CreateProjectPresentation = .shipped
     @Published var identifiesControls = false
     @Published var lastAction = "Choose a scenario to author the shell."
-    let session = EditorSessionModel(persists: false)
+    @Published private(set) var session = EditorSessionModel(persists: false)
     let assets = GalleryFixtures.assets()
     private static let draftKey = "photara.shell-lab.authoring-draft.v1"
-    private static let themeDraftKey = "photara.shell-lab.theme-draft.v1"
     private let persistsDraft: Bool
     private let draftDefaults: UserDefaults
 
     init(persistsDraft: Bool = false, draftDefaults: UserDefaults = .standard) {
         self.persistsDraft = persistsDraft
         self.draftDefaults = draftDefaults
-        let shippedTheme = Self.loadShippedTheme()
-        if persistsDraft, let data = draftDefaults.data(forKey: Self.themeDraftKey),
-           let saved = try? JSONDecoder().decode(PhotaraThemeDocument.self, from: data),
-           (try? saved.validate()) != nil {
-            themeDocument = saved
-        } else {
-            themeDocument = shippedTheme
-        }
         if persistsDraft,
            let data = draftDefaults.data(forKey: Self.draftKey),
            let saved = try? ApplicationShellPreset.decode(data)
@@ -84,13 +87,7 @@ final class ShellLabModel: ObservableObject {
     func applyPresetToPhotara() {
         do {
             try PhotaraShellDevelopmentSettings.setOverride(preset)
-            let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appending(path: "Photara/Developer", directoryHint: .isDirectory)
-            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-            let url = root.appending(path: "ShellLabTheme.json")
-            try themeDocument.write(to: url)
-            PhotaraThemeDevelopmentSettings.setOverrideURL(url)
-            lastAction = "Applied Shell and shared Theme to Photara. The open app updates automatically."
+            lastAction = "Applied shared Shell geometry to Photara."
         } catch {
             lastAction = "Could not apply to Photara: \(error.localizedDescription)"
         }
@@ -99,8 +96,7 @@ final class ShellLabModel: ObservableObject {
     func removePhotaraOverride() {
         do {
             try PhotaraShellDevelopmentSettings.setOverride(nil)
-            PhotaraThemeDevelopmentSettings.setOverrideURL(nil)
-            lastAction = "Removed the Photara Shell and Theme overrides."
+            lastAction = "Removed the Photara Shell override."
         } catch {
             lastAction = "Could not remove override: \(error.localizedDescription)"
         }
@@ -108,12 +104,12 @@ final class ShellLabModel: ObservableObject {
 
     func restoreShippedPreset() {
         preset = .shipped
-        themeDocument = Self.loadShippedTheme()
         lastAction = "Restored the shipped preset in Shell Lab."
     }
     func reset() {
-        session.synchronizeProject(id: nil, nodeIDs: [])
-        session.restoreLayoutAuthoringPreset()
+        // Each scenario owns a fresh disposable presentation session, including
+        // pending catalog requests and selections when both roots are Opening.
+        session = EditorSessionModel(persists: false)
         presentation = scenario.presentation
         presentation.title = fixtureProjectTitle
         session.synchronizeProject(id: presentation.projectID, nodeIDs: presentation.nodeIDs)
@@ -123,16 +119,10 @@ final class ShellLabModel: ObservableObject {
         if scenario == .review { session.activateReview() }
     }
 
-    private static func loadShippedTheme() -> PhotaraThemeDocument {
-        guard let url = Bundle.main.url(forResource: "photara-default", withExtension: "json"),
-              let theme = try? PhotaraThemeDocument.load(from: url)
-        else { fatalError("Shell Lab is missing the shipped Theme") }
-        return theme
-    }
     func send(_ action: ApplicationAction) {
         lastAction = String(describing: action)
         switch action {
-        case .newProject: scenario = .emptyProject
+        case .newProject: scenario = .createProject
         case .openProject, .openRecent: scenario = .assets
         case .closeProject: scenario = .opening
         case .evaluate: presentation.isEvaluating = true; presentation.progressLabel = "Evaluating fixture…"
@@ -140,6 +130,11 @@ final class ShellLabModel: ObservableObject {
         case .save: presentation.isDirty = false; presentation.syncLabel = "Saved just now"
         case .importPair: presentation.hasAssets = true
         }
+    }
+    func finishCreateProject(_ draft: CreateProjectDraft) {
+        fixtureProjectTitle = draft.trimmedName
+        scenario = .emptyProject
+        lastAction = "Create \(draft.packageName) in \(draft.destination)"
     }
     func addNode() {
         let id = presentation.nodeIDs.isEmpty ? "disk" : "layout"
@@ -155,9 +150,17 @@ final class ShellLabModel: ObservableObject {
 struct ShellLabPreview: View {
     @ObservedObject var model: ShellLabModel
     @ObservedObject var session: EditorSessionModel
+    @StateObject private var themeStore: PhotaraThemeStore
+
+    init(model: ShellLabModel, session: EditorSessionModel, usesDevelopmentTheme: Bool = false) {
+        self.model = model
+        self.session = session
+        _themeStore = StateObject(wrappedValue: PhotaraThemeStore(usesDevelopmentOverride: usesDevelopmentTheme))
+    }
+
     var body: some View {
         let appearance: PhotaraThemeAppearance = model.dark ? .dark : .light
-        let theme = model.themeDocument.resolved(for: appearance)
+        let theme = themeStore.document.resolved(for: appearance)
         ApplicationShell(presentation: model.presentation, actions: .init(send: model.send), preset: model.preset,
                 workSurface: { surface in
                     AnyView(LayoutAuthoringSurfaceView(presentation: .init(node: InspectorFixture.layout.presentation.node),
@@ -189,9 +192,22 @@ struct ShellLabPreview: View {
                         ? [.init(code: "source.offline", message: "Reconnect the source folder to continue."),
                            .init(code: "asset.unavailable", message: "One source image needs to be located.")] : [])
                 }
-            }.environmentObject(session)
+            }.id(model.scenario)
+            .sheet(isPresented: Binding(
+                get: { model.scenario == .createProject },
+                set: { if !$0 && model.scenario == .createProject { model.scenario = .opening } }
+            )) {
+                CreateProjectView(
+                    libraryName: ReleaseConfiguration.current.identity.defaultLibraryName,
+                    isCloudLibrary: true,
+                    chooseDestination: { model.lastAction = "Choose package destination" },
+                    cancel: { model.scenario = .opening },
+                    create: { model.finishCreateProject($0) },
+                    presentation: model.createProjectPresentation
+                )
+            }
+            .environmentObject(session)
             .environment(\.photaraTheme, theme)
-            .tint(theme.color(.borderFocus))
             .preferredColorScheme(model.dark ? .dark : .light)
             .overlay {
                 if model.identifiesControls {
@@ -260,7 +276,7 @@ private struct ShellControlInspectorOverlay: View {
         let outer = preset.frame.outerInset
         let statusTop = size.height - outer - preset.statusBarHeight - preset.frame.gutter / 2
         if point.y >= statusTop {
-            return "Editor Chrome → Status bar height, text size, inset and spacing\nProject Chrome Colors → Header and status background"
+            return "Editor Chrome → Status bar height, text size, inset and spacing\nTheme Lab → Primary"
         }
 
         let nearOuterEdge = point.x < outer + preset.frame.gutter
@@ -271,34 +287,25 @@ private struct ShellControlInspectorOverlay: View {
         let nearDivider = abs(point.x - leadingDivider) < max(10, preset.frame.gutter)
             || abs(point.x - trailingDivider) < max(10, preset.frame.gutter)
         if nearOuterEdge || nearDivider {
-            return "Shared Visual System → Application base\nShared Visual System → Gutter and Outer inset"
+            return "Theme Lab → Foundation\nShared geometry → Gutter and Outer inset"
         }
 
         let moduleTop = outer + preset.frame.gutter / 2
         if point.y <= moduleTop + preset.panelHeaderHeight {
-            return "Advanced Shared Geometry → Module title bar metrics\nShared Visual System → Selection tint"
+            return "Advanced Shared Geometry → Module title bar metrics\nTheme Lab → Selection"
         }
 
         let nearCardEdge = point.y < moduleTop + preset.panelHeaderHeight + preset.frame.contentInset + 10
         if nearCardEdge {
-            return "Shared Visual System → Module base and Module content\nShared Visual System → Corner radius and Content inset"
+            return "Theme Lab → Primary and Inset\nShared geometry → Corner radius and Content inset"
         }
 
-        return "Shared Visual System → Module base and Content inset\nFeature Lab → Content inside this module"
+        return "Shared geometry → Content inset\nFeature Lab → Content inside this module"
     }
 
     private func launcherControlName(at point: CGPoint, in size: CGSize) -> String {
-        let center = CGPoint(x: size.width / 2, y: size.height / 2 + preset.launcherVerticalOffset)
-        if hypot(point.x - center.x, point.y - (center.y - 105)) < 95 {
-            return "Hero Icon Tile → Size, color, stroke, corner radius, glow and position"
-        }
-        if abs(point.y - center.y) < 55 {
-            return "Launcher → Title size, font, weight and spacing"
-        }
-        if point.y > center.y + 45 && point.y < center.y + 145 {
-            return "Launcher Buttons → Create, Open and Recent tints\nLauncher → Hero-to-recents gap"
-        }
-        return "Launcher Background → Material and Tint\nLauncher → Edge insets and vertical position"
+        if point.x < 238 { return "macOS → Native sidebar, selection and account controls" }
+        return "macOS → Native window and text colors\nOpening → Production content and native actions"
     }
 
     private func labelPosition(for point: CGPoint, in size: CGSize) -> CGPoint {

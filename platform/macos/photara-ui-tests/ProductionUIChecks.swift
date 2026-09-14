@@ -19,6 +19,26 @@ private final class SavedOpeningDriver: OpeningCloudDriver {
 }
 
 @main
+struct ProductionUIVerificationApp: App {
+    @NSApplicationDelegateAdaptor(ProductionUIVerificationDelegate.self) private var delegate
+    var body: some Scene { Settings { EmptyView() } }
+}
+
+@MainActor
+final class ProductionUIVerificationDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        Task { @MainActor in
+            do {
+                try await ProductionUIChecks.run()
+                exit(0)
+            } catch {
+                FileHandle.standardError.write(Data("\(error)\n".utf8))
+                exit(1)
+            }
+        }
+    }
+}
+
 struct ProductionUIChecks {
     /// A deliberately large, nonsquare raster exercises the native Menu image
     /// path, which a fallback SF Symbol does not cover.
@@ -34,8 +54,7 @@ struct ProductionUIChecks {
         return NSBitmapImageRep(cgImage: context.makeImage()!).representation(using: .png, properties: [:])!
     }
 
-    @MainActor static func main() async throws {
-        NSApplication.shared.setActivationPolicy(.accessory)
+    @MainActor static func run() async throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let suite = "photara.production-ui-tests.\(UUID().uuidString)"
@@ -50,15 +69,27 @@ struct ProductionUIChecks {
         require(app.localState != nil, "Generation Two local state was not initialized")
         require(FileManager.default.fileExists(atPath: support.appending(path: "State/photara-local-v2.sqlite").path), "Generation Two database is missing")
         for dark in [false, true] {
-            try await capture(LabAppearance(dark: dark) {
+            try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) {
                 EditorSessionView().environmentObject(app).environmentObject(session)
             }, name: "production-launcher-\(dark)", size: .init(width: 980, height: 720), directory: root)
         }
-        app.newProject()
-        session.synchronizeProject(id: app.snapshot?.projectId, nodeIDs: [])
+        // The existing production intent must occur while its real view is mounted:
+        // projectSetupRequest is consumed by EditorSessionView.onChange. Closed
+        // screenshot windows must not be relied on to keep that observer alive.
+        try await capture(LabAppearance(dark: false, usesDevelopmentTheme: false) {
+            EditorSessionView().environmentObject(app).environmentObject(session)
+        }, name: "production-create-intent", size: .init(width: 980, height: 720), directory: root,
+        inspect: { _, _ in
+            app.newProject()
+            session.synchronizeProject(id: app.snapshot?.projectId, nodeIDs: [])
+            for _ in 0..<40 {
+                if session.isVisible(.projectInfo) { break }
+                try await Task.sleep(for: .milliseconds(25))
+            }
+        })
         let emptyDigest = app.snapshot!.graph.digest
         for dark in [false, true] {
-            try await capture(LabAppearance(dark: dark) {
+            try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) {
                 EditorSessionView().environmentObject(app).environmentObject(session)
             }, name: "production-empty-\(dark)", size: .init(width: 820, height: 720), directory: root)
         }
@@ -132,11 +163,11 @@ struct ProductionUIChecks {
         session.toggle(.diagnostics)
         session.selectedNodeID = layout.nodeId
         for dark in [false, true] {
-            try await capture(LabAppearance(dark: dark) {
+            try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) {
                 EditorSessionView().environmentObject(app).environmentObject(session)
             }, name: "production-graph-\(dark)", size: .init(width: 1440, height: 900), directory: root)
             session.activateWorkSurface(for: layout.nodeId)
-            try await capture(LabAppearance(dark: dark) {
+            try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) {
                 EditorSessionView().environmentObject(app).environmentObject(session)
             }, name: "production-layout-\(dark)", size: .init(width: 1440, height: 900), directory: root)
             session.activateGraph()
@@ -195,7 +226,7 @@ struct ProductionUIChecks {
         }
         session.show(.projectInfo); session.show(.people)
         for dark in [false, true] {
-            try await capture(LabAppearance(dark: dark) {
+            try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) {
                 EditorSessionView().environmentObject(app).environmentObject(session)
             }, name: "production-library-\(dark)", size: .init(width: 1440, height: 1000), directory: root)
         }
@@ -216,7 +247,7 @@ struct ProductionUIChecks {
                 require(cloud.account?.avatar == avatar, "Raster avatar was not loaded into the production presentation")
             }
             for dark in [false, true] {
-                try await capture(LabAppearance(dark: dark) {
+                try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) {
                     ApplicationShell(presentation: app.applicationPresentation(session),
                         actions: .init(send: app.performApplicationAction), openingCloud: cloud,
                         workSurface: { ProductionWorkSurfaceRegistry.view(for: $0) }, panel: { _ in EmptyView() })
@@ -228,13 +259,13 @@ struct ProductionUIChecks {
         account.loadSavedState()
         for _ in 0..<20 { await Task.yield() }
         for dark in [false, true] {
-            try await capture(LabAppearance(dark: dark) {
+            try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) {
                 CloudLibraryPicker(choices: [.init(id: "synthetic-library", name: "My Library")], select: { _ in }, cancel: {})
             }, name: "production-choose-library-\(dark)", size: .init(width: 420, height: 240), directory: root)
-            try await capture(LabAppearance(dark: dark) {
+            try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) {
                 SidebarAccountControls(cloud: account).padding(16).frame(width: 238, height: 72)
             }, name: "production-accounts-\(dark)", size: .init(width: 420, height: 80), directory: root)
-            try await capture(LabAppearance(dark: dark) {
+            try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) {
                 ApplicationShell(presentation: app.applicationPresentation(session),
                     actions: .init(send: app.performApplicationAction), openingCloud: account,
                     workSurface: { ProductionWorkSurfaceRegistry.view(for: $0) }, panel: { _ in EmptyView() })

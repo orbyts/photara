@@ -4,7 +4,30 @@ This is the authoritative execution order for generation two. `ROADMAP.md` retai
 the broader product and node-contract rationale; this document defines what task
 starts next, its bounded slices, and where user approval stops progress.
 
-## 2026-09-14 checkpoint and next UI sequence
+## 2026-09-14 accepted UI0 and UI1 visual checkpoint
+
+The final Xcode 27 checkpoint gates pass: Graph 15,644 assertions/0 failures,
+12 configurations and 12×180 seeded actions; shared/production UI, bridge, Theme,
+builds, source guard, formats and raster checks. Stable verification signing and
+native permissions are established. Production Graph changes remain limited to
+shared Theme consumption; every original behavioral assertion and oracle is intact.
+
+Suhail accepted UI0 and the rendered Create Project design, selecting Compact as the
+shared default. Shell Lab retains Compact/Balanced/Spacious comparisons. Opening
+uses native macOS background and text colors; the custom three-step ladder starts
+in project content, including Graph's shared Foundation background. Graph behavior
+and behavioral test assertions remain unchanged; the authorized verification
+launch/input harness adaptation is documented in the evidence.
+
+Read the [accepted checkpoint, checks and images](architecture/UI_LADDER_AND_AUTHORING_SEQUENCE.md#accepted-ui0-and-ui1-visual-checkpoint).
+UI1's view and fixture callbacks are present, but real destination selection and
+atomic package/catalog/Graph/cloud creation have not been wired. That implementation
+is the next separately scoped work. Library lifecycle is a future separate slice;
+its deletion operation removes catalog Project records/references transactionally
+without deleting `.photara` packages or external archives. The CXT4e second-Mac and
+aggregate-audit limitations remain open.
+
+## Earlier 2026-09-14 checkpoint and proposed UI sequence
 
 The user confirms the signed application now completes live Google enrollment,
 shows the cloud Library, supports sign-out, and restores the account presentation.

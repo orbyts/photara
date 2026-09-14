@@ -3,6 +3,7 @@ import SwiftUI
 
 struct GalleryFullImageView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.photaraTheme) private var theme
     let asset: GalleryAsset
     let descriptor: ImagePreviewMetadata
     let image: NSImage
@@ -37,7 +38,7 @@ struct GalleryFullImageView: View {
                 )
                     .frame(width: geometry.size.width, height: geometry.size.height)
             }
-            .background(Color(nsColor: .controlBackgroundColor))
+            .background(theme?.color(.editorSurround) ?? Color(white: 0.5))
         }
         .frame(minWidth: 720, minHeight: 520)
     }

@@ -1,6 +1,23 @@
 # Roadmap to Photara 0.2.0
 
-**2026-09-14: first-Mac cloud onboarding is user-accepted; UI0 is proposed next.**
+**2026-09-14: UI0 accepted; UI1 Create Project visual checkpoint accepted.**
+Final Xcode 27 verification passes: Graph **15,644 assertions / 0 failures**,
+12 matrix configurations and 12 seeded sequences of 180 actions; shared/production
+UI, bridge, Theme validation, builds, source guard, formatting and raster checks pass.
+The verifier preserves its development identity across rebuilds and exercises actual
+native input/capture. Every original Graph behavioral assertion and oracle is intact.
+The shared three-step ladder and Theme/Shell ownership are approved. Opening uses
+native macOS window/text colors; the authored ladder begins in project content.
+Graph's background shares Foundation and its accepted wiring remains intact.
+The user approved the shared Create Project view and selected **Compact** as the
+shipped default. Balanced and Spacious remain Shell Lab comparison options.
+[Implementation, checks and images](docs/architecture/UI_LADDER_AND_AUTHORING_SEQUENCE.md#accepted-ui0-and-ui1-visual-checkpoint)
+record this checkpoint. Real package/database/cloud project-creation wiring is still
+pending and is not part of this visual checkpoint. Library lifecycle is a separate
+future slice: catalog deletion removes Project records/references transactionally,
+never `.photara` packages or external archives.
+
+**Earlier checkpoint: first-Mac cloud onboarding is user-accepted.**
 The user confirmed live Google enrollment, cloud Library readiness, sign-out and
 returning account presentation in the signed macOS app, with a corresponding Neon
 record. This is first-Mac acceptance, not the still-open CXT4e second-Mac hydration

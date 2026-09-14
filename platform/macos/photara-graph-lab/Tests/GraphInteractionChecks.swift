@@ -1,24 +1,6 @@
 import AppKit
 import SwiftUI
 
-@main
-struct GraphLabVerificationApp: App {
-    @State private var appearance = PhotaraThemeAppearance.dark
-    private let theme = try! PhotaraThemeDocument.load(from: Bundle.main.url(forResource: "photara-default", withExtension: "json")!)
-    init() { UserDefaults.standard.addSuite(named: "com.photara.graph-lab") }
-    var body: some Scene {
-        WindowGroup("Graph Lab Interaction Verification") {
-            GraphLabView(appearance: $appearance)
-                .environment(\.photaraTheme, theme.resolved(for: appearance))
-                .preferredColorScheme(appearance == .dark ? .dark : .light)
-                .frame(minWidth: 1080, minHeight: 700)
-                .task {
-                    await GraphLabChecks.run(appearance: $appearance)
-                }
-        }
-    }
-}
-
 @MainActor
 final class GraphLabChecks {
     static let options = GraphVerificationOptions()
@@ -51,6 +33,9 @@ final class GraphLabChecks {
         await settle()
         window.makeFirstResponder(surface)
         let suite = GraphLabChecks(window: window, surface: surface)
+        guard GraphNativeInput.preflight(check: { Self.check($0, $1) }) else { finish() }
+        await suite.focusCanvas()
+        if ProcessInfo.processInfo.environment["PHOTARA_GRAPH_PREFLIGHT_ONLY"] == "1" { finish() }
         if options.randomOnly {
             await suite.randomChecks(appearance: appearance)
             finish()
@@ -101,6 +86,7 @@ final class GraphLabChecks {
         let result = "\(assertions) assertions; \(failures.count) failures\n" + failures.joined(separator: "\n")
         GraphTestLog.write(result)
         try? result.write(toFile: "/tmp/photara-graph-verification/result.txt", atomically: true, encoding: .utf8)
+        GraphVerificationResult.recordExitCode(failures.isEmpty ? 0 : 1)
         exit(failures.isEmpty ? 0 : 1)
     }
 
@@ -131,31 +117,16 @@ final class GraphLabChecks {
     var lastMouseDelivery = ""
     func mouse(_ type: NSEvent.EventType, _ point: CGPoint, flags: NSEvent.ModifierFlags = []) {
         let location = surface.convert(point, to: nil)
-        let event = NSEvent.mouseEvent(with: type, location: location, modifierFlags: flags,
-                                      timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
-                                      context: nil, eventNumber: 1, clickCount: 1, pressure: type == .leftMouseUp ? 0 : 1)!
-        if type == .otherMouseDown || type == .otherMouseDragged || type == .otherMouseUp || type == .rightMouseDown || type == .rightMouseUp {
-            let cg = event.cgEvent!
-            cg.setIntegerValueField(.mouseEventButtonNumber, value: (type == .rightMouseDown || type == .rightMouseUp) ? 1 : 2)
-            // CGEvent bridging can retain a cached window origin after a
-            // programmatic resize. This harness dispatches via NSWindow, so
-            // normalize the wrapped event's window-local point and verify it
-            // before dispatch. Production input handling needs no workaround.
-            let global = window.convertPoint(toScreen: location)
-            cg.location = CGPoint(x: global.x, y: NSScreen.screens.first!.frame.height - global.y)
-            let bridged = NSEvent(cgEvent: cg)!
-            let error = CGPoint(x: location.x - bridged.locationInWindow.x,
-                                y: location.y - bridged.locationInWindow.y)
-            cg.location = CGPoint(x: cg.location.x + error.x, y: cg.location.y - error.y)
-            let middle = NSEvent(cgEvent: cg)!
-            lastMouseDelivery = "expected \(location), actual \(middle.locationInWindow), window \(middle.windowNumber)/\(window.windowNumber), frame \(window.frame), button \(middle.buttonNumber), original button \(event.buttonNumber)"
-            guard Self.near(middle.locationInWindow, location) else {
-                Self.check(false, "Native event coordinate precondition: \(lastMouseDelivery)")
-                return
-            }
-            window.sendEvent(middle)
-        } else { window.sendEvent(event) }
+        do {
+            let event = try GraphNativeInput.mouse(type, location: location, flags: flags, window: window)
+            lastMouseDelivery = "expected \(location), actual \(event.locationInWindow), window \(event.windowNumber)/\(window.windowNumber), button \(event.buttonNumber)"
+            window.sendEvent(event)
+        } catch {
+            lastMouseDelivery = String(describing: error)
+            Self.check(false, "Native event coordinate precondition: \(error)")
+        }
     }
+
     func key(_ code: UInt16, _ chars: String, up: Bool = false) {
         let event = NSEvent.keyEvent(with: up ? .keyUp : .keyDown, location: .zero, modifierFlags: [],
                                     timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,

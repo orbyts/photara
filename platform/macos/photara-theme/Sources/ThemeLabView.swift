@@ -1,244 +1,109 @@
 import SwiftUI
 
 struct ThemeLabView: View {
-    @EnvironmentObject private var model: ThemeLabModel
-    @EnvironmentObject private var previewApp: AppModel
-    @EnvironmentObject private var previewEditor: EditorSessionModel
-    @State private var showsRoleDetails = true
-    @State private var previewSurface = ThemeLabPreviewSurface.glass
+  @EnvironmentObject private var model: ThemeLabModel
+  @State private var showsOpening = false
+  @StateObject private var session = EditorSessionModel(persists: false)
 
-    var body: some View {
-        NavigationSplitView {
-            slotEditor
-                .navigationSplitViewColumnWidth(min: 300, ideal: 340, max: 420)
-        } detail: {
-            productionPreview
-        }
-        .toolbar {
-            Picker("Preview", selection: $previewSurface) {
-                ForEach(ThemeLabPreviewSurface.allCases) { surface in
-                    Text(surface.title).tag(surface)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 220)
-            Picker("Appearance", selection: $model.appearance) {
-                Text("Light").tag(PhotaraThemeAppearance.light)
-                Text("Dark").tag(PhotaraThemeAppearance.dark)
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 160)
-            Toggle(isOn: $showsRoleDetails) {
-                Label("Mappings", systemImage: "info.circle")
-            }
-            .toggleStyle(.button)
-            .help("Show the current production consumer for each semantic color role")
-            Button("Open", systemImage: "folder") { model.open() }
-            Button("Save", systemImage: "square.and.arrow.down") { model.save() }
-        }
-    }
-
-    private var slotEditor: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(model.document.displayName)
-                    .font(.headline)
-                Text("\(model.document.id) · paired sRGB")
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                if !model.message.isEmpty {
-                    Text(model.message)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
-            Divider()
-            List {
-                ForEach(slotGroups, id: \.name) { group in
-                    Section(group.name) {
-                        ForEach(group.roles) { role in
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    ColorPicker("", selection: model.colorBinding(role))
-                                        .labelsHidden()
-                                    Text(role.rawValue)
-                                        .font(.caption.monospaced())
-                                    Spacer()
-                                    TextField("#RRGGBB", text: model.hexBinding(role))
-                                        .font(.caption.monospaced())
-                                        .textFieldStyle(.plain)
-                                        .frame(width: 76)
-                                }
-                                if showsRoleDetails {
-                                    HStack(alignment: .firstTextBaseline, spacing: 5) {
-                                        Text(role.themeLabConsumer)
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                            .fixedSize(horizontal: false, vertical: true)
-                                        Spacer(minLength: 4)
-                                        Text(role.themeLabCoverage.title)
-                                            .font(.system(size: 8, weight: .semibold))
-                                            .foregroundStyle(.secondary)
-                                            .padding(.horizontal, 4)
-                                            .padding(.vertical, 2)
-                                            .background(.quaternary, in: Capsule())
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                if !model.warnings.isEmpty {
-                    Section("Contrast warnings") {
-                        ForEach(model.warnings, id: \.self) { warning in
-                            Label(warning, systemImage: "exclamationmark.triangle")
-                                .font(.caption)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var productionPreview: some View {
-        let theme = model.resolved
-        return Group {
-            switch previewSurface {
-            case .glass:
-                GlassTestScene(theme: theme)
-            case .production:
-                EditorSessionView()
-                    .task {
-                        prepareLayoutFixture()
-                    }
-            }
-        }
-        .environment(\.photaraTheme, theme)
-        .tint(theme.color(.borderFocus))
+  var body: some View {
+    NavigationSplitView {
+      editor.navigationSplitViewColumnWidth(min: 420, ideal: 460, max: 560)
+    } detail: {
+      if showsOpening {
+        ApplicationShell(
+          presentation: .init(
+            hasOpenProject: false, title: "", subtitle: "",
+            isDirty: false, nodeCount: 0, diagnosticCount: 0, progressLabel: "", isEvaluating: false
+          ),
+          actions: .init(send: { model.message = "Preview action: \($0)" }),
+          workSurface: { _ in AnyView(EmptyView()) }, panel: { _ in EmptyView() }
+        )
+        .environmentObject(session)
+        .environment(\.photaraTheme, model.resolved)
         .preferredColorScheme(model.appearance == .dark ? .dark : .light)
+      } else {
+        ThemeLadderSpecimen(document: model.document)
+      }
     }
-
-    private func prepareLayoutFixture() {
-        if !previewApp.hasOpenProject {
-            previewApp.newProject()
-        }
-        if previewApp.snapshot?.nodes.contains(where: { $0.layout != nil }) != true,
-           let definition = previewApp.nodeDefinitions.first(where: {
-               $0.definitionId == "photara.layout.compose"
-           })
-        {
-            previewApp.addNode(definition)
-        }
-        guard let layout = previewApp.snapshot?.nodes.first(where: { $0.layout != nil }) else {
-            return
-        }
-        previewEditor.selectedNodeID = layout.nodeId
-        previewEditor.selectedFrameID = layout.layout?.frames.first?.frameId
-        previewEditor.selectedCellID = layout.layout?.frames.first?.cells.first?.cellId
+    .toolbar {
+      Toggle("Production Opening", isOn: $showsOpening).toggleStyle(.button)
+      if showsOpening {
+        Picker("Preview appearance", selection: $model.appearance) {
+          ForEach(PhotaraThemeAppearance.allCases) { Text($0.rawValue.capitalized).tag($0) }
+        }.pickerStyle(.segmented).frame(width: 150)
+      }
+      Button("Open", systemImage: "folder") { model.open() }
+      Button("Save", systemImage: "square.and.arrow.down") { model.save() }
     }
+  }
 
-    private var slotGroups: [(name: String, roles: [PhotaraThemeRole])] {
-        let order = [
-            "surface", "text", "border", "selection", "graph", "gallery",
-            "session", "status", "node",
-        ]
-        return order.map { prefix in
-            (
-                prefix.capitalized,
-                PhotaraThemeRole.allCases.filter {
-                    $0.rawValue.hasPrefix("\(prefix).")
+  private var editor: some View {
+    Form {
+      Section("Shared adaptive palette") {
+        Text(model.document.displayName).font(.headline)
+        Text(
+          "Author each role once, with paired Light and Dark values. Native macOS materials and controls remain system-owned."
+        )
+        .font(.caption).foregroundStyle(.secondary)
+      }
+      ForEach(groups, id: \.name) { group in
+        Section(group.name) {
+          ForEach(group.roles) { role in
+            VStack(alignment: .leading, spacing: 6) {
+              Text(role.authoringLabel).font(.callout)
+              HStack(spacing: 16) {
+                ForEach(PhotaraThemeAppearance.allCases) { appearance in
+                  VStack(alignment: .leading, spacing: 4) {
+                    Text(appearance.rawValue.capitalized).font(.caption).foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                      ColorPicker(
+                        role.authoringLabel + " " + appearance.rawValue,
+                        selection: model.colorBinding(role, appearance: appearance),
+                        supportsOpacity: false
+                      )
+                      .labelsHidden()
+                      TextField("#RRGGBB", text: model.hexBinding(role, appearance: appearance))
+                        .font(.caption.monospaced())
+                        .accessibilityLabel(
+                          role.authoringLabel + " " + appearance.rawValue + " hex")
+                    }
+                  }
                 }
-            )
+              }
+            }
+          }
         }
-    }
-}
-
-private enum ThemeLabPreviewSurface: String, CaseIterable, Identifiable {
-    case glass
-    case production
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .glass: "Glass Test Scene"
-        case .production: "Production UI"
+      }
+      Section("Inherited compatibility roles") {
+        ForEach(PhotaraThemeRole.aliases) { role in
+          LabeledContent(role.rawValue, value: role.canonical.authoringLabel)
+            .font(.caption)
         }
-    }
-}
-
-private enum ThemeLabCoverage {
-    case live
-    case partial
-    case reserved
-
-    var title: String {
-        switch self {
-        case .live: "LIVE"
-        case .partial: "PARTIAL"
-        case .reserved: "RESERVED"
+      }
+      Section("Validation") {
+        if model.warnings.isEmpty {
+          Label("Neutral ladder and text contrast pass", systemImage: "checkmark.circle")
+        } else {
+          ForEach(model.warnings, id: \.self) { Text($0).font(.caption) }
         }
-    }
-}
+      }
+      Section("Development preview") {
+        Button("Apply Theme to Photara and Labs") { model.apply() }
+        Button("Remove Theme Override") { model.removeOverride() }
+        Text(model.message).font(.caption).foregroundStyle(.secondary)
+      }
+    }.formStyle(.grouped)
+  }
 
-private extension PhotaraThemeRole {
-    var themeLabConsumer: String {
-        switch self {
-        case .surfaceCanvas: "Application and session base behind panels"
-        case .surfacePanel: "Inspector and ordinary session panel backgrounds"
-        case .surfaceElevated: "Inspector groups, panel headers, and command/status bars"
-        case .surfaceControl: "Control and passive input fills"
-        case .textPrimary: "Primary labels and content text"
-        case .textSecondary: "Secondary labels, metadata, and supporting text"
-        case .textDisabled: "Unavailable actions and disabled text"
-        case .borderSubtle: "Dividers and low-emphasis boundaries"
-        case .borderStrong: "Strong boundaries and unselected Graph nodes"
-        case .borderFocus: "Keyboard focus, active controls, and selected Gallery cells"
-        case .selectionBackground: "Selected Gallery and list item fill"
-        case .selectionForeground: "Content displayed on selection fill"
-        case .graphBackground: "Graph canvas"
-        case .graphGrid: "Graph canvas dot grid"
-        case .graphNode: "Opaque/Reduce Transparency Graph-node fallback only; native glass has no fill slot"
-        case .graphNodeSelected: "Selected Graph node outline"
-        case .galleryBackground: "Assets Gallery panel"
-        case .galleryCell: "Square Gallery cells and unloaded thumbnail wells"
-        case .editorSurround: "Neutral surround outside a node authoring canvas"
-        case .statusTextNeutral: "Idle and neutral runtime status"
-        case .statusTextRunning: "Running and progress status"
-        case .statusTextSuccess: "Ready and successful status"
-        case .statusTextWarning: "Warning and unresolved status"
-        case .statusTextError: "Error and failed status"
-        case .statusTextCancelled: "Cancelled runtime status"
-        case .nodeNative: "Built-in native nodes such as Layout and Disk"
-        case .nodeIO: "Future input/output provider nodes"
-        case .nodeTransform: "Future transformation nodes"
-        case .nodeCreative: "Future creative-authoring nodes"
-        case .nodeAutomation: "Future automation and scripting nodes"
-        case .nodeIntegration: "Future external application and cloud integrations"
-        case .nodeCompute: "Future compute and ML nodes"
-        }
-    }
-
-    var themeLabCoverage: ThemeLabCoverage {
-        switch self {
-        case .surfaceCanvas, .surfacePanel, .surfaceElevated, .surfaceControl,
-             .textPrimary, .textSecondary,
-             .borderFocus, .selectionBackground, .selectionForeground,
-             .graphBackground, .graphGrid, .graphNode, .graphNodeSelected,
-             .galleryBackground, .galleryCell, .statusTextSuccess,
-             .statusTextWarning, .statusTextError, .nodeNative, .nodeIO,
-             .nodeCreative, .nodeAutomation:
-            .live
-        case .textDisabled, .borderSubtle,
-             .borderStrong, .statusTextNeutral, .statusTextRunning,
-             .statusTextCancelled:
-            .partial
-        case .editorSurround:
-            .live
-        case .nodeTransform, .nodeIntegration, .nodeCompute:
-            .reserved
-        }
-    }
+  private var groups: [(name: String, roles: [PhotaraThemeRole])] {
+    [
+      ("Neutral ladder", PhotaraSurfaceLevel.allCases.map(\.role)),
+      ("Photograph reference", [.editorSurround]),
+      ("Text", [.textPrimary, .textSecondary, .textDisabled]),
+      ("Borders and custom focus", [.borderSubtle, .borderStrong, .borderFocus]),
+      ("Custom selection", [.selectionBackground, .selectionForeground]),
+      ("Semantic status", PhotaraThemeRole.authored.filter { $0.rawValue.hasPrefix("status.") }),
+      ("Category affordances", PhotaraThemeRole.authored.filter { $0.rawValue.hasPrefix("node.") }),
+    ]
+  }
 }

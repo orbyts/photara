@@ -5,10 +5,16 @@ import UniformTypeIdentifiers
 struct LabAppearance<Content: View>: View {
     var dark: Bool
     @ViewBuilder var content: () -> Content
-    private let document = try! PhotaraThemeDocument.load(from: Bundle.main.url(forResource: "photara-default", withExtension: "json")!)
+    @StateObject private var themeStore: PhotaraThemeStore
+
+    init(dark: Bool, usesDevelopmentTheme: Bool = true, @ViewBuilder content: @escaping () -> Content) {
+        self.dark = dark
+        self.content = content
+        _themeStore = StateObject(wrappedValue: PhotaraThemeStore(usesDevelopmentOverride: usesDevelopmentTheme))
+    }
     var body: some View {
-        let theme = document.resolved(for: dark ? .dark : .light)
-        content().environment(\.photaraTheme, theme).tint(theme.color(.borderFocus))
+        let theme = themeStore.document.resolved(for: dark ? .dark : .light)
+        content().environment(\.photaraTheme, theme)
             .preferredColorScheme(dark ? .dark : .light)
     }
 }

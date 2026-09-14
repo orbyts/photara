@@ -92,12 +92,13 @@ struct ApplicationShell<Panel: View>: View {
         theme?.color(.surfacePanel) ?? Color(nsColor: .controlBackgroundColor)
     }
     private var canvasFill: Color {
-        theme?.color(.surfaceCanvas) ?? Color(nsColor: .windowBackgroundColor)
+        if !presentation.hasOpenProject { return Color(nsColor: .windowBackgroundColor) }
+        return theme?.color(.surfaceCanvas) ?? Color(nsColor: .windowBackgroundColor)
     }
     private var applicationIdentity: some View {
         Text(preset.toolbarApplicationTitle)
             .font(.system(size: preset.toolbarApplicationTitleSize, weight: .semibold))
-            .foregroundStyle(theme?.color(.textPrimary) ?? Color.primary)
+            .foregroundStyle(presentation.hasOpenProject ? (theme?.color(.textPrimary) ?? Color.primary) : Color.primary)
             .lineLimit(1)
             .accessibilityIdentifier("application-title")
     }

@@ -169,7 +169,7 @@ private struct GalleryThumbnail: View {
         .aspectRatio(aspectRatio, contentMode: .fit)
         .clipped()
         .background(
-            theme?.color(.galleryCell) ?? Color(nsColor: .controlBackgroundColor),
+            theme?.color(.editorSurround) ?? Color(white: 0.5),
             in: RoundedRectangle(cornerRadius: cornerRadius)
         )
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))

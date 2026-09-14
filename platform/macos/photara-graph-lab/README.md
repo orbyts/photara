@@ -9,6 +9,14 @@ canvas and its accepted floating rail/zoom glass; Shell owns the surrounding mod
 base, title, selection tint, placement and resize behavior. Do not add a second module
 frame here.
 
+UI0 standardizes only the canvas background: it inherits the shared Foundation
+at the Graph composition root. Theme Lab is the single editor for that paired color;
+Graph Lab shows a read-only value and live-reloads shared Theme overrides. Legacy
+Graph background literals remain decodable but the shared semantic role takes
+precedence. The accepted pattern, nodes, ports, noodles, interactions, floating
+controls and their complete test suite are preserved. The remaining Graph styling
+controls below remain Graph-owned; they do not create extra shared ladder levels.
+
 Node headers follow the reusable
 [Graph Node Design Language](../photara-graph/NODE_DESIGN_LANGUAGE.md): a
 free-standing 28-point outline icon centered against a tight title/category
@@ -25,7 +33,7 @@ status indicators or Graph semantics.
 Lines, Dots, and Crosses share aligned minor and major phases while the camera
 pans or zooms. Graph Lab authors their colors, opacity, size or line width, and
 major interval independently. Light and Dark each retain a complete authored
-palette for the Graph canvas, minor and major grid, noodles, node glass tints,
+palette for the minor and major grid, noodles, node glass tints,
 port-bead tint, and node text. Semantic port hues remain shared concepts while
 each appearance authors a native brightness adjustment. Dense minor marks fade
 before they alias.
@@ -175,3 +183,172 @@ platform/macos/photara-graph-lab/verify-interactions.sh
 The verification app uses a separate preferences domain and reads the existing
 visual payload without saving to the author's domain. Reports, compositor
 screenshots, and seed traces are written to `/tmp/photara-graph-verification`.
+
+## macOS 27 verification compatibility
+
+The behavioral matrix and independent gesture oracle remain unchanged. The
+verification-only `GraphVerificationHost` preserves the original WindowGroup and
+uses public `.defaultLaunchBehavior(.presented)` / `.restorationBehavior(.disabled)`
+settings to prevent a restored windowless app from skipping its test task. The
+runner uses LaunchServices (`open -n -W`) for the normal application-open event and
+requires an atomic exit-code file written by the actual test finish path; a missing
+result fails the command even if `open` returns success. Per-run stdout/stderr and
+status files are isolated under `.build/verification/run.*`. `--build-only` compiles
+without launching. The preflight environment flag is explicitly forwarded.
+`GraphNativeInput` preserves a correct NSEvent window-local point when changing its
+mouse button number. The former unconditional `cg.location` rewrite invalidates
+that point on macOS 27. Legacy normalization is attempted only when the initial
+bridged point is actually incorrect; every result must still match the requested
+coordinates, window, button, type and modifiers before NSWindow dispatch.
+
+An 81-delivery preflight checks actual NSWindow → NSView delivery at fractional
+points, through three moved/resized window configurations, all three mouse buttons,
+and Option/Control modifiers. It fails before the behavioral matrix if delivery is
+wrong. Physical HID slider tracking remains unchanged. To run only the preflight:
+
+```sh
+PHOTARA_GRAPH_PREFLIGHT_ONLY=1 platform/macos/photara-graph-lab/verify-interactions.sh
+```
+
+The UI0 source guard permits only the explicit launch/preflight/input adapter edits
+in the original harness and compares every behavioral assertion and oracle with
+`ef3fc00`. Production Graph changes remain limited to the three approved shared
+Theme-consumption edits.
+
+### Stable signing and one-time native permissions
+
+`verify-interactions.sh` signs the verification app with a valid Apple Development
+identity from the login Keychain. It deterministically selects the lowest sorted
+SHA-1 certificate fingerprint; set `PHOTARA_GRAPH_VERIFY_SIGNING_SHA1` to a specific
+valid Apple Development fingerprint when multiple teams/certificates are installed.
+No personal certificate name, private key, profile, or secret is stored in source.
+The signature is verified and its team and designated requirement are recorded in
+`.build/verification/signature.txt` and `designated-requirement.txt`. Keep the same
+identity and app location for subsequent runs. Changing signing identity/team or
+moving checkouts can require new macOS grants; ad-hoc rebuilds do not retain this
+identity. This development signature is for the verification host only.
+
+On an unconfigured CI machine, `--build-only` permits ad-hoc compilation and prints
+a warning. Any launch requires a valid development identity; an invalid explicit
+fingerprint fails even in build-only mode. The signed host checks Accessibility and
+screen-capture access before any coordinate/matrix tests. Missing access writes
+exit code 1 with the exact app path. Ordinary verification and `--permissions-only` never request or modify TCC grants.
+Only the explicit `--request-permissions` mode calls the public native request APIs.
+
+For this development checkout, add **Graph Lab Verification.app** at this stable
+path (use Command-Shift-G in the System Settings add-app file picker):
+
+```text
+/Users/suhail/.codex/worktrees/fa7c/photara/platform/macos/photara-graph-lab/.build/verification/Graph Lab Verification.app
+```
+
+Bundle ID: `com.photara.graph-lab.verification`. This is the verification app,
+separate from the production app and ordinary Graph Lab.
+
+1. Open **System Settings → Privacy & Security → Accessibility**. Use **+** to add
+   the app above and turn its switch on. On this macOS 27 development build,
+   the corresponding Settings category is shown as **Device Control and Data Access**.
+2. Open **System Settings → Privacy & Security → Screen & System Audio Recording**.
+   Add the same app and enable screen recording. The harness does not capture audio.
+3. Accept macOS's Quit & Reopen request if shown; otherwise relaunch the verifier.
+4. Run `platform/macos/photara-graph-lab/verify-permissions.sh --permissions-only`.
+   This checks access in the signed host and exits without running the matrix.
+   Only after it passes should the full verification command be run.
+
+No test assertions or production Graph code are changed by this signing setup.
+
+### Explicit one-time request mode (no rebuild)
+
+If System Settings shows the app enabled but the signed host still reports false,
+use the explicit native request mode. Build/sign once with
+`verify-interactions.sh --build-only`, then leave that app unchanged while granting
+access and checking it again. From the repository root:
+
+```sh
+platform/macos/photara-graph-lab/verify-permissions.sh --request-permissions
+```
+
+This helper validates the existing development signature and bundle ID, then uses
+LaunchServices to launch that exact binary. It never compiles, re-signs, resets TCC,
+or runs the Graph matrix. The app calls only `AXIsProcessTrustedWithOptions` with
+`kAXTrustedCheckOptionPrompt: true` and `CGRequestScreenCaptureAccess` to request
+access. Respond to Apple's dialogs manually; the helper never clicks consent or
+changes System Settings. macOS may direct you to Settings instead of presenting a
+new dialog when it already has a decision for this app.
+
+Request-mode exit zero means only that both public request calls returned. Their
+return values can remain false until consent is completed and the app is relaunched;
+they are not a passing permission check or a test result. After granting access,
+accept Quit & Reopen if offered, then explicitly start a fresh process of the same
+built app using:
+
+```sh
+platform/macos/photara-graph-lab/verify-permissions.sh --permissions-only
+```
+
+That mode is prompt-free and exits 1 unless both native checks return true. Neither
+permission mode runs behavioral tests. No full-matrix rerun is authorized by merely
+requesting permissions. Both helpers record per-launch logs and actual app exit codes
+under `.build/verification`; a missing exit-code file fails closed.
+
+The launch-only helper does not depend on `codesign`'s human-readable `Authority`
+line, which can say `(unavailable)` on macOS/Xcode 27 for valid development code.
+It resolves the same configured Apple Development certificate fingerprint as the
+builder, checks the recorded TeamIdentifier and designated requirement, rejects
+ad-hoc flags, and asks `codesign --verify --strict -R` to enforce the exact leaf
+certificate, Apple trust anchor, team and verification bundle identifier. The
+`signature.txt` and `designated-requirement.txt` files must exist from the signed
+build; missing records or any identity/team/requirement mismatch fail closed.
+If multiple certificates are installed, use the same
+`PHOTARA_GRAPH_VERIFY_SIGNING_SHA1` for both build and permission launch.
+
+This validation passed on the exact existing binary, and real negative checks
+rejected a wrong leaf fingerprint, wrong team, ad-hoc copy and unsigned copy.
+The signature-validation correction did not require rebuilding the verifier.
+Keep the same signing identity for later rebuilds and use the explicit request
+command only when native authorization is absent.
+
+### macOS 27 permission contract and operational probe
+
+Apple's current [ScreenCaptureKit documentation](https://developer.apple.com/documentation/screencapturekit)
+requires `NSScreenCaptureUsageDescription`. The verifier's generated Info.plist now
+contains: “Capture only Graph verification windows to check rendering and native
+controls.” It does not request audio capture. No extra AX purpose-string requirement
+was found in the public AX API documentation; the verifier uses the documented
+Accessibility prompt option. Production app and Graph Lab resource plists are unchanged.
+
+The Xcode 27 `CGWindow.h` header still describes `CGPreflightScreenCaptureAccess` as
+a prompt-free authorization check: false is not evidence of authorized access. It
+also says a previously denied process is not prompted again by the request API.
+[Apple's AX request documentation](https://developer.apple.com/documentation/applicationservices/1459186-axisprocesstrustedwithoptions)
+says its prompt is asynchronous and does not affect the returned trust value.
+All modes now wait for `applicationDidFinishLaunching`, a running NSApplication event
+loop and one further main-actor turn before calling permission APIs (5-second limit).
+
+An explicit diagnostic mode tests actual operations even when preflight reports
+false. This may invoke macOS capture UI; run it interactively if consent is needed:
+
+```sh
+platform/macos/photara-graph-lab/verify-permissions.sh --probe-permissions
+```
+
+It opens only its own disposable 320×220-point calibration window and has a
+15-second watchdog. It measures tagged mouse down/drag/up delivery through the same
+public HID posting path as the unchanged slider tests; performs an AX button press
+and verifies the callback; captures the window via ScreenCaptureKit; and exercises
+the original `/usr/sbin/screencapture -l` compositor route with a 2-second limit.
+Both image paths must contain spatially uniform, distinct magenta/cyan regions.
+Validation converts into sRGB and compares relative chroma/contrast, rather than
+assuming display-managed channel endpoints. A nonempty image alone is insufficient. Images and exact API/error results stay in the per-launch folder.
+Same-process AX can invoke the target directly and is not proof of general
+Accessibility authorization; its callback records delivery safely on the main actor.
+Its return code and observed callback are diagnostic only: an AX error remains an
+error even if a callback occurred. The input gate requires actual tagged HID receipt
+and native authorization; it does not depend on this self-targeted AX operation.
+
+The diagnostic records operational results separately from reported authorization.
+Neither a self-window AX action nor a capture alone overrides failed authorization.
+The normal gate still fails closed when the native authorization checks are false;
+when true, it now also requires the real capability probes before the unchanged
+Graph matrix. Permission modes never run the matrix, and no direct controller calls,
+weakened assertions, TCC resets, or automated consent were added.

@@ -15,28 +15,24 @@ specific adaptive colors, but no availability or project behavior. Both Photara 
 [Shell Lab](../photara-shell-lab/README.md) compile these
 exact files through `shared-ui-sources.sh`.
 
-Typography stores portable family intent (`display`, `rounded`, `serif`, or
-`monospaced`), not an installed font name. macOS resolves those roles through native
-system fonts; the shipped launcher default is SF Display. A future Windows shell can
-map the same roles to its native families while consuming the same design decision.
+The accepted Opening uses native `OpeningLibraryView` window/text colors.
+The authored ladder begins in project content.
+Its sidebar, titlebar, toolbar, controls, selection geometry and system accent remain
+macOS-owned. Retired launcher typography, colors/material, tile/glow and positioning
+fields remain readable in schema-1 presets for compatibility. The active Opening
+route does not use them and Shell Lab no longer authors them.
 
-The preset also owns the launcher hero icon-tile treatment and individual action
-tints as paired Light/Dark sRGB values, plus portable tile, stroke, corner and glow
-geometry. It separately stores symbol alignment within the tile, tile positioning,
-launcher edge insets, hero-to-recents spacing and the opening content's vertical
-position. Project Chrome geometry includes project-title typography, panel headers
-and the status bar; their colors remain shared Theme roles.
-The native toolbar keeps project identity and its optional thumbnail at the leading
-edge, centers the application identity, and supplies semantic groups of operational
-controls at the trailing edge. macOS owns its Liquid Glass, grouping, shadow, blur,
-contrast, accessibility fallback and overflow; the Shell exposes no optical controls.
-Launcher background material is stored as a semantic native role with an
-adaptive tint, allowing macOS to use system frost and other clients to map the same
-intent to their native backdrop material. Shell Lab saves an authoring draft in
-`com.photara.shell-lab` preferences.
-Its explicit Apply action places a validated development override in the
-`com.photara.desktop` preferences domain; Photara live-reloads it. Removing the
-override restores the bundled resource. Neither preference enters project state.
+Shell Lab owns only shared geometry/behavior and scenario fixtures. Its draft and
+explicit Apply/Remove/Export actions affect Shell only. Theme Lab owns the paired
+palette; all hosts read it through the shared resolver. These preferences never
+enter project state. The toolbar supplies project identity, application identity
+and semantic command groups while macOS owns optics and accessibility behavior.
+
+The accepted UI1 `CreateProjectView` defaults to Compact through
+`CreateProjectPresentation.shipped`. Shell Lab also previews Balanced and Spacious.
+The new sheet is not connected to the production creation route; its Lab callbacks
+are disposable fixture actions. Real destination selection and atomic package,
+catalog, initial Graph and cloud creation remain a later wiring task.
 
 Build all hosts with `platform/macos/build-ui.sh`. Verify with the shared UI,
 production UI and bridge scripts; run full Graph interactions after assembly changes.

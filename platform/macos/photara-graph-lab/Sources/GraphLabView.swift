@@ -166,13 +166,9 @@ struct GraphLabView: View {
             }
 
             Section("Background pattern") {
-                ColorPicker(
-                    appearance == .dark ? "Dark Graph color" : "Light Graph color",
-                    selection: colorBinding(
-                        activeColorBinding(\.graphBackground),
-                        default: theme?.color(.graphBackground) ?? Color(nsColor: .controlBackgroundColor)
-                    )
-                )
+                LabeledContent("Canvas · Foundation", value: theme?.rgba(.graphBackground)?.hex ?? "System")
+                Text("Inherited from Theme Lab. The Graph is a composition root and reuses Foundation.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Picker("Pattern", selection: $pattern) {
                     ForEach(PhotaraGraphPattern.allCases) { value in
                         Text(value.title).tag(value)

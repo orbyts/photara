@@ -13,7 +13,7 @@ private struct ThemeCLI {
                 let url = URL(fileURLWithPath: arguments[1]).standardizedFileURL
                 let document = try PhotaraThemeDocument.load(from: url)
                 print("valid: \(document.id) (\(document.displayName))")
-                for warning in document.contrastWarnings() {
+                for warning in (document.neutralityWarnings() + document.contrastWarnings()) {
                     print("warning: \(warning)")
                 }
             case "use":

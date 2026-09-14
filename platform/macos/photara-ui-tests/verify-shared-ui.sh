@@ -7,6 +7,7 @@ BUILD_ROOT="$SCRIPT_ROOT/.build"
 APP_BUNDLE="$BUILD_ROOT/Shared UI Verification.app"
 RESOURCES="$APP_BUNDLE/Contents/Resources"
 mkdir -p "$RESOURCES" "$APP_BUNDLE/Contents/MacOS" "$BUILD_ROOT/module-cache"
+python3 "$REPOSITORY_ROOT/scripts/verify_ui0_contract.py" > "$BUILD_ROOT/ui0-contract.log"
 cp -p "$REPOSITORY_ROOT/platform/macos/photara-shell/Resources/photara-application-presentation-v1.json" "$RESOURCES/"
 cp -p "$UI_ROOT/photara-gallery-lab/Resources/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleExecutable SharedUIChecks' "$APP_BUNDLE/Contents/Info.plist"
@@ -19,8 +20,11 @@ ditto "$UI_ROOT/photara-graph/Resources/NodeIcons" "$RESOURCES/NodeIcons"
 ditto "$UI_ROOT/photara-graph/Resources/ToolIcons" "$RESOURCES/ToolIcons"
 xcrun swiftc -swift-version 6 -parse-as-library -module-cache-path "$BUILD_ROOT/module-cache" \
   "${SHARED_UI_SOURCES[@]}" "$UI_ROOT"/photara-lab-support/Sources/*.swift \
-  "$SCRIPT_ROOT/Capture.swift" "$SCRIPT_ROOT/SharedUIChecks.swift" \
+  "$SCRIPT_ROOT/Capture.swift" "$SCRIPT_ROOT/UI0Checks.swift" "$SCRIPT_ROOT/SharedUIChecks.swift" \
   -framework SwiftUI -framework AppKit -o "$APP_BUNDLE/Contents/MacOS/SharedUIChecks"
+xcrun swiftc -swift-version 6 -parse-as-library -module-cache-path "$BUILD_ROOT/module-cache" \
+  "$SCRIPT_ROOT/OpeningAccessibilityProbe.swift" -framework AppKit \
+  -o "$APP_BUNDLE/Contents/MacOS/OpeningAccessibilityProbe"
 codesign --force --deep --sign - "$APP_BUNDLE"
 if [[ "${1:-}" != --build-only ]]; then
   "$APP_BUNDLE/Contents/MacOS/SharedUIChecks" "$BUILD_ROOT/snapshots"

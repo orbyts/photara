@@ -34,8 +34,15 @@ The hierarchy is communicated through a small shared ladder of adaptive neutral
 surface roles, spacing, corner radius and elevation in both Light and Dark—not by
 feature-local colors or permanent separator lines. Scope text/identity remains the
 accessible source of truth; shade alone never conveys Library, Project or selection.
-Exact new token names and contrast values are frozen in the Theme/Shell contract
-before visual implementation.
+Opening uses native macOS window background and primary/secondary text colors.
+This is the accepted native exception before the authored ladder begins in project
+content; Theme editing does not repaint Opening or system optics.
+
+UI0 freezes the existing portable names as Foundation (`surface.canvas`), Primary
+(`surface.panel`) and Inset (`surface.elevated`). Each new composition root resets
+this ladder. Graph's canvas uses Foundation at its own root. Photograph preview wells
+use `editor.surround`; Gallery controls/cards use Primary/Inset. See the exact
+[mapping and values](../../docs/architecture/UI_LADDER_AND_AUTHORING_SEQUENCE.md).
 
 Color changes are authored once in Theme Lab. Shell Lab owns shared geometry: outer
 inset, gutter, module content inset, module corner radius, header metrics, pane sizes

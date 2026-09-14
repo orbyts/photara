@@ -88,11 +88,10 @@ platform/macos/photara-app/build-app.sh
 open 'platform/macos/photara-app/.build/app/Photara.app'
 ```
 
-The existing Theme Lab and the author's Glass experiment remain separate theme
-tooling, preserved by this refactor. Its production preview consumes this same
-assembly. `build-theme-lab.sh` includes `GlassTestScene.swift` when present so
-uncommitted theme experiments are supported without becoming dependencies of
-a clean checkout.
+Theme Lab authors the paired neutral ladder and semantic palette, renders the shared
+ladder specimen and exact production Opening, and builds without Rust. The historical
+Glass experiment is retained on disk but excluded from the app and build. Theme Lab
+is the only color editor; Shell/feature hosts consume its palette read-only.
 
 ## Authoring and defaults
 
@@ -104,8 +103,9 @@ a clean checkout.
    diff, and rebuild Gallery Lab and Photara. Both decode that exact resource.
    Graph retains its existing Graph Lab export/preset workflow unchanged.
 4. Shell Lab exports validated `photara-shell/Resources/photara-application-presentation-v1.json`.
-   Promote that file and rebuild to share launcher typography, hero icon-tile
-   treatment, launcher action tints, spacing, pane sizes and shared chrome dimensions.
+   Promote that file and rebuild to share spacing, pane sizes and shared chrome
+   dimensions. Retired launcher fields remain decode-only compatibility data in
+   UI0; the Opening route does not consume them.
    The Lab automatically saves its draft and can apply a validated development
    override that Photara live-reloads. Availability remains typed Swift. Inspector
    hierarchy stays in its component; all application/module surface colors stay in Theme.

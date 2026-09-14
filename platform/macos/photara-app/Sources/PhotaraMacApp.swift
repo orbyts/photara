@@ -85,7 +85,6 @@ private struct ThemedEditorRoot: View {
         let resolved = theme.document.resolved(for: appearance)
         EditorSessionView(shellPreset: brandedShellPreset)
             .environment(\.photaraTheme, resolved)
-            .tint(resolved.color(.borderFocus))
             .task {
                 while !Task.isCancelled {
                     let latest = ApplicationShellPreset.developmentOrShipped

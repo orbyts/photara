@@ -165,8 +165,8 @@ struct PhotaraGraphBackground: View {
 
     var body: some View {
         ZStack {
-            (backgroundColor
-                ?? theme?.color(.graphBackground)
+            (theme?.color(.graphBackground)
+                ?? backgroundColor
                 ?? Color(nsColor: .controlBackgroundColor))
 
             Canvas { context, size in

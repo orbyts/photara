@@ -22,12 +22,12 @@ final class PhotaraThemeStore: NSObject, ObservableObject {
     private var timer: Timer?
     private var timerTarget: PhotaraThemeTimerTarget?
 
-    override init() {
+    init(usesDevelopmentOverride: Bool = true) {
         guard let bundledURL = Bundle.main.url(
             forResource: "photara-default",
             withExtension: "json",
             subdirectory: "Themes"
-        ) else {
+        ) ?? Bundle.main.url(forResource: "photara-default", withExtension: "json") else {
             fatalError("Photara.app is missing Themes/photara-default.json")
         }
         do {
@@ -40,6 +40,7 @@ final class PhotaraThemeStore: NSObject, ObservableObject {
             fatalError("Photara default theme is invalid: \(error.localizedDescription)")
         }
         super.init()
+        guard usesDevelopmentOverride else { return }
         refresh()
         let timerTarget = PhotaraThemeTimerTarget(store: self)
         self.timerTarget = timerTarget

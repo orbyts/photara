@@ -31,7 +31,6 @@ struct OpeningLibraryView: View {
     private let libraryName = ReleaseConfiguration.current.identity.defaultLibraryName
     let presentation: ApplicationPresentation
     let actions: ApplicationActions
-    @Environment(\.photaraTheme) private var theme
     @State private var selection: OpeningLibraryDestination? = .projects
     @StateObject private var cloud: OpeningCloudModel
 
@@ -129,7 +128,8 @@ struct OpeningLibraryView: View {
 
                 VStack(spacing: 10) {
                     Button("Create New Project") { actions.send(.newProject) }
-                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("opening-create-project")
+                        .buttonStyle(.bordered)
                         .controlSize(.large)
                     Button("Browse Projects") {
                         // The typed Projects browser is a later CXT4c fixture.
@@ -137,6 +137,7 @@ struct OpeningLibraryView: View {
                     .buttonStyle(.bordered)
                     .controlSize(.large)
                     Button("Open Project Package…") { actions.send(.openProject) }
+                        .accessibilityIdentifier("opening-open-package")
                         .buttonStyle(.bordered)
                         .controlSize(.large)
                 }
@@ -145,18 +146,20 @@ struct OpeningLibraryView: View {
                 Label("Projects are saved to \(libraryName)", systemImage: "chevron.down")
                     .labelStyle(.titleAndIcon)
                     .font(.callout)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
             Spacer(minLength: 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme?.color(.surfaceCanvas) ?? Color(nsColor: .windowBackgroundColor))
+        .foregroundStyle(.primary)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("opening-projects")
     }
 
     private func emptyDestination(_ title: String, symbol: String, description: String) -> some View {
         ContentUnavailableView(title, systemImage: symbol, description: Text(description))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(theme?.color(.surfaceCanvas) ?? Color(nsColor: .windowBackgroundColor))
+            .background(Color(nsColor: .windowBackgroundColor))
     }
 }
