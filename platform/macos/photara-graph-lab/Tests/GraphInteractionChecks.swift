@@ -21,10 +21,9 @@ final class GraphLabChecks {
     }
     static func run(appearance: Binding<PhotaraThemeAppearance>) async {
         guard !started else { return }; started = true
-        try? await Task.sleep(for: .milliseconds(700))
-        guard let window = NSApp.windows.first(where: { $0.contentView.flatMap(findSurface) != nil }),
+        guard let window = GraphVerificationLifecycle.window,
               let surface = window.contentView.flatMap(findSurface) else {
-            GraphTestLog.write("FAIL: Could not locate production event surface"); exit(1)
+            GraphTestLog.write("FAIL: Could not locate production event surface"); GraphVerificationResult.recordExitCode(1); exit(1)
         }
         window.setContentSize(NSSize(width: 1800, height: 1000))
         window.center()
@@ -36,6 +35,11 @@ final class GraphLabChecks {
         guard GraphNativeInput.preflight(check: { Self.check($0, $1) }) else { finish() }
         await suite.focusCanvas()
         if ProcessInfo.processInfo.environment["PHOTARA_GRAPH_PREFLIGHT_ONLY"] == "1" { finish() }
+        if ProcessInfo.processInfo.environment["PHOTARA_GRAPH_CAMERA_ONLY"] == "1" {
+            await suite.nativeCameraChecks()
+            await suite.overviewChecks()
+            finish()
+        }
         if options.randomOnly {
             await suite.randomChecks(appearance: appearance)
             finish()
@@ -51,6 +55,7 @@ final class GraphLabChecks {
                     await suite.branchChecks(zoom: zoom, style: style)
                 }
             }
+            if ProcessInfo.processInfo.environment["PHOTARA_GRAPH_CONTEXT_MATRIX_ONLY"] == "1" { continue }
             await suite.overviewSnapshotCheck(mode.rawValue)
             suite.reset(zoom: 1, style: .curved)
             await settle()
@@ -71,6 +76,7 @@ final class GraphLabChecks {
             suite.key(53, "\u{1b}")
             suite.mouse(.leftMouseUp, suite.port(suite.input))
         }
+        if ProcessInfo.processInfo.environment["PHOTARA_GRAPH_CONTEXT_MATRIX_ONLY"] == "1" { finish() }
         await suite.lifecycleChecks()
         await suite.nativeCameraChecks()
         await suite.ownershipAndMenuChecks()
@@ -116,7 +122,7 @@ final class GraphLabChecks {
     }
     var lastMouseDelivery = ""
     func mouse(_ type: NSEvent.EventType, _ point: CGPoint, flags: NSEvent.ModifierFlags = []) {
-        let location = surface.convert(point, to: nil)
+        let location = GraphNativeInput.location(point, in: surface)
         do {
             let event = try GraphNativeInput.mouse(type, location: location, flags: flags, window: window)
             lastMouseDelivery = "expected \(location), actual \(event.locationInWindow), window \(event.windowNumber)/\(window.windowNumber), button \(event.buttonNumber)"
@@ -143,19 +149,56 @@ final class GraphLabChecks {
         mouse(middle ? .otherMouseUp : .leftMouseUp, end, flags: flags)
     }
     func focusCanvas() async {
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
-        for _ in 0..<100 {
-            if NSApp.isActive && window.isKeyWindow { break }
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-        window.makeKeyAndOrderFront(nil)
-        window.makeFirstResponder(surface)
+        let stableFocus = await acquireCanvasFocus() ? 3 : 0
+        Self.check(stableFocus == 3, "Verification window retained native input focus across layout turns")
         Self.check(NSApp.isActive && window.isKeyWindow, "Verification window acquired native input focus")
+    }
+
+    var canvasHasNativeFocus: Bool {
+        NSApp.isActive && window.isKeyWindow && window.firstResponder === surface
+            && NSWorkspace.shared.frontmostApplication?.processIdentifier == ProcessInfo.processInfo.processIdentifier
+    }
+
+    var focusDiagnostic: String {
+        let front = NSWorkspace.shared.frontmostApplication
+        return "active=\(NSApp.isActive) key=\(window.isKeyWindow) visible=\(window.isVisible) "
+            + "window=\(window.windowNumber) responder=\(String(describing: window.firstResponder)) "
+            + "front=\(front?.bundleIdentifier ?? "none")/\(front?.processIdentifier ?? -1) "
+            + "capture=\(String(describing: surface.capturedButton)) interaction=\(controller.interaction)"
+    }
+
+    /// Wait through native activation notifications after the final responder
+    /// change. Re-request activation only while it is missing; repeatedly making
+    /// an already-key window key can itself queue another focus transition.
+    @discardableResult
+    func acquireCanvasFocus(timeout: TimeInterval = 3, requestActivation: Bool = true) async -> Bool {
+        let deadline = ProcessInfo.processInfo.systemUptime + timeout
+        var stableFocus = 0
+        var nextActivation = 0.0
+        repeat {
+            let now = ProcessInfo.processInfo.systemUptime
+            if requestActivation && now >= nextActivation && !canvasHasNativeFocus {
+                if !NSApp.isActive || NSWorkspace.shared.frontmostApplication?.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+                if !window.isKeyWindow || !window.isVisible { window.makeKeyAndOrderFront(nil) }
+                if window.firstResponder !== surface { window.makeFirstResponder(surface) }
+                nextActivation = now + 0.15
+            }
+            // This await allows didResignKey/didResignActive and native layout
+            // work to run before the next gesture starts.
+            try? await Task.sleep(for: .milliseconds(10))
+            stableFocus = canvasHasNativeFocus ? stableFocus + 1 : 0
+            if stableFocus == 3 { return true }
+        } while ProcessInfo.processInfo.systemUptime < deadline
+        GraphTestLog.write("FOCUS TIMEOUT: \(focusDiagnostic)")
+        return false
     }
 
     func loseAndRestoreFocus() async {
         let other = NSWindow(contentRect: NSRect(x: 120, y: 120, width: 140, height: 100), styleMask: [.titled], backing: .buffered, defer: false)
+        other.isReleasedWhenClosed = false
+        other.title = "Graph verification focus interruption"
         other.makeKeyAndOrderFront(nil)
         for _ in 0..<100 {
             if other.isKeyWindow && !window.isKeyWindow { break }
@@ -163,8 +206,89 @@ final class GraphLabChecks {
         }
         Self.check(other.isKeyWindow && !window.isKeyWindow, "Native focus-loss precondition occurred")
         Self.check(controller.interaction == .idle && surface.capturedButton == nil, "Native focus-loss notification cancels capture")
-        other.orderOut(nil)
+        other.close()
         await focusCanvas()
+    }
+
+    /// A real-process furnace: native window focus loss, another application's
+    /// foreground activation, a bounded unavailable-focus wait, and menu input
+    /// after restoration. No synthetic focus notifications or model mutations
+    /// stand in for the OS transitions under test.
+    func focusFurnace() async {
+        reset(zoom: 1, style: .curved)
+        await focusCanvas()
+        for _ in 0..<3 {
+            mouse(.leftMouseDown, port(assets))
+            Self.check(surface.capturedButton == 0 && controller.wire != nil, "Focus furnace starts a native captured gesture")
+            await loseAndRestoreFocus()
+            mouse(.leftMouseUp, port(input))
+            idle("focus furnace native window recovery")
+        }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("photara-graph-focus-\(UUID().uuidString)")
+        let ready = directory.appendingPathComponent("competitor-ready.json")
+        let competitor = Process()
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            guard let executable = Bundle.main.executableURL else {
+                Self.check(false, "Focus furnace locates its signed executable"); return
+            }
+            competitor.executableURL = executable
+            competitor.arguments = ["--launch-focus-competitor"]
+            var environment = ProcessInfo.processInfo.environment.filter { !$0.key.hasPrefix("PHOTARA_GRAPH_") }
+            environment["PHOTARA_GRAPH_COMPETITOR_READY"] = ready.path
+            competitor.environment = environment
+            competitor.standardOutput = FileHandle.nullDevice
+            competitor.standardError = FileHandle.nullDevice
+            mouse(.leftMouseDown, port(assets))
+            try competitor.run()
+            let deadline = ProcessInfo.processInfo.systemUptime + 5
+            var observedCompetitor = false
+            while competitor.isRunning && ProcessInfo.processInfo.systemUptime < deadline {
+                if let data = try? Data(contentsOf: ready),
+                   let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   (state["pid"] as? NSNumber)?.int32Value == competitor.processIdentifier,
+                   NSWorkspace.shared.frontmostApplication?.processIdentifier == competitor.processIdentifier,
+                   !NSApp.isActive && !window.isKeyWindow {
+                    observedCompetitor = true
+                    break
+                }
+                try? await Task.sleep(for: .milliseconds(20))
+            }
+            Self.check(observedCompetitor, "Focus furnace observes a separate process owning native foreground focus")
+            Self.check(controller.interaction == .idle && surface.capturedButton == nil, "External foreground interruption cancels native graph capture")
+            let waitStarted = ProcessInfo.processInfo.systemUptime
+            let missingFocus = await acquireCanvasFocus(timeout: 0.15, requestActivation: false)
+            Self.check(!missingFocus && ProcessInfo.processInfo.systemUptime - waitStarted < 1,
+                       "Unavailable native focus returns within its bounded deadline")
+            await focusCanvas()
+            mouse(.leftMouseUp, port(input))
+            idle("focus furnace external process recovery")
+        } catch {
+            Self.check(false, "Focus furnace launches isolated competitor: \(error)")
+        }
+        if competitor.isRunning {
+            competitor.terminate()
+            let deadline = ProcessInfo.processInfo.systemUptime + 1
+            while competitor.isRunning && ProcessInfo.processInfo.systemUptime < deadline {
+                try? await Task.sleep(for: .milliseconds(20))
+            }
+            if competitor.isRunning { kill(competitor.processIdentifier, SIGKILL) }
+            let killDeadline = ProcessInfo.processInfo.systemUptime + 1
+            while competitor.isRunning && ProcessInfo.processInfo.systemUptime < killDeadline {
+                try? await Task.sleep(for: .milliseconds(20))
+            }
+        }
+        Self.check(!competitor.isRunning, "Focus furnace cleans up its owned competing process")
+        try? FileManager.default.removeItem(at: directory)
+        await focusCanvas()
+        for control in [false, true] {
+            reset(zoom: 1, style: .curved)
+            let performed = await contextMenu("Disconnect", at: port(input), control: control)
+            Self.check(performed && controller.document.connections.isEmpty,
+                       "Focus furnace delivers native \(control ? "control-click" : "right-click") menu after recovery")
+            Self.check(canvasHasNativeFocus, "Focus furnace restores native canvas responder after menu tracking")
+        }
+        GraphTestLog.write("FOCUS FURNACE: completed real-process focus interruption and native menu recovery")
     }
 
     /// SwiftUI's native slider consults physical button state while tracking.
@@ -432,7 +556,13 @@ final class GraphLabChecks {
         // Native SwiftUI slider: hit routing must bypass the event surface.
         await Self.settle()
         let sliderPoint = CGPoint(x: controller.viewport.width / 2 + 66, y: controller.viewport.height - 34)
-        let hit = window.contentView?.hitTest(surface.convert(sliderPoint, to: window.contentView))
+        let hit = GraphNativeInput.hitTest(sliderPoint, in: surface, through: window.contentView)
+        if let content = window.contentView {
+            let localPoint = surface.convert(sliderPoint, to: content)
+            let parentPoint = surface.convert(sliderPoint, to: content.superview)
+            GraphTestLog.write("NATIVE HIT: slider=\(sliderPoint), contentLocal=\(localPoint), parent=\(parentPoint), legacy=\(String(describing: content.hitTest(localPoint))), actual=\(String(describing: hit)), contentFrame=\(content.frame), contentBounds=\(content.bounds), contentFlipped=\(content.isFlipped), parentFrame=\(String(describing: content.superview?.frame)), parentFlipped=\(String(describing: content.superview?.isFlipped))")
+        }
+        Self.check(hit != nil, "Native zoom hit-test resolves a view in the content parent coordinate system")
         Self.check(hit !== surface, "Zoom control gets native pointer priority")
         let beforeSlider = controller.camera.zoom
         await nativeControlDrag(from: sliderPoint, to: CGPoint(x: sliderPoint.x - 50, y: sliderPoint.y))
@@ -476,25 +606,27 @@ final class GraphLabChecks {
         drag(from: port(input), to: port(mask))
         Self.check(controller.document.connections.count == 1 && connected(assets, mask), "Native rewire to identical pair merges")
         reset(zoom: 1, style: .curved)
-        let driver = MenuDriver()
+        let driver = MenuDriver(window: window)
         driver.install()
-        func menu(_ title: String, at point: CGPoint, control: Bool = false) {
+        func menu(_ title: String, at point: CGPoint, control: Bool = false) async {
+            await focusCanvas()
             driver.expected = title
             driver.performed = false
             mouse(control ? .leftMouseDown : .rightMouseDown, point, flags: control ? [.control] : [])
             Self.check(driver.performed, "Native context menu: \(title)")
             // Matching release is harmless and cannot create a second gesture.
             mouse(control ? .leftMouseUp : .rightMouseUp, point)
+            await focusCanvas()
         }
-        menu("Add Routing Knot", at: screen(middle))
+        await menu("Add Routing Knot", at: screen(middle))
         Self.check(controller.document.knot(of: controller.document.connections[0]) != nil, "Native menu adds knot")
-        menu("Delete Knot", at: screen(middle), control: true)
+        await menu("Delete Knot", at: screen(middle), control: true)
         Self.check(controller.document.knot(of: controller.document.connections[0]) == nil, "Control-click menu removes knot")
-        menu("Disconnect", at: port(input))
+        await menu("Disconnect", at: port(input))
         Self.check(controller.document.connections.isEmpty, "Port menu disconnects")
-        menu("Connect Disk Folder / Assets Here", at: port(input))
+        await menu("Connect Disk Folder / Assets Here", at: port(input))
         Self.check(connected(assets, input), "Port menu uses compatible sources")
-        menu("Add Routing Knot", at: screen(middle))
+        await menu("Add Routing Knot", at: screen(middle))
         let id = controller.document.connections[0].id
         controller.select(.noodle(id))
         key(51, "\u{7f}")
@@ -521,16 +653,18 @@ final class GraphLabChecks {
         await Self.settle()
     }
 
-    func contextMenu(_ title: String, at point: CGPoint, control: Bool = false) -> Bool {
-        let driver = MenuDriver()
+    func contextMenu(_ title: String, at point: CGPoint, control: Bool = false) async -> Bool {
+        await focusCanvas()
+        let driver = MenuDriver(window: window)
         driver.expected = title
         driver.install()
         defer { driver.uninstall() }
         mouse(control ? .leftMouseDown : .rightMouseDown, point, flags: control ? [.control] : [])
         mouse(control ? .leftMouseUp : .rightMouseUp, point)
         if !driver.performed {
-            GraphTestLog.write("MENU DELIVERY: expected=\(title), hit=\(controller.hitTest(point)), menus=\(driver.observedTitles), delivery=\(lastMouseDelivery), focus=\(window.isKeyWindow)/\(NSApp.isActive), control=\(control)")
+            GraphTestLog.write("MENU DELIVERY: expected=\(title), hit=\(controller.hitTest(point)), menus=\(driver.observedTitles), delivery=\(lastMouseDelivery), focus=\(focusDiagnostic), control=\(control), tracking=\(driver.diagnostic)")
         }
+        await focusCanvas()
         return driver.performed
     }
 
@@ -656,18 +790,56 @@ private final class MenuDriver: NSObject {
     var expected = ""
     var performed = false
     var observedTitles: [[String]] = []
+    var diagnostic = ""
+    private weak var window: NSWindow?
+    private var trackingMenu: NSMenu?
+    private var selectionTimer: Timer?
+    private var deadlineTimer: Timer?
+    init(window: NSWindow? = nil) { self.window = window; super.init() }
     func install() {
         NotificationCenter.default.addObserver(self, selector: #selector(opened(_:)), name: NSMenu.didBeginTrackingNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(closed(_:)), name: NSMenu.didEndTrackingNotification, object: nil)
     }
-    func uninstall() { NotificationCenter.default.removeObserver(self) }
+    func uninstall() {
+        NotificationCenter.default.removeObserver(self)
+        clearTimers()
+        trackingMenu = nil
+    }
+    private func clearTimers() {
+        selectionTimer?.invalidate(); selectionTimer = nil
+        deadlineTimer?.invalidate(); deadlineTimer = nil
+    }
     @objc private func opened(_ notification: Notification) {
         guard let menu = notification.object as? NSMenu else { return }
         observedTitles.append(menu.items.map(\.title))
+        clearTimers()
+        trackingMenu = menu
         let timer = Timer(timeInterval: 0.04, target: self, selector: #selector(choose(_:)), userInfo: menu, repeats: false)
+        selectionTimer = timer
         RunLoop.main.add(timer, forMode: .eventTracking)
+        let deadline = Timer(timeInterval: 2, target: self, selector: #selector(timedOut(_:)), userInfo: menu, repeats: false)
+        deadlineTimer = deadline
+        RunLoop.main.add(deadline, forMode: .common)
+        RunLoop.main.add(deadline, forMode: .eventTracking)
+    }
+    @objc private func closed(_ notification: Notification) {
+        guard let menu = notification.object as? NSMenu, menu === trackingMenu else { return }
+        if !performed && diagnostic.isEmpty { diagnostic = "native tracking ended before selection" }
+        clearTimers()
+        trackingMenu = nil
+    }
+    @objc private func timedOut(_ timer: Timer) {
+        guard let menu = timer.userInfo as? NSMenu, menu === trackingMenu else { return }
+        diagnostic = "native menu tracking exceeded 2 seconds"
+        menu.cancelTracking()
     }
     @objc private func choose(_ timer: Timer) {
-        guard let menu = timer.userInfo as? NSMenu else { return }
+        guard let menu = timer.userInfo as? NSMenu, menu === trackingMenu else { return }
+        guard window.map({ $0.isKeyWindow && NSApp.isActive }) ?? true else {
+            diagnostic = "native foreground focus was lost during tracking"
+            menu.cancelTracking()
+            return
+        }
         if let index = menu.items.firstIndex(where: { $0.title == expected }) {
             menu.performActionForItem(at: index)
             performed = true

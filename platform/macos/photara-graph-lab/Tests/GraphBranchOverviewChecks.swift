@@ -53,7 +53,8 @@ extension GraphLabChecks {
         Self.check(controller.document.routingPoints.first?.isJunction == true,
                    "Surviving branch retains its junction geometry")
         drag(from: screen(moved), to: port(layer1))
-        Self.check(contextMenu("Disconnect", at: port(input)), "Disconnect original routed edge")
+        let menuPerformed = await contextMenu("Disconnect", at: port(input))
+        Self.check(menuPerformed, "Disconnect original routed edge")
         Self.check(connected(assets, layer1) && controller.document.connections.count == 1
                    && controller.document.routingPoints.first?.id == route,
                    "Original edge deletion cannot orphan a surviving branch")
@@ -138,13 +139,13 @@ extension GraphLabChecks {
             let left = position == .topLeft || position == .bottomLeft
             let point = CGPoint(x: left ? 50 : controller.viewport.width - 50,
                                 y: position.isBottom ? controller.viewport.height - 90 : 50)
-            Self.check(window.contentView?.hitTest(surface.convert(point, to: window.contentView)) === surface,
+            Self.check(GraphNativeInput.hitTest(point, in: surface, through: window.contentView) === surface,
                        "Overview passes pointer input through at \(position.title)")
         }
         controller.overviewPosition = .topRight
         let hitPoint = CGPoint(x: controller.viewport.width - 50, y: 50)
         await Self.settle()
-        Self.check(window.contentView?.hitTest(surface.convert(hitPoint, to: window.contentView)) === surface,
+        Self.check(GraphNativeInput.hitTest(hitPoint, in: surface, through: window.contentView) === surface,
                    "Overview never intercepts native pointer input")
         drag(from: hitPoint, to: CGPoint(x: hitPoint.x - 20, y: hitPoint.y + 10))
         for zoom in [0.55, 1.0, 1.8] {

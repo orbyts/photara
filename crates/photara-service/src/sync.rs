@@ -179,15 +179,27 @@ impl Service {
             ContentRoot::Catalog(_) => ProjectAction::Edit,
         };
         let mut tx = self.begin(actor, r, action, &[]).await?;
+        let receipt = self.publish_content_in(&mut tx, actor, r, c).await?;
+        tx.commit().await?;
+        Ok(receipt)
+    }
+    pub(crate) async fn publish_content_in(
+        &self,
+        tx: &mut Transaction,
+        actor: &Actor,
+        r: Request,
+        c: &PublishContent,
+    ) -> Result<ContentReceipt> {
+        c.root.validate(r.scope)?;
         let body = (r.scope, "publish-content", c);
         let request = canonical(&body)?;
-        if let Some(row)=sqlx::query("SELECT actor_account_id,device_id,request_canonical,request_sha256,response_canonical,response_sha256,outcome FROM photara_private.scoped_command_receipts WHERE library_id=$1 AND operation_id=$2").bind(r.scope.library().uuid()).bind(c.operation.uuid()).fetch_optional(&mut *tx).await? {
+        if let Some(row)=sqlx::query("SELECT actor_account_id,device_id,request_canonical,request_sha256,response_canonical,response_sha256,outcome FROM photara_private.scoped_command_receipts WHERE library_id=$1 AND operation_id=$2").bind(r.scope.library().uuid()).bind(c.operation.uuid()).fetch_optional(&mut **tx).await? {
             if row.try_get::<Uuid,_>("actor_account_id")?!=actor.account.uuid()||row.try_get::<Uuid,_>("device_id")?!=r.device.uuid()||row.try_get::<Vec<u8>,_>("request_canonical")?!=request{return Err(ServiceError::Conflict);}
             if row.try_get::<Vec<u8>,_>("request_sha256")?!=hash(&request)||row.try_get::<String,_>("outcome")?!="accepted"{return Err(ServiceError::Integrity);}
             let bytes:Vec<u8>=row.try_get("response_canonical")?;let response:ContentReceipt=serde_json::from_slice(&bytes).map_err(|_|ServiceError::Integrity)?;
             if row.try_get::<Vec<u8>,_>("response_sha256")?!=hash(&bytes)||canonical(&response)?!=bytes{return Err(ServiceError::Integrity);}
             // Receipt bytes retain their original cursor. It cannot bootstrap a later generation.
-            tx.commit().await?;return Ok(response);
+            return Ok(response);
         }
         match &c.root {
             ContentRoot::Storage(s) => {
@@ -199,7 +211,7 @@ impl Service {
                     {
                         return Err(ServiceError::Conflict);
                     }
-                    let n=sqlx::query("UPDATE photara.storage_roots SET display_name=$3,label_key=$4,purpose=$5,revision=revision+1,state=$6,updated_at=CURRENT_TIMESTAMP,retired_at=CASE WHEN $7 THEN CURRENT_TIMESTAMP ELSE NULL END WHERE library_id=$1 AND storage_root_id=$2 AND revision=$8").bind(s.library.uuid()).bind(s.root.uuid()).bind(&s.display_name).bind(label).bind(&s.purpose).bind(if s.retired{"tombstoned"}else{"active"}).bind(s.retired).bind(expected).execute(&mut *tx).await?.rows_affected();
+                    let n=sqlx::query("UPDATE photara.storage_roots SET display_name=$3,label_key=$4,purpose=$5,revision=revision+1,state=$6,updated_at=CURRENT_TIMESTAMP,retired_at=CASE WHEN $7 THEN CURRENT_TIMESTAMP ELSE NULL END WHERE library_id=$1 AND storage_root_id=$2 AND revision=$8").bind(s.library.uuid()).bind(s.root.uuid()).bind(&s.display_name).bind(label).bind(&s.purpose).bind(if s.retired{"tombstoned"}else{"active"}).bind(s.retired).bind(expected).execute(&mut **tx).await?.rows_affected();
                     if n != 1 {
                         return Err(ServiceError::Conflict);
                     }
@@ -207,24 +219,23 @@ impl Service {
                     if s.revision != 1 || s.retired {
                         return Err(ServiceError::Invalid);
                     }
-                    sqlx::query("INSERT INTO photara.storage_roots VALUES($1,$2,$3,$4,$5,1,'active',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)").bind(s.root.uuid()).bind(s.library.uuid()).bind(&s.display_name).bind(label).bind(&s.purpose).execute(&mut *tx).await?;
+                    sqlx::query("INSERT INTO photara.storage_roots VALUES($1,$2,$3,$4,$5,1,'active',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)").bind(s.root.uuid()).bind(s.library.uuid()).bind(&s.display_name).bind(label).bind(&s.purpose).execute(&mut **tx).await?;
                 }
             }
             ContentRoot::Catalog(p) => {
                 if c.expected_revision.is_some() {
                     return Err(ServiceError::Invalid);
                 }
-                let exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM photara.project_locators WHERE library_id=$1 AND project_id=$2 AND locator_id=$3 AND state='active')").bind(p.library.uuid()).bind(p.project.uuid()).bind(p.locator).fetch_one(&mut *tx).await?;
+                let exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM photara.project_locators WHERE library_id=$1 AND project_id=$2 AND locator_id=$3 AND state='active')").bind(p.library.uuid()).bind(p.project.uuid()).bind(p.locator).fetch_one(&mut **tx).await?;
                 if !exists {
-                    crate::runtime::authorize(&mut tx, r.scope, ProjectAction::ManageStorage)
-                        .await?;
-                    sqlx::query("INSERT INTO photara.project_locators VALUES($1,$2,$3,NULL,NULL,'active',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)").bind(p.locator).bind(p.library.uuid()).bind(p.project.uuid()).execute(&mut *tx).await?;
+                    crate::runtime::authorize(tx, r.scope, ProjectAction::ManageStorage).await?;
+                    sqlx::query("INSERT INTO photara.project_locators VALUES($1,$2,$3,NULL,NULL,'active',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)").bind(p.locator).bind(p.library.uuid()).bind(p.project.uuid()).execute(&mut **tx).await?;
                 }
                 let bytes = canonical(p)?;
-                sqlx::query("INSERT INTO photara.package_observations(observation_id,library_id,project_id,locator_id,commit_id,commit_sha256,package_revision,index_schema,title,project_lifecycle,asset_count,graph_count,reported_by_account_id,reported_by_device_id,observed_at,received_at,projection_canonical,projection_sha256) VALUES($1,$2,$3,$4,$5,$6,$7::text::numeric,1,$8,'active',$9,$10,$11,$12,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,$13,$14)").bind(p.observation).bind(p.library.uuid()).bind(p.project.uuid()).bind(p.locator).bind(p.commit.uuid()).bind(p.commit_sha256.to_vec()).bind(p.package_revision.to_string()).bind(&p.title).bind(p.asset_count).bind(p.graph_count).bind(actor.account.uuid()).bind(r.device.uuid()).bind(&bytes).bind(hash(&bytes).to_vec()).execute(&mut *tx).await?;
+                sqlx::query("INSERT INTO photara.package_observations(observation_id,library_id,project_id,locator_id,commit_id,commit_sha256,package_revision,index_schema,title,project_lifecycle,asset_count,graph_count,reported_by_account_id,reported_by_device_id,observed_at,received_at,projection_canonical,projection_sha256) VALUES($1,$2,$3,$4,$5,$6,$7::text::numeric,1,$8,'active',$9,$10,$11,$12,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,$13,$14)").bind(p.observation).bind(p.library.uuid()).bind(p.project.uuid()).bind(p.locator).bind(p.commit.uuid()).bind(p.commit_sha256.to_vec()).bind(p.package_revision.to_string()).bind(&p.title).bind(p.asset_count).bind(p.graph_count).bind(actor.account.uuid()).bind(r.device.uuid()).bind(&bytes).bind(hash(&bytes).to_vec()).execute(&mut **tx).await?;
             }
         }
-        let mut p = stream(&mut tx, actor, r).await?;
+        let mut p = stream(tx, actor, r).await?;
         p.sequence = p.sequence.checked_add(1).ok_or(ServiceError::Conflict)?;
         let batch = Batch {
             scope: r.scope,
@@ -241,16 +252,15 @@ impl Service {
             root_sha256: hash(&canonical(&c.root)?),
         };
         let response = canonical(&receipt)?;
-        sqlx::query("INSERT INTO photara_private.scoped_command_receipts(library_id,operation_id,actor_account_id,device_id,scope_kind,project_id,command_kind,request_canonical,request_sha256,outcome,response_canonical,response_sha256,accepted_stream_id,accepted_epoch,accepted_sequence,completed_at) VALUES($1,$2,$3,$4,$5,$6,'publish-content',$7,$8,'accepted',$9,$10,$11,$12,$13,CURRENT_TIMESTAMP)").bind(r.scope.library().uuid()).bind(c.operation.uuid()).bind(actor.account.uuid()).bind(r.device.uuid()).bind(r.scope.kind()).bind(r.scope.project().map(ProjectId::uuid)).bind(&request).bind(hash(&request).to_vec()).bind(&response).bind(hash(&response).to_vec()).bind(p.stream).bind(p.epoch).bind(p.sequence).execute(&mut *tx).await?;
-        sqlx::query("INSERT INTO photara_private.scoped_change_batches VALUES($1,$2,$3,$4,$5,$6,1,$7,$8,CURRENT_TIMESTAMP)").bind(p.stream).bind(p.epoch).bind(p.sequence).bind(r.scope.library().uuid()).bind(r.scope.project().map(ProjectId::uuid)).bind(c.operation.uuid()).bind(&bytes).bind(hash(&bytes).to_vec()).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO photara_private.scoped_command_receipts(library_id,operation_id,actor_account_id,device_id,scope_kind,project_id,command_kind,request_canonical,request_sha256,outcome,response_canonical,response_sha256,accepted_stream_id,accepted_epoch,accepted_sequence,completed_at) VALUES($1,$2,$3,$4,$5,$6,'publish-content',$7,$8,'accepted',$9,$10,$11,$12,$13,CURRENT_TIMESTAMP)").bind(r.scope.library().uuid()).bind(c.operation.uuid()).bind(actor.account.uuid()).bind(r.device.uuid()).bind(r.scope.kind()).bind(r.scope.project().map(ProjectId::uuid)).bind(&request).bind(hash(&request).to_vec()).bind(&response).bind(hash(&response).to_vec()).bind(p.stream).bind(p.epoch).bind(p.sequence).execute(&mut **tx).await?;
+        sqlx::query("INSERT INTO photara_private.scoped_change_batches VALUES($1,$2,$3,$4,$5,$6,1,$7,$8,CURRENT_TIMESTAMP)").bind(p.stream).bind(p.epoch).bind(p.sequence).bind(r.scope.library().uuid()).bind(r.scope.project().map(ProjectId::uuid)).bind(c.operation.uuid()).bind(&bytes).bind(hash(&bytes).to_vec()).execute(&mut **tx).await?;
         let (kind, id, revision) = c.root.coordinates();
         let root = canonical(&c.root)?;
-        sqlx::query("INSERT INTO photara_private.scoped_changes VALUES($1,$2,$3,0,$4,$5,$6,$7,$8,'upsert',1,$9,$10,$11)").bind(p.stream).bind(p.epoch).bind(p.sequence).bind(r.scope.library().uuid()).bind(r.scope.project().map(ProjectId::uuid)).bind(kind).bind(id).bind(revision).bind(serde_json::to_value(&c.root).map_err(|_|ServiceError::Invalid)?).bind(&root).bind(hash(&root).to_vec()).execute(&mut *tx).await?;
-        let n=sqlx::query("UPDATE photara_private.scoped_streams SET last_sequence=$2 WHERE stream_id=$1 AND last_sequence=$3").bind(p.stream).bind(p.sequence).bind(p.sequence-1).execute(&mut *tx).await?.rows_affected();
+        sqlx::query("INSERT INTO photara_private.scoped_changes VALUES($1,$2,$3,0,$4,$5,$6,$7,$8,'upsert',1,$9,$10,$11)").bind(p.stream).bind(p.epoch).bind(p.sequence).bind(r.scope.library().uuid()).bind(r.scope.project().map(ProjectId::uuid)).bind(kind).bind(id).bind(revision).bind(serde_json::to_value(&c.root).map_err(|_|ServiceError::Invalid)?).bind(&root).bind(hash(&root).to_vec()).execute(&mut **tx).await?;
+        let n=sqlx::query("UPDATE photara_private.scoped_streams SET last_sequence=$2 WHERE stream_id=$1 AND last_sequence=$3").bind(p.stream).bind(p.sequence).bind(p.sequence-1).execute(&mut **tx).await?.rows_affected();
         if n != 1 {
             return Err(ServiceError::Conflict);
         }
-        tx.commit().await?;
         Ok(receipt)
     }
     /// Returns the complete current projection for the explicitly supported content codecs.

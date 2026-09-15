@@ -2,7 +2,13 @@
 
 Run `verify-shared-ui.sh` for isolated Gallery/Inspector fixtures and native HDR
 policy checks; run `verify-production-ui.sh` for the real production composition
-and adapter/Core integration. The latter builds Photara first. Both accept
+and adapter/Core integration. The latter builds an isolated Photara input bundle
+under a fresh `.build/production-ui.XXXXXX` run directory, then its own verification
+bundle. It never builds into `photara-app/.build/app` or inherits interactive
+signing, release-channel, Rust-target, shared-configuration, or app-output overrides.
+Generated configuration/bindings, helper outputs and compiler caches are owned by
+that run. The script prints the run directory containing `production-snapshots`.
+Both accept
 `--build-only` to compile before an exclusive native-window test session.
 
 These are test executables, not additional design labs. They write native PNGs
@@ -19,7 +25,12 @@ all ordered Shell scenario transitions, the paired ladder specimen, Opening, and
 at narrow/standard sizes in Light/Dark. An external accessibility probe checks the
 test app's native hierarchy and dispatches Create/Open through its real buttons.
 Test hosts disable developer Theme overrides and use native application launch
-registration. Captures allow at most three compositor attempts.
+registration. Captures give compact SwiftUI roots the requested fixture canvas
+and keep NSHostingView directly attached to NSWindow, preserving native toolbars.
+They adjust for native chrome using
+the measured host bounds and require both requested dimensions to remain stable
+across two layout turns. A failed size check includes requested/actual/window/screen
+geometry. Captures allow at most three compositor attempts.
 
 `scripts/verify_ui0_contract.py` guards palette ownership and compares the Graph
 sources, preset and behavioral assertions with the UI0 baseline, allowing its three

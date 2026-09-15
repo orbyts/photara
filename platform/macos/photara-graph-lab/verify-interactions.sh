@@ -75,21 +75,6 @@ if [[ "${1:-}" == --build-only ]]; then
   print -r -- "$APP_BUNDLE"
   exit 0
 fi
-# LaunchServices delivers the normal application-open event to the original
-# WindowGroup. Direct executable launch can remain windowless on macOS 27.
-run_root="$(mktemp -d "$BUILD_ROOT/run.XXXXXX")"
-print -r -- "Graph verification log: $run_root/stdout.log"
-/usr/bin/open -n -W --stdout "$run_root/stdout.log" --stderr "$run_root/stderr.log" \
-  --env "PHOTARA_GRAPH_EXIT_FILE=$run_root/exit-code" \
-  --env "PHOTARA_GRAPH_PREFLIGHT_ONLY=${PHOTARA_GRAPH_PREFLIGHT_ONLY:-0}" \
-  "$APP_BUNDLE" --args "$@"
-cat "$run_root/stdout.log" "$run_root/stderr.log"
-if [[ ! -f "$run_root/exit-code" ]]; then
-  print -u2 -- "Graph verification exited without a completed result; startup failure or crash."
-  exit 1
-fi
-run_exit_code="$(cat "$run_root/exit-code")"
-case "$run_exit_code" in
-  0|1) exit "$run_exit_code" ;;
-  *) print -u2 -- "Invalid Graph verification result: $run_exit_code"; exit 1 ;;
-esac
+# The explicit AppKit test host owns its window. Launch its exact signed binary
+# as an owned child so startup/readiness and completion both have bounded waits.
+exec python3 "$SCRIPT_ROOT/launch-verification.py" --app "$APP_BUNDLE" -- "$@"

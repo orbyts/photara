@@ -1,0 +1,18 @@
+/private/tmp/photara-service-furnace.jkxfre/Photara Development Operator.app/Contents/Resources/photara-service: replacing existing signature
+/private/tmp/photara-service-furnace.jkxfre/Photara Development Operator.app: replacing existing signature
+/private/tmp/photara-service-furnace.jkxfre/Service Furnace.app: replacing existing signature
+service-furnace:pass:cold-start
+service-furnace:pass:healthy-reuse
+service-furnace:pass:slow-health
+service-furnace:pass:transient-readiness-timeout
+service-furnace:pass:delayed-readiness
+service-furnace:pass:concurrent-launchers
+service-furnace:pass:child-exit-with-valid-bind-winner
+service-furnace:pass:wrong-service
+service-furnace:pass:wrong-health
+service-furnace:pass:child-exit-without-authority
+service-furnace:pass:cancellation-and-uncooperative-child-cleanup
+service-furnace:pass:service-crash-and-restart
+service-furnace:pass:bounded-unready-service
+service-process-furnace: 99 assertions; 13 real-process scenarios passed; no fixture processes or credentials retained
+Service furnace evidence: /private/tmp/photara-service-furnace.jkxfre/report.json

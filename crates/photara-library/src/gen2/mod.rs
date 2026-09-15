@@ -1,6 +1,10 @@
 //! Separate generation-two local authority. Never opens or converts the v1 store.
 //! SQL/migrations and normalization stay here; Storexa owns database mechanics.
 mod catalog;
+#[cfg(unix)]
+mod creation;
+#[cfg(unix)]
+pub use creation::*;
 mod context;
 pub use context::{DeviceContextCapture, DeviceContextEvidence};
 mod local;
@@ -61,6 +65,14 @@ pub enum Error {
     Storage,
     #[error("local filesystem operation failed")]
     Io,
+    #[error("the selected destination is unavailable; reconnect it and retry")]
+    DestinationUnavailable,
+    #[error("Photara cannot write to this destination; check its permissions")]
+    DestinationDenied,
+    #[error("the destination is already occupied; choose another location or name")]
+    DestinationOccupied,
+    #[error("the selected destination changed; choose its current location again")]
+    DestinationChanged,
 }
 impl From<sqlx::Error> for Error {
     fn from(value: sqlx::Error) -> Self {
@@ -445,7 +457,7 @@ async fn check_metadata(
         return Err(Error::ForeignDatabase);
     }
     if row.try_get::<i64, _>("schema_epoch")? != 1
-        || !(if activated { 4..=4 } else { 1..=4 })
+        || !(if activated { 5..=5 } else { 1..=5 })
             .contains(&row.try_get::<i64, _>("minimum_reader")?)
         || row.try_get::<i64, _>("minimum_writer")? != row.try_get::<i64, _>("minimum_reader")?
         || row.try_get::<String, _>("canonical_codec")? != "photara.canonical-json.v1"
@@ -660,3 +672,17 @@ fn metadata<I: TryFrom<Uuid, Error = Error>>(
 
 #[cfg(test)]
 mod tests;
+
+impl From<photara_store::package::PackageError> for Error {
+    fn from(error: photara_store::package::PackageError) -> Self {
+        use photara_store::package::PackageError;
+        use std::io::ErrorKind;
+        match error {
+            PackageError::Io(ErrorKind::PermissionDenied) => Error::DestinationDenied,
+            PackageError::Io(ErrorKind::NotFound) => Error::DestinationUnavailable,
+            PackageError::Io(ErrorKind::AlreadyExists) => Error::DestinationOccupied,
+            PackageError::ChangedDuringRead => Error::DestinationChanged,
+            _ => Error::Io,
+        }
+    }
+}

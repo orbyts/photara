@@ -41,6 +41,12 @@ Finder or with:
 open platform/macos/photara-app/.build/app/Photara.app
 ```
 
+`PHOTARA_APP_BUILD_ROOT` selects a different complete output root, including the
+bundle, generated bridge/product configuration, helper build and Swift caches.
+Rust defaults inside that root; `PHOTARA_APP_RUST_TARGET` can override it for
+interactive builds. Production UI verification supplies its own isolated roots
+and signing configuration, so running it cannot replace the signed interactive app.
+
 Launching the bundle, rather than its inner Mach-O executable, gives Photara
 its own macOS application identity, activation behavior, and menu bar.
 

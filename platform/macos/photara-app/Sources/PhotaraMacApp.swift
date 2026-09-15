@@ -13,6 +13,11 @@ struct PhotaraMacApp: App {
                 .environmentObject(app)
                 .environmentObject(session)
                 .environmentObject(theme)
+                .onOpenURL { url in
+                    if url.isFileURL && url.pathExtension == configuration.identity.projectPackageExtension {
+                        app.openCreatedPackage(url.path)
+                    }
+                }
                 .onAppear {
                     // Public channel only; never log tokens or service settings.
                     print("release-channel:\(configuration.environment.channel.rawValue)")
@@ -31,12 +36,15 @@ struct PhotaraMacApp: App {
             CommandGroup(replacing: .saveItem) {
                 Button("Save") { app.save() }
                     .keyboardShortcut("s")
+                    .disabled(app.project == nil)
             }
             CommandGroup(replacing: .undoRedo) {
                 Button("Undo Layout Edit") { app.undoLayout() }
                     .keyboardShortcut("z")
+                    .disabled(app.project == nil)
                 Button("Redo Layout Edit") { app.redoLayout() }
                     .keyboardShortcut("z", modifiers: [.command, .shift])
+                    .disabled(app.project == nil)
             }
             CommandMenu("Editor") {
                 Button("Restore Default Editor") {
@@ -62,7 +70,7 @@ struct PhotaraMacApp: App {
                     session.requestNodeMenu()
                 }
                 .keyboardShortcut(KeyEquivalent("\t"), modifiers: [])
-                .disabled(!app.hasOpenProject || !session.isVisible(.graph))
+                .disabled(app.project == nil || !session.isVisible(.graph))
             }
         }
         Settings { LibrarySyncView().frame(width: 460, height: 500) }

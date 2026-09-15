@@ -1,0 +1,485 @@
+   Compiling photara-store v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-store)
+   Compiling photara-library v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-library)
+   Compiling photara-layout-node v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/nodes/photara-layout)
+   Compiling photara-service v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-service)
+   Compiling photara-bridge v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-bridge)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 18.11s
+     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_asset_set_node-ca8fb64281b8ca77)
+
+running 1 test
+test tests::manifest_and_runtime_expose_explicit_asset_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_bridge-9b75c4a1f209a079)
+
+running 8 tests
+test tests::application_facade_is_explicitly_versioned ... ok
+test runtime_registry::tests::registration_is_exact_and_rejects_duplicate_ownership ... ok
+test production::tests::evaluation_streams_progress_and_honors_pre_start_cancellation ... ok
+test production::tests::portable_project_document_can_be_imported_without_a_database ... ok
+test production::tests::semantic_structure_and_cell_edits_round_trip_through_exact_history ... ok
+test production::tests::branded_catalog_drives_disk_scan_connection_and_portable_reopen ... ok
+test production::tests::production_facade_saves_reopens_commands_and_undoes_layout ... ok
+test onboarding::tests::typed_bridge_prepares_recovers_and_cancels_without_provider_or_keychain ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_core-b3891568aff31647)
+
+running 25 tests
+test identity::tests::namespaced_ids_are_canonical ... ok
+test identity::tests::versioned_identity_parts_round_trip_independently ... ok
+test creation::tests::portable_names_preserve_unicode_and_reject_collapsing_sanitization ... ok
+test node::tests::identical_registered_value_types_connect ... ok
+test asset::tests::runtime_resolved_binding_is_portable_without_a_machine_locator ... ok
+test asset::tests::asset_set_typed_value_preserves_order_and_rejects_duplicates ... ok
+test graph::tests::graph_round_trip_preserves_definition_pin_and_separate_authored_state ... ok
+test node::tests::different_type_versions_do_not_connect_implicitly ... ok
+test project::tests::relative_paths_reject_machine_specific_or_escaping_locations ... ok
+test asset::tests::revision_evidence_is_explicit_and_old_documents_default_to_content_digest ... ok
+test canonical::tests::object_order_does_not_change_canonical_bytes_or_digest ... ok
+test project_command::tests::asset_addition_is_validated_and_does_not_mutate_the_input ... ok
+test project_command::tests::source_reconciliation_removes_only_prior_membership ... ok
+test project::tests::portable_schema_excludes_runtime_cache_secret_and_editor_session_state ... ok
+test project::tests::excluded_state_extensions_and_graph_cycles_are_rejected ... ok
+test proxy::tests::exact_profile_reference_covers_encoding_and_policy ... ok
+test vertical_tests::stale_commands_return_a_structured_revision_conflict ... ok
+test vertical_tests::commands_reject_schema_cardinality_and_cycle_violations ... ok
+test proxy::tests::cache_key_ignores_request_and_semantic_identity ... ok
+test project::tests::standalone_node_graph_is_separate_and_trivially_round_trips ... ok
+test project::tests::media_agnostic_project_round_trips_without_semantic_loss ... ok
+test vertical_tests::evaluation_reports_cooperative_cancellation ... ok
+test proxy::tests::source_color_hdr_and_tone_map_policy_change_cache_identity ... ok
+test project::tests::canonical_digest_ignores_human_json_whitespace ... ok
+test vertical_tests::commands_build_and_evaluate_a_deterministic_general_graph ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/context.rs (/Users/suhail/.cache/cargo/targets/debug/deps/context-d27b06e26d590bbf)
+
+running 58 tests
+test delimiters_and_fences_fail_closed ... ok
+test decimal_rational_timestamp_and_optional_wire_boundaries ... ok
+test errors_never_include_source_values_paths_or_private_data ... ok
+test casing_and_unknown_environment_or_functions_never_resolve ... ok
+test generate_d19_context_golden ... ignored, explicit generation only; never rewrites existing CXT1a/S6/D18 bytes
+test device_context_digest_changes_with_binding_generation_availability_and_temp_lease ... ok
+test cache_rejects_effects_secrets_nondeterminism_and_shared_device_results ... ok
+test device_cache_keys_accept_explicit_host_dependencies_only_on_device ... ok
+test cache_lookup_requires_current_project_principal_generation_and_device ... ok
+test expression_strings_use_json_escapes_and_preserve_source ... ok
+test evaluation_context_cannot_be_reused_for_other_expression_owner_or_run ... ok
+test directional_scope_matrix_prevents_children_siblings_and_cross_library ... ok
+test derived_facts_cannot_declassify_or_capture_host_only_payloads ... ok
+test ordinary_strings_never_interpolate ... ok
+test effective_precedence_clear_and_override_do_not_mutate_defaults ... ok
+test path_join_remains_a_descriptor_without_package_write_or_traversal ... ok
+test metadata_membership_is_complete_and_empty_common_is_unavailable ... ok
+test ast_semantics_exclude_formatting_and_expression_identity ... ok
+test input_asset_and_host_bindings_are_explicit_and_typed ... ok
+test proposal_planning_rechecks_cas_declaration_privacy_and_single_authority ... ok
+test registry_and_unknown_type_versions_fail_closed ... ok
+test evaluated_values_retain_monotone_privacy_and_redacted_debug ... ok
+test capture_consent_pins_projection_audience_and_sensitivity ... ok
+test graph_cache_key_includes_context_even_without_nodes ... ok
+test proposals_plan_only_after_success_explicit_acceptance_and_exact_source ... ok
+test no_implicit_scalar_coercion_or_resource_stringification ... ok
+test receipt_dispute_does_not_skip_validation_of_later_evidence ... ok
+test snapshot_project_ownership_and_metadata_input_scope_are_explicit ... ok
+test both_branches_typecheck_but_only_selected_branch_executes ... ok
+test metadata_common_values_distinct_preserve_disagreement_and_negative_facts ... ok
+test literal_lists_records_and_registered_field_projections ... ok
+test declared_subset_stays_frozen_and_does_not_include_unrelated_values ... ok
+test slot_capture_pins_revision_and_location_without_refreshing ... ok
+test snapshots_reject_incomplete_excess_duplicate_and_cyclic_closure ... ok
+test receipt_unknown_is_not_failure_and_conflicting_observations_are_disputed ... ok
+test parser_and_ast_limits_do_not_truncate ... ok
+test source_registry_rejects_variable_workflow_values_and_contradictory_types ... ok
+test temp_context_keys_are_run_bound_even_if_host_reuses_a_lease_id ... ok
+test variables_recursively_forbid_workflow_families_and_type_changes ... ok
+test run_override_capture_cannot_be_replayed_as_another_runs_override ... ok
+test checked_i64_arithmetic_and_boolean_precedence ... ok
+test template_escapes_and_utf8_spans_are_exact ... ok
+test variable_transitions_preserve_identity_type_claims_and_value_identity ... ok
+test source_literals_named_like_ast_fields_are_semantically_hashed ... ok
+test optional_fallback_means_absence_only ... ok
+test static_collection_bounds_reject_before_evaluation ... ok
+test rename_retains_id_binding_and_tombstone_never_retargets ... ok
+test source_ast_correspondence_versions_and_unknown_fields_are_checked ... ok
+test cache_v2_only_dirties_declared_context_closure ... ok
+test rust_generated_context_golden_matches_exact_canonical_bytes ... ok
+test snapshot_hashes_exclude_provenance_but_include_requested_values ... ok
+test variable_name_claims_defaults_and_overrides_cannot_hide_cycles ... ok
+test snapshots_capture_negative_facts_and_staleness_without_faking_replay ... ok
+test metadata_queries_require_declared_input_and_exact_snapshot_evidence ... ok
+test direct_dependencies_include_all_branches_and_enforce_bound ... ok
+test interpreter_operation_limit_is_enforced_without_truncation ... ok
+test snapshot_byte_and_expansion_limits_refuse_partial_success ... ok
+test arithmetic_and_formatting_are_deterministic_across_repeated_compilation ... ok
+
+test result: ok. 57 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.52s
+
+     Running tests/contracts.rs (/Users/suhail/.cache/cargo/targets/debug/deps/contracts-314562c31a40ac02)
+
+running 36 tests
+test disabled_closed_or_unregistered_denies_even_explicit_manager ... ok
+test compatibility_adapters_preserve_exact_uuid_and_old_json ... ok
+test asset_membership_order_owners_and_revisions_are_checked ... ok
+test coordinates_versions_and_decimal_boundaries_validate_on_decode ... ok
+test invitation_ceilings_and_fresh_access_do_not_infer_permissions ... ok
+test managed_media_types_are_mime_coordinates_not_paths_or_headers ... ok
+test invalid_selected_binding_rights_and_replacement_combinations_are_rejected ... ok
+test mixed_scope_and_principal_evidence_never_unions ... ok
+test masks_are_closed_under_union_and_presets_are_exact ... ok
+test metadata_dependencies_must_match_the_selected_revision ... ok
+test live_lease_is_bound_to_exact_resource_operation_and_expected_content ... ok
+test package_managed_resources_are_blob_only_and_root_artifacts_are_not_write_paths ... ok
+test policy_masks_reject_manager_or_nonzero_restricted_inheritance ... ok
+test external_union_scope_and_storage_classes_validate ... ok
+test empty_snapshot_and_unusable_members_are_explicit ... ok
+test project_only_and_local_controller_are_distinct_authorities ... ok
+test host_status_contract_is_portable_without_paths ... ok
+test provider_coordinate_and_revision_evidence_must_match_storage_kind ... ok
+test provider_revision_evidence_and_requested_sha_must_agree ... ok
+test relative_spelling_and_provider_ids_are_never_normalized_or_interpreted ... ok
+test relative_components_reject_traversal_devices_and_all_control_bytes ... ok
+test response_scopes_revision_domains_and_generations_do_not_alias ... ok
+test every_new_id_rejects_nil_and_noncanonical_wire ... ok
+test restricted_has_no_membership_or_admin_bypass ... ok
+test revoke_denies_inheritance_while_remove_override_and_membership_revoke_differ ... ok
+test slot_capture_pins_identity_revision_and_target_across_refresh ... ok
+test strict_json_and_closed_unions_do_not_drop_unknown_or_duplicate_fields ... ok
+test variable_schema_admission_recursively_forbids_workflow_and_live_families ... ok
+test order_revision_metadata_and_missing_facts_each_change_content_digest ... ok
+test v1_assetset_wire_and_cache_semantics_remain_separate ... ok
+test variable_shape_depth_nodes_and_registered_names_cannot_expand_unbounded ... ok
+test semantic_digest_matches_unchanged_codec_and_excludes_snapshot_identity ... ok
+test all_masks_match_prerequisites_and_round_trip ... ok
+test pages_reject_skip_duplicate_truncation_extra_and_scope_mismatch ... ok
+test page_boundaries_do_not_change_semantics_and_each_page_is_checksum_verified ... ok
+test exact_snapshot_and_page_limits_do_not_truncate ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.23s
+
+     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_disk_node-878a609adf31f7f8)
+
+running 3 tests
+test tests::portable_state_contains_identity_and_membership_but_no_locator ... ok
+test tests::definition_owns_visible_brand_and_no_work_surface ... ok
+test provider::tests::reconciliation_is_stable_and_keeps_paths_runtime_only ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_layout_node-ce01b47da83810b7)
+
+running 8 tests
+test model::tests::explicit_asset_input_and_proxy_cache_fields_are_enforced ... ok
+test tests::built_in_layout_uses_the_same_definition_contract_as_an_unrelated_node ... ok
+test model::tests::authored_commands_are_exactly_undoable_and_crops_are_independent ... ok
+test stage7_tests::semantic_runtime_uses_explicit_asset_set_and_never_requests_proxies ... ok
+test tests::layout_round_trips_through_generic_project_and_graph_documents ... ok
+test model::tests::bundled_grid_resolves_exact_normalized_and_pixel_geometry ... ok
+test tests::ordinary_layout_registration_and_authored_state_survive_durable_reopen ... ok
+test stage7_tests::independent_layouts_reuse_project_proxies_and_survive_complete_cache_deletion ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_library-8714c2e916500e72)
+
+running 52 tests
+test gen2::local::tests::unknown_database_is_untouched ... ok
+test gen2::onboarding::tests::additive_v12_upgrade_preserves_existing_identity_content_and_ledger ... ok
+test gen2::creation::tests::cancellation_and_competing_destination_requests_are_retained ... ok
+test gen2::onboarding::tests::changed_local_content_retains_receipt_without_overwriting ... ok
+test gen2::context::device_tests::device_observation_is_bound_immutable_and_idempotent ... ok
+test gen2::onboarding::tests::first_dispatch_rechecks_preflight_and_strict_receipt_bytes ... ok
+test gen2::context::tests::expression_source_and_dependency_children_roundtrip ... ok
+test gen2::onboarding::tests::cancellation_account_isolation_and_late_receipt_recovery ... ok
+test gen2::context::tests::variable_roundtrip_cas_clear_and_name_retention ... ok
+test gen2::onboarding::tests::failed_binding_insert_rolls_back_authority_but_retains_receipt ... ok
+test gen2::local::tests::registration_permissions_cas_and_last_manager_rollback ... ok
+test gen2::local::migration_tests::populated_0006_is_not_adopted_and_newer_floor_is_untouched ... ok
+test gen2::creation::tests::interrupted_cancellation_finishes_without_publishing ... ok
+test gen2::creation::tests::published_package_survives_catalog_rollback_and_reconciles ... ok
+test gen2::onboarding::tests::existing_default_requires_explicit_choice_and_preserves_local_identity ... ok
+test gen2::creation::tests::unjournaled_stage_and_independent_pool_replays_recover_without_adoption ... ok
+test gen2::local::tests::app_initialization_is_idempotent_and_checks_integrity ... ok
+test gen2::local::migration_tests::independent_pools_policy_cas_and_atomic_controller_transfer ... ok
+test gen2::creation::tests::local_creation_restarts_with_one_catalog_graph_and_receipt ... ok
+test gen2::onboarding::tests::independent_connections_converge_on_one_journal_and_application ... ok
+test gen2::onboarding::tests::prepared_cancel_and_unknown_recovery_preserve_immutable_intents ... ok
+test gen2::scoped::tests::media_access_is_project_and_purpose_scoped ... ok
+test gen2::local::migration_tests::empty_0006_upgrade_and_activation_failure_rollback ... ok
+test gen2::scoped::queue_tests::scoped_intent_retries_and_predecessors_keep_original_bytes ... ok
+test gen2::storage::tests::storage_selection_rebind_rights_and_slot_cas ... ok
+test gen2::tests::catalog_roots_locators_bindings_are_device_only_and_cas_checked ... ok
+test gen2::tests::competing_independent_pools_create_one_concept_only ... ok
+test gen2::tests::full_schema_pragmas_and_storexa_lifecycle ... ok
+test tests::durable_tombstones_changes_and_owner_isolation ... ok
+test tests::every_mode_retains_an_offline_store ... ok
+test tests::location_hierarchy_is_owner_scoped_acyclic_and_transactional ... ok
+test tests::sqlite_creates_searches_and_revision_checks_records ... ok
+test tests::unknown_schema_and_kind_changes_are_rejected ... ok
+test gen2::tests::deferred_claim_and_unexposed_merge_paths_fail_atomically ... ok
+test gen2::recovery::tests::proposal_atomic_apply_retry_collision_and_reopen ... ok
+test gen2::onboarding::tests::expired_disposition_restart_replacement_and_late_receipt_preserve_history ... ok
+test gen2::tests::failed_migration_and_replacement_connection_preserve_invariants ... ok
+test gen2::onboarding::tests::same_id_atomic_apply_receipt_replay_and_association_aware_restart ... ok
+test gen2::tests::global_identity_cannot_cross_library_or_change_created_timestamp ... ok
+test gen2::onboarding::tests::malformed_receipts_disabled_access_and_populated_preflight_fail_closed ... ok
+test gen2::onboarding::tests::v13_unknown_upgrade_preserves_intent_and_all_original_migration_checksums ... ok
+test gen2::tests::library_person_organization_crud_cas_history_and_tombstones ... ok
+test gen2::tests::relationship_roles_intervals_parent_guards_and_rollback ... ok
+test gen2::onboarding::tests::logout_choice_and_rejoin_preserve_library_and_reject_other_identity ... ok
+test gen2::tests::typed_limits_and_diagnostics_do_not_leak_values ... ok
+test gen2::tests::social_manual_warning_subject_reservation_and_owner_immutability ... ok
+test gen2::tests::required_kind_hierarchy_cross_library_and_retirement_guards ... ok
+test gen2::tests::migrations_initialize_reopen_and_preserve_family ... ok
+test gen2::tests::cloud_association_and_unknown_normalizer_are_not_silently_local ... ok
+test gen2::tests::verified_observations_select_explicitly_and_never_publish_packages ... ok
+test gen2::tests::kind_alias_closure_both_orders_rename_tombstone_and_unicode ... ok
+test gen2::tests::migration_checksum_newer_family_device_and_existing_v1_refusal ... ok
+
+test result: ok. 52 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.72s
+
+     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_node_sdk-cff29d1f49987988)
+
+running 3 tests
+test tests::manifest_rejects_definitions_outside_the_package_namespace ... ok
+test tests::registry_resolves_only_exact_package_and_definition_coordinates ... ok
+test tests::manifest_round_trip_preserves_unknown_fields ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/contracts_v2.rs (/Users/suhail/.cache/cargo/targets/debug/deps/contracts_v2-456cf93b15e85561)
+
+running 23 tests
+test generate_additive_d19_fixture ... ignored, explicit generation only; writes the new D19 fixture, never existing S6 vectors
+test missing_schema_prevents_evaluation_even_with_trusted_installed_code ... ok
+test captured_reads_need_complete_verified_fact_coordinates ... ok
+test v2_connections_match_schema_and_semantic_type_without_v1_coercion ... ok
+test duplicate_definitions_features_schema_and_capability_slots_are_rejected ... ok
+test trust_runtime_platform_and_native_skin_are_independent ... ok
+test effects_require_exact_declared_targets_credentials_and_operation_bounds ... ok
+test all_library_pickers_require_scoped_selectors_and_separate_create_rights ... ok
+test fallback_preserves_unknown_and_untrusted_original_bytes_without_running_code ... ok
+test category_and_brand_do_not_determine_execution_or_ports ... ok
+test v1_manifest_stays_inspectable_registrable_and_gets_no_v2_rights ... ok
+test versions_and_coordinates_are_independent_and_exact ... ok
+test cache_matrix_cannot_skip_effects_or_reuse_nondeterministic_results ... ok
+test schema_registry_rejects_wrong_family_and_version_without_retargeting ... ok
+test declaration_never_becomes_a_grant_and_pure_never_acquires_live_access ... ok
+test variable_field_modes_do_not_smuggle_workflow_or_secret_families ... ok
+test mandatory_inspector_is_not_an_optional_v1_extension ... ok
+test typed_ports_reject_v1_assetsets_fanin_optional_outputs_and_live_families ... ok
+test work_surface_is_optional_and_asset_browser_requires_an_explicit_input ... ok
+test complete_manifest_round_trips_and_requires_exact_registered_schemas ... ok
+test migrations_are_explicit_exact_deterministic_and_never_execute_on_inspection ... ok
+test manifest_unknown_required_semantics_duplicate_keys_and_native_fields_fail_closed ... ok
+test rust_generated_d19_golden_vector_matches ... ok
+
+test result: ok. 22 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_proxy-d9405a93abbb58c6)
+
+running 11 tests
+test tests::conservative_policy_is_one_job_and_not_cpu_derived ... ok
+test macos::tests::helper_icc_fingerprints_are_strict_sha256_hex ... ok
+test tests::gallery_profile_is_a_tiny_hdr_preserving_tier ... ok
+test macos::tests::adapter_accepts_only_the_measured_exact_profile_policies ... ok
+test tests::layout_interaction_profile_defaults_to_1k_and_is_hdr_preserving ... ok
+test tests::unavailable_sources_are_not_cached_and_can_be_retried_after_remount ... ok
+test tests::project_cache_survives_service_reopen_without_regeneration ... ok
+test tests::cache_hits_are_verified_and_corruption_regenerates ... ok
+test tests::identical_requests_deduplicate_before_the_generation_limiter ... ok
+test tests::quota_evicts_old_derived_entries_and_cache_clear_cannot_touch_project_state ... ok
+test tests::distinct_requests_respect_the_explicit_generation_bound ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+
+     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-56d1b750c6f2b7d6)
+
+running 18 tests
+test http::native_furnace::postgres_native_recovery_furnace ... ignored, requires explicit disposable PostgreSQL and compiled native furnace
+test http::tests::postgres_http_signed_bootstrap_and_bounds ... ignored, requires explicit disposable PostgreSQL runner
+test onboarding_pgtests::postgres_onboarding_atomic_replay_and_sessions ... ignored, requires explicit disposable PostgreSQL runner
+test onboarding_pgtests::postgres_onboarding_concurrent_installations ... ignored, requires explicit disposable PostgreSQL runner
+test onboarding_pgtests::postgres_onboarding_upgrade_preserves_deployed_ledger ... ignored, requires explicit disposable PostgreSQL runner
+test onboarding_pgtests::postgres_onboarding_write_faults_and_unknown_commit ... ignored, requires explicit disposable PostgreSQL runner
+test onboarding_pgtests::postgres_ui1_creation_atomic_projection_replay_and_collision ... ignored, requires explicit disposable PostgreSQL runner
+test pgtests::postgres_access_races_and_guards ... ignored, requires explicit disposable PostgreSQL runner
+test pgtests::postgres_disposable_contract ... ignored, requires explicit disposable PostgreSQL runner
+test pgtests::postgres_fake_sync_transport ... ignored, requires explicit disposable PostgreSQL runner
+test pgtests::postgres_inherited_matrix_and_revocation ... ignored, requires explicit disposable PostgreSQL runner
+test pgtests::postgres_schema_and_runtime_refusal ... ignored, requires explicit disposable PostgreSQL runner
+test release::tests::unprovisioned_release_channels_fail_closed ... ok
+test oidc::tests::token_header_admission ... ok
+test release::tests::checked_development_binds_only_loopback ... ok
+test release::tests::remote_and_production_refuse_loopback_and_trust_drift ... ok
+test release::tests::loopback_retains_certificate_verified_database_admission ... ok
+test oidc::tests::signed_rs256_claims_proof_rotation_and_expiry ... ok
+
+test result: ok. 6 passed; 0 failed; 12 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+     Running unittests src/bin/photara-migrate.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_migrate-93011408836276c1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/photara-service.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-c6db2e9cc1f5ea2c)
+
+running 1 test
+test tests::explicit_development_profile_only_and_redacted_errors ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_store-834ebfcdfaad3400)
+
+running 2 tests
+test local_assets::tests::paired_tiffs_share_asset_identity_and_track_paths_and_content_independently ... ok
+test tests::brand_new_store_saves_reopens_and_revision_checks_a_portable_project ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/package_compatibility.rs (/Users/suhail/.cache/cargo/targets/debug/deps/package_compatibility-2d3f62917684022e)
+
+running 6 tests
+test generate_compatibility_golden ... ignored, Explicit fixture generation only
+test explicit_ids_and_null_origin ... ok
+test explicit_selection_has_no_inventory_fallback ... ok
+test compatibility_golden_is_exact_rust_canonical_bytes ... ok
+test changed_identity_or_source_rejected ... ok
+test unresolved_root_never_becomes_device_binding ... ok
+
+test result: ok. 5 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/package_creation.rs (/Users/suhail/.cache/cargo/targets/debug/deps/package_creation-8bc2007a2111955a)
+
+running 4 tests
+test replaced_destination_and_stage_symlinks_are_refused ... ok
+test interrupted_stage_rebuilds_and_permission_failure_is_recoverable ... ok
+test published_package_has_exact_identity_graph_closure_and_replay_bytes ... ok
+test collision_does_not_replace_empty_directory_file_or_symlink ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+
+     Running tests/package_v1_1.rs (/Users/suhail/.cache/cargo/targets/debug/deps/package_v1_1-e88a0bb31d565161)
+
+running 16 tests
+test generate_package_golden ... ignored, Explicit golden generation only
+test old_reader_refuses_new_package ... ok
+test missing_managed_bytes_are_incomplete ... ok
+test unknown_required_schema_fails_closed ... ok
+test complete_fixture_validates ... ok
+test extensions_do_not_create_edges ... ok
+test library_capture_projection ... ok
+test package_golden_is_exact_rust_canonical_bytes ... ok
+test history_and_node_contracts_validate ... ok
+test legacy_specimen_still_validates_with_both_apis ... ok
+test limits_and_page_boundaries ... ok
+test receipt_and_manifest_mismatches_are_rejected ... ok
+test selected_membership_and_preconditions_are_checked ... ok
+test history_contract_scope_rejections ... ok
+test reader_floor_features_and_retained_bootstrap ... ok
+test semantic_rejections_after_rehash ... ok
+
+test result: ok. 15 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.65s
+
+     Running tests/package_validation.rs (/Users/suhail/.cache/cargo/targets/debug/deps/package_validation-56cbcea251fd9eff)
+
+running 25 tests
+test decimal_counter_and_uuid_spellings_are_strict ... ok
+test input_resource_limits_fail_closed ... ok
+test diagnostics_do_not_echo_untrusted_json_or_host_paths ... ok
+test raw_parser_rejects_duplicates_encoding_and_lossy_integer_coercion ... ok
+test existing_one_json_project_round_trip_and_graph_export_still_work ... ok
+test exact_rust_canonical_vectors ... ok
+test exact_internal_spelling_rejects_case_aliases ... ok
+test unknown_required_features_allow_bootstrap_inspection_not_validation ... ok
+test exact_directory_fixture_validates_without_modification ... ok
+test package_budgets_are_enforced ... ok
+test rewritten_valid_fixture_is_a_sound_test_builder ... ok
+test nested_control_extensions_are_retained ... ok
+test unknown_optional_fields_remain_exact ... ok
+test no_follow_and_hardlink_guards_reject_unsafe_files ... ok
+test external_and_managed_path_traversal_reject_without_following ... ok
+test numeric_schema_float_and_missing_record_fields_reject ... ok
+test future_schema_minimum_reader_and_codec_fail_closed ... ok
+test graph_name_policy_is_checked_or_reported_read_only ... ok
+test tampered_head_object_blob_and_missing_managed_bytes_reject ... ok
+test zero_node_versions_and_invalid_timestamp_digits_reject ... ok
+test wrong_parent_bootstrap_and_inventory_closure_reject_after_rehash ... ok
+test graph_pins_location_kind_and_asset_membership_are_checked ... ok
+test bad_typed_counters_ids_and_timestamps_reject_after_rehash ... ok
+test run_source_configuration_and_attempt_links_are_checked ... ok
+test media_dimensions_and_snapshot_revision_tokens_are_typed ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.84s
+
+   Doc-tests photara_asset_set_node
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests photara_bridge
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests photara_core
+
+running 5 tests
+test crates/photara-core/src/context/mod.rs - context::RuntimeSerializationBoundary (line 141) - compile fail ... ok
+test crates/photara-core/src/context/mod.rs - context::RuntimeSerializationBoundary (line 151) - compile fail ... ok
+test crates/photara-core/src/contracts/resource.rs - contracts::resource::MaterializedResourceLease (line 580) - compile fail ... ok
+test crates/photara-core/src/context/mod.rs - context::RuntimeSerializationBoundary (line 146) - compile fail ... ok
+test crates/photara-core/src/contracts/resource.rs - contracts::resource::SecretRef (line 644) - compile fail ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.27s
+
+   Doc-tests photara_disk_node
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests photara_layout_node
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests photara_library
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests photara_node_sdk
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests photara_proxy
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests photara_service
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests photara_store
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

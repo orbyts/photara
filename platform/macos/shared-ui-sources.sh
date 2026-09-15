@@ -2,7 +2,7 @@
 # One source manifest for every production-shared native feature. No bridge or fixtures.
 UI_ROOT="$REPOSITORY_ROOT/platform/macos"
 PRODUCT_CHANNEL="${PHOTARA_RELEASE_CHANNEL:-development}"
-PRODUCT_GENERATED="$REPOSITORY_ROOT/platform/macos/photara-ui-foundation/.build/product-identity/$PRODUCT_CHANNEL"
+PRODUCT_GENERATED="${PHOTARA_SHARED_UI_GENERATED_ROOT:-$REPOSITORY_ROOT/platform/macos/photara-ui-foundation/.build/product-identity/$PRODUCT_CHANNEL}"
 python3 "$REPOSITORY_ROOT/scripts/generate_product_configuration.py" \
   --channel "$PRODUCT_CHANNEL" --output "$PRODUCT_GENERATED" >/dev/null
 SHARED_UI_SOURCES=(

@@ -9,6 +9,25 @@ enum GraphNativeInput {
     let description: String
   }
 
+  /// Resolve pending SwiftUI/AppKit layout before fixing a synthetic event's
+  /// window coordinates. A lazy layout during dispatch can otherwise move the
+  /// canvas origin by half a point between the harness and native responder.
+  /// This drains native layout only; it does not read or change Graph state.
+  static func location(_ point: CGPoint, in view: NSView) -> CGPoint {
+    view.window?.contentView?.layoutSubtreeIfNeeded()
+    view.window?.displayIfNeeded()
+    return view.convert(point, to: nil)
+  }
+
+  /// NSView.hitTest takes a point in the receiver's superview coordinates,
+  /// unlike the receiver-local coordinates used by most view drawing APIs.
+  static func hitTest(_ point: CGPoint, in view: NSView, through receiver: NSView?) -> NSView? {
+    guard let receiver else { return nil }
+    receiver.window?.contentView?.layoutSubtreeIfNeeded()
+    receiver.window?.displayIfNeeded()
+    return receiver.hitTest(view.convert(point, to: receiver.superview))
+  }
+
   static func mouse(
     _ type: NSEvent.EventType, location: CGPoint,
     flags: NSEvent.ModifierFlags, window: NSWindow
@@ -135,9 +154,26 @@ enum GraphNativeInput {
         }
       }
     }
+    // Independent target geometry: the source point (150,75) lands at the
+    // center of target (180,95) in a translated, flipped receiver. Passing
+    // that receiver-local point directly to hitTest must miss this target.
+    let parent = NSView(frame: .init(x: 0, y: 0, width: 500, height: 400))
+    let receiver = CoordinateRecorder(frame: .init(x: 80, y: 60, width: 300, height: 200))
+    let source = CoordinateRecorder(frame: .init(x: 30, y: 20, width: 200, height: 150))
+    let target = NSView(frame: .init(x: 150, y: 80, width: 60, height: 30))
+    parent.addSubview(receiver)
+    receiver.addSubview(source)
+    receiver.addSubview(target)
+    window.contentView = parent
+    let point = CGPoint(x: 150, y: 75)
+    let resolvesTarget = hitTest(point, in: source, through: receiver) === target
+    let rejectsLocal = receiver.hitTest(source.convert(point, to: receiver)) !== target
+    check(resolvesTarget, "Native hit-test resolves the independent target through translated/flipped coordinates")
+    check(rejectsLocal, "Native hit-test fixture rejects receiver-local coordinates")
+    passed = passed && resolvesTarget && rejectsLocal
     if passed {
       GraphTestLog.write(
-        "PREFLIGHT: \(deliveries) exact native coordinate/button/window deliveries pass after move/resize"
+        "PREFLIGHT: \(deliveries) exact native coordinate/button/window deliveries and 2 independent native hit-test checks pass after move/resize"
       )
     }
     return passed

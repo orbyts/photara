@@ -1,0 +1,20 @@
+   Compiling photara-store v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-store)
+   Compiling photara-library v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-library)
+   Compiling photara-bridge v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-bridge)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.51s
+    Blocking waiting for file lock on package cache
+   Compiling photara-bridge v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-bridge)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.21s
+     Running `/private/tmp/photara-cxt4d-authfix-rust/debug/photara-uniffi-bindgen generate --library /private/tmp/photara-cxt4d-authfix-rust/debug/libphotara_bridge.dylib --language swift --out-dir /Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/generated`
+/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app/Contents/MacOS/photara-proxy-imageio: replacing existing signature
+/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app/Contents/Frameworks/libphotara_bridge.dylib: replacing existing signature
+/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app: replacing existing signature
+--prepared:/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app/Contents/MacOS/photara-proxy-imageio
+--validated:/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app/Contents/MacOS/photara-proxy-imageio
+--prepared:/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app/Contents/Frameworks/libphotara_bridge.dylib
+--validated:/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app/Contents/Frameworks/libphotara_bridge.dylib
+/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app: valid on disk
+/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app: satisfies its Designated Requirement
+/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-ui-tests/.build/Production UI Verification.app: replacing existing signature
+PASS: production composition, inspection adapter, Core action/undo/redo, HDR proxy, SQLite Library, thumbnails, project snapshots, save/reopen, presentation purity
+Verification project ID: 324e13c8-7914-46b6-92e1-ff11d99ba050

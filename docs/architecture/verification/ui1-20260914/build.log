@@ -1,0 +1,18 @@
+Building for debugging...
+[1 / 1] photara-proxy-imageio-product
+Build complete! (0.27 sec)
+   Compiling photara-bridge v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-bridge)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.30s
+   Compiling photara-bridge v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-bridge)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.61s
+     Running `/private/tmp/photara-cxt4d-authfix-rust/debug/photara-uniffi-bindgen generate --library /private/tmp/photara-cxt4d-authfix-rust/debug/libphotara_bridge.dylib --language swift --out-dir /Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/generated`
+/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app/Contents/MacOS/photara-proxy-imageio: replacing existing signature
+/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app/Contents/Frameworks/libphotara_bridge.dylib: replacing existing signature
+/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app: replacing existing signature
+--prepared:/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app/Contents/MacOS/photara-proxy-imageio
+--validated:/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app/Contents/MacOS/photara-proxy-imageio
+--prepared:/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app/Contents/Frameworks/libphotara_bridge.dylib
+--validated:/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app/Contents/Frameworks/libphotara_bridge.dylib
+/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app: valid on disk
+/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app: satisfies its Designated Requirement
+/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app

@@ -1,0 +1,85 @@
+   Compiling photara-store v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-store)
+   Compiling photara-library v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-library)
+   Compiling photara-service v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-service)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.64s
+     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-567c51d9f6f0fa06)
+
+running 12 tests
+test http::native_furnace::postgres_native_recovery_furnace ... native-service-furnace: normal: 5 Swift assertions passed
+native-service-furnace: normal: committed counts verified; no duplicates
+native-service-furnace: ui1-recover: 7 Swift assertions passed
+native-service-furnace: ui1-crash: committed counts verified; no duplicates
+native-service-furnace: accounts: 8 Swift assertions passed
+native-service-furnace: accounts-rejoin: 15 Swift assertions passed
+native-service-furnace: accounts-relaunch: 5 Swift assertions passed
+native-service-furnace: accounts: committed counts verified; no duplicates
+native-service-furnace: lost-reply: 6 Swift assertions passed
+native-service-furnace: lost-reply: committed counts verified; no duplicates
+native-service-furnace: commit-timeout: 6 Swift assertions passed
+native-service-furnace: commit-timeout: committed counts verified; no duplicates
+native-service-furnace: commit-503: 6 Swift assertions passed
+native-service-furnace: commit-503: committed counts verified; no duplicates
+native-service-furnace: rollback-503: 10 Swift assertions passed
+native-service-furnace: rollback-503: committed counts verified; no duplicates
+native-service-furnace: not-found-replay: 6 Swift assertions passed
+native-service-furnace: not-found-replay: committed counts verified; no duplicates
+native-service-furnace: lookup-503: 8 Swift assertions passed
+native-service-furnace: lookup-503: committed counts verified; no duplicates
+native-service-furnace: unauthorized: 10 Swift assertions passed
+native-service-furnace: unauthorized: committed counts verified; no duplicates
+native-service-furnace: stale-capabilities: 4 Swift assertions passed
+native-service-furnace: stale-capabilities: committed counts verified; no duplicates
+native-service-furnace: recover: 7 Swift assertions passed
+native-service-furnace: crash-commit: committed counts verified; no duplicates
+native-service-furnace: expired-start: 6 Swift assertions passed
+native-service-furnace: expired-retire: 7 Swift assertions passed
+native-service-furnace: expired-cancel: 6 Swift assertions passed
+native-service-furnace: expired-fresh: 10 Swift assertions passed
+native-service-furnace: expired-fresh: committed counts verified; no duplicates
+native-service-furnace: expired-start: 6 Swift assertions passed
+native-service-furnace: expired-fresh-inline: 10 Swift assertions passed
+native-service-furnace: expired-fresh-inline: committed counts verified; no duplicates
+native-service-furnace: expired-start: 6 Swift assertions passed
+native-service-furnace: expired-retire: 7 Swift assertions passed
+native-service-furnace: expired-cancel: 6 Swift assertions passed
+native-service-furnace: expired-fresh-late-before: 11 Swift assertions passed
+native-service-furnace: expired-fresh-late-before: committed counts verified; no duplicates
+native-service-furnace: expired-start: 6 Swift assertions passed
+native-service-furnace: expired-retire: 7 Swift assertions passed
+native-service-furnace: expired-cancel: 6 Swift assertions passed
+native-service-furnace: expired-fresh-late-after: 11 Swift assertions passed
+native-service-furnace: expired-fresh-late-after: committed counts verified; no duplicates
+native-service-furnace: expired-start: 6 Swift assertions passed
+native-service-furnace: expired-retire: 7 Swift assertions passed
+native-service-furnace: expired-cancel: 6 Swift assertions passed
+native-service-furnace: recover: 7 Swift assertions passed
+native-service-furnace: expired-fresh-crash-commit: committed counts verified; no duplicates
+native-service-furnace: expired-start: 6 Swift assertions passed
+native-service-furnace: expired-retire: 7 Swift assertions passed
+native-service-furnace: expired-cancel: 6 Swift assertions passed
+native-service-furnace: recover: 7 Swift assertions passed
+native-service-furnace: expired-fresh-crash-receipt: committed counts verified; no duplicates
+ok
+test http::tests::postgres_http_signed_bootstrap_and_bounds ... ok
+test onboarding_pgtests::postgres_onboarding_atomic_replay_and_sessions ... ok
+test onboarding_pgtests::postgres_onboarding_concurrent_installations ... ok
+test onboarding_pgtests::postgres_onboarding_upgrade_preserves_deployed_ledger ... ok
+test onboarding_pgtests::postgres_onboarding_write_faults_and_unknown_commit ... ok
+test onboarding_pgtests::postgres_ui1_creation_atomic_projection_replay_and_collision ... ok
+test pgtests::postgres_access_races_and_guards ... CXT3c: 246 additional unprivileged access/privilege cells; last manager, last identity, atomic transfer, access CAS, feed rollback, Library collision and live floor refusal passed
+ok
+test pgtests::postgres_disposable_contract ... CXT3c: 160 authorization cells; exact identity, Project-only isolation, receipts, explicit regrant, invitation token/target, pooled cleanup passed
+ok
+test pgtests::postgres_fake_sync_transport ... CXT3c: fake transport activation, sealed collision, lost-reply reconciliation, whole-batch apply, access-loss retention, rebootstrap and overlay conflict passed
+ok
+test pgtests::postgres_inherited_matrix_and_revocation ... CXT3c: 272 inherited-policy and sensitivity cells; revocation/read serialization and admin self-grant denial passed
+ok
+test pgtests::postgres_schema_and_runtime_refusal ... CXT3c: migration checksum/floor rollback, migration-owner runtime refusal, disabled Account and revoked device passed
+ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 12.22s
+
+
+Measured inventory: /private/tmp/photara-ui1-postgres-inventory.json
+{"columns": 606, "constraints": 1138, "functions": 52, "indexes": 165, "ledger": 14, "policies": 173, "statements": 726, "tables": 59, "triggers": 122}
+Disposable cluster stopped. Evidence: /private/tmp/photara-cxt3c-2igaio0b/proof.log

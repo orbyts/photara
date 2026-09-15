@@ -109,15 +109,25 @@ impl Service {
         }
         c.disclosure.validate(actor, &ProjectPolicy::restricted())?;
         let mut tx = self.begin(actor, r, ProjectAction::Edit, &[]).await?;
+        let receipt = self.register_project_in(&mut tx, actor, r, c).await?;
+        tx.commit().await?;
+        Ok(receipt)
+    }
+    pub(crate) async fn register_project_in(
+        &self,
+        tx: &mut Transaction,
+        actor: &Actor,
+        r: Request,
+        c: &RegisterProject,
+    ) -> Result<ControlReceipt> {
         let body = (r.scope, "register-project", c);
-        if let Some(v) = retry(&mut tx, actor, r, c.operation, &body).await? {
-            tx.commit().await?;
+        if let Some(v) = retry(tx, actor, r, c.operation, &body).await? {
             return Ok(v);
         }
-        sqlx::query("INSERT INTO photara.project_ownership(project_id,library_id,registration_state,association_commit_id,association_commit_sha256,source_format,record_schema,revision,created_at,updated_at) VALUES($1,$2,'active',$3,$4,'photara.project.g2',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(c.project.uuid()).bind(r.scope.library().uuid()).bind(c.disclosure.commit.uuid()).bind(c.disclosure.commit_sha256.to_vec()).execute(&mut *tx).await?;
-        sqlx::query("INSERT INTO photara.project_access_policies VALUES($1,$2,'restricted',0,0,0,0,1,1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(r.scope.library().uuid()).bind(c.project.uuid()).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO photara.project_ownership(project_id,library_id,registration_state,association_commit_id,association_commit_sha256,source_format,record_schema,revision,created_at,updated_at) VALUES($1,$2,'active',$3,$4,'photara.project.g2',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(c.project.uuid()).bind(r.scope.library().uuid()).bind(c.disclosure.commit.uuid()).bind(c.disclosure.commit_sha256.to_vec()).execute(&mut **tx).await?;
+        sqlx::query("INSERT INTO photara.project_access_policies VALUES($1,$2,'restricted',0,0,0,0,1,1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(r.scope.library().uuid()).bind(c.project.uuid()).execute(&mut **tx).await?;
         insert_grant(
-            &mut tx,
+            tx,
             r.scope.library().uuid(),
             c.project,
             actor.account,
@@ -125,10 +135,10 @@ impl Service {
             ActionMask::new(255).map_err(|_| ServiceError::Invalid)?,
         )
         .await?;
-        sqlx::query("INSERT INTO photara.project_catalog VALUES($1,$2,'visible',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(r.scope.library().uuid()).bind(c.project.uuid()).execute(&mut *tx).await?;
-        sqlx::query("INSERT INTO photara_private.scoped_streams VALUES($1,$2,'project',$3,$4,0,CURRENT_TIMESTAMP)").bind(Uuid::new_v4()).bind(r.scope.library().uuid()).bind(c.project.uuid()).bind(Uuid::new_v4()).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO photara.project_catalog VALUES($1,$2,'visible',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(r.scope.library().uuid()).bind(c.project.uuid()).execute(&mut **tx).await?;
+        sqlx::query("INSERT INTO photara_private.scoped_streams VALUES($1,$2,'project',$3,$4,0,CURRENT_TIMESTAMP)").bind(Uuid::new_v4()).bind(r.scope.library().uuid()).bind(c.project.uuid()).bind(Uuid::new_v4()).execute(&mut **tx).await?;
         let generation = bump(
-            &mut tx,
+            tx,
             Scope::Project {
                 library: r.scope.library(),
                 project: c.project,
@@ -140,8 +150,7 @@ impl Service {
             generation,
             target: c.project.uuid(),
         };
-        record(&mut tx, actor, r, &body, "register-project", &receipt).await?;
-        tx.commit().await?;
+        record(tx, actor, r, &body, "register-project", &receipt).await?;
         Ok(receipt)
     }
     /// # Errors

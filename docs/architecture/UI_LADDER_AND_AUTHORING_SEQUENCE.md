@@ -1,9 +1,15 @@
 # UI ladder and authoring sequence
 
-Status: UI0 accepted and UI1 Create Project visual checkpoint accepted, 2026-09-14.
-Compact is the shipped default. Real creation wiring is pending.
-**Verified:** all final Xcode 27 gates pass, including 15,644 Graph assertions with
-zero failures. Delivery is an authorized normal fast-forward push.
+Status, 2026-09-14: UI0 and Compact are accepted; real UI1 creation is implemented
+in the working tree. See [UI1 implementation and recovery evidence](UI1_CREATE_PROJECT.md).
+The full unchanged Graph furnace passes 15,644 assertions with zero failures.
+Publication is not authorized: no commit/push/install/deploy or live data changes.
+Library Lifecycle remains separately gated with exact-name retyping, impact counts,
+current ownership and orphan-free catalog cleanup; packages and source/archive
+files must remain untouched. UI2/UI3 are not implemented by this slice.
+
+The following visual-checkpoint sections retain historical scope and authorization;
+they do not describe or authorize publication of the new creation implementation.
 
 ## Accepted UI0 and UI1 visual checkpoint
 

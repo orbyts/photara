@@ -3,10 +3,17 @@ set -euo pipefail
 
 SCRIPT_ROOT="${0:A:h}"
 REPOSITORY_ROOT="${SCRIPT_ROOT:h:h:h}"
-BUILD_ROOT="$SCRIPT_ROOT/.build/app"
+# Verification callers must be able to isolate every generated artifact, not
+# merely Cargo's output. The default remains the interactive development app.
+BUILD_ROOT="${PHOTARA_APP_BUILD_ROOT:-$SCRIPT_ROOT/.build/app}"
+BUILD_ROOT="${BUILD_ROOT:A}"
 RUST_TARGET="${PHOTARA_APP_RUST_TARGET:-$BUILD_ROOT/rust-target}"
 GENERATED_ROOT="$BUILD_ROOT/generated"
 MODULE_CACHE="$BUILD_ROOT/module-cache"
+# SwiftPM compiles Package.swift before building the helper. Its manifest and
+# Clang caches otherwise escape --scratch-path into the user's cache directory.
+export CLANG_MODULE_CACHE_PATH="$MODULE_CACHE"
+export SWIFTPM_MODULECACHE_OVERRIDE="$MODULE_CACHE"
 PRODUCT_CHANNEL="${PHOTARA_RELEASE_CHANNEL:-development}"
 PRODUCT_NAME="$(python3 "$REPOSITORY_ROOT/scripts/generate_product_configuration.py" \
   --channel "$PRODUCT_CHANNEL" --output "$GENERATED_ROOT")"
@@ -43,6 +50,10 @@ ditto "$REPOSITORY_ROOT/platform/macos/photara-graph/Resources/ToolIcons" "$RESO
 
 swift build \
   --package-path "$REPOSITORY_ROOT/platform/macos/photara-proxy-imageio" \
+  --cache-path "$BUILD_ROOT/swiftpm-cache" \
+  --config-path "$BUILD_ROOT/swiftpm-configuration" \
+  --security-path "$BUILD_ROOT/swiftpm-security" \
+  --manifest-cache local \
   --scratch-path "$PROXY_HELPER_BUILD"
 cp -p "$PROXY_HELPER_BUILD/debug/photara-proxy-imageio" "$PROXY_HELPER"
 
@@ -62,6 +73,7 @@ CARGO_TARGET_DIR="$RUST_TARGET" cargo run \
 
 cp -p "$RUST_TARGET/debug/libphotara_bridge.dylib" "$FRAMEWORKS/libphotara_bridge.dylib"
 
+PHOTARA_SHARED_UI_GENERATED_ROOT="$GENERATED_ROOT"
 source "$REPOSITORY_ROOT/platform/macos/shared-ui-sources.sh"
 
 xcrun swiftc \

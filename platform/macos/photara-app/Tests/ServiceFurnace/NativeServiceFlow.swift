@@ -109,6 +109,10 @@ private actor FixtureTransport: NativeAuthenticationHTTP {
             if mode == "lookup-503" { precondition(response.1 == 200); try await fault(9); throw NativeAuthenticationError.transportUnavailable }
             if mode == "lost-reply" { precondition(response.1 == 200); throw NativeAuthenticationError.transportUnavailable }
         }
+        if path == "/v1/projects/create", mode == "ui1-crash" {
+            precondition(response.1 == 200, "Real creation committed before simulated crash")
+            exit(76)
+        }
         return response
     }
     func token(subject: String, nonce: String) async throws -> (String, String) {
@@ -185,6 +189,31 @@ private actor FixtureTransport: NativeAuthenticationHTTP {
         let passive = try await driver().savedState()
         check(browsers == 0 && exchanges == 0 && refreshes == 0 && credentialOpens == 0, "Launch reads only local metadata")
         check(await transport.requests == 0, "Launch makes no service requests")
+        if mode.hasPrefix("ui1-") {
+            let journal = NativeProjectCreationJournal(path: directory.appending(path: "State/photara-local-v2.sqlite").path)
+            let operation: BridgeProjectCreation
+            if mode == "ui1-crash" {
+                check(try await driver().signIn { _ in } == .cloudReady, "UI1 signs into disposable Library")
+                let destination = directory.appending(path: "Projects")
+                try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+                let prepared = try await journal.prepare(operation: UUID().uuidString.lowercased(), title: "Furnace Project", destination: destination, destinationPin: try inspectCreationDestination(path: destination.path))
+                operation = try await journal.advance(prepared.operationId)
+                check(operation.state == "staged", "Cloud package waits privately for service")
+            } else {
+                operation = try await journal.operations().first!
+                check(operation.state == "dispatching", "Restart retains unknown service outcome")
+                check(browsers == 0, "Creation restart opens no browser")
+            }
+            try await driver().projectCreation(operation, journal: journal)
+            let completed = try await journal.advance(operation.operationId)
+            check(completed.state == "complete", "Real service, package and SQLite complete")
+            let replay = try await journal.advance(operation.operationId)
+            check(replay.projectId == completed.projectId && replay.graphId == completed.graphId && replay.commitSha256 == completed.commitSha256, "Exact Project, Graph and commit survive replay")
+            check(try await journal.operations().count == 1, "One retained creation")
+            try json(["project":completed.projectId,"graph":completed.graphId,"library":completed.libraryId,"commit_sha256":completed.commitSha256,"package":completed.packagePath,"device":completed.deviceId]).write(to: directory.appending(path: "creation-result.json"))
+            print("native-service-furnace: \(mode): \(assertions) Swift assertions passed")
+            return
+        }
         if mode.hasPrefix("accounts") {
             if mode == "accounts" {
                 check(passive == .localReady, "First account launch offers sign in")

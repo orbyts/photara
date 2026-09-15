@@ -46,7 +46,7 @@ impl LocalLibraryStore {
                 let (family, reader, writer, epoch): (String, i64, i64, i64) = connection.query_row("SELECT schema_family,minimum_reader,minimum_writer,schema_epoch FROM schema_metadata WHERE singleton=1", [], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).map_err(|_| Error::ForeignDatabase)?;
                 if family != "photara.local.g2"
                     || epoch != 1
-                    || !(1..=4).contains(&reader)
+                    || !(1..=5).contains(&reader)
                     || writer != reader
                 {
                     return Err(Error::Unsupported);
@@ -164,32 +164,7 @@ impl LocalLibraryStore {
     ) -> Result<()> {
         let mut tx = self.write().await?;
         local_authority(&mut tx, project.library_id, actor).await?;
-        sqlx::query("INSERT INTO project_ownership VALUES(?,?,'active',?,?,?,'photara.package.v1.1',1,1,?,?)")
-            .bind(project.project_id.bytes()).bind(project.library_id.bytes()).bind(project.association_commit_id.bytes()).bind(project.association_sha256.to_vec()).bind(project.source_origin_library_id.map(LibraryId::bytes)).bind(at.get()).bind(at.get()).execute(&mut *tx).await?;
-        sqlx::query(
-            "INSERT INTO project_access_policies VALUES(?,?,'restricted',0,0,0,0,1,1,1,?,?)",
-        )
-        .bind(project.library_id.bytes())
-        .bind(project.project_id.bytes())
-        .bind(at.get())
-        .bind(at.get())
-        .execute(&mut *tx)
-        .await?;
-        sqlx::query(
-            "INSERT INTO project_access_grants VALUES(?,?,?,NULL,?,255,'active',NULL,1,1,?,?)",
-        )
-        .bind(Uuid::new_v4().as_bytes().to_vec())
-        .bind(project.library_id.bytes())
-        .bind(project.project_id.bytes())
-        .bind(actor.uuid().as_bytes().to_vec())
-        .bind(at.get())
-        .bind(at.get())
-        .execute(&mut *tx)
-        .await?;
-        sqlx::query("INSERT INTO project_catalog(library_id,project_id,visibility,local_revision,created_at_ms,updated_at_ms) VALUES(?,?,'visible',1,?,?)").bind(project.library_id.bytes()).bind(project.project_id.bytes()).bind(at.get()).bind(at.get()).execute(&mut *tx).await?;
-        bump_authority(&mut tx, project.library_id, at).await?;
-        audit_control(&mut tx,self.info.device_id,actor,project.library_id,"register-project",&serde_json::json!({"project_id":project.project_id,"association_commit_id":project.association_commit_id,"association_sha256":hex(&project.association_sha256)}),at).await?;
-        assert_manager(&mut tx, project.library_id, project.project_id).await?;
+        register_local_project(&mut tx, self.info.device_id, actor, project, at).await?;
         tx.commit().await?;
         Ok(())
     }
@@ -351,6 +326,47 @@ pub struct LocalGrantChange {
     pub regrant: bool,
 }
 
+pub(super) async fn register_local_project(
+    tx: &mut SqliteConnection,
+    device: DeviceId,
+    actor: LocalPrincipalId,
+    project: &RegisteredProject,
+    at: Timestamp,
+) -> Result<()> {
+    sqlx::query(
+        "INSERT INTO project_ownership VALUES(?,?,'active',?,?,?,'photara.package.v1.1',1,1,?,?)",
+    )
+    .bind(project.project_id.bytes())
+    .bind(project.library_id.bytes())
+    .bind(project.association_commit_id.bytes())
+    .bind(project.association_sha256.to_vec())
+    .bind(project.source_origin_library_id.map(LibraryId::bytes))
+    .bind(at.get())
+    .bind(at.get())
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query("INSERT INTO project_access_policies VALUES(?,?,'restricted',0,0,0,0,1,1,1,?,?)")
+        .bind(project.library_id.bytes())
+        .bind(project.project_id.bytes())
+        .bind(at.get())
+        .bind(at.get())
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("INSERT INTO project_access_grants VALUES(?,?,?,NULL,?,255,'active',NULL,1,1,?,?)")
+        .bind(Uuid::new_v4().as_bytes().to_vec())
+        .bind(project.library_id.bytes())
+        .bind(project.project_id.bytes())
+        .bind(actor.uuid().as_bytes().to_vec())
+        .bind(at.get())
+        .bind(at.get())
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("INSERT INTO project_catalog(library_id,project_id,visibility,local_revision,created_at_ms,updated_at_ms) VALUES(?,?,'visible',1,?,?)").bind(project.library_id.bytes()).bind(project.project_id.bytes()).bind(at.get()).bind(at.get()).execute(&mut *tx).await?;
+    bump_authority(&mut *tx, project.library_id, at).await?;
+    audit_control(&mut *tx,device,actor,project.library_id,"register-project",&serde_json::json!({"project_id":project.project_id,"association_commit_id":project.association_commit_id,"association_sha256":hex(&project.association_sha256)}),at).await?;
+    assert_manager(&mut *tx, project.library_id, project.project_id).await?;
+    Ok(())
+}
 pub(super) async fn local_authority(
     conn: &mut SqliteConnection,
     library: LibraryId,
@@ -416,7 +432,7 @@ mod tests {
         let (store, first) = LocalLibraryStore::open_app_state(&path, at())
             .await
             .unwrap();
-        assert_eq!(store.info().migration_count, 14);
+        assert_eq!(store.info().migration_count, 15);
         assert_eq!(store.libraries(None, 100, false).await.unwrap().len(), 1);
         store.verify_integrity().await.unwrap();
         store.close().await;
@@ -652,7 +668,7 @@ mod migration_tests {
         let (store, _) = LocalLibraryStore::open_app_state(&path, at())
             .await
             .unwrap();
-        assert_eq!(store.info().migration_count, 14);
+        assert_eq!(store.info().migration_count, 15);
         store.verify_integrity().await.unwrap();
         store.close().await;
         let bad = dir.path().join("failure.sqlite");
@@ -717,7 +733,7 @@ mod migration_tests {
         let connection = rusqlite::Connection::open(&fresh).unwrap();
         connection
             .execute(
-                "UPDATE schema_metadata SET minimum_reader=5,minimum_writer=5",
+                "UPDATE schema_metadata SET minimum_reader=6,minimum_writer=6",
                 [],
             )
             .unwrap();

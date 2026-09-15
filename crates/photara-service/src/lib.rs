@@ -2,6 +2,7 @@
 //! publisher, production identity provider or network server is installed here.
 mod access;
 pub mod auth;
+mod creation;
 mod fake_sync;
 pub mod http;
 mod management;

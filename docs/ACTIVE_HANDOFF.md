@@ -1,5 +1,150 @@
 # Active handoff
 
+## 2026-09-15 UI1 integration checkpoint — Graph blocker resolved
+
+The uncommitted `/Users/suhail/.codex/worktrees/6569/photara` worktree is ready for
+review and a separately authorized UI1 checkpoint commit. **No commit, push,
+installation, publication or live-data change was performed.**
+
+Final full Graph gate: **19,093 assertions / 0 failures**, exit 0, all 12 native
+configurations and 12×180 seeded actions. It ran alone, with frozen source hashes,
+no targeted/fault/preflight flags, no concurrent compiler/verifier, no rebuild and
+no interactive approval after gate entry. The initial 17,469/12 failure, intermediate
+19,090/1 full run, and two reported windowless replay attempts remain historical
+failures, not passing evidence.
+
+The harness now explicitly creates/identifies its native AppKit test window and
+logs process/lifecycle entry before verification. A PID/token/window handshake and
+external 15-second startup / 1,200-second execution watchdog prevent indefinite
+windowless/stalled runs; diagnostics and cleanup address only the owned process.
+Native menu selection timers cancel when tracking ends, and bounded native focus
+acquisition/restoration checks active app, key window, first responder and actual
+foreground PID. No production Graph, oracle, tolerance or original assertion was
+weakened. Three native hit-tests now use AppKit's required superview coordinates;
+an independent translated/flipped fixture rejects the original mistake. The focused
+camera/overview check passes **176/0**. Native toolbar/sidebar/chrome remain OS-owned.
+
+Fresh checks: exact failing Light/Straight seed **924/0**; all 12 context-menu
+configurations **2,239/0**; eight real-process furnace scenarios **49 launcher
+checks + 60 native assertions / 0 unexpected failures**; prompt-free signed native
+permissions, shell/Python syntax and 40-file ownership guard. The furnace includes
+cold launch, deliberate windowless/stalled startup, recovery, runtime timeout,
+owned-child cleanup, and genuine foreground interruption by a separate process.
+The historical randomized action33 failure remains unclassified beyond its
+pre-tool-switch branch-ownership precondition; exact replay/full run now pass.
+
+The [checkpoint report](architecture/UI1_INTEGRATION_CHECKPOINT.md) and
+[machine-readable evidence](architecture/verification/ui1-integration-20260915.json)
+contain the exact 78-file inventory, command/results and preservation checks.
+All prior non-Graph integration gates retain their measured passes and unchanged
+inputs. All four source worktrees and all existing source app bundle bytes/modes/
+Team IDs are preserved. SQLite 0015/floors 5/5, PostgreSQL 0014/API 3 and package
+1.1 remain unchanged. Live Keychain/login/service rollout and CXT4e remain separate.
+
+**Next eligible step:** review this UI1 checkpoint; a commit still needs explicit
+authorization. The accepted next implementation slice is separately scoped
+**Library Lifecycle**. COV0 documentation may be reconciled separately after UI1
+acceptance: retain both ROADMAP entries at its one conflict and refresh UI1/0015
+references. No COV0/COV1/Gallery/browser/lifecycle implementation is included.
+
+## 2026-09-15 initial UI1 integration checkpoint — historical Graph failure
+
+This section records the initial failed checkpoint. The resolved verdict and current
+inventory appear above.
+
+Reviewable, uncommitted integration worktree:
+`/Users/suhail/.codex/worktrees/6569/photara`, based on remote default `main` at
+`c605475742f22581060ff009fcbcfd2a3acc4e36` (verified read-only).
+**Not safe to commit as a verified UI1 checkpoint yet.** The clean sequential
+full Graph run completed all 12 configurations and 12×180 seeded actions with
+**17,469 assertions / 12 failures**, exit 1. Failures include routed-edge disconnect,
+surviving/random branch ownership and native focus. Do not substitute the earlier
+source worktree's passing run for this result or weaken any oracle/tolerance.
+
+The [integration report](architecture/UI1_INTEGRATION_CHECKPOINT.md) contains the
+exact **72-file inventory**, source overlaps/base/divergence, integration decisions,
+commands/results, protected-bundle checks and remaining gates. Its
+[machine-readable evidence](architecture/verification/ui1-integration-20260915.json)
+includes full source-delta hashes and bundle file inventories. The next checkpoint
+action is to diagnose Graph's failures and obtain a clean full sequential pass.
+
+Passed: 289 Rust tests; all-target check/Clippy/fmt; schema/fixture/naming/ownership
+and configuration guards; synthetic native authentication; 12 private PostgreSQL
+tests plus native HTTP/recovery furnace; bridge; isolated signed build; production
+UI (27 captures); shared UI (117 captures). SwiftPM manifest/module/cache/config
+paths were additionally confined to the selected build root. Hostile inherited
+production output/signing/cache settings created none of their forbidden paths.
+
+All source files in main, `12ef`, `3e99` and `deb1` are unchanged. All 20 regular
+files in each signed source app, and all 16 in the older ad-hoc Graph-context app,
+retain exact bytes; bundle entries/modes and Team IDs are unchanged. The signed
+`12ef` app validates under Team `524GTA93Q3`; the Dropbox checkout bundle separately
+fails strict validation because of a FinderInfo xattr and was not repaired.
+SQLite adds only 0015/floors 5/5; PostgreSQL remains 0014/API 3; all 28 existing
+migration files and package format 1.1 are preserved. No live data, Keychain entry,
+installed service or interactive app was changed. Keychain-write/live-login and
+matching desktop/service rollout gates remain separate.
+
+COV0 remains documentation-only and separate. Its dry three-way merge has **one
+ROADMAP.md conflict**; the other overlapping documents merge cleanly. After UI1
+acceptance, retain both entries and refresh UI1/0015 dependency wording. Do not
+activate cover/Gallery migrations or implement COV0/COV1/browser/lifecycle work.
+No commit, push, publication or installation occurred. Older checkpoint sections
+below retain historical evidence and do not override this current failed gate.
+
+## 2026-09-15 native verification harness hardening
+
+Production UI verification now builds its input app, generated product identity,
+bindings, Rust/helper outputs and caches under a fresh owned run directory. It
+cannot replace the default signed interactive app; all 20 existing bundle file
+hashes and Team ID `524GTA93Q3` remained unchanged. Snapshot sizing preserves real
+macOS chrome/toolbars, checks both content dimensions across native layout turns,
+and explicitly verifies the production Library toolbar is populated. Graph test
+input drains pending layout and requires stable native focus; production Graph
+sources, fixture data, oracle and original behavioral assertions remain unchanged.
+
+Final gates: **18,086 Graph assertions / 0 failures**, all 12 configurations and
+12×180 seeded actions; two production passes with **27 captures each**; shared UI
+pass with **117 captures**, 225 transitions and native Opening/Create accessibility
+probes. Configuration tests (7), ownership guard (37 files), shell syntax and
+whitespace pass. Earlier runs exposed focus/native input failures; the final full
+run passed after the stability precondition. A follow-on isolated wheel replay
+stalled before producing lifecycle output and was stopped on request; the queued
+knot replay did not run. Do not claim those additional replays passed. Both seeds
+are covered by the successful final full matrix. No more gates are running.
+
+See [UI1 hardening evidence](architecture/UI1_CREATE_PROJECT.md#2026-09-15-native-verification-hardening).
+No commit, push, production app launch/installation, service change or live database
+write was performed by this hardening task. The native-first design policy is
+preserved; fixture geometry is test-only and no native chrome is imitated.
+
+## 2026-09-14 UI1 real Create Project implementation
+
+UI1 is implemented from `c605475` in the uncommitted working tree. The approved
+shared Compact sheet and native Opening are preserved. Rust now owns the initial
+Project/Graph package, durable SQLite creation/recovery and exact cloud command;
+the existing local development Rust HTTP service transactionally registers and
+projects it in PostgreSQL. No desktop database credentials or Fly resources were
+introduced. Completion uses the existing safe saved-Graph shell, with legacy
+single-document authoring actions unavailable for package projects.
+
+The [implementation, recovery boundaries and measured checks](architecture/UI1_CREATE_PROJECT.md)
+cover native destination selection, collision/permission/volume checks,
+duplicate/concurrent/restart recovery, cancellation, package/catalog rollback and
+lost cloud reply reconciliation. SQLite adds migration 0015 (local floor 5);
+PostgreSQL stays at migration 14/API floor 3. The full Graph furnace passes 15,644
+assertions with zero failures; original Graph source/oracles are unchanged.
+
+**No commit, push, installation, deployment or live user/Neon change is authorized.**
+Those actions require explicit publication approval after reviewing the local schema
+floor and matching service endpoint. UI2/UI3 and CXT4e remain open. Library Lifecycle
+is the next separately gated slice: exact Library-name retyping, current
+ownership/authorization and impact counts; transactional catalog/reference cleanup
+without database orphans; never deletion of packages or source/archive files.
+
+The earlier visual-checkpoint status and its publication authorization below are
+historical and do not authorize publication of this implementation.
+
 ## 2026-09-14 UI0 accepted; UI1 Compact visual checkpoint accepted
 
 **Final checkpoint verification passes on Xcode 27:** Graph 15,644 assertions,

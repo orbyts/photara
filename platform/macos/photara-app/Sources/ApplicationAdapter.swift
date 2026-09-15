@@ -3,19 +3,20 @@ import SwiftUI
 
 extension AppModel {
     func applicationPresentation(_ session: EditorSessionModel) -> ApplicationPresentation {
-        return .init(hasOpenProject: hasOpenProject, title: snapshot?.title ?? "Photara Project",
-            subtitle: snapshot.map { "rev \($0.projectRevision) · \($0.projectId.prefix(12))" } ?? "Not loaded",
+        return .init(hasOpenProject: hasOpenProject, title: createdProject?.title ?? snapshot?.title ?? "Photara Project",
+            subtitle: createdProject.map { "Graph 1 · Saved package · \($0.projectId.prefix(12))" } ?? snapshot.map { "rev \($0.projectRevision) · \($0.projectId.prefix(12))" } ?? "Not loaded",
             isDirty: snapshot?.dirty == true, nodeCount: snapshot?.nodes.count ?? 0,
             diagnosticCount: snapshot?.diagnostics.count ?? 0, progressLabel: progressLabel,
             isEvaluating: isEvaluating,
             workSurfaces: (snapshot?.nodes ?? []).compactMap { ProductionWorkSurfaceRegistry.presentation(for: $0) },
-            projectID: snapshot?.projectId, nodeIDs: snapshot?.nodes.map(\.nodeId) ?? [],
+            projectID: createdProject?.projectId ?? snapshot?.projectId, nodeIDs: snapshot?.nodes.map(\.nodeId) ?? [],
             hasAssets: !(snapshot?.assets.isEmpty ?? true),
             hasAssetProducingContext: snapshot?.nodes.contains { node in
                 node.ports.contains { $0.direction == .output && $0.valueTypeId == "photara.asset-set" }
             } == true,
             hasReviewableResult: snapshot?.assets.contains { galleryProxyImages[$0.assetId] != nil } == true,
-            recentProjects: recentProjects.map { .init(id: $0.id, title: $0.title, lastOpened: $0.lastOpened) })
+            recentProjects: recentProjects.map { .init(id: $0.id, title: $0.title, lastOpened: $0.lastOpened) },
+            canAuthorProject: createdProject == nil)
     }
     func performApplicationAction(_ action: ApplicationAction) {
         switch action {

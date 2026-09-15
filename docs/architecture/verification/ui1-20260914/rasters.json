@@ -1,0 +1,88 @@
+{
+  "opening-light-narrow.png": {
+    "pixels": [
+      1520,
+      1224
+    ],
+    "blank_content_srgb": [
+      255,
+      255,
+      255
+    ],
+    "samples": 12,
+    "surface_owner": "macOS"
+  },
+  "opening-light-standard.png": {
+    "pixels": [
+      2560,
+      1744
+    ],
+    "blank_content_srgb": [
+      255,
+      255,
+      255
+    ],
+    "samples": 12,
+    "surface_owner": "macOS"
+  },
+  "opening-dark-narrow.png": {
+    "pixels": [
+      1520,
+      1224
+    ],
+    "blank_content_srgb": [
+      30,
+      30,
+      30
+    ],
+    "samples": 12,
+    "surface_owner": "macOS"
+  },
+  "opening-dark-standard.png": {
+    "pixels": [
+      2560,
+      1744
+    ],
+    "blank_content_srgb": [
+      30,
+      30,
+      30
+    ],
+    "samples": 12,
+    "surface_owner": "macOS"
+  },
+  "ladder-light": [
+    [
+      238,
+      238,
+      238
+    ],
+    [
+      247,
+      247,
+      247
+    ],
+    [
+      255,
+      255,
+      255
+    ]
+  ],
+  "ladder-dark": [
+    [
+      32,
+      32,
+      32
+    ],
+    [
+      41,
+      41,
+      41
+    ],
+    [
+      51,
+      51,
+      51
+    ]
+  ]
+}

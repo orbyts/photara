@@ -5,6 +5,7 @@
 //! object bytes remain available; validation does not rewrite unknown fields.
 
 pub mod compatibility;
+pub mod creation;
 mod json;
 mod reader;
 mod records;

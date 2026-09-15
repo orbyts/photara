@@ -3,9 +3,13 @@
 uniffi::setup_scaffolding!();
 
 mod asset_materializer;
+#[cfg(unix)]
+mod creation;
 mod evaluation;
 mod library;
 mod local_state;
+#[cfg(unix)]
+pub use creation::*;
 pub use local_state::*;
 mod onboarding;
 pub use onboarding::*;

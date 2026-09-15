@@ -162,14 +162,16 @@ struct ApplicationShell<Panel: View>: View {
         }
     }
     @ViewBuilder private var projectActionControls: some View {
-        Button("Add Node", systemImage: "plus") { session.requestNodeMenu() }
-        if presentation.isEvaluating {
-            Button("Cancel", systemImage: "stop.fill") { actions.send(.cancel) }
-        } else if presentation.nodeCount > 0 {
-            Button("Run", systemImage: "play.fill") { actions.send(.evaluate) }
+        if presentation.canAuthorProject {
+            Button("Add Node", systemImage: "plus") { session.requestNodeMenu() }
+            if presentation.isEvaluating {
+                Button("Cancel", systemImage: "stop.fill") { actions.send(.cancel) }
+            } else if presentation.nodeCount > 0 {
+                Button("Run", systemImage: "play.fill") { actions.send(.evaluate) }
+            }
+            Button("Save", systemImage: "square.and.arrow.down") { actions.send(.save) }
+                .disabled(!presentation.isDirty)
         }
-        Button("Save", systemImage: "square.and.arrow.down") { actions.send(.save) }
-            .disabled(!presentation.isDirty)
         panelsMenu
     }
     private var canvasBackground: some View { canvasFill }
@@ -310,7 +312,7 @@ struct ApplicationShell<Panel: View>: View {
                 allowsPlacement: true,
                 title: id == .nodeWorkSurface ? activeWorkSurface?.title : nil)
             hostedPanel(id).padding(preset.frame.contentInset).frame(maxWidth: .infinity, maxHeight: .infinity).overlay {
-                if id == .graph && presentation.nodeCount == 0 {
+                if id == .graph && presentation.nodeCount == 0 && presentation.canAuthorProject {
                     VStack(spacing: 12) {
                         Text("Build your workflow").font(.title2.weight(.semibold))
                         Text("Add your first node to begin automating this project.")
@@ -350,7 +352,9 @@ struct ApplicationShell<Panel: View>: View {
             }
             Divider()
             if presentation.hasOpenProject {
-            Button("Import Pair…", systemImage: "photo.badge.plus") { actions.send(.importPair) }
+            if presentation.canAuthorProject {
+                Button("Import Pair…", systemImage: "photo.badge.plus") { actions.send(.importPair) }
+            }
             Button("Close Project") { actions.send(.closeProject) }
             }
             Button("Restore Editor") { session.restoreLayoutAuthoringPreset() }

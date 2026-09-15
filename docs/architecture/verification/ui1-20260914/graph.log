@@ -1,0 +1,37 @@
+/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-graph-lab/.build/verification/Graph Lab Verification.app: replacing existing signature
+Graph verification log: /Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-graph-lab/.build/verification/run.6ZTTSX/stdout.log
+LIFECYCLE: didFinishLaunching=true, isRunning=true, pid=40873
+PERMISSIONS: Accessibility=true, ScreenCapture=true
+PROBE HID: received=[1, 6, 2], passed=true, postPreflight=true
+PROBE AX: lookup=0, press=Optional(-25200), observedActions=1, apiSucceeded=false, diagnosticOnly=true
+PROBE ScreenCaptureKit: 640x480, calibration=true
+PROBE CGWindow: exit=0, calibration=true
+PREFLIGHT: 81 exact native coordinate/button/window deliveries pass after move/resize
+MATRIX: light, straight, 0.55
+MATRIX: light, straight, 1.0
+MATRIX: light, straight, 1.8
+MATRIX: light, curved, 0.55
+MATRIX: light, curved, 1.0
+MATRIX: light, curved, 1.8
+MATRIX: dark, straight, 0.55
+MATRIX: dark, straight, 1.0
+MATRIX: dark, straight, 1.8
+MATRIX: dark, curved, 0.55
+MATRIX: dark, curved, 1.0
+MATRIX: dark, curved, 1.8
+RANDOM: seed=22597503690035777 light/straight, 180 actions
+RANDOM: seed=12648430 light/straight, 180 actions
+RANDOM: seed=20260909 light/straight, 180 actions
+RANDOM: seed=22597503690035777 light/curved, 180 actions
+RANDOM: seed=12648430 light/curved, 180 actions
+RANDOM: seed=20260909 light/curved, 180 actions
+RANDOM: seed=22597503690035777 dark/straight, 180 actions
+RANDOM: seed=12648430 dark/straight, 180 actions
+RANDOM: seed=20260909 dark/straight, 180 actions
+RANDOM: seed=22597503690035777 dark/curved, 180 actions
+RANDOM: seed=12648430 dark/curved, 180 actions
+RANDOM: seed=20260909 dark/curved, 180 actions
+RANDOM COVERAGE: [(key: "abandonRewire", value: 36), (key: "abandonWire", value: 52), (key: "addKnot", value: 12), (key: "branch", value: 52), (key: "branchCancel", value: 48), (key: "branchCut", value: 40), (key: "branchDelete", value: 48), (key: "branchDuplicate", value: 48), (key: "branchEscape", value: 56), (key: "branchFocusLoss", value: 76), (key: "branchInvalid", value: 40), (key: "branchToolSwitch", value: 44), (key: "cancelCut", value: 32), (key: "connect", value: 52), (key: "contextAddKnot", value: 36), (key: "contextConnect", value: 40), (key: "contextDeleteKnot", value: 44), (key: "contextDisconnect", value: 56), (key: "cut", value: 36), (key: "deleteConnection", value: 36), (key: "deleteKnot", value: 68), (key: "duplicate", value: 44), (key: "escapeKnot", value: 36), (key: "escapeNode", value: 64), (key: "escapePan", value: 48), (key: "escapeWire", value: 28), (key: "focusLoss", value: 40), (key: "middlePan", value: 44), (key: "moveKnot", value: 44), (key: "moveNode", value: 44), (key: "overviewPolicy", value: 72), (key: "overviewPosition", value: 56), (key: "overviewRounding", value: 56), (key: "overviewSize", value: 32), (key: "pan", value: 36), (key: "pinchZoom", value: 36), (key: "rejectInputInput", value: 68), (key: "rejectOutputOutput", value: 36), (key: "replaceInput", value: 40), (key: "resizeWindow", value: 48), (key: "rewire", value: 44), (key: "sliderMaximum", value: 60), (key: "sliderMinimum", value: 44), (key: "switchTool", value: 32), (key: "trackpadPan", value: 60), (key: "wheelZoom", value: 52)]
+BENCHMARK: 10000 drag updates + attached path derivation: 0.087282 seconds
+15644 assertions; 0 failures
+

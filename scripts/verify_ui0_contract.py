@@ -8,10 +8,69 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / 'platform/macos'
 BASELINE = 'ef3fc00'
+GRAPH_SUFFIXES = {'.swift', '.json', '.sh', '.svg', '.py', '.plist'}
 
 
 def read(relative):
     return (UI / relative).read_text()
+
+
+def assertion_calls(source):
+    """Keep the complete conditions and messages in approved harness regions."""
+    calls = []
+    search = 0
+    while (start := source.find('Self.check(', search)) >= 0:
+        index = start + len('Self.check(')
+        depth = 1
+        quoted = False
+        while depth:
+            assert index < len(source), 'Unterminated verification assertion'
+            character = source[index]
+            if quoted:
+                if character == '\\':
+                    index += 2
+                    continue
+                if character == '"':
+                    quoted = False
+            elif character == '"':
+                quoted = True
+            elif character == '(':
+                depth += 1
+            elif character == ')':
+                depth -= 1
+            index += 1
+        calls.append(source[start:index])
+        search = index
+    return calls
+
+
+def approved_harness_region(expected, actual, start, end, digest):
+    """Accept reviewed host plumbing only; retain every original assertion."""
+    assert expected.count(start) == actual.count(start) == 1, start
+    assert expected.count(end) == actual.count(end) == 1, end
+    old_start, new_start = expected.index(start), actual.index(start)
+    old_end, new_end = expected.index(end, old_start), actual.index(end, new_start)
+    old_region, new_region = expected[old_start:old_end], actual[new_start:new_end]
+    assert hashlib.sha256(new_region.encode()).hexdigest() == digest, \
+        f'Unapproved Graph harness region: {start.strip()}'
+    remaining = iter(assertion_calls(new_region))
+    for assertion in assertion_calls(old_region):
+        assert any(assertion == candidate for candidate in remaining), \
+            f'Graph harness removed or rewrote an assertion: {assertion}'
+    return expected[:old_start] + new_region + expected[old_end:]
+
+
+def await_context_menu_checks(source, count):
+    """Await native focus before evaluating the same menu result assertion."""
+    calls = [line for line in source.splitlines() if 'Self.check(contextMenu(' in line]
+    assert len(calls) == count, 'Unexpected Graph context-menu assertion inventory'
+    for line in calls:
+        indent, call = line.split('Self.check(contextMenu(', 1)
+        expression, message = call.rsplit('), ', 1)
+        replacement = (indent + 'let menuPerformed = await contextMenu(' + expression + ')\n'
+                       + indent + 'Self.check(menuPerformed, ' + message)
+        source = source.replace(line, replacement)
+    return source
 
 
 palette = json.loads(read('photara-theme/Resources/photara-default.json'))
@@ -68,7 +127,7 @@ paths = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', BASELINE
     'platform/macos/photara-graph', 'platform/macos/photara-graph-lab'], cwd=ROOT, text=True).splitlines()
 verified = {}
 for path in paths:
-    if Path(path).suffix not in {'.swift', '.json', '.sh', '.svg'}:
+    if Path(path).suffix not in GRAPH_SUFFIXES:
         continue
     expected = subprocess.check_output(['git', 'show', f'{BASELINE}:{path}'], cwd=ROOT).decode()
     if path.endswith('/GraphPresentation.swift'):
@@ -93,17 +152,42 @@ for path in paths:
         end = expected.index('@MainActor\nfinal class GraphLabChecks', start)
         expected = expected[:start] + expected[end:]
         expected = expected.replace(
+            '        try? await Task.sleep(for: .milliseconds(700))\n'
+            '        guard let window = NSApp.windows.first(where: { $0.contentView.flatMap(findSurface) != nil }),',
+            '        guard let window = GraphVerificationLifecycle.window,')
+        expected = expected.replace(
+            'GraphTestLog.write("FAIL: Could not locate production event surface"); exit(1)',
+            'GraphTestLog.write("FAIL: Could not locate production event surface"); GraphVerificationResult.recordExitCode(1); exit(1)')
+        expected = expected.replace(
             '        let suite = GraphLabChecks(window: window, surface: surface)\n',
             '        let suite = GraphLabChecks(window: window, surface: surface)\n'
             '        guard GraphNativeInput.preflight(check: { Self.check($0, $1) }) else { finish() }\n'
             '        await suite.focusCanvas()\n'
             '        if ProcessInfo.processInfo.environment["PHOTARA_GRAPH_PREFLIGHT_ONLY"] == "1" { finish() }\n')
+        expected = expected.replace(
+            '        if options.randomOnly {\n',
+            '        if ProcessInfo.processInfo.environment["PHOTARA_GRAPH_CAMERA_ONLY"] == "1" {\n'
+            '            await suite.nativeCameraChecks()\n'
+            '            await suite.overviewChecks()\n'
+            '            finish()\n'
+            '        }\n'
+            '        if options.randomOnly {\n')
+        # Targeted replay is opt-in. The normal full matrix, including snapshots,
+        # lifecycle, random seeds and coverage checks, remains exactly unchanged.
+        expected = expected.replace(
+            '            await suite.overviewSnapshotCheck(mode.rawValue)\n',
+            '            if ProcessInfo.processInfo.environment["PHOTARA_GRAPH_CONTEXT_MATRIX_ONLY"] == "1" { continue }\n'
+            '            await suite.overviewSnapshotCheck(mode.rawValue)\n')
+        expected = expected.replace(
+            '        await suite.lifecycleChecks()\n',
+            '        if ProcessInfo.processInfo.environment["PHOTARA_GRAPH_CONTEXT_MATRIX_ONLY"] == "1" { finish() }\n'
+            '        await suite.lifecycleChecks()\n')
         expected = expected.replace('        exit(failures.isEmpty ? 0 : 1)\n',
             '        GraphVerificationResult.recordExitCode(failures.isEmpty ? 0 : 1)\n'
             '        exit(failures.isEmpty ? 0 : 1)\n')
         start = expected.index('        let location = surface.convert(point, to: nil)', expected.index('    func mouse('))
         end = expected.index('\n    func key(', start)
-        expected = expected[:start] + r'''        let location = surface.convert(point, to: nil)
+        expected = expected[:start] + r'''        let location = GraphNativeInput.location(point, in: surface)
         do {
             let event = try GraphNativeInput.mouse(type, location: location, flags: flags, window: window)
             lastMouseDelivery = "expected \(location), actual \(event.locationInWindow), window \(event.windowNumber)/\(window.windowNumber), button \(event.buttonNumber)"
@@ -114,6 +198,60 @@ for path in paths:
         }
     }
 ''' + expected[end:]
+        # Native hitTest receives its superview's coordinates. Preserve the
+        # existing slider point, native HID gesture and original priority check.
+        # The additional nonnil assertion rejects an invalid receiver outright.
+        expected = expected.replace(
+            '        let hit = window.contentView?.hitTest(surface.convert(sliderPoint, to: window.contentView))\n',
+            r'''        let hit = GraphNativeInput.hitTest(sliderPoint, in: surface, through: window.contentView)
+        if let content = window.contentView {
+            let localPoint = surface.convert(sliderPoint, to: content)
+            let parentPoint = surface.convert(sliderPoint, to: content.superview)
+            GraphTestLog.write("NATIVE HIT: slider=\(sliderPoint), contentLocal=\(localPoint), parent=\(parentPoint), legacy=\(String(describing: content.hitTest(localPoint))), actual=\(String(describing: hit)), contentFrame=\(content.frame), contentBounds=\(content.bounds), contentFlipped=\(content.isFlipped), parentFrame=\(String(describing: content.superview?.frame)), parentFlipped=\(String(describing: content.superview?.isFlipped))")
+        }
+        Self.check(hit != nil, "Native zoom hit-test resolves a view in the content parent coordinate system")
+''')
+        # Approved focus/menu plumbing has a fixed digest AND must retain every
+        # original assertion verbatim/in order. All other bytes are reconstructed
+        # from the baseline above, including the original behavioral matrix.
+        actual_source = (ROOT / path).read_text()
+        for start, end, digest in [
+            ('    func focusCanvas() async {', "    /// SwiftUI's native slider",
+             '2c151ccd7294536ea10383eb428648c88fe1ecad1d6d3b58274537f044688e74'),
+            ('    func ownershipAndMenuChecks() async {', '    func contextMenu(',
+             '1a59e646f854aea2f32ccddfedee6d1848382d9003339f8557a6be731a730e81'),
+            ('    func contextMenu(', '    func documentChecks()',
+             'acfe3f2f5c9f280a0303efaf74aefb485e71a4b09319623eeb6b9dfcbefd44df'),
+            ('@MainActor\nprivate final class MenuDriver: NSObject {', '\nenum GraphTestLog {',
+             '5c22abaff7718c1b9376eff7b46b8dc623de4798e9db772696400b57bb572e90'),
+        ]:
+            expected = approved_harness_region(expected, actual_source, start, end, digest)
+        assert 'Self.check(stableFocus == 3, "Verification window retained native input focus across layout turns")' in actual_source
+    elif path.endswith('/GraphBranchOverviewChecks.swift'):
+        expected = await_context_menu_checks(expected, 1)
+        # Only adapt the query's coordinate system: both original === surface
+        # predicates, sample points and assertion messages stay byte-identical.
+        for point in ['point', 'hitPoint']:
+            old = f'window.contentView?.hitTest(surface.convert({point}, to: window.contentView))'
+            assert expected.count(old) == 1
+            expected = expected.replace(old,
+                f'GraphNativeInput.hitTest({point}, in: surface, through: window.contentView)')
+    elif path.endswith('/GraphRandomGestures.swift'):
+        # Only drain native layout before constructing synthetic wheel input.
+        # Every action, oracle comparison, coordinate tolerance and seed stays exact.
+        expected = expected.replace(
+            'window.convertPoint(toScreen: surface.convert(anchor, to: nil))',
+            'window.convertPoint(toScreen: GraphNativeInput.location(anchor, in: surface))')
+        expected = await_context_menu_checks(expected, 6)
+        branch_assertion = '                Self.check(controller.wire?.source == edge.source && Self.near(controller.wireStart ?? .zero, point),\n'
+        expected = expected.replace(branch_assertion, r'''                if controller.wire?.source != edge.source || !Self.near(controller.wireStart ?? .zero, point) {
+                    let diagnostic = "BRANCH DELIVERY: step=\(index) action=\(action.rawValue) point=\(oracle.screen(point)) "
+                        + "hit=\(controller.hitTest(oracle.screen(point))) actualWire=\(String(describing: controller.wire)) "
+                        + "actualOrigin=\(String(describing: controller.wireStart)) delivery=\(lastMouseDelivery) \(focusDiagnostic)"
+                    trace.append(diagnostic)
+                    GraphTestLog.write(diagnostic)
+                }
+''' + branch_assertion)
     elif path.endswith('/verify-interactions.sh'):
         # Pin the explicitly authorized signing resolver; all unrelated launcher
         # content is still reconstructed from the baseline below.
@@ -135,35 +273,35 @@ for path in paths:
   print -r -- "$APP_BUNDLE"
   exit 0
 fi
-# LaunchServices delivers the normal application-open event to the original
-# WindowGroup. Direct executable launch can remain windowless on macOS 27.
-run_root="$(mktemp -d "$BUILD_ROOT/run.XXXXXX")"
-print -r -- "Graph verification log: $run_root/stdout.log"
-/usr/bin/open -n -W --stdout "$run_root/stdout.log" --stderr "$run_root/stderr.log" \
-  --env "PHOTARA_GRAPH_EXIT_FILE=$run_root/exit-code" \
-  --env "PHOTARA_GRAPH_PREFLIGHT_ONLY=${PHOTARA_GRAPH_PREFLIGHT_ONLY:-0}" \
-  "$APP_BUNDLE" --args "$@"
-cat "$run_root/stdout.log" "$run_root/stderr.log"
-if [[ ! -f "$run_root/exit-code" ]]; then
-  print -u2 -- "Graph verification exited without a completed result; startup failure or crash."
-  exit 1
-fi
-run_exit_code="$(cat "$run_root/exit-code")"
-case "$run_exit_code" in
-  0|1) exit "$run_exit_code" ;;
-  *) print -u2 -- "Invalid Graph verification result: $run_exit_code"; exit 1 ;;
-esac
+# The explicit AppKit test host owns its window. Launch its exact signed binary
+# as an owned child so startup/readiness and completion both have bounded waits.
+exec python3 "$SCRIPT_ROOT/launch-verification.py" --app "$APP_BUNDLE" -- "$@"
 ''')
     actual = (ROOT / path).read_bytes()
     assert actual == expected.encode(), f'Unapproved Graph change: {path}'
     verified[path] = hashlib.sha256(actual).hexdigest()
-for name in ['GraphVerificationHost.swift', 'GraphNativeInput.swift', 'GraphPermissionProbe.swift']:
-    path = 'platform/macos/photara-graph-lab/Tests/' + name
-    verified[path] = hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
-# The explicit permission launcher cannot rebuild or invoke the behavioral matrix.
-permission_launcher = 'platform/macos/photara-graph-lab/verify-permissions.sh'
-permission_bytes = (ROOT / permission_launcher).read_bytes()
-assert hashlib.sha256(permission_bytes).hexdigest() == '14606ee1c8707dfe838aa9e1acdcf1c7d1e98ffe60722a9d94ae030b15173e98'
-verified[permission_launcher] = hashlib.sha256(permission_bytes).hexdigest()
+# New test-only hosts and launchers also have fixed, reviewed bytes. Logging their
+# hashes alone would leave them outside the otherwise strict ownership guard.
+for name, digest in {
+    'Tests/GraphVerificationHost.swift': '4dbe7f47bcb0d12af7c4c192fa34ce27c0d16c4dd909df3051c1779599561f20',
+    'Tests/GraphNativeInput.swift': 'e2511d66f227c72fba3f4067c98b46383b3c20f5f6139cb652bfd4d9ad5a46ce',
+    'Tests/GraphPermissionProbe.swift': 'c2c1eac7db2a47916425a7272721945ed1adee8bd0a5788257b66b506938315c',
+    'launch-verification.py': 'ef4b0c87cc8a7cc7f64491cca8a1354d267daebfe48eef0c4227ead79c371788',
+    'verify-launch-furnace.py': 'e0f250b9978c37b01384e34640ab49061525d726c3d2622b8f97d1e69cd03fb0',
+    # The permission launcher validates the exact existing signature. It cannot
+    # rebuild or invoke the behavioral matrix; it uses the same bounded launcher.
+    'verify-permissions.sh': '262868f8af61fd05239b15273184e0468f4b82e06ad3d11bd293f7f91049c1f0',
+}.items():
+    path = 'platform/macos/photara-graph-lab/' + name
+    actual_digest = hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
+    assert actual_digest == digest, f'Unapproved Graph verification adapter: {path}'
+    verified[path] = actual_digest
+current_paths = subprocess.check_output([
+    'git', 'ls-files', '--cached', '--others', '--exclude-standard',
+    'platform/macos/photara-graph', 'platform/macos/photara-graph-lab',
+], cwd=ROOT, text=True).splitlines()
+current_code = {path for path in current_paths if Path(path).suffix in GRAPH_SUFFIXES}
+assert current_code == set(verified), \
+    f'Unapproved Graph source inventory: {sorted(current_code.symmetric_difference(verified))}'
 print(f'PASS: UI0 ownership, neutral defaults, no duplicate background authoring; {len(verified)} Graph source/preset/test files verified')
 print(json.dumps(verified, indent=2, sort_keys=True))

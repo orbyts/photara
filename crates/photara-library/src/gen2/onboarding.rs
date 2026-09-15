@@ -217,6 +217,7 @@ async fn empty(conn: &mut SqliteConnection, library: LibraryId) -> Result<()> {
         "locations",
         "storage_roots",
         "project_catalog",
+        "project_creation_intents",
         "project_ownership",
         "library_media",
         "library_variables",
@@ -1463,7 +1464,7 @@ mod tests {
     #[tokio::test]
     async fn same_id_atomic_apply_receipt_replay_and_association_aware_restart() {
         let (dir, store, id) = fixture().await;
-        assert_eq!(store.info().migration_count, 14);
+        assert_eq!(store.info().migration_count, 15);
         let (operation, generation, receipt) = ready(&store, &id, None).await;
         let observed = canonical(&access(&receipt)).unwrap();
         let result = store
@@ -2401,7 +2402,7 @@ mod tests {
         {
             // Reconstruct the exact prior schema in this disposable fixture.
             let db = rusqlite::Connection::open(dir.path().join("local.sqlite")).unwrap();
-            db.execute_batch("DROP TRIGGER onboarding_disposed_state_immutable; DROP TRIGGER onboarding_one_unresolved_insert; DROP TRIGGER onboarding_one_unresolved_update; DROP TABLE onboarding_replacements; DROP TABLE onboarding_dispositions; DROP INDEX onboarding_unresolved_library; CREATE UNIQUE INDEX onboarding_unresolved_library ON onboarding_intents(library_id,environment_id) WHERE state NOT IN ('applied','cancelled'); DELETE FROM _sqlx_migrations WHERE version=14; UPDATE schema_metadata SET minimum_reader=3,minimum_writer=3;").unwrap();
+            db.execute_batch("DROP TABLE project_creation_intents; DELETE FROM _sqlx_migrations WHERE version=15; DROP TRIGGER onboarding_disposed_state_immutable; DROP TRIGGER onboarding_one_unresolved_insert; DROP TRIGGER onboarding_one_unresolved_update; DROP TABLE onboarding_replacements; DROP TABLE onboarding_dispositions; DROP INDEX onboarding_unresolved_library; CREATE UNIQUE INDEX onboarding_unresolved_library ON onboarding_intents(library_id,environment_id) WHERE state NOT IN ('applied','cancelled'); DELETE FROM _sqlx_migrations WHERE version=14; UPDATE schema_metadata SET minimum_reader=3,minimum_writer=3;").unwrap();
         }
         let (store, reopened) =
             LocalLibraryStore::open_app_state(dir.path().join("local.sqlite"), at())
@@ -2505,7 +2506,7 @@ mod tests {
                 .fetch_one(store.db.pool())
                 .await
                 .unwrap(),
-            4
+            5
         );
         assert_eq!(count(&store, "libraries").await, 1);
         store.verify_integrity().await.unwrap();

@@ -1,0 +1,6 @@
+    Checking photara-store v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-store)
+    Checking photara-library v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-library)
+    Checking photara-layout-node v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/nodes/photara-layout)
+    Checking photara-service v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-service)
+    Checking photara-bridge v0.2.0-alpha.0 (/Users/suhail/.codex/worktrees/12ef/photara/crates/photara-bridge)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 14.15s

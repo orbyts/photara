@@ -66,18 +66,5 @@ constraint = (f'identifier "com.photara.graph-lab.verification" and anchor apple
 run('/usr/bin/codesign', '--verify', '--strict', '-R', '=' + constraint, str(app))
 print(f'SIGNATURE: exact Apple Development certificate {identity}; team {team}; designated requirement unchanged')
 PY_SIGNATURE
-run_root="$(mktemp -d "$BUILD_ROOT/permissions.XXXXXX")"
 print -r -- "Exact signed app: $APP_BUNDLE"
-print -r -- "Permission-mode log: $run_root/stdout.log"
-/usr/bin/open -n -W --stdout "$run_root/stdout.log" --stderr "$run_root/stderr.log" \
-  --env "PHOTARA_GRAPH_EXIT_FILE=$run_root/exit-code" "$APP_BUNDLE" --args "$1"
-cat "$run_root/stdout.log" "$run_root/stderr.log"
-if [[ ! -f "$run_root/exit-code" ]]; then
-  print -u2 -- "Permission mode exited without a completed result; no access is established."
-  exit 1
-fi
-run_exit_code="$(cat "$run_root/exit-code")"
-case "$run_exit_code" in
-  0|1) exit "$run_exit_code" ;;
-  *) print -u2 -- "Invalid permission-mode result: $run_exit_code"; exit 1 ;;
-esac
+exec python3 "$SCRIPT_ROOT/launch-verification.py" --app "$APP_BUNDLE" --run-timeout 120 -- "$1"

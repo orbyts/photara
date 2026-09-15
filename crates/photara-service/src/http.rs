@@ -110,6 +110,7 @@ impl HttpService {
             .route("/v1/session", get(session))
             .route("/v1/session/resume", post(resume))
             .route("/v1/session/logout", post(logout))
+            .route("/v1/projects/create", post(create_project))
             .fallback(|| async { failure(StatusCode::NOT_FOUND, "not-found", false, true) })
             .layer(DefaultBodyLimit::max(65536))
             .layer(middleware::from_fn_with_state(self.clone(), bounds))
@@ -303,6 +304,28 @@ fn result(result: Result<Vec<u8>>) -> Response {
 }
 async fn live() -> Response {
     result(Ok(b"{\"healthy\":true}".to_vec()))
+}
+async fn create_project(
+    State(state): State<Arc<HttpService>>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    let (claims, credential) = match state.credentials(&headers).await {
+        Ok(c) => c,
+        Err(e) => return authentication_failure(e),
+    };
+    result(
+        async {
+            let command: photara_library::gen2::CreateProjectCommand = onboarding::command(&body)?;
+            crate::canonical(
+                &state
+                    .service
+                    .create_project(&claims, &credential, &command)
+                    .await?,
+            )
+        }
+        .await,
+    )
 }
 async fn ready(State(state): State<Arc<HttpService>>) -> Response {
     if state.verifier.warm_up().await.is_err() {

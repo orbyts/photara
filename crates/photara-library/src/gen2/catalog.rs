@@ -438,7 +438,7 @@ fn decode_observation(row: &sqlx::sqlite::SqliteRow) -> Result<ProjectObservatio
         observed_at: Timestamp::try_from(row.try_get::<i64, _>("observed_at_ms")?)?,
     })
 }
-fn unhex(value: &str) -> Result<[u8; 32]> {
+pub(super) fn unhex(value: &str) -> Result<[u8; 32]> {
     if value.len() != 64 || !value.is_ascii() {
         return Err(Error::Corrupt);
     }

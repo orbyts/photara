@@ -132,7 +132,7 @@ extension GraphLabChecks {
         func wheel(_ delta: Int32, precise: Bool, anchor: CGPoint) -> NSEvent {
             let event = CGEvent(scrollWheelEvent2Source: nil, units: precise ? .pixel : .line,
                                 wheelCount: 2, wheel1: delta, wheel2: precise ? 2 : 0, wheel3: 0)!
-            let nativePoint = window.convertPoint(toScreen: surface.convert(anchor, to: nil))
+            let nativePoint = window.convertPoint(toScreen: GraphNativeInput.location(anchor, in: surface))
             event.location = CGPoint(x: nativePoint.x, y: NSScreen.screens.first!.frame.height - nativePoint.y)
             return NSEvent(cgEvent: event)!
         }
@@ -209,6 +209,13 @@ extension GraphLabChecks {
                 trace.append("  route \(edge.group!) at \(point), upstream \(edge.source), destination \(destination)")
                 mouse(.leftMouseDown, oracle.screen(point))
                 mouse(.leftMouseDragged, p(destination))
+                if controller.wire?.source != edge.source || !Self.near(controller.wireStart ?? .zero, point) {
+                    let diagnostic = "BRANCH DELIVERY: step=\(index) action=\(action.rawValue) point=\(oracle.screen(point)) "
+                        + "hit=\(controller.hitTest(oracle.screen(point))) actualWire=\(String(describing: controller.wire)) "
+                        + "actualOrigin=\(String(describing: controller.wireStart)) delivery=\(lastMouseDelivery) \(focusDiagnostic)"
+                    trace.append(diagnostic)
+                    GraphTestLog.write(diagnostic)
+                }
                 Self.check(controller.wire?.source == edge.source && Self.near(controller.wireStart ?? .zero, point),
                            "Random branch owns its shared source and origin")
                 if action == .branchFocusLoss { await loseAndRestoreFocus() }
@@ -224,7 +231,8 @@ extension GraphLabChecks {
                     guard verify("branch creation") else { return coverage }
                 }
                 if action == .branchDelete {
-                    Self.check(contextMenu("Disconnect", at: p(destination)), "Random branch deletion menu")
+                    let menuPerformed = await contextMenu("Disconnect", at: p(destination))
+                    Self.check(menuPerformed, "Random branch deletion menu")
                     oracle.edges.removeAll { $0.destination == destination }
                 }
                 if action == .branchCut {
@@ -260,7 +268,8 @@ extension GraphLabChecks {
                 if action == .contextConnect {
                     let node = oracle.nodes.first { $0.id == source.node }!
                     let label = node.ports.first { $0.id == source.key }!.label
-                    Self.check(contextMenu("Connect \(node.title) / \(label) Here", at: p(destination), control: rng.index(2) == 0), "Random native connect menu")
+                    let menuPerformed = await contextMenu("Connect \(node.title) / \(label) Here", at: p(destination), control: rng.index(2) == 0)
+                    Self.check(menuPerformed, "Random native connect menu")
                 } else { drag(from: p(source), to: p(destination)) }
                 oracle.connect(source, destination)
             case .abandonWire, .escapeWire, .switchTool, .focusLoss:
@@ -291,7 +300,8 @@ extension GraphLabChecks {
                 // output->input edge. Use an unconnected input for this attempt.
                 let source = oracle.inputs[rng.index(oracle.inputs.count)]
                 if oracle.edges.contains(where: { $0.destination == source }) {
-                    Self.check(contextMenu("Disconnect", at: p(source)), "Prepare unconnected input for invalid-pair attempt")
+                    let menuPerformed = await contextMenu("Disconnect", at: p(source))
+                    Self.check(menuPerformed, "Prepare unconnected input for invalid-pair attempt")
                     oracle.edges.removeAll { $0.destination == source }
                     guard verify("prerequisite disconnected input") else { return coverage }
                 }
@@ -361,7 +371,8 @@ extension GraphLabChecks {
                 guard ensureEdge() else { return coverage }
                 let edge = chooseEdge()
                 let port = rng.index(2) == 0 ? edge.source : edge.destination
-                Self.check(contextMenu("Disconnect", at: p(port), control: rng.index(2) == 0), "Random native disconnect menu")
+                let menuPerformed = await contextMenu("Disconnect", at: p(port), control: rng.index(2) == 0)
+                Self.check(menuPerformed, "Random native disconnect menu")
                 oracle.edges.removeAll { $0.source == port || $0.destination == port }
             case .addKnot, .deleteConnection, .contextAddKnot:
                 guard ensureEdge() else { return coverage }
@@ -373,7 +384,8 @@ extension GraphLabChecks {
                 let (edge, point) = candidates[rng.index(candidates.count)]
                 trace.append("  edge to \(edge.destination), at \(point)")
                 if action == .contextAddKnot {
-                    Self.check(contextMenu("Add Routing Knot", at: oracle.screen(point), control: rng.index(2) == 0), "Random native routing menu")
+                    let menuPerformed = await contextMenu("Add Routing Knot", at: oracle.screen(point), control: rng.index(2) == 0)
+                    Self.check(menuPerformed, "Random native routing menu")
                 } else {
                     let flags: NSEvent.ModifierFlags = action == .addKnot ? [.option] : []
                     mouse(.leftMouseDown, oracle.screen(point), flags: flags)
@@ -404,7 +416,8 @@ extension GraphLabChecks {
                 let edge = choices[rng.index(choices.count)], start = edge.knot!
                 let target = CGPoint(x: min(300, max(-300, start.x + rng.value(-15, 15))), y: min(200, max(-150, start.y + rng.value(-25, 25))))
                 if action == .contextDeleteKnot {
-                    Self.check(contextMenu("Delete Knot", at: oracle.screen(start), control: rng.index(2) == 0), "Random native delete-knot menu")
+                    let menuPerformed = await contextMenu("Delete Knot", at: oracle.screen(start), control: rng.index(2) == 0)
+                    Self.check(menuPerformed, "Random native delete-knot menu")
                     oracle.setKnot(nil, edgeID: edge.id!)
                     break
                 }

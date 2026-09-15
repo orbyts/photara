@@ -1,0 +1,16 @@
+/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-ui-tests/.build/Shared UI Verification.app: replacing existing signature
+PASS: external Opening accessibility inspect
+PASS: external Opening accessibility inspect
+PASS: external Opening accessibility inspect
+PASS: external Opening accessibility inspect
+PASS: external Opening accessibility create
+PASS: external Opening accessibility open
+PASS: external Create Project accessibility draft-create
+PASS: external Create Project accessibility draft-cancel
+PASS: external Create Project accessibility draft-create
+PASS: external Create Project accessibility draft-cancel
+PASS: UI0 canonical/legacy parser, all role aliases, three neutral levels and 50 text/status contrast pairs
+PASS: UI0 all 225 scenario transitions isolate presentation, controls and pending commands
+PASS: UI0 production Opening native actions, accessibility and narrow/standard bounds
+PASS: UI1 Compact default, three Lab comparisons, draft validation and native Choose/Cancel/Create callbacks; no creation wiring
+PASS: shared contracts, feature presets, float HDR/native policy, session preferences, Inspector targets, rendered Gallery/Inspector/Shell/Library states, thumbnails and independent modules

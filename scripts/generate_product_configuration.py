@@ -115,6 +115,18 @@ def main():
         with (ROOT / "platform/macos/photara-app/Resources/Info.plist").open("rb") as source:
             info = plistlib.load(source)
         identity = selected["identity"]
+        package_type = identity["bundleIdentifier"] + ".project-package"
+        info["UTExportedTypeDeclarations"] = [{
+            "UTTypeIdentifier": package_type,
+            "UTTypeDescription": identity["projectPackageDisplayType"],
+            "UTTypeConformsTo": ["com.apple.package"],
+            "UTTypeTagSpecification": {"public.filename-extension": [identity["projectPackageExtension"]]},
+        }]
+        info["CFBundleDocumentTypes"] = [{
+            "CFBundleTypeName": identity["projectPackageDisplayType"],
+            "CFBundleTypeRole": "Editor", "LSHandlerRank": "Owner",
+            "LSTypeIsPackage": True, "LSItemContentTypes": [package_type],
+        }]
         info.update(CFBundleDisplayName=identity["displayName"], CFBundleName=identity["shortName"],
                     CFBundleExecutable=identity["shortName"], CFBundleIdentifier=identity["bundleIdentifier"],
                     PhotaraReleaseChannel=args.channel,

@@ -20,6 +20,7 @@ struct ApplicationPresentation {
     var syncLabel: String?
     var surfaceContext: String?
     var recentProjects: [Recent] = []
+    var canAuthorProject = true
 }
 enum ApplicationAction { case newProject, openProject, closeProject, importPair, save, evaluate, cancel, openRecent(String) }
 struct ApplicationActions { var send: (ApplicationAction) -> Void }
@@ -29,6 +30,7 @@ struct ApplicationShellAvailability {
     let presentation: ApplicationPresentation
     var panels: [EditorPanelID] {
         guard presentation.hasOpenProject else { return [.people, .locations, .scenes, .account] }
+        guard presentation.canAuthorProject else { return [.graph, .people, .locations, .scenes, .account] }
         var result: [EditorPanelID] = [.graph, .assetGallery, .diagnostics, .inspector, .people, .locations, .scenes, .projectInfo, .account]
         if !presentation.workSurfaces.isEmpty { result.append(.nodeWorkSurface) }
         return result

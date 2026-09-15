@@ -666,7 +666,10 @@ async fn onboarding_floor(tx: &mut Transaction) -> Result<()> {
     }
     Ok(())
 }
-async fn identity(tx: &mut Transaction, claims: &VerifiedClaims) -> Result<Option<Actor>> {
+pub(crate) async fn identity(
+    tx: &mut Transaction,
+    claims: &VerifiedClaims,
+) -> Result<Option<Actor>> {
     let row=sqlx::query("SELECT identity_id,account_id FROM photara_identity.account_identities WHERE issuer=$1 AND subject=$2").bind(&claims.issuer).bind(&claims.subject).fetch_optional(&mut **tx).await?;
     let Some(row) = row else {
         return Ok(None);
@@ -694,7 +697,7 @@ async fn identity(tx: &mut Transaction, claims: &VerifiedClaims) -> Result<Optio
         expires_ms: claims.expires_ms,
     }))
 }
-async fn device(
+pub(crate) async fn device(
     tx: &mut Transaction,
     actor: &Actor,
     id: DeviceId,

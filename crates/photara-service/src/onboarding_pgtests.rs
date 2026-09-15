@@ -11,6 +11,132 @@ fn id() -> OperationId {
 
 #[tokio::test]
 #[ignore = "requires explicit disposable PostgreSQL runner"]
+async fn postgres_ui1_creation_atomic_projection_replay_and_collision() {
+    use photara_library::gen2::CreateProjectCommand;
+    let f = crate::pgtests::Fixture::new().await;
+    let claims = auth::VerifiedClaims {
+        issuer: "https://synthetic.invalid/".into(),
+        subject: Uuid::new_v4().to_string(),
+        audience: "synthetic".into(),
+        expires_ms: 1_900_000_000_000,
+    };
+    let secret = hash(Uuid::new_v4().as_bytes());
+    let bootstrap = request(&secret);
+    let bytes = canonical(&bootstrap).unwrap();
+    let p = proof(
+        &f.service,
+        &bytes,
+        bootstrap.operation_id,
+        bootstrap.device_id,
+        &secret,
+        "bootstrap",
+    )
+    .await;
+    f.service
+        .bootstrap(&claims, "synthetic", &bytes, &secret, Some(&p))
+        .await
+        .unwrap();
+    let command = CreateProjectCommand {
+        initial: photara_core::creation::InitialProject {
+            operation_id: id(),
+            library_id: bootstrap.requested_library_id,
+            project_id: ProjectId::from_uuid(Uuid::new_v4()).unwrap(),
+            graph_id: GraphId::from_uuid(Uuid::new_v4()).unwrap(),
+            commit_id: CommitId::from_uuid(Uuid::new_v4()).unwrap(),
+            title: "UI1 disposable".into(),
+            created_at: "2026-09-14T12:00:00.000Z".into(),
+        },
+        device_id: bootstrap.device_id.uuid(),
+        locator_id: Uuid::new_v4(),
+        observation_id: Uuid::new_v4(),
+    };
+    let receipt = f
+        .service
+        .create_project(&claims, &secret, &command)
+        .await
+        .unwrap();
+    assert_eq!(
+        f.service
+            .create_project(&claims, &secret, &command)
+            .await
+            .unwrap(),
+        receipt
+    );
+    let (a, b) = tokio::join!(
+        f.service.create_project(&claims, &secret, &command),
+        f.service.create_project(&claims, &secret, &command)
+    );
+    assert_eq!(a.unwrap(), receipt);
+    assert_eq!(b.unwrap(), receipt);
+    let mut changed = command.clone();
+    changed.initial.title = "Changed".into();
+    assert!(matches!(
+        f.service.create_project(&claims, &secret, &changed).await,
+        Err(ServiceError::Conflict)
+    ));
+    assert!(matches!(
+        f.service.create_project(&claims, &[0; 32], &command).await,
+        Err(ServiceError::Forbidden)
+    ));
+    let mut collision = command.clone();
+    collision.initial.operation_id = id();
+    assert!(
+        f.service
+            .create_project(&claims, &secret, &collision)
+            .await
+            .is_err()
+    );
+    let mut tx = f.service.control.begin().await.unwrap();
+    let scope = crate::Scope::Project {
+        library: command.initial.library_id,
+        project: command.initial.project_id,
+    };
+    let actor = onboarding::identity(&mut tx, &claims)
+        .await
+        .unwrap()
+        .unwrap();
+    crate::runtime::set_context(
+        &mut tx,
+        &actor,
+        crate::Request {
+            scope,
+            device: bootstrap.device_id,
+            generation: receipt.generation,
+        },
+    )
+    .await
+    .unwrap();
+    let counts:(i64,i64,i64,i64)=sqlx::query_as("SELECT (SELECT count(*) FROM photara.project_ownership WHERE project_id=$1),(SELECT count(*) FROM photara.project_catalog WHERE project_id=$1),(SELECT count(*) FROM photara.package_observations WHERE project_id=$1),(SELECT count(*) FROM photara_identity.project_access_grants WHERE project_id=$1)").bind(command.initial.project_id.uuid()).fetch_one(&mut *tx).await.unwrap();
+    assert_eq!(counts, (1, 1, 1, 1));
+    let (commit,title,graphs):(Uuid,String,i64)=sqlx::query_as("SELECT commit_id,title,graph_count FROM photara.package_observations WHERE observation_id=$1").bind(command.observation_id).fetch_one(&mut *tx).await.unwrap();
+    assert_eq!(commit, command.initial.commit_id.uuid());
+    assert_eq!(title, command.initial.title);
+    assert_eq!(graphs, 1);
+    tx.commit().await.unwrap();
+    // A locator collision occurs after registration inside the transaction and
+    // must roll back every new registration/access/catalog coordinate.
+    let mut partial = command.clone();
+    partial.initial.operation_id = id();
+    partial.initial.project_id = ProjectId::from_uuid(Uuid::new_v4()).unwrap();
+    partial.initial.graph_id = GraphId::from_uuid(Uuid::new_v4()).unwrap();
+    partial.initial.commit_id = CommitId::from_uuid(Uuid::new_v4()).unwrap();
+    assert!(
+        f.service
+            .create_project(&claims, &secret, &partial)
+            .await
+            .is_err()
+    );
+    let count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM photara.project_ownership WHERE project_id=$1")
+            .bind(partial.initial.project_id.uuid())
+            .fetch_one(f.service.control.pool())
+            .await
+            .unwrap();
+    assert_eq!(count, 0);
+}
+
+#[tokio::test]
+#[ignore = "requires explicit disposable PostgreSQL runner"]
 async fn postgres_onboarding_upgrade_preserves_deployed_ledger() {
     let base = std::env::var("PHOTARA_TEST_MIGRATOR_URL").unwrap();
     assert!(base.contains("/private/tmp/") && base.contains("/photara_cxt3c?"));

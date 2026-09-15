@@ -81,5 +81,6 @@ pub use value::{
 /// Current version of the semantic application facade exposed to clients.
 pub const APPLICATION_API_VERSION: u32 = 1;
 
+pub mod creation;
 #[cfg(test)]
 mod vertical_tests;

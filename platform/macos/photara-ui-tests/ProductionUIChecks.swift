@@ -54,9 +54,70 @@ struct ProductionUIChecks {
         return NSBitmapImageRep(cgImage: context.makeImage()!).representation(using: .png, properties: [:])!
     }
 
+    @MainActor private static func verifyProjectCreation(root: URL) async throws {
+        let suite = "photara.ui1-tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.set(Data("[]".utf8), forKey: "photara.recent-projects.v1")
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let support = root.appending(path: "ui1-\(UUID().uuidString)")
+        let app = AppModel(defaults: defaults, supportRootOverride: support)
+        let session = EditorSessionModel(defaults: defaults)
+        app.newProject()
+        require(app.showsCreateProject && app.project == nil, "UI1 opens the approved sheet")
+        app.submitProjectCreation(.init(name: "  Native UI1  "))
+        app.submitProjectCreation(.init(name: "Duplicate click"))
+        for _ in 0..<200 {
+            if !app.isCreatingProject { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        require(app.createdProject?.title == "Native UI1", "UI1 trimmed name and duplicate-click guard")
+        require(app.creationMessage == nil && !app.showsCreateProject, "UI1 completes without an incomplete state")
+        let created = app.createdProject!
+        require(FileManager.default.fileExists(atPath: created.packagePath + "/manifest.json"), "UI1 actual package manifest")
+        let operations = try await app.creationJournal!.operations()
+        require(operations.count == 1 && operations[0].state == "complete", "UI1 one durable operation")
+        require(!app.applicationPresentation(session).canAuthorProject, "UI1 safe shell does not advertise legacy authoring")
+        require(!ApplicationShellAvailability(presentation: app.applicationPresentation(session)).panels.contains(.projectInfo),
+            "UI1 package does not route through legacy project metadata")
+        for dark in [false, true] {
+            try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) {
+                EditorSessionView().environmentObject(app).environmentObject(session)
+            }, name: "ui1-created-\(dark)", size: .init(width: 980, height: 720), directory: root)
+        }
+        let restarted = AppModel(defaults: defaults, supportRootOverride: support)
+        restarted.reopenLastProject()
+        for _ in 0..<200 {
+            if restarted.createdProject != nil { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        require(restarted.createdProject?.projectId == created.projectId && restarted.createdProject?.graphId == created.graphId,
+            "UI1 restart/reopen preserves Project and Graph")
+        require(restarted.createdProject?.commitSha256 == created.commitSha256, "UI1 reopen verifies same commit")
+        let invalid = AppModel(defaults: defaults, supportRootOverride: root.appending(path: "ui1-invalid-\(UUID().uuidString)"))
+        invalid.newProject()
+        invalid.submitProjectCreation(.init(name: "bad/name"))
+        for _ in 0..<200 {
+            if !invalid.isCreatingProject { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        require(invalid.creationMessage != nil && invalid.creationOperation == nil, "UI1 validation leaves an editable draft")
+        let invalidOperations = try await invalid.creationJournal!.operations()
+        require(invalidOperations.isEmpty, "UI1 invalid name creates no intent")
+        invalid.submitProjectCreation(.init(name: "Cancelled"))
+        invalid.cancelProjectCreation()
+        for _ in 0..<200 {
+            if !invalid.isCreatingProject { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        let cancelled = try await invalid.creationJournal!.operations()
+        require(cancelled.count == 1 && cancelled[0].state == "cancelled", "UI1 Cancel during prepare is retained without publication")
+        require(!FileManager.default.fileExists(atPath: cancelled[0].packagePath), "UI1 cancellation creates no final package")
+    }
+
     @MainActor static func run() async throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try await verifyProjectCreation(root: root)
         let suite = "photara.production-ui-tests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defaults.set(Data("[]".utf8), forKey: "photara.recent-projects.v1")
@@ -80,7 +141,7 @@ struct ProductionUIChecks {
             EditorSessionView().environmentObject(app).environmentObject(session)
         }, name: "production-create-intent", size: .init(width: 980, height: 720), directory: root,
         inspect: { _, _ in
-            app.newProject()
+            app.newFixtureProject()
             session.synchronizeProject(id: app.snapshot?.projectId, nodeIDs: [])
             for _ in 0..<40 {
                 if session.isVisible(.projectInfo) { break }
@@ -228,7 +289,10 @@ struct ProductionUIChecks {
         for dark in [false, true] {
             try await capture(LabAppearance(dark: dark, usesDevelopmentTheme: false) {
                 EditorSessionView().environmentObject(app).environmentObject(session)
-            }, name: "production-library-\(dark)", size: .init(width: 1440, height: 1000), directory: root)
+            }, name: "production-library-\(dark)", size: .init(width: 1440, height: 1000), directory: root,
+            inspect: { window, _ in
+                require(window.toolbar?.items.isEmpty == false, "Production native toolbar is missing from library fixture")
+            })
         }
         require(app.snapshot?.dirty == false && app.snapshot?.graph.digest == digest, "Module preferences dirtied project semantics")
         let projectID = app.snapshot!.projectId

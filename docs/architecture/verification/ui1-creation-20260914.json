@@ -1,0 +1,241 @@
+{
+  "date": "2026-09-14",
+  "base": "c605475742f22581060ff009fcbcfd2a3acc4e36",
+  "status": "implementation verified; publication not authorized",
+  "authority": {
+    "committed": false,
+    "pushed": false,
+    "installed": false,
+    "deployed": false,
+    "live_neon_access": false,
+    "live_user_database_modified": false
+  },
+  "rust": {
+    "passed": 289,
+    "failed": 0,
+    "ignored_postgres_run_separately": 12,
+    "ignored_fixture_generators": 4
+  },
+  "postgres": {
+    "counts": {
+      "columns": 606,
+      "constraints": 1138,
+      "functions": 52,
+      "indexes": 165,
+      "ledger": 14,
+      "policies": 173,
+      "statements": 726,
+      "tables": 59,
+      "triggers": 122
+    },
+    "schema": {
+      "canonical_codec": "photara.canonical-json.v1",
+      "minimum_api": 3,
+      "schema_epoch": 1,
+      "schema_family": "photara.service.g2",
+      "singleton": true
+    },
+    "server": "18.6 (Homebrew)",
+    "full_inventory_path": "/private/tmp/photara-ui1-postgres-inventory.json",
+    "full_inventory_sha256": "333f5c23030cf350473815ede647ddaa5d2bac1c43315a52ca563678c3d671e2"
+  },
+  "sqlite": {
+    "fixture": "/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-ui-tests/.build/production-snapshots/ui1-A667DCF4-3B37-429C-B534-8F76CB31E1B0/State/photara-local-v2.sqlite",
+    "domain_tables": 79,
+    "columns": 768,
+    "foreign_key_columns": 221,
+    "indexes_including_implicit": 184,
+    "triggers": 190,
+    "ledger": 15,
+    "integrity": "ok",
+    "foreign_key_check": [],
+    "floor": [
+      5,
+      5
+    ],
+    "creation": {
+      "state": "complete",
+      "command": {
+        "device_id": "739ea3f3-9d46-4476-9021-20e8c38d59b8",
+        "initial": {
+          "commit_id": "da9bda79-09b7-40fc-a3e0-313ec14004b8",
+          "created_at": "2026-09-15T01:56:59.091Z",
+          "graph_id": "2ac99dda-b762-4080-a2d2-b1b16eb9d1b7",
+          "library_id": "7284713e-a21c-8766-4858-51d681a4e6d9",
+          "operation_id": "5d8d0e55-c014-4938-bbc8-64552d1962b7",
+          "project_id": "14c578db-bf92-4553-8c0f-fab2db84db75",
+          "title": "Native UI1"
+        },
+        "locator_id": "bb96c479-3670-4942-b61f-e17a7e519d6d",
+        "observation_id": "e48f0fa3-b4d6-4fa0-af08-ca65f39cf799"
+      },
+      "package_path": "/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-ui-tests/.build/production-snapshots/ui1-A667DCF4-3B37-429C-B534-8F76CB31E1B0/CreatedProjects/Native UI1.photara",
+      "head": {
+        "commit_id": "da9bda79-09b7-40fc-a3e0-313ec14004b8",
+        "commit_sha256": "f0c267ff6fef45645fbd5ace271d683a14aef4208e546cec6ab432b84ce805bc",
+        "project_id": "14c578db-bf92-4553-8c0f-fab2db84db75",
+        "schema": {
+          "id": "photara.package.head",
+          "version": 1
+        }
+      },
+      "catalog_rows": 1,
+      "graph_rows": 1
+    }
+  },
+  "native_service": {
+    "swift_assertions": 260,
+    "creation_recovery_assertions": 7,
+    "creation_crash_exit_code": 76,
+    "process_furnace_assertions": 99,
+    "process_scenarios": 13
+  },
+  "graph": {
+    "assertions": 15644,
+    "failures": 0,
+    "configurations": 12,
+    "seeded_actions_per_configuration": 180,
+    "protected_files": 37,
+    "source_modified": false
+  },
+  "ui": {
+    "shared_transitions": 225,
+    "contrast_pairs": 50,
+    "shared_pngs": 117,
+    "production_pngs": 27,
+    "external_accessibility_probes": true,
+    "production_creation": true,
+    "duplicate_click": true,
+    "reopen_same_identity": true,
+    "invalid_name": true,
+    "cancel_during_prepare": true,
+    "legacy_authoring_unavailable_for_packages": true,
+    "light_dark_visual_review": true,
+    "post_test_change": "swift-format on new AppModelCreation.swift only; final signed build rerun"
+  },
+  "limitations": [
+    "No distributed filesystem/SQLite/PostgreSQL ACID transaction; incomplete cloud creation rolls forward.",
+    "Crash before staging inode pin commit can leave an empty private directory; retry uses a fresh stage and never adopts or deletes the unproven entry.",
+    "Opening package URL support is limited to same-location completed creations recorded in this local journal; general import/move recovery is UI2.",
+    "Saved initial Graph is shown with legacy document authoring disabled; package editing is UI3.",
+    "Installed development service is not replaced; local schema floor-5 activation and matching service require separate authorization."
+  ],
+  "evidence": {
+    "ui1-20260914/authentication.log": {
+      "bytes": 188,
+      "sha256": "4889c611a3b5e03f9ddff34d6e1fc7b55111844ec84ff5baf36846a0d44a3098"
+    },
+    "ui1-20260914/bridge.log": {
+      "bytes": 818,
+      "sha256": "f8b67d017add2116a00e699b86aa936dd17c8e516f9b063bec5e4b43caf331f0"
+    },
+    "ui1-20260914/build.log": {
+      "bytes": 2125,
+      "sha256": "77c6d92c16fe0e07bdf501c4ee2158cbc8df841e8c9166953f57313b723e392d"
+    },
+    "ui1-20260914/clippy.log": {
+      "bytes": 634,
+      "sha256": "00cebdb9a32015ba4e47377cf3e23a4f9dac0849c98ce2d06e262a15cf0f8368"
+    },
+    "ui1-20260914/configuration.log": {
+      "bytes": 105,
+      "sha256": "74c03fc16fde9a2dfeff03db0ec8f472a5a8dfed04e9e982a912b4b7f64faee3"
+    },
+    "ui1-20260914/fixtures.log": {
+      "bytes": 79,
+      "sha256": "3753f29cdcda7bf394e6bee4372a7f4d8ec2e995a93edd9002c5c446fe798b75"
+    },
+    "ui1-20260914/graph.log": {
+      "bytes": 3361,
+      "sha256": "7b775873e47a042ec63b8610ce6be7936efbfd76f32d74433863159c7a1892bd"
+    },
+    "ui1-20260914/naming.log": {
+      "bytes": 62,
+      "sha256": "a2f9582539f9298de6894f3caeb358e332af43010d8da857d569a893d3703bad"
+    },
+    "ui1-20260914/ownership.log": {
+      "bytes": 5118,
+      "sha256": "4a58a7a8cd538eaf16b57a9ba011edb6305c7cde697fc8c1344d55ced324046c"
+    },
+    "ui1-20260914/postgres.log": {
+      "bytes": 6330,
+      "sha256": "6560b2cb0d01831b3635b6963b66884bf87065ea3f3af01f7e2269120c54f9d0"
+    },
+    "ui1-20260914/process.log": {
+      "bytes": 1106,
+      "sha256": "9e2271a8cff72e4640847c6710f79d8e90ed86860dfbb7880a4cd5ea807fa79d"
+    },
+    "ui1-20260914/production-ui.log": {
+      "bytes": 2580,
+      "sha256": "5f620b1594ffaff29e5070bd379ae3bf584e51c60b74d51f708063d6e4634461"
+    },
+    "ui1-20260914/rasters.json": {
+      "bytes": 1099,
+      "sha256": "1f8586ae6f01dfe157fc674c245ef5f3960527f161e023c60921bd3aaae969ad"
+    },
+    "ui1-20260914/rust.log": {
+      "bytes": 30488,
+      "sha256": "aba5b63ae95f4142b067c18809453eedd6ce4b644e75ba509f477e7899757814"
+    },
+    "ui1-20260914/schema.log": {
+      "bytes": 490,
+      "sha256": "60938ba485a22164ba885968b557093648732e7e7febae318920905ee7ccafbb"
+    },
+    "ui1-20260914/shared-ui.log": {
+      "bytes": 1238,
+      "sha256": "665e647520d5072e019981dc1213c1c189c159261e43adab8e49a2819a18ca0d"
+    },
+    "ui1-20260914/swift-format.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "build": {
+    "path": "/Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/app/Photara.app",
+    "development_signed": true,
+    "strict_signature_verification": true,
+    "launched_or_installed": false,
+    "package_uti": "com.photara.desktop.project-package"
+  },
+  "implementation_sha256": {
+    "crates/photara-bridge/src/creation.rs": "0724ef759f6e367f17d433ccfe948766bde862ee3b7d55866f066b42eaee2d5d",
+    "crates/photara-bridge/src/lib.rs": "b825e7f0becd765e5713781ea0d4bdefb9039d832f786a93f456e14a52dbc755",
+    "crates/photara-core/src/creation.rs": "de0ea70eb2f9ef201f3f656ea979e89037fef00c3c6e1b06177efb2b3a9f8d98",
+    "crates/photara-core/src/lib.rs": "841df1e59f07f3941adff8335fd674d2c61847368051e5c6784c72e1b08d15f3",
+    "crates/photara-library/migrations/generation_two/0015_project_creation.sql": "b6a37b887ec178d410fc900a7c76826df745c27c2c02275840f90558eefe7946",
+    "crates/photara-library/src/gen2/catalog.rs": "117fccf90dcdedbeaaf9937bebf1916037fbc8a8d321d210b679feb5cf87a72b",
+    "crates/photara-library/src/gen2/creation.rs": "b60b19e5fbb9cab091e8339140372f8152b9cfa9bd4260ec041ffe7b24e8dc7d",
+    "crates/photara-library/src/gen2/local.rs": "ddbd767fdef4851aa7b993ef7f793d8df88e8f0cedf8ca4043e19f8ee81d4960",
+    "crates/photara-library/src/gen2/mod.rs": "c1518c47e6afcf7a3decd4f681af412303097d21ab2cac4890d281758c188912",
+    "crates/photara-library/src/gen2/onboarding.rs": "6ac873f9ae80c6cc5e38dc71bf590b1c8ab6694c6599a191741815087c1135ee",
+    "crates/photara-library/src/gen2/tests.rs": "faa9072c6a73245d7f5530fd9c9ba0b752a4a37be16c5fb0a5b1a523185b01e7",
+    "crates/photara-service/src/access.rs": "2c1d74b22477243ccfa75bc8a7a803d351c4b3d4fd11f29f83ee021185a9046a",
+    "crates/photara-service/src/creation.rs": "17f285213b86f2ccd284ec71aab4159a9dc7022b42a314ed0500a873e8e9cdf9",
+    "crates/photara-service/src/http.rs": "d70c0a75a5ea42c082933cda069cbfaff5732cf2398d20a56c48e4af69587bbb",
+    "crates/photara-service/src/http/native_furnace.rs": "ae72237c429792c41eabbb93b7d810f308a9266e07919ba129c58366ffa6310c",
+    "crates/photara-service/src/lib.rs": "e4f2d429bbe6b4c9e085eae431649c32463b3b605c026a3995dd88a1c61d93f7",
+    "crates/photara-service/src/onboarding.rs": "481f8d51aac8460ba4ea74f88430c71b9028ff455e29ebcad7b41294c4c2c8b6",
+    "crates/photara-service/src/onboarding_pgtests.rs": "7191b371fde4d3fb3cb20afd98d124fc2c3803d2242acd5e4feecf72a6316420",
+    "crates/photara-service/src/sync.rs": "17e96b2e262348450258d0c3f5216f6cb711b1644402faf2425cd74d53b44d39",
+    "crates/photara-store/src/package/creation.rs": "6fea2ba893a063101999ebeedfe43d4aaacea15f180e0360172f73e889a48e2d",
+    "crates/photara-store/src/package/creation/filesystem.rs": "053f3152391648ab0661ee076da4ff3bbecd2acbd071ec5d3afa016856196a03",
+    "crates/photara-store/src/package/mod.rs": "b8400d8203f056de51321b14b60e03f269e82317340fe7358a95342e2d34280e",
+    "crates/photara-store/tests/package_creation.rs": "c972bc1d601161f6780332b012c8cec6e583f5a3ebdab4fc99730854caf287b4",
+    "platform/macos/photara-app/Sources/AppModel.swift": "69e92ab61abc71ee9601c35072a9d9e908c443467efd11e031663865447a7ee6",
+    "platform/macos/photara-app/Sources/AppModelCreation.swift": "6fc9fbf0bbb89231decedf9e7c45c7a194245428991bf13328075b4bd037a72f",
+    "platform/macos/photara-app/Sources/ApplicationAdapter.swift": "4774ba043e197f06e827c5a87d0d0c8c56d2f10045f68e6fac5ae1999b220d02",
+    "platform/macos/photara-app/Sources/EditorSessionView.swift": "7e4e7567c8035580a5a26713375a815a25d2dca1f95aa987b1a207f11baedc09",
+    "platform/macos/photara-app/Sources/PhotaraMacApp.swift": "57809bfd84b3d9509980f89f70d1ddea211ca0eac028f09cab45c038baed9d06",
+    "platform/macos/photara-app/Sources/ProductionOpeningCloudDriver.swift": "91e4cf8640fd4098668a0eda36f06953f2f4f7a891c5f83bbc96debdbd16a6a5",
+    "platform/macos/photara-app/Tests/ServiceFurnace/NativeServiceFlow.swift": "4e447e08cf278891adbdb5d99f5b43745455b00e56ef6b29cb1ced928c28131e",
+    "platform/macos/photara-shell/Sources/ApplicationPresentation.swift": "e39a423a7c6a404357bd715a88cffae67fa14c4e67c91c7ba53842183f62e23d",
+    "platform/macos/photara-shell/Sources/ApplicationShell.swift": "e5033944546af57e98a175cbc99151977212e0aa93cd25aacdfd90d4a5f56fb3",
+    "platform/macos/photara-shell/Sources/CreateProjectView.swift": "31faca172cbb8504005aab86a6232c386a7c89c81e8e7f065aa4c0ef494ee7d5",
+    "platform/macos/photara-ui-tests/ProductionUIChecks.swift": "7c395b6ca6eed2435353dc4cae3bed091714d2c27365dcd05d75cdffc1e57611",
+    "scripts/generate_product_configuration.py": "10ed89a25d77eaaf97d9d9d60530e230b7938dd02797ead77715aa90388f8d1e"
+  },
+  "integration_evidence": {
+    "path": "ui1-integration-20260915.json",
+    "note": "This report retains historical source-run measurements; use the integration report for the current worktree and gates."
+  }
+}

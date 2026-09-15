@@ -44,7 +44,7 @@ actor NativeThumbnailScheduler {
 
 @MainActor
 final class AppModel: ObservableObject {
-    let openingCloud = OpeningCloudModel(driver: ProductionOpeningCloudDriver())
+    let openingCloud: OpeningCloudModel
     @Published private(set) var snapshot: BridgeProjectSnapshotDto?
     @Published private(set) var progressLabel = "Idle"
     @Published private(set) var isEvaluating = false
@@ -59,6 +59,20 @@ final class AppModel: ObservableObject {
     @Published private(set) var projectSetupRequest: UInt64 = 0
     let library: LibraryModel
     private(set) var localState: BridgeLocalState?
+
+    let creationCloudDriver: ProductionOpeningCloudDriver
+    var creationJournal: NativeProjectCreationJournal?
+    @Published var showsCreateProject = false
+    @Published var isCreatingProject = false
+    @Published var creationMessage: String?
+    @Published var creationOperation: String?
+    @Published var creationTitle: String?
+    @Published var createdProject: BridgeProjectCreation?
+    @Published var creationDestination = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Pictures/Photara/Projects")
+    var defaultCreationDestination = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Pictures/Photara/Projects")
+    var creationTask: Task<Void, Never>?
+    var creationCancellationRequested = false
+    var creationDestinationPin: String?
 
     private var application: PhotaraApplication?
     var project: PhotaraProject?
@@ -79,6 +93,8 @@ final class AppModel: ObservableObject {
         supportRootOverride: URL? = nil
     ) {
         self.defaults = defaults
+        openingCloud = OpeningCloudModel(driver: ProductionOpeningCloudDriver(supportDirectoryOverride: supportRootOverride))
+        creationCloudDriver = ProductionOpeningCloudDriver(supportDirectoryOverride: supportRootOverride)
         library = LibraryModel(defaults: defaults, supportRoot: supportRootOverride)
         let configuredLongEdge = defaults.integer(
             forKey: "photara.layout-authoring-preview-long-edge.v1"
@@ -98,6 +114,11 @@ final class AppModel: ObservableObject {
                 create: true
             ).appending(path: ReleaseConfiguration.current.identity.applicationSupportDirectory)
             localState = try initializeLocalState(path: support.appending(path: "State/photara-local-v2.sqlite").path)
+            creationJournal = NativeProjectCreationJournal(path: support.appending(path: "State/photara-local-v2.sqlite").path)
+            if let supportRootOverride {
+                defaultCreationDestination = supportRootOverride.appending(path: "CreatedProjects")
+                creationDestination = defaultCreationDestination
+            }
             let storeRoot = support.appending(path: "GenerationTwo")
             let proxyCacheRoot = support.appending(path: "ProxyCache")
             try FileManager.default.createDirectory(
@@ -133,11 +154,18 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func rememberCreatedProject(_ result: BridgeProjectCreation) {
+        recentProjects.removeAll { $0.projectID == result.projectId }
+        recentProjects.insert(RecentProject(projectID: result.projectId, title: result.title,
+            documentPath: result.packagePath, lastOpened: Date()), at: 0)
+        if let data = try? JSONEncoder().encode(recentProjects) { defaults.set(data, forKey: Self.recentProjectsKey) }
+    }
+
     func refreshAfterLibraryEdit() {
         do { snapshot = try project?.snapshot() } catch { presentedError = error.localizedDescription }
     }
 
-    var hasOpenProject: Bool { project != nil }
+    var hasOpenProject: Bool { project != nil || createdProject != nil }
     var galleryProxies: [String: BridgeProxyReference] { gallery.proxies }
     var galleryProxyDescriptors: [String: BridgeProxyDescriptorDto] { gallery.proxyDescriptors }
     var galleryProxyImages: [String: NSImage] { gallery.proxyImages }
@@ -162,6 +190,11 @@ final class AppModel: ObservableObject {
     }
 
     func newProject() {
+        creationMessage = creationOperation == nil ? nil : "An incomplete creation is saved. Retry to finish it, or keep it for later."
+        showsCreateProject = true
+    }
+
+    func newFixtureProject() {
         guard let application else { return }
         do {
             let project = try application.createProject(title: "Untitled Project")
@@ -179,6 +212,7 @@ final class AppModel: ObservableObject {
     }
 
     func closeProject() {
+        createdProject = nil
         evaluation?.cancel()
         evaluation = nil
         observer = nil
@@ -199,6 +233,7 @@ final class AppModel: ObservableObject {
     }
 
     func openRecent(_ recent: RecentProject) {
+        if let path = recent.documentPath, path.hasSuffix(".photara") { openCreatedPackage(path); return }
         guard let application else { return }
         do {
             let project: PhotaraProject
@@ -227,12 +262,16 @@ final class AppModel: ObservableObject {
         guard let application else { return }
         let panel = NSOpenPanel()
         panel.title = "Open \(ReleaseConfiguration.current.identity.projectPackageDisplayType)"
-        panel.message = "Choose a portable .photara-project.json document."
-        panel.allowedContentTypes = [.json]
+        panel.message = "Choose a project package or a legacy project document."
+        panel.allowedContentTypes = [.json, UTType(exportedAs: ReleaseConfiguration.current.identity.bundleIdentifier + ".project-package", conformingTo: .package)]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.directoryURL = projectsDirectory
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        if url.pathExtension == ReleaseConfiguration.current.identity.projectPackageExtension {
+            openCreatedPackage(url.path)
+            return
+        }
         do {
             let project = try application.openProjectDocument(documentPath: url.path)
             self.project = project
@@ -479,6 +518,7 @@ final class AppModel: ObservableObject {
     }
 
     func chooseAndImportTiffPair() {
+        guard project != nil else { return }
         let panel = NSOpenPanel()
         panel.title = "Import paired HDR and SDR TIFFs"
         panel.message = "Select exactly two TIFF files. Choose the HDR rendition first."

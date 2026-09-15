@@ -27,6 +27,12 @@ struct CreateProjectView: View {
   let cancel: () -> Void
   let create: (CreateProjectDraft) -> Void
   var presentation: CreateProjectPresentation = .shipped
+  var destination: String? = nil
+  var isWorking = false
+  var recoveryMessage: String? = nil
+  var hasPendingOperation = false
+  var pendingName: String? = nil
+  var keepForLater: (() -> Void)? = nil
   @State private var draft = CreateProjectDraft()
   @FocusState private var focusesName: Bool
 
@@ -60,6 +66,7 @@ struct CreateProjectView: View {
             .textFieldStyle(.roundedBorder)
             .focused($focusesName)
             .accessibilityIdentifier("create-project-name")
+            .disabled(isWorking || hasPendingOperation)
         }
         GridRow {
           Text("Location").foregroundStyle(.secondary).gridColumnAlignment(.trailing)
@@ -71,6 +78,7 @@ struct CreateProjectView: View {
               .help(draft.destination)
             Button("Choose…", action: chooseDestination)
               .accessibilityIdentifier("create-project-choose")
+              .disabled(isWorking || hasPendingOperation)
           }
         }
         GridRow {
@@ -80,6 +88,15 @@ struct CreateProjectView: View {
             .foregroundStyle(draft.trimmedName.isEmpty ? Color.secondary : Color.primary)
             .accessibilityIdentifier("create-project-package-name")
         }
+      }
+
+      if let recoveryMessage {
+        Text(recoveryMessage).font(.callout).foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true).padding(.top, 14)
+          .accessibilityIdentifier("create-project-recovery")
+      }
+      if isWorking {
+        ProgressView("Creating project…").controlSize(.small).padding(.top, 14)
       }
 
       if presentation != .compact {
@@ -116,19 +133,29 @@ struct CreateProjectView: View {
       Divider().padding(.vertical, 18)
 
       HStack {
+        if hasPendingOperation, !isWorking, let keepForLater {
+          Button("Keep for Later", action: keepForLater)
+            .accessibilityIdentifier("create-project-defer")
+        }
         Spacer()
         Button("Cancel", role: .cancel, action: cancel)
           .keyboardShortcut(.cancelAction)
           .accessibilityIdentifier("create-project-cancel")
-        Button("Create Project") { create(draft) }
+        Button(hasPendingOperation ? "Retry" : "Create Project") { create(draft) }
           .keyboardShortcut(.defaultAction)
-          .disabled(!draft.canCreate)
+          .disabled(isWorking || (!hasPendingOperation && !draft.canCreate))
           .accessibilityIdentifier("create-project-confirm")
       }
     }
     .padding(presentation == .compact ? 20 : 24)
     .frame(width: sheetWidth)
-    .onAppear { focusesName = true }
+    .onAppear {
+      focusesName = true
+      if let destination { draft.destination = destination }
+      if let pendingName { draft.name = pendingName }
+    }
+    .onChange(of: pendingName) { if let pendingName { draft.name = pendingName } }
+    .onChange(of: destination) { if let destination { draft.destination = destination } }
   }
 
   private var sheetWidth: CGFloat {

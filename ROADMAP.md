@@ -1,5 +1,33 @@
 # Roadmap to Photara 0.2.0
 
+**2026-09-14: UI1 real Create Project implementation.**
+
+UI1 is implemented from `c605475` in the uncommitted working tree. The approved
+shared Compact sheet and native Opening are preserved. Rust now owns the initial
+Project/Graph package, durable SQLite creation/recovery and exact cloud command;
+the existing local development Rust HTTP service transactionally registers and
+projects it in PostgreSQL. No desktop database credentials or Fly resources were
+introduced. Completion uses the existing safe saved-Graph shell, with legacy
+single-document authoring actions unavailable for package projects.
+
+The [implementation, recovery boundaries and measured checks](docs/architecture/UI1_CREATE_PROJECT.md)
+cover native destination selection, collision/permission/volume checks,
+duplicate/concurrent/restart recovery, cancellation, package/catalog rollback and
+lost cloud reply reconciliation. SQLite adds migration 0015 (local floor 5);
+PostgreSQL stays at migration 14/API floor 3. The full Graph furnace passes 15,644
+assertions with zero failures; original Graph source/oracles are unchanged.
+
+**No commit, push, installation, deployment or live user/Neon change is authorized.**
+Those actions require explicit publication approval after reviewing the local schema
+floor and matching service endpoint. UI2/UI3 and CXT4e remain open. Library Lifecycle
+is the next separately gated slice: exact Library-name retyping, current
+ownership/authorization and impact counts; transactional catalog/reference cleanup
+without database orphans; never deletion of packages or source/archive files.
+
+The earlier visual-checkpoint status and its publication authorization below are
+historical and do not authorize publication of this implementation.
+
+
 **2026-09-14: UI0 accepted; UI1 Create Project visual checkpoint accepted.**
 Final Xcode 27 verification passes: Graph **15,644 assertions / 0 failures**,
 12 matrix configurations and 12 seeded sequences of 180 actions; shared/production
@@ -151,7 +179,8 @@ is superseded. CXT3b is the next separately authorized gate.
 > [D19](docs/architecture/LIBRARY_AND_NODE_WORK_SURFACES.md), approved 2026-09-12.
 > CXT2, CXT1a/b, CXT3a, the clean Library rebaseline, CXT3b, CXT3c, CXT3d,
 > CXT4a/b/c/d and first-Mac live cloud onboarding are complete. CXT4e second-Mac
-> hydration remains open. UI0 then UI1 are the selected planning sequence; permanent
+> hydration remains open. UI0 is accepted; UI1 is implemented for review, with Library
+> Lifecycle separately gated next. Permanent
 > Fly deployment is deferred to production and must not be substituted with a
 > manual developer seed for real onboarding and local/cloud default-Library bootstrap.
 

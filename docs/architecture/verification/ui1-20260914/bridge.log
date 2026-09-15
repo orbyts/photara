@@ -1,0 +1,12 @@
+Building for debugging...
+[1 / 1]
+Build complete! (0.31 sec)
+    Blocking waiting for file lock on artifact directory
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.42s
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on artifact directory
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.22s
+     Running `/private/tmp/photara-cxt4d-authfix-rust/debug/photara-uniffi-bindgen generate --library /private/tmp/photara-cxt4d-authfix-rust/debug/libphotara_bridge.dylib --language swift --out-dir /Users/suhail/.codex/worktrees/12ef/photara/platform/macos/photara-app/.build/bridge-verification/generated`
+Photara UniFFI verification passed
+project=ee2ca85a-c8e1-404f-9858-2f03ba7f248e graphRevision=19
+progressEvents=3 cancellationEvents=2

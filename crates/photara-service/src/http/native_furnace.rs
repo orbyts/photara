@@ -103,6 +103,7 @@ async fn postgres_native_recovery_furnace() {
     });
     for scenario in [
         "normal",
+        "ui1-crash",
         "accounts",
         "lost-reply",
         "commit-timeout",
@@ -166,7 +167,10 @@ async fn postgres_native_recovery_furnace() {
             }
         }
         let exit = run(scenario).await.unwrap();
-        if scenario == "accounts" {
+        if scenario == "ui1-crash" {
+            assert_eq!(exit, Some(76));
+            assert_eq!(run("ui1-recover").await.unwrap(), Some(0));
+        } else if scenario == "accounts" {
             assert_eq!(exit, Some(0));
             assert_eq!(run("accounts-rejoin").await.unwrap(), Some(0));
             assert_eq!(run("accounts-relaunch").await.unwrap(), Some(0));
@@ -177,7 +181,7 @@ async fn postgres_native_recovery_furnace() {
         } else if scenario == "crash-commit" || scenario == "expired-fresh-crash-commit" {
             assert_eq!(exit, Some(73));
             assert_eq!(run("recover").await.unwrap(), Some(0));
-        } else {
+        } else if scenario != "ui1-crash" {
             assert_eq!(exit, Some(0), "{scenario}");
         }
         // Measure committed identity/device/receipt/library counts through a
@@ -193,6 +197,61 @@ async fn postgres_native_recovery_furnace() {
             .unwrap();
         let counts: (i64,i64,i64,i64,i64,i64,i64) = sqlx::query_as("SELECT (SELECT count(*) FROM photara_identity.account_identities WHERE subject=$1), (SELECT count(*) FROM photara_identity.devices WHERE account_id IN (SELECT account_id FROM photara_identity.account_identities WHERE subject=$1)), (SELECT count(*) FROM photara_private.onboarding_receipts WHERE subject=$1), (SELECT count(*) FROM photara_identity.account_defaults WHERE account_id IN (SELECT account_id FROM photara_identity.account_identities WHERE subject=$1)), (SELECT count(*) FROM photara_identity.accounts WHERE account_id IN (SELECT account_id FROM photara_identity.account_identities WHERE subject=$1)), (SELECT count(*) FROM photara.libraries WHERE display_name='My Library' AND library_id IN (SELECT library_id FROM photara_identity.memberships WHERE account_id IN (SELECT account_id FROM photara_identity.account_identities WHERE subject=$1))), (SELECT count(*) FROM photara_identity.memberships WHERE account_id IN (SELECT account_id FROM photara_identity.account_identities WHERE subject=$1))")
             .bind(subject).fetch_one(&mut *tx).await.unwrap();
+        if scenario == "ui1-crash" {
+            let result: serde_json::Value = serde_json::from_slice(
+                &std::fs::read(directory.join("creation-result.json")).unwrap(),
+            )
+            .unwrap();
+            let project = Uuid::parse_str(result["project"].as_str().unwrap()).unwrap();
+            let library = photara_core::contracts::LibraryId::from_uuid(
+                Uuid::parse_str(result["library"].as_str().unwrap()).unwrap(),
+            )
+            .unwrap();
+            let (account,identity):(Uuid,Uuid)=sqlx::query_as("SELECT account_id,identity_id FROM photara_identity.account_identities WHERE subject=$1").bind(config["subject"].as_str().unwrap()).fetch_one(&mut *tx).await.unwrap();
+            let actor = crate::Actor {
+                account: photara_core::contracts::AccountId::from_uuid(account).unwrap(),
+                identity,
+                expires_ms: now + 600_000,
+            };
+            crate::runtime::set_context(
+                &mut tx,
+                &actor,
+                crate::Request {
+                    scope: crate::Scope::Project {
+                        library,
+                        project: photara_core::contracts::ProjectId::from_uuid(project).unwrap(),
+                    },
+                    device: photara_core::contracts::DeviceId::from_uuid(
+                        Uuid::parse_str(result["device"].as_str().unwrap()).unwrap(),
+                    )
+                    .unwrap(),
+                    generation: 1,
+                },
+            )
+            .await
+            .unwrap();
+            let (count,graphs,digest):(i64,i64,String)=sqlx::query_as("SELECT count(*),max(graph_count),encode(max(commit_sha256::text)::bytea,'hex') FROM photara.package_observations WHERE project_id=$1").bind(project).fetch_one(&mut *tx).await.unwrap();
+            assert_eq!((count, graphs), (1, 1));
+            assert_eq!(digest, result["commit_sha256"]);
+            let sqlite = sqlx::SqlitePool::connect(&format!(
+                "sqlite:{}?mode=ro",
+                directory.join("State/photara-local-v2.sqlite").display()
+            ))
+            .await
+            .unwrap();
+            let local:(i64,i64)=sqlx::query_as("SELECT (SELECT count(*) FROM project_catalog),(SELECT count(*) FROM project_graph_projection)").fetch_one(&sqlite).await.unwrap();
+            assert_eq!(local, (1, 1));
+            let graph: Vec<u8> =
+                sqlx::query_scalar("SELECT graph_id FROM project_graph_projection")
+                    .fetch_one(&sqlite)
+                    .await
+                    .unwrap();
+            assert_eq!(
+                Uuid::from_slice(&graph).unwrap().to_string(),
+                result["graph"]
+            );
+            sqlite.close().await;
+        }
         tx.rollback().await.unwrap();
         owner.close().await;
         let expected = if ["rollback-503", "unauthorized", "stale-capabilities"].contains(&scenario)
