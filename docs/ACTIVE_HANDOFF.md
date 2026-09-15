@@ -1,6 +1,37 @@
 # Active handoff
 
-## 2026-09-15 UI1 integration checkpoint — Graph blocker resolved
+## 2026-09-15 UI1 checkpoint published
+
+Review was accepted and Git publication was explicitly authorized. Checkpoint
+`b0c2ba7ab26968a7863d63add48a7980170347f8` — `feat(ui): create projects transactionally` — contains exactly the
+accepted **78-file UI1 integration inventory**, with all staged and committed bytes
+checked against the accepted hashes. Its parent is `c605475742f22581060ff009fcbcfd2a3acc4e36`.
+
+`git push origin HEAD:refs/heads/main` completed as a normal fast-forward
+(`c605475..b0c2ba7`, no force). At **2026-09-15T21:43:19+00:00**, local `HEAD`, local `origin/main`,
+remote `refs/heads/main`, and remote default `HEAD` all resolved to the checkpoint;
+the remote default remains `main`. The source worktree was clean after the push.
+
+This documentation-only follow-up changes `ACTIVE_HANDOFF.md` and
+`UI1_INTEGRATION_CHECKPOINT.md`. It records the completed checkpoint publication;
+its own final commit ID and remote verification are retained in the publication
+task's completion record, avoiding a self-referential evidence commit. The machine
+inventory hashes describe the **checkpoint commit's tree**, before these two
+publication-record edits. The [checkpoint report](architecture/UI1_INTEGRATION_CHECKPOINT.md)
+records the retained raw-log whitespace exception and detailed evidence.
+
+Graph acceptance remains **19,093 assertions / zero failures**, with all prior
+verification and failed-run history retained. Publication performed no app
+installation/launch, service deployment, live SQLite/Neon/Auth0/Keychain change,
+COV0 merge, or Library Lifecycle implementation.
+
+**Next separately gated step:** scope Library Lifecycle under the accepted roadmap.
+COV0 documentation remains separate, with the recorded single ROADMAP conflict.
+App/service rollout and live migration acceptance require separate authorization.
+
+## 2026-09-15 UI1 integration checkpoint — pre-publication verification
+
+The following records the accepted verification state before Git publication.
 
 The uncommitted `/Users/suhail/.codex/worktrees/6569/photara` worktree is ready for
 review and a separately authorized UI1 checkpoint commit. **No commit, push,

@@ -1,12 +1,56 @@
 # UI1 integration checkpoint — 2026-09-15
 
-Safe to commit as a verified UI1 checkpoint after review and separate authorization. The final full Graph gate passes **19,093 assertions / 0 failures**; no commit was performed.
+Published UI1 checkpoint: **`b0c2ba7ab26968a7863d63add48a7980170347f8`**. The accepted final full Graph gate passes **19,093 assertions / 0 failures**. Git publication evidence follows below.
 
-Reviewable, uncommitted worktree: `/Users/suhail/.codex/worktrees/6569/photara`.
-No commit, push, installation, service replacement or live-data operation occurred.
+Checkpoint source worktree: `/Users/suhail/.codex/worktrees/6569/photara`.
+Verification performed no installation, service replacement or live-data operation.
+The subsequent authorized Git publication is recorded below.
 The [machine-readable report](verification/ui1-integration-20260915.json) records
 source hashes, exact inventories, commands, outcomes, bundle preservation and gates.
 Historical 2026-09-14/15 evidence imported from `12ef` remains historical.
+
+## Authorized checkpoint publication
+
+Review acceptance authorized this checkpoint and a documentation-only publication
+record. Publication was performed from this same worktree, with no rebase, reset,
+force push, COV0 merge, or follow-on implementation.
+
+| Item | Verified result |
+| --- | --- |
+| Verified base | `c605475742f22581060ff009fcbcfd2a3acc4e36` |
+| UI1 checkpoint | `b0c2ba7ab26968a7863d63add48a7980170347f8` |
+| Commit subject | `feat(ui): create projects transactionally` |
+| Commit inventory | Exactly 78 documented paths; staged and committed bytes match the accepted SHA-256 inventory |
+| Push | `git push origin HEAD:refs/heads/main`; normal fast-forward `c605475..b0c2ba7`, exit 0 |
+| Ref verification | Local `HEAD`, local `origin/main`, remote `refs/heads/main`, and remote default `HEAD` all equal the checkpoint |
+| Remote default | `main` |
+| Verification time | `2026-09-15T21:43:19+00:00` |
+| Worktree after checkpoint push | Clean |
+
+`origin/main` was read before staging and again immediately before the checkpoint
+push; it still equaled the verified base. The committed tree was checked against
+the accepted inventory before pushing. No ignored builds, temporary evidence,
+unrelated paths, live state, packages or credentials were staged.
+
+The initial `git diff --check` passed. The additional full staged check reported
+only `new blank line at EOF` in retained raw logs `ui1-20260914/graph.log:37` and
+`ui1-20260914/rust.log:485`. Both logs exactly match their accepted evidence hashes
+and remain verbatim. A staged check excluding those two logs passed for all other
+76 files. This is a recorded raw-evidence whitespace exception, not a source or
+inventory mismatch.
+
+This publication-record commit is a documentation-only direct child of the UI1
+checkpoint, titled `docs: record UI1 checkpoint publication`. It changes only this
+report and `docs/ACTIVE_HANDOFF.md`; runtime, tests and retained machine evidence
+remain unchanged. Its own final commit ID and fresh remote equality are recorded
+in the publication task's completion record to avoid embedding its own hash.
+The 78-file inventory and machine-report hashes below identify the **UI1 checkpoint
+commit's tree**, before these two documentation-only publication edits.
+
+No app was installed or launched, no service deployed, and no live SQLite, Neon,
+Auth0 or Keychain state changed. COV0 was not merged and Library Lifecycle was not
+started. The next separately gated implementation step is Library Lifecycle;
+COV0's single documented ROADMAP conflict and live rollout gates remain separate.
 
 ## Base and reconciliation
 
