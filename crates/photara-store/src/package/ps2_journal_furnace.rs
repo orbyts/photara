@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest as _, Sha256};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs::File,
     io::{Read, Seek, SeekFrom, Write},
 };
@@ -173,6 +173,7 @@ fn append_frame(
 fn scan(bytes: &[u8]) -> Result<Scan, HeaderError> {
     let (header, mut offset, mut previous) = read_header(bytes)?;
     let mut records = Vec::new();
+    let mut record_ids = BTreeSet::new();
     loop {
         let verified_len = offset;
         if offset == bytes.len() {
@@ -252,6 +253,7 @@ fn scan(bytes: &[u8]) -> Result<Scan, HeaderError> {
         }
         if record.sequence != records.len() as u64 + 1
             || record.id.is_nil()
+            || !record_ids.insert(record.id)
             || record.session_generation.is_nil()
             || record.project_id != header.project_id
             || record.incarnation_id != header.incarnation_id
@@ -267,6 +269,17 @@ fn scan(bytes: &[u8]) -> Result<Scan, HeaderError> {
         previous = expected;
         offset = total;
     }
+}
+
+// Recovery must pin the journal to the package identity before it considers
+// any otherwise checksum-valid frame. A copied journal is not a recovery log
+// for a different package or a replacement at the same locator.
+fn scan_bound(bytes: &[u8], expected: &Header) -> Result<Scan, HeaderError> {
+    let (actual, _, _) = read_header(bytes)?;
+    if &actual != expected {
+        return Err(HeaderError::Invalid);
+    }
+    scan(bytes)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -495,6 +508,60 @@ mod tests {
         let mut bytes = header_bytes(&header).unwrap();
         bytes.extend_from_slice(&u32::MAX.to_le_bytes());
         assert_eq!(scan(&bytes).unwrap().tail, Tail::Corrupt);
+    }
+
+    #[test]
+    fn duplicate_record_id_refuses_replay_even_with_valid_checksums() {
+        let (header, mut records) = fixture();
+        records[1].id = records[0].id;
+        let first_end = encoded(&header, &records[..1]).len();
+        let result = scan(&encoded(&header, &records)).unwrap();
+        assert_eq!(result.tail, Tail::Corrupt);
+        assert_eq!(result.records, records[..1]);
+        assert_eq!(result.verified_len, first_end);
+    }
+
+    #[test]
+    fn copied_journal_never_replays_into_another_package_incarnation() {
+        let (header, records) = fixture();
+        let bytes = encoded(&header, &records);
+        assert_eq!(scan_bound(&bytes, &header).unwrap().records, records);
+        for changed in [
+            Header {
+                project_id: Uuid::new_v4(),
+                ..header.clone()
+            },
+            Header {
+                library_id: Uuid::new_v4(),
+                ..header.clone()
+            },
+            Header {
+                incarnation_id: Uuid::new_v4(),
+                ..header.clone()
+            },
+            Header {
+                device_id: Uuid::new_v4(),
+                ..header.clone()
+            },
+            Header {
+                journal_id: Uuid::new_v4(),
+                ..header.clone()
+            },
+            Header {
+                manifest_sha256: "d".repeat(64),
+                ..header.clone()
+            },
+            Header {
+                base_head_sha256: "e".repeat(64),
+                ..header.clone()
+            },
+        ] {
+            assert_eq!(
+                scan_bound(&bytes, &changed).unwrap_err(),
+                HeaderError::Invalid
+            );
+        }
+        assert_eq!(scan(&bytes).unwrap().tail, Tail::Complete);
     }
 
     #[test]

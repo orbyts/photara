@@ -3,12 +3,17 @@
 ## PS2 disposable durability furnace — in progress
 
 The first test-only journal increment validates canonical framed records, chained
-checksums, exact sequence and package identity, every torn suffix, corruption,
-unsupported versions, and idempotent reconciliation after uncertain append/sync.
+checksums, exact sequence and package identity, duplicate-record rejection,
+every torn suffix, corruption, unsupported versions, and idempotent
+reconciliation after uncertain append/sync. A copied journal is refused when
+its project, Library, device, incarnation, manifest, base HEAD, or journal ID
+does not match the expected recovery binding.
 It reopens a disposable file and preserves original evidence on short writes.
 The disposable package-publication fixture also stops after intent, each new
 immutable file and HEAD replacement, checking the existing reader accepts only
-the complete old or new closure and that stale HEAD blocks publication.
+the complete old or new closure and that stale HEAD blocks publication. A
+separate child-process exit/reopen check exercises intent, immutable and HEAD
+boundaries; this is not a power-loss qualification.
 No production journal API, user-package writer, APFS durability qualification,
 semantic replay, checkpoint publication, process-kill matrix, retention decision,
 native autosave or project switching exists yet. PS2 is **not** an acceptance gate
