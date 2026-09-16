@@ -3,7 +3,7 @@ import SwiftUI
 
 extension AppModel {
     func applicationPresentation(_ session: EditorSessionModel) -> ApplicationPresentation {
-        return .init(hasOpenProject: hasOpenProject, title: createdProject?.title ?? snapshot?.title ?? "Photara Project",
+        return .init(hasOpenProject: hasOpenProject, title: createdProject?.title ?? snapshot?.title ?? ReleaseConfiguration.current.identity.projectPackageDisplayType,
             subtitle: createdProject.map { "Graph 1 · Saved package · \($0.projectId.prefix(12))" } ?? snapshot.map { "rev \($0.projectRevision) · \($0.projectId.prefix(12))" } ?? "Not loaded",
             isDirty: snapshot?.dirty == true, nodeCount: snapshot?.nodes.count ?? 0,
             diagnosticCount: snapshot?.diagnostics.count ?? 0, progressLabel: progressLabel,

@@ -32,7 +32,7 @@ pub fn project_name(input: &str) -> Result<String, NameError> {
     if title.is_empty() {
         return Err(NameError::Empty);
     }
-    if title.len() + ".photara".len() > 255 {
+    if title.len() > 255 {
         return Err(NameError::TooLong);
     }
     let stem = title
@@ -73,8 +73,87 @@ mod tests {
         ] {
             assert!(project_name(name).is_err(), "{name:?}");
         }
-        assert!(project_name(&"a".repeat(247)).is_ok());
-        assert_eq!(project_name(&"a".repeat(248)), Err(NameError::TooLong));
+        assert!(project_name(&"a".repeat(255)).is_ok());
+        assert_eq!(project_name(&"a".repeat(256)), Err(NameError::TooLong));
         assert!(project_name("CONifer").is_ok());
+    }
+}
+
+/// Validated outer filename policy, never part of portable package bytes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct PackageExtension(String);
+
+impl TryFrom<String> for PackageExtension {
+    type Error = NameError;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if value.is_empty()
+            || value.len() > 32
+            || !value.as_bytes()[0].is_ascii_lowercase()
+            || !value
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        {
+            return Err(NameError::Unsafe);
+        }
+        Ok(Self(value))
+    }
+}
+impl From<PackageExtension> for String {
+    fn from(value: PackageExtension) -> Self {
+        value.0
+    }
+}
+impl PackageExtension {
+    /// Compatibility default for already persisted UI1 requests only.
+    /// New requests must use generated public configuration.
+    #[must_use]
+    pub fn legacy_creation_alias() -> Self {
+        Self("photara".into())
+    }
+
+    /// Preserve the old local request encoding under the unchanged development config.
+    #[must_use]
+    pub fn is_legacy_creation_alias(&self) -> bool {
+        self == &Self::legacy_creation_alias()
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Build an outer filename using the actual suffix byte budget.
+    /// # Errors
+    /// Rejects unsafe names and filenames over 255 UTF-8 bytes.
+    pub fn filename(&self, title: &str) -> Result<String, NameError> {
+        let title = project_name(title)?;
+        let filename = format!("{title}.{}", self.0);
+        if filename.len() > 255 {
+            return Err(NameError::TooLong);
+        }
+        Ok(filename)
+    }
+}
+
+#[cfg(test)]
+mod naming_tests {
+    use super::*;
+    #[test]
+    fn extension_budget_and_unsafe_configuration_are_checked() {
+        let extension = PackageExtension::try_from("jprtest".to_owned()).unwrap();
+        assert!(extension.filename(&"a".repeat(247)).is_ok());
+        assert_eq!(
+            extension.filename(&"a".repeat(248)),
+            Err(NameError::TooLong)
+        );
+        let longer = PackageExtension::try_from("longersuffix".to_owned()).unwrap();
+        assert_eq!(longer.filename(&"a".repeat(247)), Err(NameError::TooLong));
+        for bad in [
+            "", ".photara", "../bad", "a/b", "a\\b", "UPPER", "foo.bar", "a b",
+        ] {
+            assert!(PackageExtension::try_from(bad.to_owned()).is_err());
+            assert!(serde_json::from_value::<PackageExtension>(serde_json::json!(bad)).is_err());
+        }
     }
 }

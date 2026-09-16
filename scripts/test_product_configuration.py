@@ -82,6 +82,35 @@ class ReleaseAdmissionTests(unittest.TestCase):
         result = product.configuration(self.descriptor, "development")
         self.assertEqual(result["identity"]["projectPackageExtension"], "exampleproject")
 
+    def test_brand_path_and_extension_policy_refuses_unsafe_values(self):
+        for key in ("productName", "executableName", "applicationSupportDirectory",
+                    "cacheDirectory", "defaultProjectsDirectory", "journalDirectory"):
+            for bad in ("", "..", "a/b", "a\\b", "a\n", " a", "a:"):
+                d = copy.deepcopy(self.descriptor)
+                d["identity"][key] = bad
+                with self.assertRaises(ValueError, msg=(key, bad)):
+                    product.configuration(d, "development")
+        for bad in ("", ".jprtest", "../bad", "a.b", "UPPER", "a" * 33):
+            d = copy.deepcopy(self.descriptor)
+            d["identity"]["projectPackageExtension"] = bad
+            with self.assertRaises(ValueError):
+                product.configuration(d, "development")
+        d = copy.deepcopy(self.descriptor)
+        d["identity"]["legacyProjectPackageExtensions"] = ["photara", "photara"]
+        with self.assertRaises(ValueError):
+            product.configuration(d, "development")
+
+    def test_synthetic_descriptor_keeps_internal_namespace(self):
+        from verify_brand_readiness import synthetic_descriptor
+        d = synthetic_descriptor()
+        selected = product.configuration(d, "development")
+        self.assertEqual(selected["environment"]["schemaFamily"], "photara.service.g2")
+        self.assertEqual(selected["identity"]["legacyProjectPackageExtensions"], ["photara"])
+        for key, value in selected["identity"].items():
+            if key != "legacyProjectPackageExtensions":
+                self.assertNotIn("photara", str(value).lower(), key)
+        self.assertEqual(selected["identity"]["keychainService"], "org.example.juniper.auth")
+
     def test_shared_generated_source_is_not_rewritten_when_unchanged(self):
         with tempfile.TemporaryDirectory(prefix="product-config-test-") as directory:
             path = Path(directory) / "CheckedReleaseConfiguration.swift"

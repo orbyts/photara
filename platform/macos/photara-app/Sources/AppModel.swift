@@ -68,8 +68,8 @@ final class AppModel: ObservableObject {
     @Published var creationOperation: String?
     @Published var creationTitle: String?
     @Published var createdProject: BridgeProjectCreation?
-    @Published var creationDestination = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Pictures/Photara/Projects")
-    var defaultCreationDestination = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Pictures/Photara/Projects")
+    @Published var creationDestination = ReleaseConfiguration.current.identity.defaultProjectsURL()
+    var defaultCreationDestination = ReleaseConfiguration.current.identity.defaultProjectsURL()
     var creationTask: Task<Void, Never>?
     var creationCancellationRequested = false
     var creationDestinationPin: String?
@@ -101,7 +101,7 @@ final class AppModel: ObservableObject {
         )
         layoutAuthoringPreviewLongEdge = [512, 1_024, 2_048].contains(configuredLongEdge)
             ? UInt32(configuredLongEdge) : 1_024
-        let legacyDefaults = UserDefaults(suiteName: "Photara")
+        let legacyDefaults = ReleaseConfiguration.current.identity.legacyPreferenceSuites.first.flatMap { UserDefaults(suiteName: $0) }
         recentProjects = ((defaults.data(forKey: Self.recentProjectsKey)
             ?? legacyDefaults?.data(forKey: Self.recentProjectsKey))
             .flatMap { try? JSONDecoder().decode([RecentProject].self, from: $0) } ?? [])
@@ -113,14 +113,15 @@ final class AppModel: ObservableObject {
                 appropriateFor: nil,
                 create: true
             ).appending(path: ReleaseConfiguration.current.identity.applicationSupportDirectory)
-            localState = try initializeLocalState(path: support.appending(path: "State/photara-local-v2.sqlite").path)
-            creationJournal = NativeProjectCreationJournal(path: support.appending(path: "State/photara-local-v2.sqlite").path)
+            localState = try initializeLocalState(path: ReleaseConfiguration.current.identity.journalURL(support: support).appending(path: "photara-local-v2.sqlite").path)
+            creationJournal = NativeProjectCreationJournal(path: ReleaseConfiguration.current.identity.journalURL(support: support).appending(path: "photara-local-v2.sqlite").path)
             if let supportRootOverride {
                 defaultCreationDestination = supportRootOverride.appending(path: "CreatedProjects")
                 creationDestination = defaultCreationDestination
             }
             let storeRoot = support.appending(path: "GenerationTwo")
-            let proxyCacheRoot = support.appending(path: "ProxyCache")
+            let cacheBase = supportRootOverride ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            let proxyCacheRoot = ReleaseConfiguration.current.identity.cacheURL(base: cacheBase).appending(path: "ProxyCache")
             try FileManager.default.createDirectory(
                 at: storeRoot,
                 withIntermediateDirectories: true
@@ -233,7 +234,7 @@ final class AppModel: ObservableObject {
     }
 
     func openRecent(_ recent: RecentProject) {
-        if let path = recent.documentPath, path.hasSuffix(".photara") { openCreatedPackage(path); return }
+        if let path = recent.documentPath, ReleaseConfiguration.current.identity.acceptsProjectPackage(URL(fileURLWithPath: path)) { openCreatedPackage(path); return }
         guard let application else { return }
         do {
             let project: PhotaraProject
@@ -263,12 +264,12 @@ final class AppModel: ObservableObject {
         let panel = NSOpenPanel()
         panel.title = "Open \(ReleaseConfiguration.current.identity.projectPackageDisplayType)"
         panel.message = "Choose a project package or a legacy project document."
-        panel.allowedContentTypes = [.json, UTType(exportedAs: ReleaseConfiguration.current.identity.bundleIdentifier + ".project-package", conformingTo: .package)]
+        panel.allowedContentTypes = [.json, UTType(exportedAs: ReleaseConfiguration.current.identity.projectDocumentUTI, conformingTo: .package)]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.directoryURL = projectsDirectory
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        if url.pathExtension == ReleaseConfiguration.current.identity.projectPackageExtension {
+        if ReleaseConfiguration.current.identity.acceptsProjectPackage(url) {
             openCreatedPackage(url.path)
             return
         }

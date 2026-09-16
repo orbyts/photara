@@ -227,7 +227,7 @@ struct ApplicationShellPreset: Codable, Equatable {
         toolbarShowsProjectTitle = try values.decodeIfPresent(Bool.self, forKey: .toolbarShowsProjectTitle) ?? true
         toolbarTitleSize = try values.decodeIfPresent(Double.self, forKey: .toolbarTitleSize) ?? 13
         toolbarTitleWeight = try values.decodeIfPresent(TitleWeight.self, forKey: .toolbarTitleWeight) ?? .semibold
-        toolbarApplicationTitle = try values.decodeIfPresent(String.self, forKey: .toolbarApplicationTitle) ?? "Photara"
+        toolbarApplicationTitle = try values.decodeIfPresent(String.self, forKey: .toolbarApplicationTitle) ?? ReleaseConfiguration.current.identity.displayName
         toolbarApplicationTitleSize = try values.decodeIfPresent(Double.self, forKey: .toolbarApplicationTitleSize) ?? 13
         toolbarShowsProjectThumbnail = try values.decodeIfPresent(Bool.self, forKey: .toolbarShowsProjectThumbnail) ?? true
         toolbarProjectThumbnailSize = try values.decodeIfPresent(Double.self, forKey: .toolbarProjectThumbnailSize) ?? 24
@@ -291,7 +291,7 @@ struct ApplicationShellPreset: Codable, Equatable {
 }
 
 enum PhotaraShellDevelopmentSettings {
-    static let applicationID = "com.photara.desktop"
+    static let applicationID = ReleaseConfiguration.current.identity.bundleIdentifier
     static let presetDataKey = "PhotaraDeveloperShellPresetV1"
 
     static var overridePreset: ApplicationShellPreset? {

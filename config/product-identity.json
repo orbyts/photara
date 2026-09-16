@@ -17,7 +17,20 @@
     "websiteURL": null,
     "supportURL": null,
     "privacyURL": null,
-    "storeURL": null
+    "storeURL": null,
+    "productName": "Photara",
+    "executableName": "Photara",
+    "projectDocumentUTI": "com.photara.desktop.project-package",
+    "legacyProjectPackageExtensions": [
+      "photara"
+    ],
+    "defaultProjectsDirectory": "Photara",
+    "journalDirectory": "State",
+    "legacyPreferenceSuites": [
+      "Photara"
+    ],
+    "developmentOperatorDirectory": "photara-development-service",
+    "developmentOperatorProduct": "Photara Development Operator"
   },
   "environments": {
     "development": {

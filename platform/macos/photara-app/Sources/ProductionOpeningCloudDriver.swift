@@ -5,7 +5,7 @@ actor NativeProjectCreationJournal {
     let path: String
     init(path: String) { self.path = path }
     private func use<T>(_ action: (PhotaraProjectCreation) throws -> T) throws -> T {
-        let journal = try PhotaraProjectCreation.open(path: path)
+        let journal = try PhotaraProjectCreation.open(path: path, packageExtension: ReleaseConfiguration.current.identity.projectPackageExtension)
         defer { try? journal.close() }
         return try action(journal)
     }
@@ -143,7 +143,7 @@ final class ProductionOpeningCloudDriver: OpeningCloudDriver {
             throw NativeAuthenticationError.invalidCredential
         }
         let support = try deps.supportDirectory()
-        let onboarding = NativeOnboardingJournal(path: support.appending(path: "State/photara-local-v2.sqlite").path)
+        let onboarding = NativeOnboardingJournal(path: configuration.identity.journalURL(support: support).appending(path: "photara-local-v2.sqlite").path)
         let cachedReference = try await onboarding.cachedCredential(library: creation.libraryId,
             environment: configuration.environment.environmentId)
         try await onboarding.close()
@@ -153,7 +153,7 @@ final class ProductionOpeningCloudDriver: OpeningCloudDriver {
         let store = try deps.credentials()
         let namespace = try store.recoveryNamespace(reference: reference, configuration: configuration)
         let refreshed = try await NativeRefresh.perform(store: store, namespace: namespace,
-            lockURL: support.appending(path: "State/refresh.lock"), exchange: deps.refresh)
+            lockURL: configuration.identity.journalURL(support: support).appending(path: "refresh.lock"), exchange: deps.refresh)
         let identity = try await deps.verifyAccess(refreshed.accessToken, deps.now())
         let expected = try NativeCredentialNamespace(configuration: configuration, installation: deps.installation(),
             issuer: issuer, subject: subject, reference: reference)
@@ -219,7 +219,7 @@ final class ProductionOpeningCloudDriver: OpeningCloudDriver {
     func savedState() async throws -> NativeOnboardingState? {
         guard availability == .available else { return nil }
         let deps = try dependencies()
-        let journal = NativeOnboardingJournal(path: try deps.supportDirectory().appending(path: "State/photara-local-v2.sqlite").path)
+        let journal = NativeOnboardingJournal(path: try configuration.identity.journalURL(support: deps.supportDirectory()).appending(path: "photara-local-v2.sqlite").path)
         do {
             let local = try await journal.localState()
             let state: NativeOnboardingState
@@ -241,7 +241,7 @@ final class ProductionOpeningCloudDriver: OpeningCloudDriver {
     func recoverIfNeeded(progress: @escaping @MainActor (NativeOnboardingState) -> Void) async throws -> NativeOnboardingState? {
         guard availability == .available else { return nil }
         let deps = try dependencies()
-        let journal = NativeOnboardingJournal(path: try deps.supportDirectory().appending(path: "State/photara-local-v2.sqlite").path)
+        let journal = NativeOnboardingJournal(path: try configuration.identity.journalURL(support: deps.supportDirectory()).appending(path: "photara-local-v2.sqlite").path)
         let reference: String?
         let expired: String?
         do {
@@ -262,7 +262,7 @@ final class ProductionOpeningCloudDriver: OpeningCloudDriver {
     func accountProfile(refreshAvatar: Bool) async throws -> NativeAccountProfile? {
         guard availability == .available else { return nil }
         let support = try dependencies().supportDirectory()
-        let journal = NativeOnboardingJournal(path: support.appending(path: "State/photara-local-v2.sqlite").path)
+        let journal = NativeOnboardingJournal(path: configuration.identity.journalURL(support: support).appending(path: "photara-local-v2.sqlite").path)
         let local: BridgeLocalState
         let saved: String?
         do {
@@ -287,7 +287,7 @@ final class ProductionOpeningCloudDriver: OpeningCloudDriver {
         active = true
         defer { active = false }
         let deps = try dependencies()
-        let stateDirectory = try deps.supportDirectory().appending(path: "State")
+        let stateDirectory = try configuration.identity.journalURL(support: deps.supportDirectory())
         let attemptLock = try NativeOnboardingLock(url: stateDirectory.appending(path: "onboarding.lock"))
         let refreshLock = try NativeOnboardingLock(url: stateDirectory.appending(path: "refresh.lock"))
         defer { _fixLifetime(attemptLock); _fixLifetime(refreshLock) }
@@ -333,7 +333,7 @@ final class ProductionOpeningCloudDriver: OpeningCloudDriver {
     private func reconnect(journal: NativeOnboardingJournal, local: BridgeLocalState, reference: String,
                            store: any NativeEnrollmentCredentialStore, deps: NativeOpeningDependencies,
                            support: URL, progress: @escaping @MainActor (NativeOnboardingState) -> Void) async throws -> NativeOnboardingState {
-        let refreshLock = try NativeOnboardingLock(url: support.appending(path: "State/refresh.lock"))
+        let refreshLock = try NativeOnboardingLock(url: configuration.identity.journalURL(support: support).appending(path: "refresh.lock"))
         defer { _fixLifetime(refreshLock) }
         var phase = NativeOnboardingPhase.credentialStorage
         var namespace: NativeCredentialNamespace?
@@ -448,7 +448,7 @@ final class ProductionOpeningCloudDriver: OpeningCloudDriver {
             store = try deps.credentials()
             phase = .journalRecovery
             let support = try deps.supportDirectory()
-            let stateDirectory = support.appending(path: "State")
+            let stateDirectory = configuration.identity.journalURL(support: support)
             try FileManager.default.createDirectory(at: stateDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             attemptLock = try NativeOnboardingLock(url: stateDirectory.appending(path: "onboarding.lock"))
             let localJournal = NativeOnboardingJournal(path: stateDirectory.appending(path: "photara-local-v2.sqlite").path)

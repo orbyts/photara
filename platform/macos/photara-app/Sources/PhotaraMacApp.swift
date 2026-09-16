@@ -14,7 +14,7 @@ struct PhotaraMacApp: App {
                 .environmentObject(session)
                 .environmentObject(theme)
                 .onOpenURL { url in
-                    if url.isFileURL && url.pathExtension == configuration.identity.projectPackageExtension {
+                    if url.isFileURL && configuration.identity.acceptsProjectPackage(url) {
                         app.openCreatedPackage(url.path)
                     }
                 }

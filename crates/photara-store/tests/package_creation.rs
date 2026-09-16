@@ -33,7 +33,13 @@ fn published_package_has_exact_identity_graph_closure_and_replay_bytes() {
     let stage = destination.create_stage(&p).unwrap();
     stage.materialize(&p).unwrap();
     stage.materialize(&p).unwrap();
-    let path = destination.publish(&stage, &p).unwrap();
+    let path = destination
+        .publish(
+            &stage,
+            &p,
+            &photara_core::creation::PackageExtension::legacy_creation_alias(),
+        )
+        .unwrap();
     let verified = v1_1::validate_directory(&path, PackageLimits::default()).unwrap();
     assert_eq!(verified.head.commit_sha256, p.commit_sha256);
     assert_eq!(
@@ -69,7 +75,15 @@ fn collision_does_not_replace_empty_directory_file_or_symlink() {
             1 => fs::write(&path, b"untouched").unwrap(),
             _ => symlink("/does-not-exist", &path).unwrap(),
         }
-        assert!(destination.publish(&stage, &p).is_err());
+        assert!(
+            destination
+                .publish(
+                    &stage,
+                    &p,
+                    &photara_core::creation::PackageExtension::legacy_creation_alias()
+                )
+                .is_err()
+        );
         assert!(fs::symlink_metadata(&path).is_ok());
         stage.discard_stage(&destination, &p).unwrap();
         assert!(!stage.path.exists());
@@ -107,4 +121,43 @@ fn interrupted_stage_rebuilds_and_permission_failure_is_recoverable() {
     assert!(denied.create_stage(&p).is_err());
     fs::set_permissions(&blocked, fs::Permissions::from_mode(0o700)).unwrap();
     assert!(denied.create_stage(&p).is_ok());
+}
+
+#[test]
+fn legacy_pinned_stage_publishes_under_synthetic_extension_without_byte_rewrite() {
+    let root = tempfile::tempdir_in("/private/tmp").unwrap();
+    let p = package();
+    let destination = DirectoryPin::inspect(root.path()).unwrap();
+    let stage = destination.create_stage(&p).unwrap();
+    stage.materialize(&p).unwrap();
+    // Model the path already recorded by an older build. Pin identity stays equal.
+    let old = root.path().join(format!(
+        ".photara-create-{}-{}",
+        p.spec.operation_id,
+        uuid::Uuid::new_v4()
+    ));
+    fs::rename(&stage.path, &old).unwrap();
+    let old_pin = DirectoryPin::inspect(&old).unwrap();
+    assert_eq!((old_pin.device, old_pin.inode), (stage.device, stage.inode));
+    let extension =
+        photara_core::creation::PackageExtension::try_from("jprtest".to_owned()).unwrap();
+    let path = destination.publish(&old_pin, &p, &extension).unwrap();
+    assert_eq!(path.extension().unwrap(), "jprtest");
+    assert_eq!(
+        v1_1::validate_directory(&path, PackageLimits::default())
+            .unwrap()
+            .head
+            .commit_sha256,
+        p.commit_sha256
+    );
+    for (name, bytes) in &p.files {
+        assert_eq!(&fs::read(path.join(name)).unwrap(), bytes);
+    }
+    // Explicit outer-name change only, in this disposable fixture, remains readable.
+    let legacy = root.path().join("Legacy.photara");
+    fs::rename(&path, &legacy).unwrap();
+    v1_1::validate_directory(&legacy, PackageLimits::default()).unwrap();
+    for (name, bytes) in &p.files {
+        assert_eq!(&fs::read(legacy.join(name)).unwrap(), bytes);
+    }
 }

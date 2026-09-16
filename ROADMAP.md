@@ -1,5 +1,24 @@
 # Roadmap to Photara 0.2.0
 
+## BR0 implementation review gate — 2026-09-16
+
+[BR0 Brand Cutover / Rename Readiness](docs/architecture/BR0_RENAME_READINESS.md) implements the configurable public
+identity seam from published PS0 `6cfd0f12a9cc42c7e7ff28ded84d1dffd8975f26`.
+The development identity remains Photara. Synthetic-brand/extension builds and
+disposable creation/reopen checks exercise the cutover without live trust enrollment.
+Known UI/default/extension leaks are addressed; internal identifiers remain stable.
+Native synthetic GUI acceptance also passed: create `.jprtest`, quit/restart/reopen,
+and open a completed legacy `.photara` fixture. Both package manifests stayed
+identical; the isolated app is closed. Protected-file audit: 1,838 unchanged
+entries. One Keychain WAL metadata change is disclosed without attribution in
+the report. The 28-file change remains uncommitted for review.
+
+**Awaiting Suhail review: no commit/push/install/deploy authorization.** BR0 must be
+accepted before PS1 begins. Production branding/trust enrollment and controlled
+local-directory migration remain separately reviewed work, not automatic rename
+side effects. No durability writer, retention implementation, project switching,
+LL1 or COV work is included. The PS0 entries below are historical publication gates.
+
 ## PS0 architecture review gate — 2026-09-15
 
 [Project Session and Graph Durability PS0](docs/architecture/PROJECT_SESSION_DURABILITY.md) is drafted against published

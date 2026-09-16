@@ -131,7 +131,12 @@ impl DirectoryPin {
     /// Publish a completed stage using the OS exclusive rename operation.
     /// # Errors
     /// Never replaces any existing path, including empty folders and symlinks.
-    pub fn publish(&self, stage: &Self, package: &InitialPackage) -> Result<PathBuf, PackageError> {
+    pub fn publish(
+        &self,
+        stage: &Self,
+        package: &InitialPackage,
+        extension: &photara_core::creation::PackageExtension,
+    ) -> Result<PathBuf, PackageError> {
         let parent = self.open()?;
         let name = stage_child(stage, self, package)?;
         stage.open()?;
@@ -142,7 +147,9 @@ impl DirectoryPin {
         if verified.head.commit_sha256 != package.commit_sha256 {
             return Err(PackageError::Integrity);
         }
-        let target = format!("{}.photara", package.spec.title);
+        let target = extension
+            .filename(&package.spec.title)
+            .map_err(|_| PackageError::Path)?;
         renameat_with(&parent, &name, &parent, &target, RenameFlags::NOREPLACE).map_err(io)?;
         fsync(&parent).map_err(io)?;
         self.open()?;
@@ -186,7 +193,7 @@ impl DirectoryPin {
     }
 }
 fn stage_prefix(package: &InitialPackage) -> String {
-    format!(".photara-create-{}", package.spec.operation_id)
+    format!(".project-create-{}", package.spec.operation_id)
 }
 fn stage_child(
     stage: &DirectoryPin,
@@ -202,7 +209,12 @@ fn stage_child(
         .and_then(|n| n.to_str())
         .ok_or(PackageError::Path)?;
     let prefix = format!("{}-", stage_prefix(package));
-    let suffix = name.strip_prefix(&prefix).ok_or(PackageError::Path)?;
+    // Read alias for pinned pre-BR0 stages. New stages always use neutral names.
+    let legacy = format!(".photara-create-{}-", package.spec.operation_id);
+    let suffix = name
+        .strip_prefix(&prefix)
+        .or_else(|| name.strip_prefix(&legacy))
+        .ok_or(PackageError::Path)?;
     if uuid::Uuid::parse_str(suffix).is_err() {
         return Err(PackageError::Path);
     }

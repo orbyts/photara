@@ -26,7 +26,7 @@ MACOS="$CONTENTS/MacOS"
 FRAMEWORKS="$CONTENTS/Frameworks"
 RESOURCES="$CONTENTS/Resources"
 THEME_ROOT="$REPOSITORY_ROOT/platform/macos/photara-theme"
-EXECUTABLE="$MACOS/$PRODUCT_NAME"
+EXECUTABLE="" # Assigned from generated bundle metadata below.
 PROXY_HELPER_BUILD="$BUILD_ROOT/proxy-helper-build"
 PROXY_HELPER="$MACOS/photara-proxy-imageio"
 
@@ -34,6 +34,7 @@ mkdir -p "$GENERATED_ROOT" "$MODULE_CACHE" "$MACOS" "$FRAMEWORKS" "$RESOURCES"
 cp -p "$REPOSITORY_ROOT/platform/macos/photara-shell/Resources/photara-application-presentation-v1.json" "$RESOURCES/"
 python3 "$REPOSITORY_ROOT/scripts/generate_product_configuration.py" \
   --channel "$PRODUCT_CHANNEL" --output "$GENERATED_ROOT" --plist "$CONTENTS/Info.plist" >/dev/null
+EXECUTABLE="$MACOS/$(plutil -extract CFBundleExecutable raw "$CONTENTS/Info.plist")"
 PRODUCT_BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw "$CONTENTS/Info.plist")"
 if [[ -n "$SIGNING_PROFILE" ]]; then
   SIGNING_IDENTITY="$(python3 "$REPOSITORY_ROOT/scripts/prepare_macos_signing.py" \

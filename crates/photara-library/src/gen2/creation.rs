@@ -1,6 +1,9 @@
 //! UI1 durable creation coordinator. `SQLite` serializes transitions across processes.
 use super::*;
-use photara_core::{contracts::LocalPrincipalId, creation::InitialProject};
+use photara_core::{
+    contracts::LocalPrincipalId,
+    creation::{InitialProject, PackageExtension},
+};
 use photara_store::package::{
     PackageLimits,
     creation::{DirectoryPin, InitialPackage},
@@ -47,6 +50,13 @@ pub enum CreationActor {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CreateProjectRequest {
+    // Local-only immutable naming policy. Missing field means a pre-BR0 request;
+    // never reinterpret an interrupted operation using a new brand's extension.
+    #[serde(
+        default = "PackageExtension::legacy_creation_alias",
+        skip_serializing_if = "PackageExtension::is_legacy_creation_alias"
+    )]
+    pub package_extension: PackageExtension,
     pub command: CreateProjectCommand,
     pub destination: DirectoryPin,
     pub actor: CreationActor,
@@ -86,13 +96,20 @@ pub struct ProjectCreation {
 impl ProjectCreation {
     #[must_use]
     pub fn package_path(&self) -> PathBuf {
-        self.request
-            .destination
-            .path
-            .join(format!("{}.photara", self.request.command.initial.title))
+        // Request admission and persisted-request decoding validate the complete
+        // filename before any filesystem operation. This accessor is a locator.
+        self.request.destination.path.join(format!(
+            "{}.{}",
+            self.request.command.initial.title,
+            self.request.package_extension.as_str()
+        ))
     }
 }
 fn package(request: &CreateProjectRequest) -> Result<InitialPackage> {
+    request
+        .package_extension
+        .filename(&request.command.initial.title)
+        .map_err(|_| Error::Invalid)?;
     InitialPackage::build(request.command.initial.clone()).map_err(|_| Error::Invalid)
 }
 fn bytes(id: Uuid) -> Vec<u8> {
@@ -133,8 +150,10 @@ async fn read(tx: &mut SqliteConnection, id: Uuid) -> Result<Option<ProjectCreat
             return Err(Error::Corrupt);
         }
         let parse = |s: String| serde_json::from_str(&s).map_err(|_| Error::Corrupt);
+        let request: CreateProjectRequest = parse(command)?;
+        package(&request).map_err(|_| Error::Corrupt)?;
         Ok(ProjectCreation {
-            request: parse(command)?,
+            request,
             state: serde_json::from_value(serde_json::json!(r.try_get::<String, _>("state")?))
                 .map_err(|_| Error::Corrupt)?,
             stage: r
@@ -178,10 +197,12 @@ impl LocalLibraryStore {
         {
             return Err(Error::Conflict);
         }
-        let path = request
-            .destination
-            .path
-            .join(format!("{}.photara", request.command.initial.title));
+        let path = request.destination.path.join(
+            request
+                .package_extension
+                .filename(&request.command.initial.title)
+                .map_err(|_| Error::Invalid)?,
+        );
         if std::fs::symlink_metadata(&path).is_ok() {
             return Err(Error::Conflict);
         }
@@ -311,7 +332,7 @@ impl LocalLibraryStore {
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                     c.request
                         .destination
-                        .publish(stage, &p)
+                        .publish(stage, &p, &c.request.package_extension)
                         .map_err(Error::from)?;
                 }
                 Err(_) => return Err(Error::Io),
@@ -551,6 +572,7 @@ mod tests {
     }
     fn request(id: &LocalIdentity, destination: &Path) -> CreateProjectRequest {
         CreateProjectRequest {
+            package_extension: PackageExtension::legacy_creation_alias(),
             command: CreateProjectCommand {
                 initial: InitialProject {
                     operation_id: ct::OperationId::from_uuid(Uuid::new_v4()).unwrap(),
@@ -626,6 +648,67 @@ mod tests {
         );
         store.close().await;
     }
+    #[tokio::test]
+    async fn synthetic_extension_restarts_and_legacy_request_keeps_original_policy() {
+        let root = tempfile::tempdir_in("/private/tmp").unwrap();
+        let path = root.path().join("state.sqlite");
+        let (store, id) = LocalLibraryStore::open_app_state(&path, at())
+            .await
+            .unwrap();
+        let mut req = request(&id, root.path());
+        let legacy = req.clone();
+        let mut old_json = serde_json::to_value(&legacy).unwrap();
+        old_json
+            .as_object_mut()
+            .unwrap()
+            .remove("package_extension");
+        assert_eq!(
+            serde_json::from_value::<CreateProjectRequest>(old_json).unwrap(),
+            legacy
+        );
+        let portable = initial_creation_package(req.command.initial.clone())
+            .unwrap()
+            .commit_hex;
+        req.package_extension = PackageExtension::try_from("jprtest".to_owned()).unwrap();
+        assert_eq!(
+            initial_creation_package(req.command.initial.clone())
+                .unwrap()
+                .commit_hex,
+            portable
+        );
+        let op = req.command.initial.operation_id.uuid();
+        store
+            .prepare_project_creation(req.clone(), at())
+            .await
+            .unwrap();
+        let done = store.advance_project_creation(op, at()).await.unwrap();
+        assert_eq!(done.package_path().extension().unwrap(), "jprtest");
+        assert!(!root.path().join("Created Project.photara").exists());
+        let expected = package(&req).unwrap().files;
+        store.close().await;
+        let (store, _) = LocalLibraryStore::open_app_state(&path, at())
+            .await
+            .unwrap();
+        let reopened = store.advance_project_creation(op, at()).await.unwrap();
+        assert_eq!(reopened.request, req);
+        for (name, bytes) in expected {
+            assert_eq!(
+                std::fs::read(reopened.package_path().join(name)).unwrap(),
+                bytes
+            );
+        }
+        let mut changed = req;
+        changed.package_extension = PackageExtension::legacy_creation_alias();
+        assert_eq!(
+            store
+                .prepare_project_creation(changed, at())
+                .await
+                .unwrap_err(),
+            Error::Conflict
+        );
+        store.close().await;
+    }
+
     #[tokio::test]
     async fn cancellation_and_competing_destination_requests_are_retained() {
         let root = tempfile::tempdir_in("/private/tmp").unwrap();
@@ -727,7 +810,7 @@ mod tests {
                     .unwrap()
                     .to_str()
                     .unwrap()
-                    .starts_with(".photara-create-")
+                    .starts_with(".project-create-")
             })
             .unwrap();
         assert_eq!(std::fs::read_dir(&orphan).unwrap().count(), 0);

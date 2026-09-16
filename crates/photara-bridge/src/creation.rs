@@ -4,7 +4,7 @@
 use crate::BridgeError;
 use photara_core::{
     contracts as ct,
-    creation::{InitialProject, project_name},
+    creation::{InitialProject, PackageExtension, project_name},
 };
 use photara_library::gen2::{
     CreateProjectCloudReceipt, CreateProjectCommand, CreateProjectRequest, CreationActor,
@@ -109,6 +109,7 @@ pub struct PhotaraProjectCreation {
     runtime: Mutex<tokio::runtime::Runtime>,
     store: LocalLibraryStore,
     identity: LocalIdentity,
+    package_extension: PackageExtension,
 }
 impl PhotaraProjectCreation {
     fn run<T>(
@@ -127,7 +128,8 @@ impl PhotaraProjectCreation {
     /// # Errors
     /// Refuses foreign or unsupported local state.
     #[uniffi::constructor]
-    pub fn open(path: String) -> Result<Arc<Self>, BridgeError> {
+    pub fn open(path: String, package_extension: String) -> Result<Arc<Self>, BridgeError> {
+        let package_extension = PackageExtension::try_from(package_extension).map_err(fail)?;
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -139,11 +141,13 @@ impl PhotaraProjectCreation {
             runtime: Mutex::new(runtime),
             store,
             identity,
+            package_extension,
         }))
     }
     /// # Errors
     /// Invalid package names return native-readable diagnostics.
     pub fn validate_name(&self, name: String) -> Result<String, BridgeError> {
+        self.package_extension.filename(&name).map_err(fail)?;
         project_name(&name).map_err(fail)
     }
     /// # Errors
@@ -178,6 +182,7 @@ impl PhotaraProjectCreation {
                 return dto(existing);
             }
         }
+        self.package_extension.filename(&title).map_err(fail)?;
         let mut library = self.identity.library_id;
         let actor = if let Some(binding) = self.run(self.store.cached_cloud_library(library))? {
             let binding = self
@@ -209,6 +214,7 @@ impl PhotaraProjectCreation {
         };
         dto(self.run(self.store.prepare_project_creation(
             CreateProjectRequest {
+                package_extension: self.package_extension.clone(),
                 command: CreateProjectCommand {
                     initial,
                     device_id: self.identity.device_id.uuid(),
@@ -224,6 +230,20 @@ impl PhotaraProjectCreation {
     /// # Errors
     /// Reports incomplete work without replacing its identity.
     pub fn advance(&self, operation_id: String) -> Result<BridgeProjectCreation, BridgeError> {
+        let id = uuid(&operation_id)?;
+        if self
+            .run(self.store.project_creations())?
+            .iter()
+            .any(|existing| {
+                existing.request.command.initial.operation_id.uuid() == id
+                    && existing.request.package_extension != self.package_extension
+                    && existing.state != photara_library::gen2::CreationState::Complete
+            })
+        {
+            return Err(fail(
+                "an incomplete creation uses a prior filename policy; recover it with the original configuration before cutover",
+            ));
+        }
         dto(self.run(
             self.store
                 .advance_project_creation(uuid(&operation_id)?, now()?),

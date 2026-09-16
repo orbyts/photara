@@ -44,7 +44,7 @@ struct EditorSessionView: View {
                 keepForLater: { app.showsCreateProject = false })
             .interactiveDismissDisabled(app.isCreatingProject || app.creationOperation != nil)
         }
-        .alert("Photara", isPresented: Binding(
+        .alert(ReleaseConfiguration.current.identity.displayName, isPresented: Binding(
             get: { app.presentedError != nil }, set: { if !$0 { app.presentedError = nil } }
         )) { Button("OK") { app.presentedError = nil } }
         message: { Text(app.presentedError ?? "Unknown error") }

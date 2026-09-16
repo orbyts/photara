@@ -28,7 +28,7 @@ final class PhotaraThemeStore: NSObject, ObservableObject {
             withExtension: "json",
             subdirectory: "Themes"
         ) ?? Bundle.main.url(forResource: "photara-default", withExtension: "json") else {
-            fatalError("Photara.app is missing Themes/photara-default.json")
+            fatalError("Application bundle is missing Themes/photara-default.json")
         }
         do {
             let document = try PhotaraThemeDocument.load(from: bundledURL)
@@ -37,7 +37,7 @@ final class PhotaraThemeStore: NSObject, ObservableObject {
             loadedURL = bundledURL
             loadedModificationDate = Self.modificationDate(bundledURL)
         } catch {
-            fatalError("Photara default theme is invalid: \(error.localizedDescription)")
+            fatalError("Default theme is invalid: \(error.localizedDescription)")
         }
         super.init()
         guard usesDevelopmentOverride else { return }

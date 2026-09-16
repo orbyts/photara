@@ -58,7 +58,7 @@ actor LocalLibrarySession {
         let key = "photara.library.owner.v1"
         let owner = defaults.string(forKey: key) ?? UUID().uuidString.lowercased()
         defaults.set(owner, forKey: key)
-        let root = supportRoot ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appending(path: "Photara")
+        let root = supportRoot ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appending(path: ReleaseConfiguration.current.identity.applicationSupportDirectory)
         session = LocalLibrarySession(path: root.appending(path: "Library/library.sqlite").path, owner: owner)
     }
     static func chooseThumbnail() -> URL? {

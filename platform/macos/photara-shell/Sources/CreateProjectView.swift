@@ -13,10 +13,10 @@ enum CreateProjectPresentation: String, CaseIterable, Identifiable, Sendable {
 
 struct CreateProjectDraft: Equatable, Sendable {
   var name = ""
-  var destination = "~/Pictures/Photara/Projects"
+  var destination = "~/Pictures/\(ReleaseConfiguration.current.identity.defaultProjectsDirectory)/Projects"
 
   var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
-  var packageName: String { (trimmedName.isEmpty ? "Untitled Project" : trimmedName) + ".photara" }
+  var packageName: String { (trimmedName.isEmpty ? "Untitled Project" : trimmedName) + "." + ReleaseConfiguration.current.identity.projectPackageExtension }
   var canCreate: Bool { !trimmedName.isEmpty }
 }
 

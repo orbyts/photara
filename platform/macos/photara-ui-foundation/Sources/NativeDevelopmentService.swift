@@ -58,9 +58,11 @@ final class NativeDevelopmentService {
               configuration.environment.apiOrigin == ReleaseConfiguration.current.environment.apiOrigin
         else { throw NativeAuthenticationError.invalidResponse }
         let root = FileManager.default.homeDirectoryForCurrentUser
-            .appending(path: ".local/share/photara-development-service/Photara Development Operator.app")
+            .appending(path: ".local/share")
+            .appending(path: configuration.identity.developmentOperatorDirectory)
+            .appending(path: configuration.identity.developmentOperatorProduct + ".app")
         let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
-            appropriateFor: nil, create: true).appending(path: configuration.identity.applicationSupportDirectory + "/State")
+            appropriateFor: nil, create: true).appending(path: configuration.identity.applicationSupportDirectory + "/" + configuration.identity.journalDirectory)
         try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         return NativeDevelopmentService(environment: configuration.environment,
             executable: root.appending(path: "Contents/MacOS/photara-development-service"),

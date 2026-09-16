@@ -9,13 +9,14 @@ import fcntl
 import ipaddress
 import json
 import os
+import re
 from pathlib import Path
 import plistlib
 import tempfile
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
-IDENTITY_KEYS = set("displayName shortName isCodename bundleIdentifier keychainService callbackScheme projectPackageDisplayType projectPackageExtension apiAudienceNamespace serviceHostname userAgent applicationSupportDirectory cacheDirectory defaultLibraryName websiteURL supportURL privacyURL storeURL".split())
+IDENTITY_KEYS = set("legacyPreferenceSuites developmentOperatorDirectory developmentOperatorProduct productName executableName projectDocumentUTI legacyProjectPackageExtensions defaultProjectsDirectory journalDirectory displayName shortName isCodename bundleIdentifier keychainService callbackScheme projectPackageDisplayType projectPackageExtension apiAudienceNamespace serviceHostname userAgent applicationSupportDirectory cacheDirectory defaultLibraryName websiteURL supportURL privacyURL storeURL".split())
 ENVIRONMENT_KEYS = set("channel environmentId apiOrigin auth0Issuer auth0Audience nativeClientId callbackURL logoutURL schemaFamily schemaEpoch minimumAPI loggingPolicy telemetryEnabled".split())
 
 
@@ -69,9 +70,19 @@ def configuration(descriptor, channel):
             require(urlsplit(environment["callbackURL"]).scheme != urlsplit(development["callbackURL"]).scheme)
             for key in ("auth0Issuer", "auth0Audience", "nativeClientId", "callbackURL", "logoutURL"):
                 require(environment[key] != development[key])
-    for key in ("shortName", "applicationSupportDirectory", "cacheDirectory", "projectPackageExtension"):
+    for key in ("shortName", "productName", "executableName", "applicationSupportDirectory", "cacheDirectory", "defaultProjectsDirectory", "journalDirectory", "developmentOperatorDirectory", "developmentOperatorProduct"):
         value = identity[key]
-        require(value and value not in (".", "..") and not any(c in value for c in "/\\\0\n"))
+        require(isinstance(value, str) and value.strip() == value and value and value not in (".", "..") and not any(ord(c) < 32 or c in "/\\:" for c in value))
+    require(isinstance(identity["legacyProjectPackageExtensions"], list))
+    require(isinstance(identity["legacyPreferenceSuites"], list) and all(isinstance(x, str) and x and not any(ord(c) < 32 for c in x) for x in identity["legacyPreferenceSuites"]))
+    for value in [identity["projectPackageExtension"], *identity["legacyProjectPackageExtensions"]]:
+        require(isinstance(value, str) and re.fullmatch(r"[a-z][a-z0-9]{0,31}", value))
+    require(isinstance(identity["legacyProjectPackageExtensions"], list))
+    require(len(set(identity["legacyProjectPackageExtensions"])) == len(identity["legacyProjectPackageExtensions"]))
+    for key in ("bundleIdentifier", "projectDocumentUTI", "callbackScheme", "keychainService"):
+        require(isinstance(identity[key], str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9.-]+", identity[key]))
+    for key in ("displayName", "userAgent", "projectPackageDisplayType", "defaultLibraryName"):
+        require(isinstance(identity[key], str) and identity[key].strip() and not any(ord(c) < 32 for c in identity[key]))
     return {"identity": identity, "environment": environment}
 
 
@@ -115,12 +126,12 @@ def main():
         with (ROOT / "platform/macos/photara-app/Resources/Info.plist").open("rb") as source:
             info = plistlib.load(source)
         identity = selected["identity"]
-        package_type = identity["bundleIdentifier"] + ".project-package"
+        package_type = identity["projectDocumentUTI"]
         info["UTExportedTypeDeclarations"] = [{
             "UTTypeIdentifier": package_type,
             "UTTypeDescription": identity["projectPackageDisplayType"],
             "UTTypeConformsTo": ["com.apple.package"],
-            "UTTypeTagSpecification": {"public.filename-extension": [identity["projectPackageExtension"]]},
+            "UTTypeTagSpecification": {"public.filename-extension": list(dict.fromkeys([identity["projectPackageExtension"], *identity["legacyProjectPackageExtensions"]]))},
         }]
         info["CFBundleDocumentTypes"] = [{
             "CFBundleTypeName": identity["projectPackageDisplayType"],
@@ -128,13 +139,13 @@ def main():
             "LSTypeIsPackage": True, "LSItemContentTypes": [package_type],
         }]
         info.update(CFBundleDisplayName=identity["displayName"], CFBundleName=identity["shortName"],
-                    CFBundleExecutable=identity["shortName"], CFBundleIdentifier=identity["bundleIdentifier"],
+                    CFBundleExecutable=identity["executableName"], CFBundleIdentifier=identity["bundleIdentifier"],
                     PhotaraReleaseChannel=args.channel,
                     CFBundleURLTypes=[{"CFBundleURLName": identity["bundleIdentifier"],
                                        "CFBundleURLSchemes": [identity["callbackScheme"]]}])
         with args.plist.open("wb") as target:
             plistlib.dump(info, target)
-    print(selected["identity"]["shortName"])
+    print(selected["identity"]["productName"])
 
 
 if __name__ == "__main__":

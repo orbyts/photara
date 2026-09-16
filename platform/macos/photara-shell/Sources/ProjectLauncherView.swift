@@ -77,7 +77,7 @@ struct ProjectLauncherView: View {
             .offset(x: preset.heroTileOffsetX, y: preset.heroTileOffsetY)
 
             VStack(spacing: 7) {
-                Text("Photara")
+                Text(ReleaseConfiguration.current.identity.displayName)
                     .font(.system(size: preset.launcherTitleSize,
                                   weight: preset.launcherTitleWeight.fontWeight,
                                   design: preset.launcherTitleFont.fontDesign))

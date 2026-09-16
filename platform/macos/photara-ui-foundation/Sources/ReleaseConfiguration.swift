@@ -2,6 +2,15 @@ import Foundation
 
 /// Public identity only. Database credentials never enter native configuration.
 struct ProductIdentity: Decodable, Sendable {
+    var legacyPreferenceSuites: [String] = []
+    var developmentOperatorDirectory: String = ""
+    var developmentOperatorProduct: String = ""
+    var productName: String = ""
+    var executableName: String = ""
+    var projectDocumentUTI: String = ""
+    var legacyProjectPackageExtensions: [String] = []
+    var defaultProjectsDirectory: String = ""
+    var journalDirectory: String = "State"
     let displayName: String
     let shortName: String
     let isCodename: Bool
@@ -47,4 +56,20 @@ struct ReleaseEnvironment: Decodable, Sendable {
 struct ReleaseConfiguration: Decodable, Sendable {
     let identity: ProductIdentity
     let environment: ReleaseEnvironment
+}
+
+// Public filename/root policy only. Serialized format IDs are deliberately separate.
+extension ProductIdentity {
+    func acceptsProjectPackage(_ url: URL) -> Bool {
+        let suffix = url.pathExtension.lowercased()
+        return suffix == projectPackageExtension || legacyProjectPackageExtensions.contains(suffix)
+    }
+
+    func defaultProjectsURL(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL {
+        home.appending(path: "Pictures").appending(path: defaultProjectsDirectory).appending(path: "Projects")
+    }
+
+    func supportURL(base: URL) -> URL { base.appending(path: applicationSupportDirectory) }
+    func cacheURL(base: URL) -> URL { base.appending(path: cacheDirectory) }
+    func journalURL(support: URL) -> URL { support.appending(path: journalDirectory) }
 }
