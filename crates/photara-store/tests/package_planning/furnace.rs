@@ -182,3 +182,51 @@ fn exact_head_conflict_refuses_all_package_writes() {
     assert!(!journal.path().join("checkpoint-intent.json").exists());
     assert_ne!(original, b"different HEAD");
 }
+
+#[test]
+fn subprocess_stop_helper() {
+    let Ok(stage) = std::env::var("PHOTARA_PS2_STOP_STAGE") else {
+        return;
+    };
+    let root = std::env::var("PHOTARA_PS2_PACKAGE_ROOT").unwrap();
+    let journal = std::env::var("PHOTARA_PS2_JOURNAL_ROOT").unwrap();
+    let base = verified(build(add_history));
+    let mutation = rename(&base, "Checkpointed");
+    let plan = checkpoint(run(&base, &mutation, 30500).unwrap());
+    let stop = match stage.as_str() {
+        "intent" => Stop::AfterIntent,
+        "immutable" => Stop::AfterImmutable(plan.immutable_files().len() - 1),
+        "head" => Stop::AfterHead,
+        _ => panic!("unknown disposable stop stage"),
+    };
+    publish_until(Path::new(&root), Path::new(&journal), &plan, stop).unwrap();
+    // No test teardown or Rust unwinding: the parent must recover from disk.
+    std::process::exit(86);
+}
+
+#[test]
+fn child_process_exit_after_each_publish_phase_reopens_old_or_new() {
+    let base = verified(build(add_history));
+    let mutation = rename(&base, "Checkpointed");
+    let plan = checkpoint(run(&base, &mutation, 30500).unwrap());
+    let executable = std::env::current_exe().unwrap();
+    for (stage, expected) in [("intent", "old"), ("immutable", "old"), ("head", "new")] {
+        let package_root = materialize(&owned(base.files()));
+        let journal = tempfile::tempdir().unwrap();
+        let result = std::process::Command::new(&executable)
+            .arg("--exact")
+            .arg("planning::furnace::subprocess_stop_helper")
+            .env("PHOTARA_PS2_STOP_STAGE", stage)
+            .env("PHOTARA_PS2_PACKAGE_ROOT", package_root.path())
+            .env("PHOTARA_PS2_JOURNAL_ROOT", journal.path())
+            .output()
+            .unwrap();
+        assert_eq!(result.status.code(), Some(86), "stage={stage}: {result:?}");
+        assert_eq!(
+            classify(package_root.path(), &plan),
+            expected,
+            "stage={stage}"
+        );
+        assert!(journal.path().join("checkpoint-intent.json").is_file());
+    }
+}
