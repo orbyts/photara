@@ -507,6 +507,34 @@ fn actual_1024_commit_ceiling_never_truncates_history() {
         Err(PackageError::Limit)
     ));
 }
+
+#[test]
+#[ignore = "explicit disposable capacity measurement; run with --ignored --nocapture"]
+fn measure_repeated_graph_rename_checkpoint_growth() {
+    let started = std::time::Instant::now();
+    let mut base = verified(build(add_history));
+    let initial_bytes: usize = base.files().files().values().map(|bytes| bytes.len()).sum();
+    for step in 0..128_u32 {
+        let mut mutation = rename(&base, &format!("Graph rename {step}"));
+        mutation.operation_id = decode(json!(id(70000 + step)));
+        let plan = checkpoint(run(&base, &mutation, 80000 + step * 2).unwrap());
+        let files = plan.candidate().files().files();
+        let total_bytes: usize = files.values().map(|bytes| bytes.len()).sum();
+        if matches!(step, 0 | 31 | 63 | 127) {
+            println!(
+                "checkpoint={} revision={} files={} total_bytes={} growth_bytes={} elapsed_ms={}",
+                step + 1,
+                plan.candidate().token().package_revision().get(),
+                files.len(),
+                total_bytes,
+                total_bytes - initial_bytes,
+                started.elapsed().as_millis()
+            );
+        }
+        base = verified(owned(plan.candidate().files()));
+    }
+    assert_eq!(base.token().package_revision().get(), 129);
+}
 #[test]
 fn unknown_nested_graph_fields_refuse_lossy_core_edits() {
     let base = verified(build(|o| {
