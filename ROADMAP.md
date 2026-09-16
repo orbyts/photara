@@ -7,7 +7,10 @@ checksums, exact sequence and package identity, duplicate-record rejection,
 every torn suffix, corruption, unsupported versions, and idempotent
 reconciliation after uncertain append/sync. A copied journal is refused when
 its project, Library, device, incarnation, manifest, base HEAD, or journal ID
-does not match the expected recovery binding.
+does not match the expected recovery binding. Duplicate operation IDs and
+malformed minimal Mutation evidence freeze replay; all other record kinds are
+unsupported until their typed bodies and transitions are implemented. This is
+still a test-only framing furnace, not a semantic authored-command codec.
 It reopens a disposable file and preserves original evidence on short writes.
 The disposable package-publication fixture also stops after intent, each new
 immutable file and HEAD replacement, checking the existing reader accepts only

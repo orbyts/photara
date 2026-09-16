@@ -59,6 +59,22 @@ struct Scan {
     last_checksum: [u8; CHECKSUM_SIZE],
 }
 
+impl Scan {
+    fn stopped(
+        records: Vec<Record>,
+        verified_len: usize,
+        tail: Tail,
+        last_checksum: [u8; CHECKSUM_SIZE],
+    ) -> Self {
+        Self {
+            records,
+            verified_len,
+            tail,
+            last_checksum,
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 enum HeaderError {
     Incomplete,
@@ -170,103 +186,77 @@ fn append_frame(
     Ok(digest)
 }
 
+fn decode_frame(
+    bytes: &[u8],
+    offset: usize,
+    previous: [u8; CHECKSUM_SIZE],
+) -> Result<(Record, Uuid, usize, [u8; CHECKSUM_SIZE]), Tail> {
+    if bytes.len() - offset < 4 {
+        return Err(Tail::Incomplete);
+    }
+    let length_bytes: [u8; 4] = bytes[offset..offset + 4].try_into().expect("four bytes");
+    let length = u32::from_le_bytes(length_bytes) as usize;
+    if length > MAX_PAYLOAD {
+        return Err(Tail::Corrupt);
+    }
+    let end = offset
+        .checked_add(4)
+        .and_then(|n| n.checked_add(length))
+        .ok_or(Tail::Corrupt)?;
+    let total = end.checked_add(CHECKSUM_SIZE).ok_or(Tail::Corrupt)?;
+    if total > bytes.len() {
+        return Err(Tail::Incomplete);
+    }
+    let digest = checksum(&[&previous, &length_bytes, &bytes[offset + 4..end]]);
+    if bytes[end..total] != digest {
+        return Err(Tail::Corrupt);
+    }
+    let record: Record = exact_json(&bytes[offset + 4..end]).ok_or(Tail::Corrupt)?;
+    if record.format_version != 1 || record.kind != "Mutation" {
+        // Other PS0 kinds have not received typed bodies. Checksum-valid bytes
+        // must not become replayable records just because their framing parses.
+        return Err(Tail::Unsupported);
+    }
+    let (operation_id, _) = mutation_evidence(&record).ok_or(Tail::Corrupt)?;
+    Ok((record, operation_id, total, digest))
+}
+
 fn scan(bytes: &[u8]) -> Result<Scan, HeaderError> {
     let (header, mut offset, mut previous) = read_header(bytes)?;
     let mut records = Vec::new();
     let mut record_ids = BTreeSet::new();
+    let mut operation_ids = BTreeSet::new();
     loop {
         let verified_len = offset;
         if offset == bytes.len() {
-            return Ok(Scan {
+            return Ok(Scan::stopped(
                 records,
                 verified_len,
-                tail: Tail::Complete,
-                last_checksum: previous,
-            });
+                Tail::Complete,
+                previous,
+            ));
         }
-        if bytes.len() - offset < 4 {
-            return Ok(Scan {
-                records,
-                verified_len,
-                tail: Tail::Incomplete,
-                last_checksum: previous,
-            });
-        }
-        let length_bytes: [u8; 4] = bytes[offset..offset + 4].try_into().expect("four bytes");
-        let length = u32::from_le_bytes(length_bytes) as usize;
-        if length > MAX_PAYLOAD {
-            return Ok(Scan {
-                records,
-                verified_len,
-                tail: Tail::Corrupt,
-                last_checksum: previous,
-            });
-        }
-        let Some(end) = offset.checked_add(4).and_then(|n| n.checked_add(length)) else {
-            return Ok(Scan {
-                records,
-                verified_len,
-                tail: Tail::Corrupt,
-                last_checksum: previous,
-            });
+        let (record, operation_id, total, digest) = match decode_frame(bytes, offset, previous) {
+            Ok(frame) => frame,
+            Err(tail) => return Ok(Scan::stopped(records, verified_len, tail, previous)),
         };
-        let Some(total) = end.checked_add(CHECKSUM_SIZE) else {
-            return Ok(Scan {
-                records,
-                verified_len,
-                tail: Tail::Corrupt,
-                last_checksum: previous,
-            });
-        };
-        if total > bytes.len() {
-            return Ok(Scan {
-                records,
-                verified_len,
-                tail: Tail::Incomplete,
-                last_checksum: previous,
-            });
-        }
-        let expected = checksum(&[&previous, &length_bytes, &bytes[offset + 4..end]]);
-        if bytes[end..total] != expected {
-            return Ok(Scan {
-                records,
-                verified_len,
-                tail: Tail::Corrupt,
-                last_checksum: previous,
-            });
-        }
-        let Some(record): Option<Record> = exact_json(&bytes[offset + 4..end]) else {
-            return Ok(Scan {
-                records,
-                verified_len,
-                tail: Tail::Corrupt,
-                last_checksum: previous,
-            });
-        };
-        if record.format_version != 1 {
-            return Ok(Scan {
-                records,
-                verified_len,
-                tail: Tail::Unsupported,
-                last_checksum: previous,
-            });
-        }
         if record.sequence != records.len() as u64 + 1
             || record.id.is_nil()
             || !record_ids.insert(record.id)
+            || !operation_ids.insert(operation_id)
             || record.session_generation.is_nil()
             || record.project_id != header.project_id
             || record.incarnation_id != header.incarnation_id
         {
-            return Ok(Scan {
+            return Ok(Scan::stopped(
                 records,
                 verified_len,
-                tail: Tail::Corrupt,
-                last_checksum: previous,
-            });
+                Tail::Corrupt,
+                previous,
+            ));
         }
         records.push(record);
-        previous = expected;
+        previous = digest;
         offset = total;
     }
 }
@@ -524,6 +514,33 @@ mod tests {
         assert_eq!(result.tail, Tail::Corrupt);
         assert_eq!(result.records, records[..1]);
         assert_eq!(result.verified_len, first_end);
+    }
+
+    #[test]
+    fn duplicate_operation_id_and_malformed_mutation_refuse_replay() {
+        let (header, mut records) = fixture();
+        let first_end = encoded(&header, &records[..1]).len();
+        records[1].body["operation_id"] = records[0].body["operation_id"].clone();
+        let result = scan(&encoded(&header, &records)).unwrap();
+        assert_eq!(result.tail, Tail::Corrupt);
+        assert_eq!(result.verified_len, first_end);
+        records[1].body["operation_id"] = json!(Uuid::new_v4().to_string());
+        records[1].body["request_digest"] = json!("not-a-digest");
+        let result = scan(&encoded(&header, &records)).unwrap();
+        assert_eq!(result.tail, Tail::Corrupt);
+        assert_eq!(result.verified_len, first_end);
+    }
+
+    #[test]
+    fn untyped_record_kinds_are_unsupported_not_replayable() {
+        let (header, mut records) = fixture();
+        let first_end = encoded(&header, &records[..1]).len();
+        for kind in ["CheckpointIntent", "SessionBarrier", "FutureKind"] {
+            records[1].kind = kind.to_owned();
+            let result = scan(&encoded(&header, &records)).unwrap();
+            assert_eq!(result.tail, Tail::Unsupported, "kind={kind}");
+            assert_eq!(result.verified_len, first_end);
+        }
     }
 
     #[test]
