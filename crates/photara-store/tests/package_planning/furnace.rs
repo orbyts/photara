@@ -187,6 +187,15 @@ fn resume_disposable(
     journal: &Path,
     plan: &CheckpointPlan,
 ) -> Result<Recovery, &'static str> {
+    resume_disposable_with_hook(root, journal, plan, |_| {})
+}
+
+fn resume_disposable_with_hook(
+    root: &Path,
+    journal: &Path,
+    plan: &CheckpointPlan,
+    mut after: impl FnMut(Stop),
+) -> Result<Recovery, &'static str> {
     match reconcile_disposable(root, journal, plan) {
         Recovery::AlreadyPublished => return Ok(Recovery::AlreadyPublished),
         Recovery::Conflict => return Err("recovery conflict"),
@@ -214,6 +223,7 @@ fn resume_disposable(
         fs::hard_link(&temporary, &destination).map_err(|_| "immutable collision")?;
         fs::remove_file(&temporary).map_err(|_| "temporary cleanup failed")?;
         sync_dir(parent);
+        after(Stop::AfterImmutable(index));
     }
     if !exact_head(root, plan) {
         return Err("HEAD changed during recovery");
@@ -232,6 +242,7 @@ fn resume_disposable(
     file.sync_all().map_err(|_| "HEAD sync failed")?;
     fs::rename(&temporary, root.join("HEAD.json")).map_err(|_| "HEAD rename failed")?;
     sync_dir(root);
+    after(Stop::AfterHead);
     if reconcile_disposable(root, journal, plan) != Recovery::AlreadyPublished {
         return Err("candidate verification failed");
     }
@@ -399,6 +410,16 @@ fn subprocess_stop_helper() {
             Stop::AfterImmutable(index)
         }
     };
+    if std::env::var("PHOTARA_PS2_RESUME").as_deref() == Ok("1") {
+        resume_disposable_with_hook(Path::new(&root), Path::new(&journal), &plan, |phase| {
+            if phase == stop {
+                // Terminate inside resume, before its final reconciliation.
+                std::process::exit(87);
+            }
+        })
+        .unwrap();
+        panic!("resume did not reach requested stop: {stop:?}");
+    }
     publish_until(Path::new(&root), Path::new(&journal), &plan, stop).unwrap();
     // No test teardown or Rust unwinding: the parent must recover from disk.
     std::process::exit(86);
@@ -446,5 +467,98 @@ fn child_process_exit_after_each_publish_phase_reopens_old_or_new() {
         );
         assert_eq!(classify(package_root.path(), &plan), "new");
         assert!(journal.path().join("checkpoint-intent.json").is_file());
+    }
+}
+
+// Read the entire synthetic fixture, including any unexpected extra files, so
+// byte equality also catches duplicate commits, objects or leaked temporaries.
+fn fixture_files(root: &Path) -> BTreeMap<String, Vec<u8>> {
+    let mut files = BTreeMap::new();
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(directory) = pending.pop() {
+        for entry in fs::read_dir(directory).unwrap() {
+            let entry = entry.unwrap();
+            let kind = entry.file_type().unwrap();
+            if kind.is_dir() {
+                pending.push(entry.path());
+            } else {
+                assert!(kind.is_file(), "fixture must not contain special files");
+                let path = entry.path();
+                let name = path
+                    .strip_prefix(root)
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_owned();
+                files.insert(name, fs::read(path).unwrap());
+            }
+        }
+    }
+    files
+}
+
+#[test]
+fn child_exit_during_each_resume_phase_reuses_intent_and_completes_once() {
+    let base = verified(build(add_history));
+    let mutation = rename(&base, "Checkpointed");
+    let plan = checkpoint(run(&base, &mutation, 30500).unwrap());
+    let executable = std::env::current_exe().unwrap();
+    // Every initial publication prefix, then every still-missing immutable and
+    // HEAD boundary during resume. Existing immutable files must be reused.
+    for present in 0..=plan.immutable_files().len() {
+        let stages = (present..plan.immutable_files().len())
+            .map(|index| (format!("immutable-{index}"), "old"))
+            .chain(std::iter::once(("head".to_owned(), "new")));
+        for (stage, expected) in stages {
+            let package_root = materialize(&owned(base.files()));
+            let journal = tempfile::tempdir().unwrap();
+            let initial_stop = present
+                .checked_sub(1)
+                .map_or(Stop::AfterIntent, Stop::AfterImmutable);
+            publish_until(package_root.path(), journal.path(), &plan, initial_stop).unwrap();
+            let original_intent = fixture_files(journal.path());
+            let result = std::process::Command::new(&executable)
+                .arg("--exact")
+                .arg("planning::furnace::subprocess_stop_helper")
+                .env("PHOTARA_PS2_STOP_STAGE", &stage)
+                .env("PHOTARA_PS2_RESUME", "1")
+                .env("PHOTARA_PS2_PACKAGE_ROOT", package_root.path())
+                .env("PHOTARA_PS2_JOURNAL_ROOT", journal.path())
+                .output()
+                .unwrap();
+            assert_eq!(
+                result.status.code(),
+                Some(87),
+                "present={present}, stage={stage}: {result:?}"
+            );
+            // Construct a fresh recovery oracle; no child receipt or in-memory
+            // progress is available. Identity remains the original persisted intent.
+            let reopened = verified(build(add_history));
+            let recovered_plan =
+                checkpoint(run(&reopened, &rename(&reopened, "Checkpointed"), 30500).unwrap());
+            assert_eq!(classify(package_root.path(), &recovered_plan), expected);
+            assert_eq!(
+                reconcile_disposable(package_root.path(), journal.path(), &recovered_plan),
+                if expected == "old" {
+                    Recovery::ResumePending
+                } else {
+                    Recovery::AlreadyPublished
+                }
+            );
+            assert_eq!(fixture_files(journal.path()), original_intent);
+            assert_eq!(
+                resume_disposable(package_root.path(), journal.path(), &recovered_plan),
+                Ok(Recovery::AlreadyPublished)
+            );
+            assert_eq!(classify(package_root.path(), &recovered_plan), "new");
+            let complete = fixture_files(package_root.path());
+            assert_eq!(complete, owned(plan.candidate().files()));
+            assert_eq!(
+                resume_disposable(package_root.path(), journal.path(), &recovered_plan),
+                Ok(Recovery::AlreadyPublished)
+            );
+            assert_eq!(fixture_files(package_root.path()), complete);
+            assert_eq!(fixture_files(journal.path()), original_intent);
+        }
     }
 }
