@@ -4,6 +4,8 @@ use photara_core::{NodeDefinitionRegistry, ValueTypeRegistry, creation::PackageE
 
 #[path = "furnace.rs"]
 mod furnace;
+#[path = "journal.rs"]
+mod journal;
 #[path = "replay.rs"]
 mod replay;
 

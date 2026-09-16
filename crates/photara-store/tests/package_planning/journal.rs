@@ -2,6 +2,7 @@
 //! open a device journal through this module. Semantic replay and durable I/O
 //! remain separate gates.
 use photara_core::canonical_json;
+use photara_store::package::Sha256Hex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest as _, Sha256};
@@ -18,33 +19,33 @@ const CHECKSUM_SIZE: usize = 32;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Header {
-    format_version: u32,
-    journal_id: Uuid,
-    device_id: Uuid,
-    project_id: Uuid,
-    library_id: Uuid,
-    incarnation_id: Uuid,
-    manifest_sha256: String,
-    base_head_sha256: String,
+pub(super) struct Header {
+    pub(super) format_version: u32,
+    pub(super) journal_id: Uuid,
+    pub(super) device_id: Uuid,
+    pub(super) project_id: Uuid,
+    pub(super) library_id: Uuid,
+    pub(super) incarnation_id: Uuid,
+    pub(super) manifest_sha256: String,
+    pub(super) base_head_sha256: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Record {
-    format_version: u32,
-    sequence: u64,
+pub(super) struct Record {
+    pub(super) format_version: u32,
+    pub(super) sequence: u64,
     #[serde(rename = "record_id")]
-    id: Uuid,
-    session_generation: Uuid,
-    project_id: Uuid,
-    incarnation_id: Uuid,
-    kind: String,
-    body: Value,
+    pub(super) id: Uuid,
+    pub(super) session_generation: Uuid,
+    pub(super) project_id: Uuid,
+    pub(super) incarnation_id: Uuid,
+    pub(super) kind: String,
+    pub(super) body: Value,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum Tail {
+pub(super) enum Tail {
     Complete,
     Incomplete,
     Corrupt,
@@ -52,10 +53,10 @@ enum Tail {
 }
 
 #[derive(Debug)]
-struct Scan {
-    records: Vec<Record>,
+pub(super) struct Scan {
+    pub(super) records: Vec<Record>,
     verified_len: usize,
-    tail: Tail,
+    pub(super) tail: Tail,
     last_checksum: [u8; CHECKSUM_SIZE],
 }
 
@@ -76,7 +77,7 @@ impl Scan {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-enum HeaderError {
+pub(super) enum HeaderError {
     Incomplete,
     Invalid,
     Unsupported,
@@ -115,10 +116,10 @@ fn valid_header(header: &Header) -> bool {
             header.base_head_sha256.as_str(),
         ]
         .iter()
-        .all(|s| super::Sha256Hex::parse(s).is_ok())
+        .all(|s| Sha256Hex::parse(s).is_ok())
 }
 
-fn header_bytes(header: &Header) -> Result<Vec<u8>, HeaderError> {
+pub(super) fn header_bytes(header: &Header) -> Result<Vec<u8>, HeaderError> {
     if !valid_header(header) {
         return Err(HeaderError::Invalid);
     }
@@ -133,7 +134,9 @@ fn header_bytes(header: &Header) -> Result<Vec<u8>, HeaderError> {
     Ok(bytes)
 }
 
-fn read_header(bytes: &[u8]) -> Result<(Header, usize, [u8; CHECKSUM_SIZE]), HeaderError> {
+pub(super) fn read_header(
+    bytes: &[u8],
+) -> Result<(Header, usize, [u8; CHECKSUM_SIZE]), HeaderError> {
     if bytes.len() < MAGIC.len() + 4 {
         return Err(HeaderError::Incomplete);
     }
@@ -164,7 +167,7 @@ fn read_header(bytes: &[u8]) -> Result<(Header, usize, [u8; CHECKSUM_SIZE]), Hea
     Ok((header, total, expected))
 }
 
-fn append_frame(
+pub(super) fn append_frame(
     bytes: &mut Vec<u8>,
     previous: [u8; CHECKSUM_SIZE],
     record: &Record,
@@ -264,7 +267,7 @@ fn scan(bytes: &[u8]) -> Result<Scan, HeaderError> {
 // Recovery must pin the journal to the package identity before it considers
 // any otherwise checksum-valid frame. A copied journal is not a recovery log
 // for a different package or a replacement at the same locator.
-fn scan_bound(bytes: &[u8], expected: &Header) -> Result<Scan, HeaderError> {
+pub(super) fn scan_bound(bytes: &[u8], expected: &Header) -> Result<Scan, HeaderError> {
     let (actual, _, _) = read_header(bytes)?;
     if &actual != expected {
         return Err(HeaderError::Invalid);
@@ -273,7 +276,7 @@ fn scan_bound(bytes: &[u8], expected: &Header) -> Result<Scan, HeaderError> {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum AppendFault {
+pub(super) enum AppendFault {
     None,
     BeforeWrite,
     ShortWrite,
@@ -282,7 +285,7 @@ enum AppendFault {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum AppendOutcome {
+pub(super) enum AppendOutcome {
     Acknowledged,
     Existing,
     NotPerformed,
@@ -300,7 +303,7 @@ fn mutation_evidence(record: &Record) -> Option<(Uuid, String)> {
         return None;
     }
     let request_digest = record.body.get("request_digest")?.as_str()?;
-    super::Sha256Hex::parse(request_digest).ok()?;
+    Sha256Hex::parse(request_digest).ok()?;
     Some((operation_id, request_digest.to_owned()))
 }
 
@@ -322,7 +325,7 @@ fn mutation_index(scan: &Scan) -> Option<BTreeMap<Uuid, String>> {
 
 // Test-only storage adapter. `sync_all` and a successful reopen are NOT a claim of
 // qualified APFS full-sync/power-loss safety. Unknown results always require scan.
-fn append_disposable(
+pub(super) fn append_disposable(
     file: &mut File,
     expected: &Header,
     record: &Record,

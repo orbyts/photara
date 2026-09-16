@@ -7,6 +7,9 @@ use photara_core::{
 };
 use serde::{Deserialize, Serialize};
 
+#[path = "replay_journal.rs"]
+mod framed;
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Rename {

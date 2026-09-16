@@ -28,8 +28,14 @@ The child-process resume matrix (`bc85ae1`) now exits inside resume after every
 missing immutable publication and replacement HEAD, from every initial publication
 prefix. Fresh recovery reuses the same persisted intent/IDs; exact whole-file-tree
 comparison proves completion and repeated completion without duplicate effects.
-The single-RenameGraph replay equality fixture (`69ad2db`) remains I/O-free and
-separate from journal framing. Store verification: 89 passed, 3 explicitly ignored;
+The single-RenameGraph replay equality fixture (`69ad2db`) now also feeds an
+explicitly fixture-only typed Mutation body through the shared framing tests.
+Operation/request/checkpoint evidence and exact base binding are checked before
+append; unknown fields and changed IDs refuse. After a child exits on an uncertain
+append, two fresh processes dedupe the same single frame and reconstruct identical
+virtual checkpoint bytes with the original IDs. This does not define a production
+mutation schema or implement session/undo/patch recovery. All journal helpers now
+live in integration tests. Store verification: 92 passed, 3 explicitly ignored;
 strict all-target Clippy and formatting pass.
 
 The [retention/storage decision](docs/architecture/PS2_RETENTION_STORAGE_DECISION.md),

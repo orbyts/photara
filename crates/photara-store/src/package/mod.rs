@@ -9,8 +9,6 @@ pub mod creation;
 mod json;
 mod memory;
 pub mod planning;
-#[cfg(test)]
-mod ps2_journal_furnace;
 mod reader;
 mod records;
 mod types;

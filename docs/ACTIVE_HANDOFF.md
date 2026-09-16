@@ -6,9 +6,13 @@ Isolated branch `codex/ps2-durability-furnace` now includes child-process exits
 inside checkpoint resume (`bc85ae1`), after every missing immutable publication
 and replacement HEAD from every initial publication prefix. Fresh recovery keeps
 the original persisted intent and IDs, validates old/new closure, and compares the
-complete final file tree across repeated completion. Single-RenameGraph semantic
-replay equality (`69ad2db`) is a separate I/O-free fixture. Store checks: 89 passed,
-3 intentionally ignored; strict all-target Clippy and formatting pass.
+complete final file tree across repeated completion. The single-RenameGraph proof
+(`69ad2db`) is now also wrapped in a fixture-only typed Mutation body shared with
+the framing furnace. It rejects altered IDs/unknown fields before append; fresh
+process recovery after an uncertain write reuses one unchanged frame and the same
+checkpoint IDs/virtual bytes. Journal helpers were moved entirely into integration
+tests. Store checks: 92 passed, 3 intentionally ignored; strict all-target Clippy
+and formatting pass. No production body schema is selected by these fixtures.
 
 [Retention/storage direction](architecture/PS2_RETENTION_STORAGE_DECISION.md),
 [macOS qualification](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md) and
