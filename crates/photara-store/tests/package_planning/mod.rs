@@ -6,6 +6,9 @@ use photara_core::{NodeDefinitionRegistry, ValueTypeRegistry, creation::PackageE
 mod furnace;
 #[path = "journal.rs"]
 mod journal;
+#[cfg(target_os = "macos")]
+#[path = "macos_probe.rs"]
+mod macos_probe;
 #[path = "replay.rs"]
 mod replay;
 

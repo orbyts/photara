@@ -11,8 +11,12 @@ complete final file tree across repeated completion. The single-RenameGraph proo
 the framing furnace. It rejects altered IDs/unknown fields before append; fresh
 process recovery after an uncertain write reuses one unchanged frame and the same
 checkpoint IDs/virtual bytes. Journal helpers were moved entirely into integration
-tests. Store checks: 92 passed, 3 intentionally ignored; strict all-target Clippy
-and formatting pass. No production body schema is selected by these fixtures.
+tests. Store checks on macOS: 92 passed, 4 intentionally ignored; strict all-target
+Clippy and formatting pass. The separately executed
+[macOS probe](architecture/PS2_MACOS_PROBE_OBSERVATION.md) records successful
+file/directory full-sync and exclusive-rename collision refusal on one local APFS
+configuration. Namespace persistence ordering and provider exclusion remain
+unproved. No production body schema or qualified profile is selected.
 
 [Retention/storage direction](architecture/PS2_RETENTION_STORAGE_DECISION.md),
 [macOS qualification](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md) and

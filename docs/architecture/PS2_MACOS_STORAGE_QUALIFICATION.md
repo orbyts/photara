@@ -78,12 +78,20 @@ describes `F_FULLFSYNC` as best effort in its iOS discussion. Neither establishe
 an unconditional macOS hardware guarantee or the full multi-file/directory
 publication protocol here.
 
+A [disposable observation](PS2_MACOS_PROBE_OBSERVATION.md) now records successful
+file and directory `F_FULLFSYNC`, exclusive-rename collision refusal and candidate
+validation on one local APFS configuration. Its current installed SDK manual also
+documents persistence of previously fsynced data on the same device after full-sync.
+This is useful additional platform evidence; the full namespace/failure protocol
+and provider/admission policy remain unqualified.
+
 Before qualification, document the chosen macOS file and directory operations,
 supported descriptors/filesystems, their required ordering, error interpretation
 and published platform guarantees. In particular, this plan does **not** assume
-that `F_FULLFSYNC` works on directories or that a later full-sync of an arbitrary
-file proves every earlier directory entry persisted. Those points need supported
-platform evidence and targeted fault testing. Unsupported directory or full-file
+that observed directory-call success alone proves namespace persistence, or that
+full-sync of an arbitrary file covers other devices or unflushed entries. The
+documented same-device guarantee and directory publication semantics must be tied
+to the actual protocol and targeted fault tests. Unsupported directory or full-file
 barriers block the profile; do not downgrade to process-recovery-only Saved status.
 
 ## Failure furnace and acceptance artifact

@@ -35,8 +35,11 @@ append; unknown fields and changed IDs refuse. After a child exits on an uncerta
 append, two fresh processes dedupe the same single frame and reconstruct identical
 virtual checkpoint bytes with the original IDs. This does not define a production
 mutation schema or implement session/undo/patch recovery. All journal helpers now
-live in integration tests. Store verification: 92 passed, 3 explicitly ignored;
+live in integration tests. Store verification on macOS: 92 passed, 4 explicitly ignored;
 strict all-target Clippy and formatting pass.
+The separately run [macOS syscall probe](docs/architecture/PS2_MACOS_PROBE_OBSERVATION.md)
+observed successful file/directory full-sync and exclusive-rename collision refusal
+on local APFS. This is one disposable syscall observation, not storage qualification.
 
 The [retention/storage decision](docs/architecture/PS2_RETENTION_STORAGE_DECISION.md),
 [macOS qualification plan](docs/architecture/PS2_MACOS_STORAGE_QUALIFICATION.md) and
