@@ -1,5 +1,16 @@
 # Roadmap to Photara 0.2.0
 
+## PS2 disposable durability furnace — in progress
+
+The first test-only journal increment validates canonical framed records, chained
+checksums, exact sequence and package identity, every torn suffix, corruption,
+unsupported versions, and idempotent reconciliation after uncertain append/sync.
+It reopens a disposable file and preserves original evidence on short writes.
+No production journal API, user-package writer, APFS durability qualification,
+semantic replay, checkpoint publication, process-kill matrix, retention decision,
+native autosave or project switching exists yet. PS2 is **not** an acceptance gate
+until those boundaries pass with independently verified old-or-new package recovery.
+
 ## Current checkpoint: PS1 accepted; PS2 next — 2026-09-16
 
 [PS1 implementation/evidence](docs/architecture/PS1_PURE_PACKAGE_PLANNER.md) starts from

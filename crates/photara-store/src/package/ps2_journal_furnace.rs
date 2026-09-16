@@ -5,6 +5,11 @@ use photara_core::canonical_json;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest as _, Sha256};
+use std::{
+    collections::BTreeMap,
+    fs::File,
+    io::{Read, Seek, SeekFrom, Write},
+};
 use uuid::Uuid;
 
 const MAGIC: &[u8; 8] = b"PHPSJ001";
@@ -264,14 +269,130 @@ fn scan(bytes: &[u8]) -> Result<Scan, HeaderError> {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AppendFault {
+    None,
+    BeforeWrite,
+    ShortWrite,
+    AfterWrite,
+    AfterSync,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AppendOutcome {
+    Acknowledged,
+    Existing,
+    NotPerformed,
+    OutcomeUnknown,
+    Frozen,
+    Conflict,
+}
+
+fn mutation_evidence(record: &Record) -> Option<(Uuid, String)> {
+    if record.kind != "Mutation" {
+        return None;
+    }
+    let operation_id = Uuid::parse_str(record.body.get("operation_id")?.as_str()?).ok()?;
+    if operation_id.is_nil() {
+        return None;
+    }
+    let request_digest = record.body.get("request_digest")?.as_str()?;
+    super::Sha256Hex::parse(request_digest).ok()?;
+    Some((operation_id, request_digest.to_owned()))
+}
+
+fn mutation_index(scan: &Scan) -> Option<BTreeMap<Uuid, String>> {
+    if scan.tail != Tail::Complete {
+        return None;
+    }
+    let mut index = BTreeMap::new();
+    for record in &scan.records {
+        if record.kind == "Mutation" {
+            let (id, digest) = mutation_evidence(record)?;
+            if index.insert(id, digest).is_some() {
+                return None;
+            }
+        }
+    }
+    Some(index)
+}
+
+// Test-only storage adapter. `sync_all` and a successful reopen are NOT a claim of
+// qualified APFS full-sync/power-loss safety. Unknown results always require scan.
+fn append_disposable(file: &mut File, record: &Record, fault: AppendFault) -> AppendOutcome {
+    if file.seek(SeekFrom::Start(0)).is_err() {
+        return AppendOutcome::Frozen;
+    }
+    let mut old = Vec::new();
+    if file.read_to_end(&mut old).is_err() {
+        return AppendOutcome::Frozen;
+    }
+    let Ok(previous_scan) = scan(&old) else {
+        return AppendOutcome::Frozen;
+    };
+    let Some(index) = mutation_index(&previous_scan) else {
+        return AppendOutcome::Frozen;
+    };
+    let Some((id, digest)) = mutation_evidence(record) else {
+        return AppendOutcome::Frozen;
+    };
+    if let Some(existing) = index.get(&id) {
+        if existing != &digest {
+            return AppendOutcome::Conflict;
+        }
+        // A byte-perfect frame observed after an unknown prior write is not
+        // itself a durability receipt. Retry the barrier before deduping it.
+        return if file.sync_all().is_ok() {
+            AppendOutcome::Existing
+        } else {
+            AppendOutcome::OutcomeUnknown
+        };
+    }
+    if record.sequence != previous_scan.records.len() as u64 + 1 {
+        return AppendOutcome::Conflict;
+    }
+    if fault == AppendFault::BeforeWrite {
+        return AppendOutcome::NotPerformed;
+    }
+    let mut frame = Vec::new();
+    if append_frame(&mut frame, previous_scan.last_checksum, record).is_err()
+        || file.seek(SeekFrom::End(0)).is_err()
+    {
+        return AppendOutcome::NotPerformed;
+    }
+    let written = if fault == AppendFault::ShortWrite {
+        &frame[..frame.len() / 2]
+    } else {
+        &frame
+    };
+    if file.write_all(written).is_err() {
+        return AppendOutcome::OutcomeUnknown;
+    }
+    if matches!(fault, AppendFault::ShortWrite | AppendFault::AfterWrite) {
+        return AppendOutcome::OutcomeUnknown;
+    }
+    if file.sync_all().is_err() || fault == AppendFault::AfterSync {
+        return AppendOutcome::OutcomeUnknown;
+    }
+    // Even this test adapter does not acknowledge solely from write/sync success.
+    let mut after = Vec::new();
+    if file.seek(SeekFrom::Start(0)).is_err() || file.read_to_end(&mut after).is_err() {
+        return AppendOutcome::OutcomeUnknown;
+    }
+    let Ok(after_scan) = scan(&after) else {
+        return AppendOutcome::OutcomeUnknown;
+    };
+    if after_scan.tail != Tail::Complete || after_scan.records.last() != Some(record) {
+        return AppendOutcome::OutcomeUnknown;
+    }
+    AppendOutcome::Acknowledged
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
-    use std::{
-        fs::{File, OpenOptions},
-        io::{Read, Write},
-    };
+    use std::fs::OpenOptions;
 
     fn fixture() -> (Header, Vec<Record>) {
         let id = Uuid::parse_str("7d3dc89a-93d6-4d7c-a3d8-c60c9d2d5971").unwrap();
@@ -294,7 +415,10 @@ mod tests {
                 project_id: id,
                 incarnation_id: header.incarnation_id,
                 kind: "Mutation".to_owned(),
-                body: json!({"operation_id": Uuid::new_v4().to_string()}),
+                body: json!({
+                    "operation_id": Uuid::new_v4().to_string(),
+                    "request_digest": "c".repeat(64)
+                }),
             })
             .collect();
         (header, records)
@@ -420,5 +544,99 @@ mod tests {
         // A recovery scan never truncates the original evidence.
         assert_eq!(reopened, complete[..first_end + 3]);
         assert_eq!(std::fs::read(&path).unwrap(), reopened);
+    }
+
+    #[test]
+    fn uncertain_append_reconciles_same_operation_without_duplicate() {
+        let (header, records) = fixture();
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("journal.fixture");
+        std::fs::write(&path, header_bytes(&header).unwrap()).unwrap();
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        assert_eq!(
+            append_disposable(&mut file, &records[0], AppendFault::AfterWrite),
+            AppendOutcome::OutcomeUnknown
+        );
+        drop(file);
+        let before_retry = std::fs::read(&path).unwrap();
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        assert_eq!(
+            append_disposable(&mut file, &records[0], AppendFault::None),
+            AppendOutcome::Existing
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), before_retry);
+        let mut altered = records[0].clone();
+        altered.body["request_digest"] = json!("d".repeat(64));
+        assert_eq!(
+            append_disposable(&mut file, &altered, AppendFault::None),
+            AppendOutcome::Conflict
+        );
+        assert_eq!(
+            append_disposable(&mut file, &records[1], AppendFault::None),
+            AppendOutcome::Acknowledged
+        );
+        assert_eq!(
+            scan(&std::fs::read(&path).unwrap()).unwrap().records,
+            records
+        );
+    }
+
+    #[test]
+    fn short_write_freezes_later_mutations_and_preserves_evidence() {
+        let (header, records) = fixture();
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("journal.fixture");
+        std::fs::write(&path, header_bytes(&header).unwrap()).unwrap();
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        assert_eq!(
+            append_disposable(&mut file, &records[0], AppendFault::BeforeWrite),
+            AppendOutcome::NotPerformed
+        );
+        assert_eq!(
+            append_disposable(&mut file, &records[0], AppendFault::ShortWrite),
+            AppendOutcome::OutcomeUnknown
+        );
+        let evidence = std::fs::read(&path).unwrap();
+        assert_eq!(scan(&evidence).unwrap().tail, Tail::Incomplete);
+        assert_eq!(
+            append_disposable(&mut file, &records[1], AppendFault::None),
+            AppendOutcome::Frozen
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), evidence);
+    }
+
+    #[test]
+    fn after_sync_unknown_reconciles_without_new_frame() {
+        let (header, records) = fixture();
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("journal.fixture");
+        std::fs::write(&path, header_bytes(&header).unwrap()).unwrap();
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        assert_eq!(
+            append_disposable(&mut file, &records[0], AppendFault::AfterSync),
+            AppendOutcome::OutcomeUnknown
+        );
+        let evidence = std::fs::read(&path).unwrap();
+        assert_eq!(
+            append_disposable(&mut file, &records[0], AppendFault::None),
+            AppendOutcome::Existing
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), evidence);
     }
 }
