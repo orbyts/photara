@@ -332,7 +332,12 @@ fn mutation_index(scan: &Scan) -> Option<BTreeMap<Uuid, String>> {
 
 // Test-only storage adapter. `sync_all` and a successful reopen are NOT a claim of
 // qualified APFS full-sync/power-loss safety. Unknown results always require scan.
-fn append_disposable(file: &mut File, record: &Record, fault: AppendFault) -> AppendOutcome {
+fn append_disposable(
+    file: &mut File,
+    expected: &Header,
+    record: &Record,
+    fault: AppendFault,
+) -> AppendOutcome {
     if file.seek(SeekFrom::Start(0)).is_err() {
         return AppendOutcome::Frozen;
     }
@@ -340,7 +345,7 @@ fn append_disposable(file: &mut File, record: &Record, fault: AppendFault) -> Ap
     if file.read_to_end(&mut old).is_err() {
         return AppendOutcome::Frozen;
     }
-    let Ok(previous_scan) = scan(&old) else {
+    let Ok(previous_scan) = scan_bound(&old, expected) else {
         return AppendOutcome::Frozen;
     };
     let Some(index) = mutation_index(&previous_scan) else {
@@ -392,7 +397,7 @@ fn append_disposable(file: &mut File, record: &Record, fault: AppendFault) -> Ap
     if file.seek(SeekFrom::Start(0)).is_err() || file.read_to_end(&mut after).is_err() {
         return AppendOutcome::OutcomeUnknown;
     }
-    let Ok(after_scan) = scan(&after) else {
+    let Ok(after_scan) = scan_bound(&after, expected) else {
         return AppendOutcome::OutcomeUnknown;
     };
     if after_scan.tail != Tail::Complete || after_scan.records.last() != Some(record) {
@@ -565,6 +570,33 @@ mod tests {
     }
 
     #[test]
+    fn disposable_append_refuses_wrong_binding_without_changing_file() {
+        let (header, records) = fixture();
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("journal.fixture");
+        let evidence = header_bytes(&header).unwrap();
+        std::fs::write(&path, &evidence).unwrap();
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let wrong = Header {
+            incarnation_id: Uuid::new_v4(),
+            ..header.clone()
+        };
+        assert_eq!(
+            append_disposable(&mut file, &wrong, &records[0], AppendFault::None),
+            AppendOutcome::Frozen
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), evidence);
+        assert_eq!(
+            append_disposable(&mut file, &header, &records[0], AppendFault::None),
+            AppendOutcome::Acknowledged
+        );
+    }
+
+    #[test]
     fn malformed_header_and_future_frame_version_refuse_replay() {
         let (header, mut records) = fixture();
         let mut bytes = header_bytes(&header).unwrap();
@@ -625,7 +657,7 @@ mod tests {
             .open(&path)
             .unwrap();
         assert_eq!(
-            append_disposable(&mut file, &records[0], AppendFault::AfterWrite),
+            append_disposable(&mut file, &header, &records[0], AppendFault::AfterWrite),
             AppendOutcome::OutcomeUnknown
         );
         drop(file);
@@ -636,18 +668,18 @@ mod tests {
             .open(&path)
             .unwrap();
         assert_eq!(
-            append_disposable(&mut file, &records[0], AppendFault::None),
+            append_disposable(&mut file, &header, &records[0], AppendFault::None),
             AppendOutcome::Existing
         );
         assert_eq!(std::fs::read(&path).unwrap(), before_retry);
         let mut altered = records[0].clone();
         altered.body["request_digest"] = json!("d".repeat(64));
         assert_eq!(
-            append_disposable(&mut file, &altered, AppendFault::None),
+            append_disposable(&mut file, &header, &altered, AppendFault::None),
             AppendOutcome::Conflict
         );
         assert_eq!(
-            append_disposable(&mut file, &records[1], AppendFault::None),
+            append_disposable(&mut file, &header, &records[1], AppendFault::None),
             AppendOutcome::Acknowledged
         );
         assert_eq!(
@@ -668,17 +700,17 @@ mod tests {
             .open(&path)
             .unwrap();
         assert_eq!(
-            append_disposable(&mut file, &records[0], AppendFault::BeforeWrite),
+            append_disposable(&mut file, &header, &records[0], AppendFault::BeforeWrite),
             AppendOutcome::NotPerformed
         );
         assert_eq!(
-            append_disposable(&mut file, &records[0], AppendFault::ShortWrite),
+            append_disposable(&mut file, &header, &records[0], AppendFault::ShortWrite),
             AppendOutcome::OutcomeUnknown
         );
         let evidence = std::fs::read(&path).unwrap();
         assert_eq!(scan(&evidence).unwrap().tail, Tail::Incomplete);
         assert_eq!(
-            append_disposable(&mut file, &records[1], AppendFault::None),
+            append_disposable(&mut file, &header, &records[1], AppendFault::None),
             AppendOutcome::Frozen
         );
         assert_eq!(std::fs::read(&path).unwrap(), evidence);
@@ -696,12 +728,12 @@ mod tests {
             .open(&path)
             .unwrap();
         assert_eq!(
-            append_disposable(&mut file, &records[0], AppendFault::AfterSync),
+            append_disposable(&mut file, &header, &records[0], AppendFault::AfterSync),
             AppendOutcome::OutcomeUnknown
         );
         let evidence = std::fs::read(&path).unwrap();
         assert_eq!(
-            append_disposable(&mut file, &records[0], AppendFault::None),
+            append_disposable(&mut file, &header, &records[0], AppendFault::None),
             AppendOutcome::Existing
         );
         assert_eq!(std::fs::read(&path).unwrap(), evidence);
