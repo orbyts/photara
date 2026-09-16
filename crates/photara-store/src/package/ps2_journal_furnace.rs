@@ -1,0 +1,424 @@
+//! PS2 test-only journal framing furnace. No caller can acknowledge an edit or
+//! open a device journal through this module. Semantic replay and durable I/O
+//! remain separate gates.
+use photara_core::canonical_json;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use sha2::{Digest as _, Sha256};
+use uuid::Uuid;
+
+const MAGIC: &[u8; 8] = b"PHPSJ001";
+const MAX_PAYLOAD: usize = 16 * 1024 * 1024;
+const CHECKSUM_SIZE: usize = 32;
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Header {
+    format_version: u32,
+    journal_id: Uuid,
+    device_id: Uuid,
+    project_id: Uuid,
+    library_id: Uuid,
+    incarnation_id: Uuid,
+    manifest_sha256: String,
+    base_head_sha256: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Record {
+    format_version: u32,
+    sequence: u64,
+    #[serde(rename = "record_id")]
+    id: Uuid,
+    session_generation: Uuid,
+    project_id: Uuid,
+    incarnation_id: Uuid,
+    kind: String,
+    body: Value,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Tail {
+    Complete,
+    Incomplete,
+    Corrupt,
+    Unsupported,
+}
+
+#[derive(Debug)]
+struct Scan {
+    records: Vec<Record>,
+    verified_len: usize,
+    tail: Tail,
+    last_checksum: [u8; CHECKSUM_SIZE],
+}
+
+#[derive(Debug, Eq, PartialEq)]
+enum HeaderError {
+    Incomplete,
+    Invalid,
+    Unsupported,
+}
+
+fn checksum(parts: &[&[u8]]) -> [u8; CHECKSUM_SIZE] {
+    let mut hasher = Sha256::new();
+    for part in parts {
+        hasher.update(part);
+    }
+    hasher.finalize().into()
+}
+
+fn canonical<T: Serialize>(value: &T) -> Result<Vec<u8>, HeaderError> {
+    canonical_json(value).map_err(|_| HeaderError::Invalid)
+}
+
+fn exact_json<T: for<'a> Deserialize<'a> + Serialize>(bytes: &[u8]) -> Option<T> {
+    let value: T = serde_json::from_slice(bytes).ok()?;
+    (canonical_json(&value).ok()?.as_slice() == bytes).then_some(value)
+}
+
+fn valid_header(header: &Header) -> bool {
+    header.format_version == 1
+        && [
+            header.journal_id,
+            header.device_id,
+            header.project_id,
+            header.library_id,
+            header.incarnation_id,
+        ]
+        .iter()
+        .all(|id| !id.is_nil())
+        && [
+            header.manifest_sha256.as_str(),
+            header.base_head_sha256.as_str(),
+        ]
+        .iter()
+        .all(|s| super::Sha256Hex::parse(s).is_ok())
+}
+
+fn header_bytes(header: &Header) -> Result<Vec<u8>, HeaderError> {
+    if !valid_header(header) {
+        return Err(HeaderError::Invalid);
+    }
+    let payload = canonical(header)?;
+    let length = u32::try_from(payload.len()).map_err(|_| HeaderError::Invalid)?;
+    let mut bytes = Vec::with_capacity(MAGIC.len() + 4 + payload.len() + CHECKSUM_SIZE);
+    bytes.extend_from_slice(MAGIC);
+    bytes.extend_from_slice(&length.to_le_bytes());
+    bytes.extend_from_slice(&payload);
+    let digest = checksum(&[&bytes]);
+    bytes.extend_from_slice(&digest);
+    Ok(bytes)
+}
+
+fn read_header(bytes: &[u8]) -> Result<(Header, usize, [u8; CHECKSUM_SIZE]), HeaderError> {
+    if bytes.len() < MAGIC.len() + 4 {
+        return Err(HeaderError::Incomplete);
+    }
+    if &bytes[..MAGIC.len()] != MAGIC {
+        return Err(HeaderError::Invalid);
+    }
+    let length = u32::from_le_bytes(bytes[8..12].try_into().expect("four bytes")) as usize;
+    // Header is deliberately much smaller than a mutation frame.
+    if length > 4096 {
+        return Err(HeaderError::Invalid);
+    }
+    let end = 12usize.checked_add(length).ok_or(HeaderError::Invalid)?;
+    let total = end.checked_add(CHECKSUM_SIZE).ok_or(HeaderError::Invalid)?;
+    if bytes.len() < total {
+        return Err(HeaderError::Incomplete);
+    }
+    let expected = checksum(&[&bytes[..end]]);
+    if bytes[end..total] != expected {
+        return Err(HeaderError::Invalid);
+    }
+    let header: Header = exact_json(&bytes[12..end]).ok_or(HeaderError::Invalid)?;
+    if header.format_version != 1 {
+        return Err(HeaderError::Unsupported);
+    }
+    if !valid_header(&header) {
+        return Err(HeaderError::Invalid);
+    }
+    Ok((header, total, expected))
+}
+
+fn append_frame(
+    bytes: &mut Vec<u8>,
+    previous: [u8; CHECKSUM_SIZE],
+    record: &Record,
+) -> Result<[u8; CHECKSUM_SIZE], HeaderError> {
+    if record.format_version != 1 || record.id.is_nil() {
+        return Err(HeaderError::Invalid);
+    }
+    let payload = canonical(record)?;
+    if payload.len() > MAX_PAYLOAD {
+        return Err(HeaderError::Invalid);
+    }
+    let length = u32::try_from(payload.len())
+        .map_err(|_| HeaderError::Invalid)?
+        .to_le_bytes();
+    let digest = checksum(&[&previous, &length, &payload]);
+    bytes.extend_from_slice(&length);
+    bytes.extend_from_slice(&payload);
+    bytes.extend_from_slice(&digest);
+    Ok(digest)
+}
+
+fn scan(bytes: &[u8]) -> Result<Scan, HeaderError> {
+    let (header, mut offset, mut previous) = read_header(bytes)?;
+    let mut records = Vec::new();
+    loop {
+        let verified_len = offset;
+        if offset == bytes.len() {
+            return Ok(Scan {
+                records,
+                verified_len,
+                tail: Tail::Complete,
+                last_checksum: previous,
+            });
+        }
+        if bytes.len() - offset < 4 {
+            return Ok(Scan {
+                records,
+                verified_len,
+                tail: Tail::Incomplete,
+                last_checksum: previous,
+            });
+        }
+        let length_bytes: [u8; 4] = bytes[offset..offset + 4].try_into().expect("four bytes");
+        let length = u32::from_le_bytes(length_bytes) as usize;
+        if length > MAX_PAYLOAD {
+            return Ok(Scan {
+                records,
+                verified_len,
+                tail: Tail::Corrupt,
+                last_checksum: previous,
+            });
+        }
+        let Some(end) = offset.checked_add(4).and_then(|n| n.checked_add(length)) else {
+            return Ok(Scan {
+                records,
+                verified_len,
+                tail: Tail::Corrupt,
+                last_checksum: previous,
+            });
+        };
+        let Some(total) = end.checked_add(CHECKSUM_SIZE) else {
+            return Ok(Scan {
+                records,
+                verified_len,
+                tail: Tail::Corrupt,
+                last_checksum: previous,
+            });
+        };
+        if total > bytes.len() {
+            return Ok(Scan {
+                records,
+                verified_len,
+                tail: Tail::Incomplete,
+                last_checksum: previous,
+            });
+        }
+        let expected = checksum(&[&previous, &length_bytes, &bytes[offset + 4..end]]);
+        if bytes[end..total] != expected {
+            return Ok(Scan {
+                records,
+                verified_len,
+                tail: Tail::Corrupt,
+                last_checksum: previous,
+            });
+        }
+        let Some(record): Option<Record> = exact_json(&bytes[offset + 4..end]) else {
+            return Ok(Scan {
+                records,
+                verified_len,
+                tail: Tail::Corrupt,
+                last_checksum: previous,
+            });
+        };
+        if record.format_version != 1 {
+            return Ok(Scan {
+                records,
+                verified_len,
+                tail: Tail::Unsupported,
+                last_checksum: previous,
+            });
+        }
+        if record.sequence != records.len() as u64 + 1
+            || record.id.is_nil()
+            || record.session_generation.is_nil()
+            || record.project_id != header.project_id
+            || record.incarnation_id != header.incarnation_id
+        {
+            return Ok(Scan {
+                records,
+                verified_len,
+                tail: Tail::Corrupt,
+                last_checksum: previous,
+            });
+        }
+        records.push(record);
+        previous = expected;
+        offset = total;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::{
+        fs::{File, OpenOptions},
+        io::{Read, Write},
+    };
+
+    fn fixture() -> (Header, Vec<Record>) {
+        let id = Uuid::parse_str("7d3dc89a-93d6-4d7c-a3d8-c60c9d2d5971").unwrap();
+        let header = Header {
+            format_version: 1,
+            journal_id: Uuid::new_v4(),
+            device_id: Uuid::new_v4(),
+            project_id: id,
+            library_id: Uuid::new_v4(),
+            incarnation_id: Uuid::new_v4(),
+            manifest_sha256: "a".repeat(64),
+            base_head_sha256: "b".repeat(64),
+        };
+        let records = (1..=2)
+            .map(|sequence| Record {
+                format_version: 1,
+                sequence,
+                id: Uuid::new_v4(),
+                session_generation: Uuid::new_v4(),
+                project_id: id,
+                incarnation_id: header.incarnation_id,
+                kind: "Mutation".to_owned(),
+                body: json!({"operation_id": Uuid::new_v4().to_string()}),
+            })
+            .collect();
+        (header, records)
+    }
+    fn encoded(header: &Header, records: &[Record]) -> Vec<u8> {
+        let mut bytes = header_bytes(header).unwrap();
+        let (_, _, mut previous) = read_header(&bytes).unwrap();
+        for record in records {
+            previous = append_frame(&mut bytes, previous, record).unwrap();
+        }
+        bytes
+    }
+
+    #[test]
+    fn complete_chain_has_exact_sequence_and_checksum() {
+        let (header, records) = fixture();
+        let bytes = encoded(&header, &records);
+        let result = scan(&bytes).unwrap();
+        assert_eq!(result.records, records);
+        assert_eq!(result.verified_len, bytes.len());
+        assert_eq!(result.tail, Tail::Complete);
+        assert_ne!(result.last_checksum, [0; CHECKSUM_SIZE]);
+    }
+
+    #[test]
+    fn every_torn_suffix_preserves_only_the_verified_prefix() {
+        let (header, records) = fixture();
+        let bytes = encoded(&header, &records);
+        let header_end = header_bytes(&header).unwrap().len();
+        let one_end = encoded(&header, &records[..1]).len();
+        for cut in header_end..bytes.len() {
+            let result = scan(&bytes[..cut]).unwrap();
+            assert_eq!(
+                result.tail,
+                if cut == header_end || cut == one_end {
+                    Tail::Complete
+                } else {
+                    Tail::Incomplete
+                },
+                "cut={cut}"
+            );
+            assert_eq!(
+                result.records.len(),
+                usize::from(cut >= one_end),
+                "cut={cut}"
+            );
+            assert_eq!(
+                result.verified_len,
+                if cut >= one_end { one_end } else { header_end }
+            );
+        }
+    }
+
+    #[test]
+    fn corruption_is_not_misreported_as_a_torn_write() {
+        let (header, records) = fixture();
+        let mut bytes = encoded(&header, &records);
+        let one_end = encoded(&header, &records[..1]).len();
+        bytes[one_end + 15] ^= 1;
+        let result = scan(&bytes).unwrap();
+        assert_eq!(result.tail, Tail::Corrupt);
+        assert_eq!(result.records.len(), 1);
+        assert_eq!(result.verified_len, one_end);
+    }
+
+    #[test]
+    fn sequence_gap_and_oversized_frame_refuse_replay() {
+        let (header, mut records) = fixture();
+        records[1].sequence = 3;
+        assert_eq!(
+            scan(&encoded(&header, &records)).unwrap().tail,
+            Tail::Corrupt
+        );
+        let mut bytes = header_bytes(&header).unwrap();
+        bytes.extend_from_slice(&u32::MAX.to_le_bytes());
+        assert_eq!(scan(&bytes).unwrap().tail, Tail::Corrupt);
+    }
+
+    #[test]
+    fn malformed_header_and_future_frame_version_refuse_replay() {
+        let (header, mut records) = fixture();
+        let mut bytes = header_bytes(&header).unwrap();
+        bytes[20] ^= 1;
+        assert_eq!(scan(&bytes).unwrap_err(), HeaderError::Invalid);
+        records[0].format_version = 2;
+        let mut bytes = header_bytes(&header).unwrap();
+        let (_, _, previous) = read_header(&bytes).unwrap();
+        // Build a checksum-valid future frame to prove version refusal.
+        let payload = canonical(&records[0]).unwrap();
+        let length = u32::try_from(payload.len()).unwrap().to_le_bytes();
+        let digest = checksum(&[&previous, &length, &payload]);
+        bytes.extend_from_slice(&length);
+        bytes.extend_from_slice(&payload);
+        bytes.extend_from_slice(&digest);
+        assert_eq!(scan(&bytes).unwrap().tail, Tail::Unsupported);
+    }
+
+    #[test]
+    fn disposable_file_reopen_and_torn_tail_keep_original_bytes() {
+        let (header, records) = fixture();
+        let complete = encoded(&header, &records);
+        let first_end = encoded(&header, &records[..1]).len();
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("journal.fixture");
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .unwrap();
+        file.write_all(&complete[..first_end + 3]).unwrap();
+        file.sync_all().unwrap();
+        File::open(root.path()).unwrap().sync_all().unwrap();
+        drop(file);
+        let mut reopened = Vec::new();
+        File::open(&path)
+            .unwrap()
+            .read_to_end(&mut reopened)
+            .unwrap();
+        let result = scan(&reopened).unwrap();
+        assert_eq!(result.tail, Tail::Incomplete);
+        assert_eq!(result.verified_len, first_end);
+        assert_eq!(result.records, records[..1]);
+        // A recovery scan never truncates the original evidence.
+        assert_eq!(reopened, complete[..first_end + 3]);
+        assert_eq!(std::fs::read(&path).unwrap(), reopened);
+    }
+}
