@@ -1,6 +1,6 @@
 # PS1 — Pure Project package planner/contracts
 
-Status: implemented for review; **no commit, push, installation or deployment**.
+Status: accepted as a bounded planner checkpoint; **no installation or deployment**.
 Baseline: published clean BR0 `5777fce04a9c1d88cbf249581efdb09055acb2f8`.
 Normative inputs: [PS0](PROJECT_SESSION_DURABILITY.md),
 [contracts](proposals/ps0/CONTRACTS.md), [verification](proposals/ps0/VERIFICATION.md).
@@ -152,5 +152,5 @@ were fixed; no test suppression or production workaround was added.
 14. `crates/photara-store/tests/package_v1_1.rs`
 15. `crates/photara-store/tests/package_planning/mod.rs`
 
-Await user review. PS2 filesystem writer/journal/recovery, PS3 native coordinator/
-autosave, PS4 switching, live conversion and deployment are not authorized here.
+PS2 filesystem writer/journal/recovery is next. PS3 native coordinator/autosave,
+PS4 switching, live conversion and deployment are not included here.

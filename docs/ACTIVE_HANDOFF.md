@@ -1,6 +1,6 @@
 # Active handoff
 
-## PS1 pure package planner review gate — 2026-09-16
+## PS1 accepted; PS2 next — 2026-09-16
 
 [PS1 implementation/evidence](architecture/PS1_PURE_PACKAGE_PLANNER.md) starts from
 published BR0 `5777fce04a9c1d88cbf249581efdb09055acb2f8`. It adds typed pure
@@ -8,12 +8,16 @@ commands/prepared receipts, deterministic immutable byte plans, shared virtual 1
 validation, exact HEAD/manifest/incarnation comparison and interface-only I/O
 contracts. Configured outer extensions and stable internal schemas remain intact.
 
-**Awaiting user review; no commit/push/install/deploy.** No filesystem edit writer,
+**PS1 accepted for publication.** No filesystem edit writer,
 journal, native autosave/session coordinator, project switch or migration is wired.
 The [retention proposal](architecture/PS1_RETENTION_PROPOSAL.md) must be reviewed before
 production autosave: 1,024 commits remain a hard bound, with no history truncation
 or indefinite-autosave claim. Exact 15-file inventory and tests are in the report.
-The BR0/PS0 entries below preserve historical review checkpoints.
+PS2 is the disposable writer/journal/recovery furnace; PS3 is native session and
+autosave integration. The BR0/PS0 entries below are historical review checkpoints.
+After PS2–PS3, consolidate durable reference documents and retire superseded
+checkpoint prose through reviewed, incremental cleanup; keep user and Node SDK/API
+guides as the product matures.
 
 ## BR0 implementation review gate — 2026-09-16
 
