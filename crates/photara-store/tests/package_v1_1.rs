@@ -721,3 +721,7 @@ fn package_golden_is_exact_rust_canonical_bytes() {
     assert_eq!(archive["files"], json!(rows));
     validate(&files).unwrap();
 }
+
+// Reuse the rich synthetic 1.1 fixture, including managed bytes and history.
+#[path = "package_planning/mod.rs"]
+mod planning;

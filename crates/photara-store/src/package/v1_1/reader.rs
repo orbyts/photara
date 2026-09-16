@@ -3,12 +3,29 @@ use super::*;
 /// Validate a 1.0 or 1.1 package without rewriting any object or resolving external bytes.
 /// # Errors
 /// Fails closed on unsupported schemas, missing features, unsafe paths or invalid closure.
-#[expect(clippy::too_many_lines, reason = "Auditable bounded commit walk")]
 pub fn validate_directory(
     root: impl AsRef<Path>,
     limits: PackageLimits,
 ) -> Result<ValidatedPackageV1_1, PackageError> {
     let reader = super::super::reader::Reader::open(root.as_ref(), limits)?;
+    validate_reader(reader, limits)
+}
+
+/// Uses exactly the directory reader's closure/schema/ancestry rules, without I/O.
+/// # Errors
+/// Refuses invalid candidates or exhausted reader budgets.
+pub fn validate_memory(files: &MemoryPackage) -> Result<ValidatedPackageV1_1, PackageError> {
+    validate_reader(
+        super::super::reader::Reader::Memory(files.clone()),
+        files.limits(),
+    )
+}
+
+#[expect(clippy::too_many_lines, reason = "Auditable bounded commit walk")]
+fn validate_reader(
+    reader: super::super::reader::Reader,
+    limits: PackageLimits,
+) -> Result<ValidatedPackageV1_1, PackageError> {
     let bootstrap_bytes = reader.json("manifest.json")?;
     let bootstrap_value = parse_canonical_json(&bootstrap_bytes, limits.json)?;
     super::super::records::uuid_field(&bootstrap_value, "project_id")?;
@@ -40,6 +57,7 @@ pub fn validate_directory(
         blob_bytes: 0,
         diagnostics: Vec::new(),
     };
+    context.add_json(0)?;
     let bootstrap_hash = digest(&bootstrap_bytes);
     let mut pending = Some(CommitParent {
         commit_id: head.commit_id,

@@ -221,4 +221,34 @@ mod platform {
         }
     }
 }
-pub(super) use platform::Reader;
+/// Common read seam: the same validator reads safe directories or bounded memory.
+pub(super) enum Reader {
+    Directory(platform::Reader),
+    Memory(super::MemoryPackage),
+}
+impl Reader {
+    pub fn open(root: &Path, limits: PackageLimits) -> Result<Self, PackageError> {
+        platform::Reader::open(root, limits).map(Self::Directory)
+    }
+    pub fn json(&self, path: &str) -> Result<Vec<u8>, PackageError> {
+        match self {
+            Self::Directory(reader) => reader.json(path),
+            Self::Memory(files) => Ok(files.get(path)?.to_vec()),
+        }
+    }
+    pub fn blob(&self, reference: &ObjectRef) -> Result<(), PackageError> {
+        match self {
+            Self::Directory(reader) => reader.blob(reference),
+            Self::Memory(files) => {
+                let bytes = files.get(&reference.path())?;
+                if reference.kind != ObjectKind::Blob
+                    || bytes.len() as u64 != reference.byte_length.get()
+                    || super::digest(bytes) != reference.sha256
+                {
+                    return Err(PackageError::Integrity);
+                }
+                Ok(())
+            }
+        }
+    }
+}

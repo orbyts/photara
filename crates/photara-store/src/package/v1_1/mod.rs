@@ -1,5 +1,6 @@
 //! Additive package 1.1 reader. Package envelopes and canonical encoding remain v1.
-//! All original objects remain available; this module exposes no writer or evaluator.
+//! All original objects remain available. Directory and virtual-memory validation
+//! share one implementation; this module exposes no publisher or evaluator.
 mod closure;
 mod links;
 mod reader;
@@ -8,7 +9,7 @@ use super::{Context, *};
 pub(super) use closure::references;
 use links::{validate_commit, validate_links};
 use photara_core::{context as cx, contracts as ct};
-pub use reader::validate_directory;
+pub use reader::{validate_directory, validate_memory};
 pub(super) use records::validate_record;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};

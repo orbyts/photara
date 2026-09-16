@@ -1,4 +1,4 @@
-//! Read-only generation-two directory-package codecs and validation.
+//! Generation-two package codecs, read validation and pure checkpoint planning.
 //!
 //! This module has no publication, locks, database, provider, migration or UI
 //! side effects. It never resolves external resource handles. Original canonical
@@ -7,12 +7,15 @@
 pub mod compatibility;
 pub mod creation;
 mod json;
+mod memory;
+pub mod planning;
 mod reader;
 mod records;
 mod types;
 pub mod v1_1;
 
 pub use json::{JsonLimits, parse_canonical_json, parse_json};
+pub use memory::MemoryPackage;
 pub use reader::validate_resource_path;
 pub use types::*;
 
