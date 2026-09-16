@@ -16,7 +16,14 @@ The disposable package-publication fixture also stops after intent, each new
 immutable file and HEAD replacement, checking the existing reader accepts only
 the complete old or new closure and that stale HEAD blocks publication. A
 separate child-process exit/reopen check exercises intent, every immutable
-publication, and HEAD boundaries; this is not a power-loss qualification.
+publication, and HEAD boundaries. Disposable reconciliation reads the persisted
+intent and independent package closure, classifies old HEAD as resume-pending
+and exact candidate HEAD as already published, and refuses tampered intent or
+immutable collisions. This is not a power-loss qualification or production
+recovery adapter. The disposable recovery path can then publish missing
+immutable files and advance HEAD once; a repeated recovery leaves the verified
+candidate unchanged. It refuses tampered intent or immutable bytes before any
+additional write, and freezes on an unrelated HEAD.
 No production journal API, user-package writer, APFS durability qualification,
 semantic replay, checkpoint publication, process-kill matrix, retention decision,
 native autosave or project switching exists yet. PS2 is **not** an acceptance gate
