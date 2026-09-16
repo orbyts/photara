@@ -48,6 +48,7 @@ cp -p "$THEME_ROOT/Resources/photara-default.json" "$RESOURCES/Themes/photara-de
 cp -p "$REPOSITORY_ROOT/platform/macos/photara-graph/Resources/photara-graph-presentation-v1.json" "$RESOURCES/photara-graph-presentation-v1.json"
 ditto "$REPOSITORY_ROOT/platform/macos/photara-graph/Resources/NodeIcons" "$RESOURCES/NodeIcons"
 ditto "$REPOSITORY_ROOT/platform/macos/photara-graph/Resources/ToolIcons" "$RESOURCES/ToolIcons"
+ditto "$SCRIPT_ROOT/Resources/AppIconDraft" "$RESOURCES/AppIconDraft"
 
 swift build \
   --package-path "$REPOSITORY_ROOT/platform/macos/photara-proxy-imageio" \
