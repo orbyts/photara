@@ -195,9 +195,16 @@ fn subprocess_stop_helper() {
     let plan = checkpoint(run(&base, &mutation, 30500).unwrap());
     let stop = match stage.as_str() {
         "intent" => Stop::AfterIntent,
-        "immutable" => Stop::AfterImmutable(plan.immutable_files().len() - 1),
         "head" => Stop::AfterHead,
-        _ => panic!("unknown disposable stop stage"),
+        _ => {
+            let index: usize = stage
+                .strip_prefix("immutable-")
+                .expect("known disposable stop stage")
+                .parse()
+                .expect("immutable index");
+            assert!(index < plan.immutable_files().len());
+            Stop::AfterImmutable(index)
+        }
     };
     publish_until(Path::new(&root), Path::new(&journal), &plan, stop).unwrap();
     // No test teardown or Rust unwinding: the parent must recover from disk.
@@ -210,13 +217,16 @@ fn child_process_exit_after_each_publish_phase_reopens_old_or_new() {
     let mutation = rename(&base, "Checkpointed");
     let plan = checkpoint(run(&base, &mutation, 30500).unwrap());
     let executable = std::env::current_exe().unwrap();
-    for (stage, expected) in [("intent", "old"), ("immutable", "old"), ("head", "new")] {
+    let stages = std::iter::once(("intent".to_owned(), "old"))
+        .chain((0..plan.immutable_files().len()).map(|index| (format!("immutable-{index}"), "old")))
+        .chain(std::iter::once(("head".to_owned(), "new")));
+    for (stage, expected) in stages {
         let package_root = materialize(&owned(base.files()));
         let journal = tempfile::tempdir().unwrap();
         let result = std::process::Command::new(&executable)
             .arg("--exact")
             .arg("planning::furnace::subprocess_stop_helper")
-            .env("PHOTARA_PS2_STOP_STAGE", stage)
+            .env("PHOTARA_PS2_STOP_STAGE", &stage)
             .env("PHOTARA_PS2_PACKAGE_ROOT", package_root.path())
             .env("PHOTARA_PS2_JOURNAL_ROOT", journal.path())
             .output()
