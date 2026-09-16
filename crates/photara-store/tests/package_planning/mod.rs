@@ -4,6 +4,8 @@ use photara_core::{NodeDefinitionRegistry, ValueTypeRegistry, creation::PackageE
 
 #[path = "furnace.rs"]
 mod furnace;
+#[path = "replay.rs"]
+mod replay;
 
 fn incarnation() -> IncarnationId {
     IncarnationId::parse(&id(30000)).unwrap()
