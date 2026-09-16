@@ -54,3 +54,59 @@ platform/macos/photara-ui-tests/verify-production-ui.sh
 The shared checks cover every scenario transition, the real Opening's accessibility
 and actions, and the ladder/parser/contrast contract. Graph's native interaction suite
 runs separately from other UI capture windows to preserve its foreground pointer tests.
+
+## Library Lifecycle — LL0 review
+
+Choose **Library Lifecycle** in the authoring window. Its state picker and Light/Dark
+control show the accepted native layout: active-Library sidebar and identity menu, create/rename/switch sheets, removal
+impact and exact-name entry, final destructive confirmation, blockers, uncertain
+response, local reconciliation and receipt. The contract is
+[LIBRARY_LIFECYCLE.md](../../../docs/architecture/LIBRARY_LIFECYCLE.md).
+
+These new views are **accepted lab-only presentation**, not production lifecycle
+operations. All actions are in-memory fixture changes. The default/last Library
+policy and Cloud/On this Mac creation choice are part of the accepted LL0 contract. No package, database,
+network or authentication code is linked by the dedicated lifecycle verifier.
+
+```sh
+platform/macos/photara-shell-lab/verify-lifecycle.sh --build-only
+'platform/macos/photara-shell-lab/.build/lifecycle-verification/Library Lifecycle Verification.app/Contents/MacOS/LifecycleChecks' /private/tmp/photara-lifecycle-review
+```
+
+The verifier uses its own native windows and compositor captures. It checks fixture
+confirmation/blocked-state behavior; it does not establish production authorization,
+cloud correctness or database integrity. It requires macOS window/capture access.
+Never run a production app or change credentials to obtain these review images.
+
+
+## Revised Library switcher
+
+In **Library Lifecycle**, choose a **Switcher context** in the authoring window.
+The bottom-left native menu retains the avatar + user display name trigger (or
+On This Mac for a local/signed-out identity). Left-click it to see Library and
+account context inside the native menu. The
+sidebar contains only active-Library content. Open the menu for grouped Libraries,
+New Library, Library Settings and account actions. Library Settings contains the
+existing management sheets. There is no Library Save or Add Account action.
+
+Contexts cover cloud/local, duplicate names, offline projection, signed-out/unsigned,
+unsaved Project and stale target recovery. Ordinary selections apply automatically
+after fixture checks; only the unsaved Project context presents Save and Switch.
+All state is synthetic. Sign In and Account Settings record existing-flow intent;
+no credentials or real account state are accessed. The dedicated verifier additionally
+uses an external accessibility helper to inspect the native menu and send keyboard
+input to its own synthetic process. No permission grants/resets are automated.
+
+
+Current [Light/Dark review images and verification](../../../docs/architecture/LIBRARY_LIFECYCLE.md#current-identity-menu-review-images-and-evidence)
+use the user-identity trigger. The earlier Library-name trigger was discarded.
+The command below reruns only the native keyboard path when diagnosing input:
+
+```sh
+'platform/macos/photara-shell-lab/.build/lifecycle-verification/Library Lifecycle Verification.app/Contents/MacOS/LifecycleChecks' /private/tmp/photara-identity-keyboard --keyboard-only
+```
+
+The normal full invocation remains the review gate; targeted checks are not a substitute.
+
+The bottom identity button opens its native AppKit menu **above** the row. The
+verification checks popup screen bounds for every context in Light and Dark.

@@ -1,0 +1,24 @@
+/Users/suhail/.codex/worktrees/0455/photara/platform/macos/photara-shell-lab/Verification/SwitcherAccessibilityProbe.swift:50:35: warning: 'unsafeBitCast' from 'AnyObject' to 'AXValue' can be replaced with 'unsafeDowncast'
+ 48 |             var point = CGPoint.zero; var size = CGSize.zero
+ 49 |             guard let position = value(trigger, kAXPositionAttribute), let extent = value(trigger, kAXSizeAttribute) else { fatalError("Missing native trigger bounds") }
+ 50 |             check(AXValueGetValue(unsafeBitCast(position, to: AXValue.self), .cgPoint, &point), "Missing trigger position")
+    |                                   `- warning: 'unsafeBitCast' from 'AnyObject' to 'AXValue' can be replaced with 'unsafeDowncast'
+ 51 |             check(AXValueGetValue(unsafeBitCast(extent, to: AXValue.self), .cgSize, &size), "Missing trigger size")
+ 52 |             point.x += size.width / 2; point.y += size.height / 2
+
+/Users/suhail/.codex/worktrees/0455/photara/platform/macos/photara-shell-lab/Verification/SwitcherAccessibilityProbe.swift:51:35: warning: 'unsafeBitCast' from 'AnyObject' to 'AXValue' can be replaced with 'unsafeDowncast'
+ 49 |             guard let position = value(trigger, kAXPositionAttribute), let extent = value(trigger, kAXSizeAttribute) else { fatalError("Missing native trigger bounds") }
+ 50 |             check(AXValueGetValue(unsafeBitCast(position, to: AXValue.self), .cgPoint, &point), "Missing trigger position")
+ 51 |             check(AXValueGetValue(unsafeBitCast(extent, to: AXValue.self), .cgSize, &size), "Missing trigger size")
+    |                                   `- warning: 'unsafeBitCast' from 'AnyObject' to 'AXValue' can be replaced with 'unsafeDowncast'
+ 52 |             point.x += size.width / 2; point.y += size.height / 2
+ 53 |             check(NSWorkspace.shared.frontmostApplication?.processIdentifier == pid, "Synthetic host lost foreground before left click")
+
+/Users/suhail/.codex/worktrees/0455/photara/platform/macos/photara-shell-lab/Verification/SwitcherAccessibilityProbe.swift:89:31: warning: 'unsafeBitCast' from 'AnyObject' to 'AXValue' can be replaced with 'unsafeDowncast'
+ 87 |               let position = value(trigger, kAXPositionAttribute) else { fatalError("Missing menu placement geometry") }
+ 88 |         var triggerOrigin = CGPoint.zero
+ 89 |         check(AXValueGetValue(unsafeBitCast(position, to: AXValue.self), .cgPoint, &triggerOrigin), "Missing trigger geometry")
+    |                               `- warning: 'unsafeBitCast' from 'AnyObject' to 'AXValue' can be replaced with 'unsafeDowncast'
+ 90 |         print("PLACEMENT menuBottom=\(menuFrame.maxY) triggerTop=\(triggerOrigin.y)")
+ 91 |         check(menuFrame.maxY <= triggerOrigin.y + 2, "Menu must open above the identity trigger")
+/Users/suhail/.codex/worktrees/0455/photara/platform/macos/photara-shell-lab/.build/lifecycle-verification/Library Lifecycle Verification.app: replacing existing signature

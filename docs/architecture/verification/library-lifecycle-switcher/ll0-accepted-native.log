@@ -1,0 +1,307 @@
+CASE cloud dark=false
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+PASS: native switcher accessible label: Suhail | Suhail, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud", "suhail@example.com", "Fieldwork", "Studio", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14014, 101], [14012, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE cloud dark=true
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+PASS: native switcher accessible label: Suhail | Suhail, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud", "suhail@example.com", "Fieldwork", "Studio", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14017, 101], [14015, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE localOnly dark=false
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+PASS: native switcher accessible label: Suhail | Suhail, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Personal · On This Mac", "suhail@example.com", "Fieldwork", "Studio", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Personal"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14020, 101], [14018, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE localOnly dark=true
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+PASS: native switcher accessible label: Suhail | Suhail, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Personal · On This Mac", "suhail@example.com", "Fieldwork", "Studio", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Personal"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14025, 101], [14021, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE duplicateNames dark=false
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+PASS: native switcher accessible label: Suhail | Suhail, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud", "suhail@example.com", "Fieldwork · 7C21", "Fieldwork · 4D90", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork · 7C21"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14028, 101], [14026, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE duplicateNames dark=true
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+PASS: native switcher accessible label: Suhail | Suhail, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud", "suhail@example.com", "Fieldwork · 7C21", "Fieldwork · 4D90", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork · 7C21"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14033, 101], [14029, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE offline dark=false
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+PASS: native switcher accessible label: Suhail | Suhail, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud · Offline", "suhail@example.com", "Fieldwork", "Studio · Not downloaded", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14036, 101], [14034, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE offline dark=true
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+PASS: native switcher accessible label: Suhail | Suhail, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud · Offline", "suhail@example.com", "Fieldwork", "Studio · Not downloaded", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14041, 101], [14037, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE signedOut dark=false
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=On This Mac | On This Mac, Libraries and account | Libraries and account
+PASS: native switcher accessible label: On This Mac | On This Mac, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=On This Mac | On This Mac, Libraries and account | Libraries and account
+MENU press=0 items=["Personal · On This Mac", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign in with Google"]
+CHECKED ["Personal"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14044, 101], [14042, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE signedOut dark=true
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=On This Mac | On This Mac, Libraries and account | Libraries and account
+PASS: native switcher accessible label: On This Mac | On This Mac, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=On This Mac | On This Mac, Libraries and account | Libraries and account
+MENU press=0 items=["Personal · On This Mac", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign in with Google"]
+CHECKED ["Personal"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14049, 101], [14045, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE unsigned dark=false
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=On This Mac | On This Mac, Libraries and account | Libraries and account
+PASS: native switcher accessible label: On This Mac | On This Mac, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=On This Mac | On This Mac, Libraries and account | Libraries and account
+MENU press=0 items=["Personal · On This Mac", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign in with Google", "Google sign-in requires signed Photara."]
+CHECKED ["Personal"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14052, 101], [14050, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE unsigned dark=true
+PASS: 81 switcher fixture transitions; cloud/local/duplicates/offline/signed-out/unsaved/stale target semantics
+CAPTURE libraries-light window=(900.0, 600.0) host=(900.0, 600.0) content=(900.0, 548.0)
+CAPTURE create-light window=(480.0, 281.0) host=(480.0, 281.0) content=(480.0, 249.0)
+CAPTURE rename-light window=(480.0, 228.0) host=(480.0, 228.0) content=(480.0, 196.0)
+CAPTURE switchLibrary-light window=(480.0, 220.0) host=(480.0, 220.0) content=(480.0, 188.0)
+CAPTURE removal-light window=(480.0, 478.0) host=(480.0, 478.0) content=(480.0, 446.0)
+CAPTURE offline-light window=(480.0, 234.0) host=(480.0, 234.0) content=(480.0, 202.0)
+CAPTURE denied-light window=(480.0, 234.0) host=(480.0, 234.0) content=(480.0, 202.0)
+CAPTURE protectedLibrary-light window=(480.0, 234.0) host=(480.0, 234.0) content=(480.0, 202.0)
+CAPTURE pending-light window=(480.0, 234.0) host=(480.0, 234.0) content=(480.0, 202.0)
+CAPTURE stale-light window=(480.0, 439.0) host=(480.0, 439.0) content=(480.0, 407.0)
+CAPTURE removing-light window=(480.0, 295.0) host=(480.0, 295.0) content=(480.0, 263.0)
+CAPTURE unknown-light window=(480.0, 364.0) host=(480.0, 364.0) content=(480.0, 332.0)
+CAPTURE reconciling-light window=(480.0, 335.0) host=(480.0, 335.0) content=(480.0, 303.0)
+CAPTURE receipt-light window=(900.0, 600.0) host=(900.0, 600.0) content=(900.0, 548.0)
+CAPTURE attached-removal-light window=(820.0, 720.0) host=(820.0, 720.0) content=(820.0, 668.0)
+CAPTURE final-dialog-light window=(480.0, 478.0) host=(480.0, 478.0) content=(480.0, 446.0)
+CAPTURE libraries-dark window=(900.0, 600.0) host=(900.0, 600.0) content=(900.0, 548.0)
+CAPTURE create-dark window=(480.0, 281.0) host=(480.0, 281.0) content=(480.0, 249.0)
+CAPTURE rename-dark window=(480.0, 228.0) host=(480.0, 228.0) content=(480.0, 196.0)
+CAPTURE switchLibrary-dark window=(480.0, 220.0) host=(480.0, 220.0) content=(480.0, 188.0)
+CAPTURE removal-dark window=(480.0, 478.0) host=(480.0, 478.0) content=(480.0, 446.0)
+CAPTURE offline-dark window=(480.0, 234.0) host=(480.0, 234.0) content=(480.0, 202.0)
+CAPTURE denied-dark window=(480.0, 234.0) host=(480.0, 234.0) content=(480.0, 202.0)
+CAPTURE protectedLibrary-dark window=(480.0, 234.0) host=(480.0, 234.0) content=(480.0, 202.0)
+CAPTURE pending-dark window=(480.0, 234.0) host=(480.0, 234.0) content=(480.0, 202.0)
+CAPTURE stale-dark window=(480.0, 439.0) host=(480.0, 439.0) content=(480.0, 407.0)
+CAPTURE removing-dark window=(480.0, 295.0) host=(480.0, 295.0) content=(480.0, 263.0)
+CAPTURE unknown-dark window=(480.0, 364.0) host=(480.0, 364.0) content=(480.0, 332.0)
+CAPTURE reconciling-dark window=(480.0, 335.0) host=(480.0, 335.0) content=(480.0, 303.0)
+CAPTURE receipt-dark window=(900.0, 600.0) host=(900.0, 600.0) content=(900.0, 548.0)
+CAPTURE attached-removal-dark window=(820.0, 720.0) host=(820.0, 720.0) content=(820.0, 668.0)
+CAPTURE final-dialog-dark window=(480.0, 478.0) host=(480.0, 478.0) content=(480.0, 446.0)
+CAPTURE switcher-cloud-light window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-cloud-dark window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-localOnly-light window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-localOnly-dark window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-duplicateNames-light window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-duplicateNames-dark window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-offline-light window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-offline-dark window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-signedOut-light window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-signedOut-dark window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-unsigned-light window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-unsigned-dark window=(760.0, 560.0) host=(760.0, 560.0) content=(76CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=On This Mac | On This Mac, Libraries and account | Libraries and account
+PASS: native switcher accessible label: On This Mac | On This Mac, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=On This Mac | On This Mac, Libraries and account | Libraries and account
+MENU press=0 items=["Personal · On This Mac", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign in with Google", "Google sign-in requires signed Photara."]
+CHECKED ["Personal"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14057, 101], [14053, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE unsaved dark=false
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+PASS: native switcher accessible label: Suhail | Suhail, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud", "suhail@example.com", "Fieldwork", "Studio", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14060, 101], [14058, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE unsaved dark=true
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+PASS: native switcher accessible label: Suhail | Suhail, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud", "suhail@example.com", "Fieldwork", "Studio", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14063, 101], [14061, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE inaccessible dark=false
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+PASS: native switcher accessible label: Suhail | Suhail, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud", "suhail@example.com", "Fieldwork", "Studio", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14068, 101], [14064, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE inaccessible dark=true
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+PASS: native switcher accessible label: Suhail | Suhail, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud", "suhail@example.com", "Fieldwork", "Studio", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14071, 101], [14069, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE removedTarget dark=false
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+PASS: native switcher accessible label: Suhail | Suhail, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud", "suhail@example.com", "Fieldwork", "Studio", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14076, 101], [14072, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CASE removedTarget dark=true
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+PASS: native switcher accessible label: Suhail | Suhail, Libraries and account | Libraries and account
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud", "suhail@example.com", "Fieldwork", "Studio", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork"]
+PLACEMENT menuBottom=809.0 triggerTop=814.0
+OWNED WINDOWS [[14079, 101], [14077, 0]]
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, Escape delivered
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud", "suhail@example.com", "Fieldwork", "Studio", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork"]
+PLACEMENT menuBottom=839.0 triggerTop=844.0
+SELECTED after Down: ["Studio"]
+AFTER ACTION CHECKED ["Fieldwork"]
+PASS: native menu accessibility, checkmark, Space/Down/Return delivered
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud", "suhail@example.com", "Fieldwork", "Studio", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork"]
+PLACEMENT menuBottom=839.0 triggerTop=844.0
+AFTER ACTION CHECKED []
+PASS: native menu accessibility, checkmark, left-click/Escape delivered
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=On This Mac | On This Mac, Libraries and account | Libraries and account
+MENU press=0 items=["Personal · On This Mac", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign in with Google"]
+CHECKED ["Personal"]
+PLACEMENT menuBottom=839.0 triggerTop=844.0
+AFTER ACTION CHECKED ["Personal"]
+PASS: native menu accessibility, checkmark, native action delivered
+CAPABILITIES AX=true post=true
+TRIGGER role=AXButton labels=Suhail | Suhail, Libraries and account | Libraries and account
+MENU press=0 items=["Fieldwork · suhail@example.com · Cloud", "suhail@example.com", "Fieldwork", "Studio", "On This Mac", "Personal", "", "New Library…", "Library Settings…", "", "Account Settings…", "Sign Out"]
+CHECKED ["Fieldwork"]
+PLACEMENT menuBottom=839.0 triggerTop=844.0
+AFTER ACTION CHECKED ["Fieldwork"]
+PASS: native menu accessibility, checkmark, native action delivered
+0.0, 508.0)
+CAPTURE switcher-unsaved-light window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-unsaved-dark window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-inaccessible-light window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-inaccessible-dark window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-removedTarget-light window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE switcher-removedTarget-dark window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE keyboard-switch window=(900.0, 600.0) host=(900.0, 600.0) content=(900.0, 548.0)
+CAPTURE native-click window=(900.0, 600.0) host=(900.0, 600.0) content=(900.0, 548.0)
+CAPTURE native-signin window=(900.0, 600.0) host=(900.0, 600.0) content=(900.0, 548.0)
+CAPTURE native-settings window=(900.0, 600.0) host=(900.0, 600.0) content=(900.0, 548.0)
+CAPTURE recovery-unsaved-light window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE recovery-unsaved-dark window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE recovery-inaccessible-light window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE recovery-inaccessible-dark window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE recovery-removedTarget-light window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+CAPTURE recovery-removedTarget-dark window=(760.0, 560.0) host=(760.0, 560.0) content=(760.0, 508.0)
+PASS: exact-name and final-gate fixture checks; blocked states; name validation; lifecycle and identity-menu native captures. No persistence behavior tested.

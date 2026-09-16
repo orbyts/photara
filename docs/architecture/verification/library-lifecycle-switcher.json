@@ -1,0 +1,445 @@
+{
+  "status": "LL0 accepted by Suhail, including upward avatar/name Library/account switcher; checkpoint publication authorized; PS0 next, not begun; LL1 separately gated",
+  "base": "913f3526f51eaa1aaf34ef83ead2860869465e85",
+  "native_exit_code": 0,
+  "fixture_transitions": 81,
+  "capture_count": 78,
+  "native_menu_checks": 22,
+  "native_scope": "External AX on synthetic host only (menu bar excluded). Foreground-guarded HID left-button events open native menus; focused Space/Down/Return changes active Library; Escape dismisses; native Google and Library Settings items reach fixture callbacks. Each open asserts popup bottom above trigger top. No permission changes.",
+  "limitations": [
+    "Human VoiceOver speech and end-user physical keyboard navigation remain manual review.",
+    "No database, account or package mutation exists in this fixture. Async access/projection races remain specified future furnaces.",
+    "Cloud authentication is simulated. Google action records supported-path intent; unsigned case disables it."
+  ],
+  "failed_attempts": [
+    "Initial AX label probe used description only; corrected to include native title/help/value.",
+    "Initial traversal included native application menu bar; scope corrected to exclude it, superseded output discarded.",
+    "First native keyboard test delivered keys but did not prove selection; kept as failure.",
+    "Down navigation proved Studio selected. Explicit menu dismissal plus settling and actual bound-selection assertion produced final pass; stale AX menu children alone are not a dismissal oracle.",
+    "NSPopUpButton preferredEdge did not place the menu above on this macOS build; replaced with native NSMenu.popUp anchored to NSButton.",
+    "An intermediate run stopped on foreground loss. AXPress activation intermittently returned timeout or no menu; final context matrix uses native HID left-click and separate keyboard activation."
+  ],
+  "discarded": "Superseded Library-name-trigger variants, initial navigation/management capture set, old review report and redundant raw diagnostics removed before publication. Current management captures are from the same final accepted full run; concise failed-attempt history retained here.",
+  "sources": [
+    {
+      "path": "platform/macos/photara-lab-support/Sources/LibraryLifecycleFixture.swift",
+      "sha256": "fb432b0c71c2559b0787ec0b70738099f1b066eaad7b9f71915e1a24c4864168"
+    },
+    {
+      "path": "platform/macos/photara-lab-support/Sources/ShellFixtures.swift",
+      "sha256": "ec03867c2c96c8e2acdab0aae391d30a193b19542b0af1801e99a207cc1ff4df"
+    },
+    {
+      "path": "platform/macos/photara-shell-lab/Sources/ShellLabApp.swift",
+      "sha256": "7b501f043d6a07cff97ce9f40e546c48c885fd95c08c58a0f227a320a4e74c98"
+    },
+    {
+      "path": "platform/macos/photara-shell-lab/verify-lifecycle.sh",
+      "sha256": "3093b7328fa5940e363772b6e65b97df1d9be101037684f4722e8c545bfc3fd8"
+    },
+    {
+      "path": "platform/macos/photara-shell-lab/Verification/LifecycleCapture.swift",
+      "sha256": "bbf9ca12862b0ac494f0a199e0b2d1d67d7b67cf0c6f5ba41c8374aaded0058b"
+    },
+    {
+      "path": "platform/macos/photara-shell-lab/Verification/LifecycleChecks.swift",
+      "sha256": "909d044c22d7ad78152d0da7848fc54e44385fb016a585a22d8a9e2ff0560818"
+    },
+    {
+      "path": "platform/macos/photara-shell-lab/Verification/SwitcherAccessibilityProbe.swift",
+      "sha256": "459277d11f65a4735d1e1d11cee13da81b50896c4661ee96ccac27f1f73e2e63"
+    }
+  ],
+  "images": [
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/attached-removal-dark.png",
+      "sha256": "0878be3736799a4abd6b90306a84c5cb1d0a719b7a7d1fd0904134d9a898cab8"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/attached-removal-light.png",
+      "sha256": "86854208edf1a98d29ab48e9deb38691983173c949e57438faa14e3578f15c74"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/create-dark.png",
+      "sha256": "daee6aca6bec3c3816afb3b2ec85735d60cfcb77893712c1e3bf9f35aec11763"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/create-light.png",
+      "sha256": "58fb9d9ed8b8442ba2ff290d787d9dfc1d2299164960fe93a8448cda69751683"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/denied-dark.png",
+      "sha256": "af16851fb49ca0dba5f399a5b406367cd57e50106d734a4fc0312053f620f2fd"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/denied-light.png",
+      "sha256": "daf5258ee82ea2805532bdf60fa7032e8a73fde0bd524e6cda474c687f21f5a1"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/final-dialog-dark.png",
+      "sha256": "8e384efdab3d18bb72e077a68231f8d51c7015da59c79d9cd597b3d90b04f6e1"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/final-dialog-light.png",
+      "sha256": "a6b495464897975e3dc066a48bacaf2a3edf6d5b900fc61652c9040552657a75"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/keyboard-switch.png",
+      "sha256": "ad9ba5df0cf01f31372f1848fd054476c6c4e6af182b51fd63f6bc2805567caf"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/libraries-dark.png",
+      "sha256": "6f9dbb7e2a36fd9b42ccdbfab267af96c91d72045815c167f9c9cdac44b5e3e9"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/libraries-light.png",
+      "sha256": "aa77de58df92803c3f86b7f7ef160cff4d878ea03eabb34d443c73ad3928e71d"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-cloud-dark.png",
+      "sha256": "1b7e8a02635c8f100d7d57547ed6ec820e0e51a58f252b0f5657b03892f0edbe"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-cloud-light.png",
+      "sha256": "7fcbdc1f4ccdc5aeb2b2b8eb6f686578278c5f71d92b2545964ac1505ec905c7"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-duplicateNames-dark.png",
+      "sha256": "de3ddb40c783321bf5945f5af961160a375c06eba960b49f53cd35fd6239c9a3"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-duplicateNames-light.png",
+      "sha256": "79c1d32803d291bda3b34f12e2ec81258bd5d7182666ac7f7ce929cbc7e7603d"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-inaccessible-dark.png",
+      "sha256": "1b7e8a02635c8f100d7d57547ed6ec820e0e51a58f252b0f5657b03892f0edbe"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-inaccessible-light.png",
+      "sha256": "7fcbdc1f4ccdc5aeb2b2b8eb6f686578278c5f71d92b2545964ac1505ec905c7"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-localOnly-dark.png",
+      "sha256": "3e62df0ee28447b49a72c73bc71168d7625faf5833bf2589389bb88b7d7b8fb4"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-localOnly-light.png",
+      "sha256": "d87f284b3d53f5bc74f1ad8cf1b91b7be1b9742b2cc4f99f7ac0487e3d1e6dc1"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-offline-dark.png",
+      "sha256": "2b33537eb3bff3069fc00cefb371da43cd378c254f6a7d388f089e77311f52b3"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-offline-light.png",
+      "sha256": "4489023920668cd35e95e8c7f56bbc899629055b06b626ed42ae774694f3547e"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-removedTarget-dark.png",
+      "sha256": "1b7e8a02635c8f100d7d57547ed6ec820e0e51a58f252b0f5657b03892f0edbe"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-removedTarget-light.png",
+      "sha256": "7fcbdc1f4ccdc5aeb2b2b8eb6f686578278c5f71d92b2545964ac1505ec905c7"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-signedOut-dark.png",
+      "sha256": "1879525ea6fed3dc56bf0b87b373d99efb70458a9a69ad94797a2cd6ace54dd0"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-signedOut-light.png",
+      "sha256": "5b52fd3a138766aea9fdaae664d64119201b591fc3d1997ab3e2525f7b82e1dc"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-unsaved-dark.png",
+      "sha256": "1b7e8a02635c8f100d7d57547ed6ec820e0e51a58f252b0f5657b03892f0edbe"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-unsaved-light.png",
+      "sha256": "7fcbdc1f4ccdc5aeb2b2b8eb6f686578278c5f71d92b2545964ac1505ec905c7"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-unsigned-dark.png",
+      "sha256": "0be990401412d0d2fbb37a26064d0d23f26bcdbb62c61cc03506d852a22abf9b"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/menu-unsigned-light.png",
+      "sha256": "8e3f023db08768cc6e4fb3fb6a2db1c9b49802254b129d19511f5cc4adc9b436"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/native-click.png",
+      "sha256": "ad9ba5df0cf01f31372f1848fd054476c6c4e6af182b51fd63f6bc2805567caf"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/native-settings.png",
+      "sha256": "ad9ba5df0cf01f31372f1848fd054476c6c4e6af182b51fd63f6bc2805567caf"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/native-signin.png",
+      "sha256": "daa74e2d03a2c94ad75aac454c6b103fe84b5691076429b12b16ecbca0e593b4"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/offline-dark.png",
+      "sha256": "a2458efca6343f998a2cdc116804e710038ef5beece280c7626d50b673fb53d5"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/offline-light.png",
+      "sha256": "bf02bc7042afb235e667a1fe6a1377146753ea229e6d8e45400cb000eae051ad"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/pending-dark.png",
+      "sha256": "21b88cb67545705a0c290f88efc9c53cd127a9f38535f800d73c80d96180fd20"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/pending-light.png",
+      "sha256": "c88f646fedcf2aa5549d6f7a3781fd46434bf9ed6c36355d587b99a7c676f2a9"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/protectedLibrary-dark.png",
+      "sha256": "643343fead2fef4f2107a613ec0f266c5555e4395d02004c55581ceabf9eec62"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/protectedLibrary-light.png",
+      "sha256": "e4b5294b7f8bcad87950cb3539a53bc900a23bd0d34b889ad5ac2c9d8c989ed9"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/receipt-dark.png",
+      "sha256": "0b3ff9515ce9993a2cba14865ffe6898cfd5fb4d7faaa65b87d44ba40869708b"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/receipt-light.png",
+      "sha256": "a0c68250af36733fa0e4328516c3c612dce235d98ae6ad897be47f22787634d1"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/reconciling-dark.png",
+      "sha256": "626cf8d3490945fd72d0086e06e616dbaa7eebe1f9fd308bd48a24ce73fce032"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/reconciling-light.png",
+      "sha256": "c5e60588dff37708838230a991eea00f9c5ee9562059a633a8d6ff541f8cad8e"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/recovery-inaccessible-dark.png",
+      "sha256": "f4c5fc02bf46797e11fb84dc640486d2923595b5881e91909428d900cf3bd427"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/recovery-inaccessible-light.png",
+      "sha256": "06697add0c08b7afc72356c6319c4c06daaa80c433bf46ca572bfe7b278eaab0"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/recovery-removedTarget-dark.png",
+      "sha256": "1a06babf3ed94af3db2d3817f44cbe0dd41bc6740d7fef299e974b307774247c"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/recovery-removedTarget-light.png",
+      "sha256": "b8c77c54ed6716f2cd4b986a53077f3700238403985f529d415c5d47351972b4"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/recovery-unsaved-dark.png",
+      "sha256": "008270be26474f6b20af8c51d1df012ab7385cf550b768a16db582779759c6a0"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/recovery-unsaved-light.png",
+      "sha256": "51b21e742b894534e086b59c78ce1f50ef01146bfa635bc4389b8fbd75260387"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/removal-dark.png",
+      "sha256": "efee3c6982b3e7e28fe7d9b3f1d639f14a78d6c364795eeb36debbf0e2db9fc8"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/removal-light.png",
+      "sha256": "f4eb035894487f98b8c846df8a3df897a3a1287b9d2e9ea834f800fc87c68def"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/removing-dark.png",
+      "sha256": "9aff522029834d40c3cc03d76d588e3401177ad6d12955c8bab034a92064b106"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/removing-light.png",
+      "sha256": "a915e67156dd24c905274056c8007564b8caf15b0b0cf2303363163ec1d709f5"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/rename-dark.png",
+      "sha256": "734620f541518c14cae2dfffefed4d090e514f878ce98dfd3a6dca3eb7a4e244"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/rename-light.png",
+      "sha256": "e8f34b34707b222923b9fb05d8ee265e71b03f2934a7bcba23ef654cb01e8646"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/stale-dark.png",
+      "sha256": "c933d9aa4d00c0d2e16fc3d3b0b7981cdbc1debe8b89a5a000bf17ca230c4be9"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/stale-light.png",
+      "sha256": "0b3ad11e5c43426d143442516eac51f3f60e0df34523941f9859765197b577ce"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switchLibrary-dark.png",
+      "sha256": "1689a0c595f9948a5762f788b388b8c7cb610eb38ff8fc76b8fedafb66afb245"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switchLibrary-light.png",
+      "sha256": "5b8d2c8f5bbe41aa072ad12ed4dcbb2d37fc0636631438c64f702b29ace7e8a3"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-cloud-dark.png",
+      "sha256": "e9cc335433fa41e24165c615a17212fc897dbbfe6594da369f4c31503b4fac82"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-cloud-light.png",
+      "sha256": "c39c3fefd34d4074a6a1c07666f353d20ecf1ff13ce426343e27c0f8e007f3e5"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-duplicateNames-dark.png",
+      "sha256": "e9cc335433fa41e24165c615a17212fc897dbbfe6594da369f4c31503b4fac82"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-duplicateNames-light.png",
+      "sha256": "c39c3fefd34d4074a6a1c07666f353d20ecf1ff13ce426343e27c0f8e007f3e5"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-inaccessible-dark.png",
+      "sha256": "e9cc335433fa41e24165c615a17212fc897dbbfe6594da369f4c31503b4fac82"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-inaccessible-light.png",
+      "sha256": "c39c3fefd34d4074a6a1c07666f353d20ecf1ff13ce426343e27c0f8e007f3e5"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-localOnly-dark.png",
+      "sha256": "aea347add3d2c21bc06d539647bc11bb8d45f529708990b612d6340f21ca70cc"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-localOnly-light.png",
+      "sha256": "861a812c69fb1ba53db74f87df70bc25a1a4f762efe9a70b635573fabaf3c6a5"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-offline-dark.png",
+      "sha256": "e9cc335433fa41e24165c615a17212fc897dbbfe6594da369f4c31503b4fac82"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-offline-light.png",
+      "sha256": "c39c3fefd34d4074a6a1c07666f353d20ecf1ff13ce426343e27c0f8e007f3e5"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-removedTarget-dark.png",
+      "sha256": "e9cc335433fa41e24165c615a17212fc897dbbfe6594da369f4c31503b4fac82"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-removedTarget-light.png",
+      "sha256": "c39c3fefd34d4074a6a1c07666f353d20ecf1ff13ce426343e27c0f8e007f3e5"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-signedOut-dark.png",
+      "sha256": "91dce2e7d2db2233797e477a31d5006dbb6c0600d42443344c97ebc9e5efe806"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-signedOut-light.png",
+      "sha256": "9b15d0063852cdbc0a370a77e858ab7e4f59a1759abf4d16da06115902f01784"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-unsaved-dark.png",
+      "sha256": "e9cc335433fa41e24165c615a17212fc897dbbfe6594da369f4c31503b4fac82"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-unsaved-light.png",
+      "sha256": "c39c3fefd34d4074a6a1c07666f353d20ecf1ff13ce426343e27c0f8e007f3e5"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-unsigned-dark.png",
+      "sha256": "91dce2e7d2db2233797e477a31d5006dbb6c0600d42443344c97ebc9e5efe806"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/switcher-unsigned-light.png",
+      "sha256": "9b15d0063852cdbc0a370a77e858ab7e4f59a1759abf4d16da06115902f01784"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/unknown-dark.png",
+      "sha256": "308a3ead01f4f395c2e99499b20f5a6e217f6f3cdb567fe9f43ffb6d4ac07f46"
+    },
+    {
+      "path": "docs/architecture/mockups/library-lifecycle-switcher/unknown-light.png",
+      "sha256": "8e71242696d3420eb243868dd1071ffec19783207d3683100e7ccd58afea91c1"
+    }
+  ],
+  "logs": [
+    {
+      "path": "docs/architecture/verification/library-lifecycle-switcher/ll0-above-build.log",
+      "sha256": "7ea1e94da5b809f3c85d4ae60bce13f5e80ec6dbbb839edfcf53b911d91aa613"
+    },
+    {
+      "path": "docs/architecture/verification/library-lifecycle-switcher/ll0-above-shared-build.log",
+      "sha256": "2c41f5ab1f151926c5c9cef6188f36ed69ae7befb41d8486e6034ec246a6242b"
+    },
+    {
+      "path": "docs/architecture/verification/library-lifecycle-switcher/ll0-above-shell-build.log",
+      "sha256": "4d3001b51a0926fca66871d03769faff06aaf345c94a65e74f94910a3a88dfc5"
+    },
+    {
+      "path": "docs/architecture/verification/library-lifecycle-switcher/ll0-accepted-native.log",
+      "sha256": "3d8dfc53a47793969848b8d63bfa9726fe1185f8f508d619cc5f56f0fc15617a"
+    },
+    {
+      "path": "docs/architecture/verification/library-lifecycle-switcher/ll0-accepted-ownership.log",
+      "sha256": "94502ab9cc05956a1615023ae2d076bd3881d4ebf9c1da4c242f09dec9a2e75b"
+    },
+    {
+      "path": "docs/architecture/verification/library-lifecycle-switcher/ll0-accepted-shared.log",
+      "sha256": "d0490970fb338d0d5cfad95312c6a267b2f68e2e2f882be6be5e82eb85acd24d"
+    }
+  ],
+  "placement_assertions": 22,
+  "capture_provenance": "All 78 current images come from the successful complete ll0-accepted-native run on the final fixture sources; no mixed or superseded capture generations.",
+  "shared_regression": {
+    "exit_code": 0,
+    "captures": 119,
+    "scenario_transitions": 256,
+    "contrast_pairs": 50,
+    "log": "docs/architecture/verification/library-lifecycle-switcher/ll0-accepted-shared.log"
+  },
+  "protected_paths_unchanged": 273,
+  "documentation": [
+    {
+      "path": "ROADMAP.md",
+      "sha256": "9006f2da1c15fc41274e57c7e7ebd7854aabb2ecea0ffa3ed083fff1bb8ec275"
+    },
+    {
+      "path": "docs/ACTIVE_HANDOFF.md",
+      "sha256": "63d54b6605d90779566fc59d359f431e346542f188669c7897b3bea540f0cc84"
+    },
+    {
+      "path": "docs/ROADMAP_0_2_EXECUTION.md",
+      "sha256": "3c1d52603a9197aeef2711fd44940818f1169520d8bb77f2847e96eea09f7454"
+    },
+    {
+      "path": "docs/architecture/UI1_INTEGRATION_CHECKPOINT.md",
+      "sha256": "a3a194ba758991c728ba4e192b1844245ab538772efead64b662bde921d6bc1c"
+    },
+    {
+      "path": "docs/architecture/UI_LADDER_AND_AUTHORING_SEQUENCE.md",
+      "sha256": "25ea8719519f463867999d6c63f6dd4bc1a37c18cd411333f5b8f4bc06ab264b"
+    },
+    {
+      "path": "docs/architecture/LIBRARY_LIFECYCLE.md",
+      "sha256": "88f7e1958d7afad6b99496204904eccf9c3453fc4eba5318021c3d2e75d6d771"
+    },
+    {
+      "path": "platform/macos/photara-shell-lab/README.md",
+      "sha256": "4233f672a561cb033e0f71781e3170b85ce653a921e33d4fb74f177c6316273e"
+    }
+  ],
+  "checkpoint_inventory": {
+    "changed_file_count": 100,
+    "native_pngs": 78,
+    "logs": 6,
+    "source_files": 7,
+    "documents": 7,
+    "reports": 2,
+    "parent": "913f3526f51eaa1aaf34ef83ead2860869465e85",
+    "publication": "Normal fast-forward only; stop if remote main or reviewed inventory changes",
+    "next_slice": "Project Session and Graph Durability PS0; not begun",
+    "separate_gate": "LL1 Library Lifecycle typed/schema work"
+  }
+}

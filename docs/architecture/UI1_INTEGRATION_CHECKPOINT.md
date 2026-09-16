@@ -268,8 +268,9 @@ env -u PHOTARA_GRAPH_HOST_FAULT -u PHOTARA_GRAPH_CONTEXT_MATRIX_ONLY -u PHOTARA_
 
 No permission-request command belongs inside a final run. Prepare signing/TCC first;
 the existing `--request-permissions` mode remains an explicit operator action only.
-Next: review/authorize the UI1 checkpoint; then separately scope Library Lifecycle
-per the accepted execution roadmap. COV0 docs can follow with the single documented
+Historical next gate (now completed): UI1 was accepted and published as recorded above.
+[Library Lifecycle LL0](LIBRARY_LIFECYCLE.md) is now accepted; the next distinct slice is
+Project Session and Graph Durability PS0. LL1 remains separately gated. COV0 docs can follow with the single documented
 ROADMAP conflict and refreshed dependency wording; COV1/Gallery runtime remains gated.
 
 ## Protected apps, source inputs and remaining gates

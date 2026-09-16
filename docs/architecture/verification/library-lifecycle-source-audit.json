@@ -1,0 +1,1982 @@
+{
+  "baseline": "913f352",
+  "method": "Read source and git blobs only; symlink targets compared as links; no database connection or DDL execution. Regex inventory does not replace executable dependency closure tests.",
+  "unchanged_protected_files": [
+    {
+      "path": "crates/photara-bridge/Cargo.toml",
+      "kind": "file",
+      "sha256": "26452655d35015448d4e6a07ab49c169260c31d04aebe2dfd55c8e7bd8233aa5"
+    },
+    {
+      "path": "crates/photara-bridge/src/asset_materializer.rs",
+      "kind": "file",
+      "sha256": "5e4938ae3042c775d006a798385036607474e4bc2208a7339168fc063ef5a7ce"
+    },
+    {
+      "path": "crates/photara-bridge/src/bin/uniffi-bindgen.rs",
+      "kind": "file",
+      "sha256": "f7a2dd11fb370e9595bdfa6c32fc41a9b67a60bbab06ec711cb7a03eb873ffa6"
+    },
+    {
+      "path": "crates/photara-bridge/src/creation.rs",
+      "kind": "file",
+      "sha256": "0724ef759f6e367f17d433ccfe948766bde862ee3b7d55866f066b42eaee2d5d"
+    },
+    {
+      "path": "crates/photara-bridge/src/evaluation.rs",
+      "kind": "file",
+      "sha256": "220b70dc53511a3b1720fe5ecfa6a5c6dd589e399db5acafa77560805abab4f5"
+    },
+    {
+      "path": "crates/photara-bridge/src/lib.rs",
+      "kind": "file",
+      "sha256": "b825e7f0becd765e5713781ea0d4bdefb9039d832f786a93f456e14a52dbc755"
+    },
+    {
+      "path": "crates/photara-bridge/src/library.rs",
+      "kind": "file",
+      "sha256": "5cbc44463bd7226805897aed89e4aa3e0b538a4688039e726a01edc9a4ed875d"
+    },
+    {
+      "path": "crates/photara-bridge/src/local_state.rs",
+      "kind": "file",
+      "sha256": "e298413fef1421da94528dffd54e927d4966017556bd4674a8bf43e1eb382a52"
+    },
+    {
+      "path": "crates/photara-bridge/src/onboarding.rs",
+      "kind": "file",
+      "sha256": "42c5c8717b53f22533fa6f6cda6c5fd12580d8d4e79c08a16ef18e4514eb3382"
+    },
+    {
+      "path": "crates/photara-bridge/src/production.rs",
+      "kind": "file",
+      "sha256": "0a9df779da3dd535e630ccd117d7b59b663d667107f181fb5b0ec2ca9d5e2e6d"
+    },
+    {
+      "path": "crates/photara-bridge/src/production/library_project.rs",
+      "kind": "file",
+      "sha256": "d1c580a7e8eeacf927da9c1d0b5b21fa0b807243b0acb7bdb1d4716922117af2"
+    },
+    {
+      "path": "crates/photara-bridge/src/runtime_registry.rs",
+      "kind": "file",
+      "sha256": "022d9849a98a22a105a06c0f481a5c5417749ce6998d935c0f4e27c6fc419cbc"
+    },
+    {
+      "path": "crates/photara-bridge/uniffi.toml",
+      "kind": "file",
+      "sha256": "6ede86ba9016a48cff891dca2d16ac1b5ef67f1c17e89048db8dcc59b13feab2"
+    },
+    {
+      "path": "crates/photara-core/Cargo.toml",
+      "kind": "file",
+      "sha256": "f8f71ca48fdba1c1807f9ac7621defc27141a1ab0de83130def2635cfeefcd40"
+    },
+    {
+      "path": "crates/photara-core/examples/fixture_codec.rs",
+      "kind": "file",
+      "sha256": "df4eb617e27d66414eacbb455dd768f7c11950c7da590ba05d98db6160aa34fe"
+    },
+    {
+      "path": "crates/photara-core/src/asset.rs",
+      "kind": "file",
+      "sha256": "165f2d3c500e63f244b0601c54ecdc36806a5de7da374e3e413b06e57f52039b"
+    },
+    {
+      "path": "crates/photara-core/src/canonical.rs",
+      "kind": "file",
+      "sha256": "009f5080771c6cced6b90e112c4b6a75e2fb29cd10a480a261e49195942a4789"
+    },
+    {
+      "path": "crates/photara-core/src/command.rs",
+      "kind": "file",
+      "sha256": "983e274fc82fe901883fad9302bd5afd8ddf3376203576a45f16fdc73b9d319e"
+    },
+    {
+      "path": "crates/photara-core/src/context/cache.rs",
+      "kind": "file",
+      "sha256": "ae8b70370c96bb29b17f6bc419988f52e3b47db27460e941b87790ce114e85cf"
+    },
+    {
+      "path": "crates/photara-core/src/context/expression.rs",
+      "kind": "file",
+      "sha256": "d13f0d2e911ad256263152eff8694722644d720f648f9785b4313fbdc4e6932a"
+    },
+    {
+      "path": "crates/photara-core/src/context/interpreter.rs",
+      "kind": "file",
+      "sha256": "b60cc5226c4e90841d7d46781df364ca75486424d2276e9eb7a3c5a675f2c98e"
+    },
+    {
+      "path": "crates/photara-core/src/context/metadata.rs",
+      "kind": "file",
+      "sha256": "a239145b79b4b965652af796e850bfcf0388c2b35b07c65b1254c47371e58102"
+    },
+    {
+      "path": "crates/photara-core/src/context/mod.rs",
+      "kind": "file",
+      "sha256": "097ae5137bcd1a9f0fab70aa3fe3ac5c1732e358e7c6ac0c4cb8b48413979112"
+    },
+    {
+      "path": "crates/photara-core/src/context/parser.rs",
+      "kind": "file",
+      "sha256": "273e1b046d05b9691d1b6263c50578ac3f672f210485cf549f73b600f86f0bc1"
+    },
+    {
+      "path": "crates/photara-core/src/context/proposal.rs",
+      "kind": "file",
+      "sha256": "53c0e4f11223c3d5b9acc516cdccf83389501bfee151951a96d60149b1371cda"
+    },
+    {
+      "path": "crates/photara-core/src/context/snapshot.rs",
+      "kind": "file",
+      "sha256": "d9380c7eca8233ec2d0568244de23d4457db6b848a6752cf1eba01aaab9282b1"
+    },
+    {
+      "path": "crates/photara-core/src/context/value.rs",
+      "kind": "file",
+      "sha256": "928e28f20d32b4f933cb6c6d6ea230c95a52f4bfea9aef28783fa970dd427aad"
+    },
+    {
+      "path": "crates/photara-core/src/context/variable.rs",
+      "kind": "file",
+      "sha256": "7e19e12d3815eb1b7083484b1f4e5fe58f96053ce9b803047c0e036d67359cc2"
+    },
+    {
+      "path": "crates/photara-core/src/contracts/access.rs",
+      "kind": "file",
+      "sha256": "893c23fc9b7881b87cdd4095cf3b023c0cdc418d25ecc098c5bff05adf981596"
+    },
+    {
+      "path": "crates/photara-core/src/contracts/asset_set.rs",
+      "kind": "file",
+      "sha256": "56a26051dc1fd313713a518742c294da0c661d513836c5c2e01aafdda20d6c32"
+    },
+    {
+      "path": "crates/photara-core/src/contracts/dto.rs",
+      "kind": "file",
+      "sha256": "73329968f761785d2821ede135fcf8eda54421108e1845f169f0c3566c761422"
+    },
+    {
+      "path": "crates/photara-core/src/contracts/ids.rs",
+      "kind": "file",
+      "sha256": "1e199a7c8b9e1bf48a199775ca8ebde60e12cbccc8cc84bfb584285f8b8db6f7"
+    },
+    {
+      "path": "crates/photara-core/src/contracts/mod.rs",
+      "kind": "file",
+      "sha256": "b162a743b1bdadab56762bdc63f5c09a90c141fe9aaef00714147e2924aff264"
+    },
+    {
+      "path": "crates/photara-core/src/contracts/resource.rs",
+      "kind": "file",
+      "sha256": "847b0e50ba49b946998ca9075fbf520dfc78a256814bee7ca3423861a930656c"
+    },
+    {
+      "path": "crates/photara-core/src/contracts/schema.rs",
+      "kind": "file",
+      "sha256": "93ef37ddf7a001b88d0c54790a925f8dd1f7e870484773bfa2366ab3c4824e2d"
+    },
+    {
+      "path": "crates/photara-core/src/creation.rs",
+      "kind": "file",
+      "sha256": "de0ea70eb2f9ef201f3f656ea979e89037fef00c3c6e1b06177efb2b3a9f8d98"
+    },
+    {
+      "path": "crates/photara-core/src/diagnostic.rs",
+      "kind": "file",
+      "sha256": "3932abdb9ead739a3ac92820ed675d32e94105b75862c1967dc8b9f64a7132a0"
+    },
+    {
+      "path": "crates/photara-core/src/evaluation.rs",
+      "kind": "file",
+      "sha256": "f78d6cf6a9a36341ce615a7d8222621c80b0d96a10684fd8166127211c09ccf7"
+    },
+    {
+      "path": "crates/photara-core/src/graph.rs",
+      "kind": "file",
+      "sha256": "91c7073ac3d6e4f9cd31d36a2cbd9b87a3bd46db5ca33082ad3e781beb7657b2"
+    },
+    {
+      "path": "crates/photara-core/src/identity.rs",
+      "kind": "file",
+      "sha256": "1fadc2fbe5464fba4e0b1f3cbd95f4c039994dc8c50eaaf97f13a6168986e7ae"
+    },
+    {
+      "path": "crates/photara-core/src/lib.rs",
+      "kind": "file",
+      "sha256": "841df1e59f07f3941adff8335fd674d2c61847368051e5c6784c72e1b08d15f3"
+    },
+    {
+      "path": "crates/photara-core/src/node.rs",
+      "kind": "file",
+      "sha256": "7d7366149e23ce2c731172762732ca4b12c1c865592df36532b812dd2149823a"
+    },
+    {
+      "path": "crates/photara-core/src/project.rs",
+      "kind": "file",
+      "sha256": "050c961f9ec47c1b03c6ab41d9b8496a0bdebb557671bf9037a5ce1c019c5c94"
+    },
+    {
+      "path": "crates/photara-core/src/project_command.rs",
+      "kind": "file",
+      "sha256": "abd9c16a1ffe0325fe81eff9637a4e972b9e002525d5803bb7f038a967e62b48"
+    },
+    {
+      "path": "crates/photara-core/src/proxy.rs",
+      "kind": "file",
+      "sha256": "2f32c79dac0c0cb2864bd061d19af52b8f7f779c7533d20f8fe199a1c05dc86d"
+    },
+    {
+      "path": "crates/photara-core/src/value.rs",
+      "kind": "file",
+      "sha256": "c4c16c4668372f854957f835748bc151567a2961a80c1367242cee5314a5304f"
+    },
+    {
+      "path": "crates/photara-core/src/vertical_tests.rs",
+      "kind": "file",
+      "sha256": "e9979245d2b5720ded9421a67bba6dc4429f4c6c4dbc338b75b169913314edee"
+    },
+    {
+      "path": "crates/photara-core/tests/context.rs",
+      "kind": "file",
+      "sha256": "72413d4250b2497d8a7fb57b945d48230f734c18b0aca6f65bc93295ebd7f5f2"
+    },
+    {
+      "path": "crates/photara-core/tests/contracts.rs",
+      "kind": "file",
+      "sha256": "c89b86996f28fde5d0009a7b4ef1c3f2dd86d2feb493e6bed05247338cf2880f"
+    },
+    {
+      "path": "crates/photara-library/Cargo.toml",
+      "kind": "file",
+      "sha256": "cc6de1edf295be0be25c9fc9f4a7817882be15977ad57321a5323caaa0e07e81"
+    },
+    {
+      "path": "crates/photara-library/README.md",
+      "kind": "file",
+      "sha256": "787f2b26b3d53d86be7add6f6ccd7633be648abb4650cc89ab7ae8d36d83b8b2"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0001_local_identity.sql",
+      "kind": "file",
+      "sha256": "b99f33adc424a0aae3e717c972e33d72be5f0ec82f11ac0e7fb4ec28037377fd"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0002_typed_library.sql",
+      "kind": "file",
+      "sha256": "7562bc582d3d8a6a8bc1a8d0e5451c24670763c7d3031b78e903c9960c1416a9"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0003_catalog_device.sql",
+      "kind": "file",
+      "sha256": "7331ab5c6742d194fc64eb41557763f92cb93ecdac358aa564d01b82f700fc3e"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0004_mutations_sync.sql",
+      "kind": "file",
+      "sha256": "72c5d345b3a93ee6a5813b8000afd2f33fc614eb45109f2d37f310225148cf4f"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0005_durable_recovery.sql",
+      "kind": "file",
+      "sha256": "d0c97f3f49bbcb1581aac714ff5798d90200039867022d01ffed6e18bf59b3fb"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0006_invariant_guards.sql",
+      "kind": "file",
+      "sha256": "85ff08feb48040eb5bcd1324e275e5593ac98cd4ba2b826e66d867eecfdfd8de"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0007_library_project_access.sql",
+      "kind": "file",
+      "sha256": "039818c41830ca5da9ab0495034bb69b2d33295c8b94b462b3e0029fe4bac78e"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0008_storage_locations_bindings.sql",
+      "kind": "file",
+      "sha256": "66500faa616fb2e218472262072846a932ff1e086981eb5195fee614e7a2cb5f"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0009_library_context.sql",
+      "kind": "file",
+      "sha256": "de50a9cd855ab3f48529b90545e2df62f92ee8e1a9950213c360d5cd91d6568f"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0010_context_apply_recovery.sql",
+      "kind": "file",
+      "sha256": "84cbe8d71a02ad7b491af5a0ec425dd22a566a82de8cc3a2eb5d883536f02aed"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0011_scoped_sync.sql",
+      "kind": "file",
+      "sha256": "d52526b340caff095f16b9c335c4cf824915064eefccd966568afdf1f3f92d15"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0012_d19_guards_and_floor.sql",
+      "kind": "file",
+      "sha256": "dedcab39b5511922465061b107fa282bcfb046d625833a1cbed05c10163e0f50"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0013_onboarding.sql",
+      "kind": "file",
+      "sha256": "ceed9c318dec671c74877117c2163a499ac54375f5871f1532f97c80683b6ea6"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0014_onboarding_dispositions.sql",
+      "kind": "file",
+      "sha256": "0d7b29380f83d8a28a317557a90d19ac7bc72ea8560bb0c34d01b390d4233ac7"
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0015_project_creation.sql",
+      "kind": "file",
+      "sha256": "b6a37b887ec178d410fc900a7c76826df745c27c2c02275840f90558eefe7946"
+    },
+    {
+      "path": "crates/photara-library/src/gen2/catalog.rs",
+      "kind": "file",
+      "sha256": "117fccf90dcdedbeaaf9937bebf1916037fbc8a8d321d210b679feb5cf87a72b"
+    },
+    {
+      "path": "crates/photara-library/src/gen2/context.rs",
+      "kind": "file",
+      "sha256": "e4e43abcbe6510aeecff419f9cc0e29c11c0ec0984d5e23c7c6de4d9f7fed29b"
+    },
+    {
+      "path": "crates/photara-library/src/gen2/creation.rs",
+      "kind": "file",
+      "sha256": "b60b19e5fbb9cab091e8339140372f8152b9cfa9bd4260ec041ffe7b24e8dc7d"
+    },
+    {
+      "path": "crates/photara-library/src/gen2/library.rs",
+      "kind": "file",
+      "sha256": "8484b6d3ec2d65c2ffcfc32335d1918212a6584f7eacd49d90531db9adc49454"
+    },
+    {
+      "path": "crates/photara-library/src/gen2/local.rs",
+      "kind": "file",
+      "sha256": "ddbd767fdef4851aa7b993ef7f793d8df88e8f0cedf8ca4043e19f8ee81d4960"
+    },
+    {
+      "path": "crates/photara-library/src/gen2/mod.rs",
+      "kind": "file",
+      "sha256": "c1518c47e6afcf7a3decd4f681af412303097d21ab2cac4890d281758c188912"
+    },
+    {
+      "path": "crates/photara-library/src/gen2/onboarding.rs",
+      "kind": "file",
+      "sha256": "6ac873f9ae80c6cc5e38dc71bf590b1c8ab6694c6599a191741815087c1135ee"
+    },
+    {
+      "path": "crates/photara-library/src/gen2/recovery.rs",
+      "kind": "file",
+      "sha256": "187d30002b839f022fc1826a6d4deb823e4fb7a6edb09f443ac2f83f92057ed1"
+    },
+    {
+      "path": "crates/photara-library/src/gen2/scoped.rs",
+      "kind": "file",
+      "sha256": "cb83d4c632e4c019bf285ae299f990b79a08334a1b2b415a3747c4bc5caa4674"
+    },
+    {
+      "path": "crates/photara-library/src/gen2/storage.rs",
+      "kind": "file",
+      "sha256": "32f47a1f70e0b0679509771c042e2573adea5cb1e30d82c253e914c20802fd60"
+    },
+    {
+      "path": "crates/photara-library/src/gen2/tests.rs",
+      "kind": "file",
+      "sha256": "faa9072c6a73245d7f5530fd9c9ba0b752a4a37be16c5fb0a5b1a523185b01e7"
+    },
+    {
+      "path": "crates/photara-library/src/gen2/types.rs",
+      "kind": "file",
+      "sha256": "3855b8c922bb9b6eb113664471ed81e0a162d0bfecf258b4e7b4c436e60072c9"
+    },
+    {
+      "path": "crates/photara-library/src/gen2/validation.rs",
+      "kind": "file",
+      "sha256": "563cec03a359f9e7d4c8ec57d0e72de0425207205f34ae15a332f3cbbc0b54ca"
+    },
+    {
+      "path": "crates/photara-library/src/lib.rs",
+      "kind": "file",
+      "sha256": "448098823d24d6e236c9f268f500434347f368e06cb94225c59530f3a6866ee4"
+    },
+    {
+      "path": "crates/photara-node-sdk/Cargo.toml",
+      "kind": "file",
+      "sha256": "46cdfe4ed82822a371bc43f5c45ced0836dbd001d8cf78d6964ed656448f1809"
+    },
+    {
+      "path": "crates/photara-node-sdk/src/lib.rs",
+      "kind": "file",
+      "sha256": "711d73803c75a303df1411c58b3c7297e1531dc92db59fb25d15a4b76c5436cd"
+    },
+    {
+      "path": "crates/photara-node-sdk/src/v2/mod.rs",
+      "kind": "file",
+      "sha256": "7d757f6f33d9cdf60b0a6289c0cb56f1b8526674ca56f2b35ea42930b1ade34d"
+    },
+    {
+      "path": "crates/photara-node-sdk/src/v2/types.rs",
+      "kind": "file",
+      "sha256": "955d445060792cb242d7262371e7b800cbd5a96c3f28a1ceae1bcc34fd3c114c"
+    },
+    {
+      "path": "crates/photara-node-sdk/src/v2/validation.rs",
+      "kind": "file",
+      "sha256": "f89dfeab1bd59cf7094fcad7a1adfc354ac5f8341e2bdbbab39ac34ab4dea3b4"
+    },
+    {
+      "path": "crates/photara-node-sdk/tests/contracts_v2.rs",
+      "kind": "file",
+      "sha256": "53650e62ba984afb730b56c5737eb38ccdc43c1c4153fa3853057d03e7eab3b2"
+    },
+    {
+      "path": "crates/photara-proxy/Cargo.toml",
+      "kind": "file",
+      "sha256": "fcffdeeda55fb9e312561209e7cb8639ef17e8d67c6055f2dbdaed8e1cb03911"
+    },
+    {
+      "path": "crates/photara-proxy/src/lib.rs",
+      "kind": "file",
+      "sha256": "f61a8e412da1243483983aedf009e5ab7283a0df9461762d85545293f6d37216"
+    },
+    {
+      "path": "crates/photara-proxy/src/macos.rs",
+      "kind": "file",
+      "sha256": "2e72e588b1cd9ff9db6870f35b4bef136b6a912143e4a45ca3dec41bac81e98c"
+    },
+    {
+      "path": "crates/photara-proxy/src/tests.rs",
+      "kind": "file",
+      "sha256": "439768ddf6c3f1505228628444753bbbf89f99bf41afea9db37e8dd26651f1a8"
+    },
+    {
+      "path": "crates/photara-service/Cargo.toml",
+      "kind": "file",
+      "sha256": "dece2ff2ed929c9050038ee96b9da162c1c1342662d44e1973324171e207458f"
+    },
+    {
+      "path": "crates/photara-service/deploy/Dockerfile",
+      "kind": "file",
+      "sha256": "42f1e756bd46962ca2178911af4e7b2a3ef33c3a16a48b7c97dc6e8ea9228f32"
+    },
+    {
+      "path": "crates/photara-service/deploy/README.md",
+      "kind": "file",
+      "sha256": "92acd7c286cd4562c1695109be240970aa9821a5d05b34b1600ad3216da8f022"
+    },
+    {
+      "path": "crates/photara-service/deploy/fly.toml",
+      "kind": "file",
+      "sha256": "1fa42fb198b85119cb98947900b4958dcf23ddb84e372025290599598824a61b"
+    },
+    {
+      "path": "crates/photara-service/deploy/runtime_roles.sql",
+      "kind": "file",
+      "sha256": "c40dcc7a8851621e753d443170fa70718021e215fa1c7216076b87bc70ad5031"
+    },
+    {
+      "path": "crates/photara-service/examples/migrate_disposable.rs",
+      "kind": "file",
+      "sha256": "e4568ca782efa5ab6230e79fa1110608e03d6729047028a19a87719d09d7534f"
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0001_identity_library.sql",
+      "kind": "file",
+      "sha256": "6fad375e9eb6a892c29848fb2c68bdd57d244bc5e760687756dd02deaf16334d"
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0002_entitlements_media.sql",
+      "kind": "file",
+      "sha256": "796515d975de7accd53b57c49b4700d55a0f68003b31ea46d5fd0921f4bc72b9"
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0003_typed_library.sql",
+      "kind": "file",
+      "sha256": "60276682ab7d7b8268da81893b214eadb67ce2d4e917cdc49dbaebc62a2ce28a"
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0004_catalog.sql",
+      "kind": "file",
+      "sha256": "afaf7a42f0f006b83484848f43478873243921c8b721c4aed4ca946caca9c7a2"
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0005_mutations_feed.sql",
+      "kind": "file",
+      "sha256": "dbea00bae9d1411d290f65c8e927f0784363b3ff6abec8072441f06c31527416"
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0006_guards.sql",
+      "kind": "file",
+      "sha256": "83d7be3b40dbc347c639aead78891163f2769e220c599b5687552d357d4a1252"
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0007_privileges.sql",
+      "kind": "file",
+      "sha256": "f7aebf23dca7753b776c6917697895c847c12d8e7e2f1dd7f3ed6975b1316728"
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0008_library_project_access.sql",
+      "kind": "file",
+      "sha256": "62fedcc53017b273a1fad5594988fd71dfd0b368fe56771edbb7a928c55cb20f"
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0009_storage_locations.sql",
+      "kind": "file",
+      "sha256": "a44b2ff69b775e93f2b353481cd1380ebf007d497b7bff7ec19b539b8557296f"
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0010_library_context.sql",
+      "kind": "file",
+      "sha256": "6a81e63b3ae9f0042568558c30209c68748bac6c58af41938ed55e03c74223ef"
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0011_scoped_sync.sql",
+      "kind": "file",
+      "sha256": "22b9d26c9b7f640ca02ee6c6d4754fdc753b4c87cfe6fbd3b398233a8a290c33"
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0012_d19_access_guards.sql",
+      "kind": "file",
+      "sha256": "e2ea1a2c256a7566429a6a728e7a0640b0fe53600fdccfe1f21b140b94aec596"
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0013_runtime_boundary.sql",
+      "kind": "file",
+      "sha256": "8b7970566e82b2de4cd1fa4be81165be4b3d13f6716375e99c04ef9a9cd09294"
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0014_onboarding.sql",
+      "kind": "file",
+      "sha256": "bf3a84df0a577fa84d90a48b2e45b6e07fd92430a59001e53f9780e34f7509f9"
+    },
+    {
+      "path": "crates/photara-service/src/access.rs",
+      "kind": "file",
+      "sha256": "2c1d74b22477243ccfa75bc8a7a803d351c4b3d4fd11f29f83ee021185a9046a"
+    },
+    {
+      "path": "crates/photara-service/src/auth.rs",
+      "kind": "file",
+      "sha256": "01b472245015b6e286e1fa976dbfde241b025d7b3694fcd7777a09dbf0995806"
+    },
+    {
+      "path": "crates/photara-service/src/bin/photara-migrate.rs",
+      "kind": "file",
+      "sha256": "714a9275343f65156dd837157ea0dd4e70ab553feccdc7560b5c2ffbb322983f"
+    },
+    {
+      "path": "crates/photara-service/src/bin/photara-service.rs",
+      "kind": "file",
+      "sha256": "141c043a58212a24dfaf31cf2292331902c832ebf277a0b9c620e5bc65620c7d"
+    },
+    {
+      "path": "crates/photara-service/src/creation.rs",
+      "kind": "file",
+      "sha256": "17f285213b86f2ccd284ec71aab4159a9dc7022b42a314ed0500a873e8e9cdf9"
+    },
+    {
+      "path": "crates/photara-service/src/fake_sync.rs",
+      "kind": "file",
+      "sha256": "29456531e1f699e9b743860ca76ee67671c926b1dc7f5a909bbfbc8c983051fa"
+    },
+    {
+      "path": "crates/photara-service/src/http.rs",
+      "kind": "file",
+      "sha256": "d70c0a75a5ea42c082933cda069cbfaff5732cf2398d20a56c48e4af69587bbb"
+    },
+    {
+      "path": "crates/photara-service/src/http/native_furnace.rs",
+      "kind": "file",
+      "sha256": "ae72237c429792c41eabbb93b7d810f308a9266e07919ba129c58366ffa6310c"
+    },
+    {
+      "path": "crates/photara-service/src/lib.rs",
+      "kind": "file",
+      "sha256": "e4f2d429bbe6b4c9e085eae431649c32463b3b605c026a3995dd88a1c61d93f7"
+    },
+    {
+      "path": "crates/photara-service/src/management.rs",
+      "kind": "file",
+      "sha256": "f93a59943e28094955dec2b83673f27fae727f1f00eb9394a34cabaf1dc1f737"
+    },
+    {
+      "path": "crates/photara-service/src/media.rs",
+      "kind": "file",
+      "sha256": "96838be21dfbb2600f03acbf35a404fe79cfe18dd1d89251a7885f58d7b3e712"
+    },
+    {
+      "path": "crates/photara-service/src/oidc.rs",
+      "kind": "file",
+      "sha256": "f88a063fc252a968c2867043e5d2be65b8b49501787ef96dd8a208212115a1e9"
+    },
+    {
+      "path": "crates/photara-service/src/onboarding.rs",
+      "kind": "file",
+      "sha256": "481f8d51aac8460ba4ea74f88430c71b9028ff455e29ebcad7b41294c4c2c8b6"
+    },
+    {
+      "path": "crates/photara-service/src/onboarding_pgtests.rs",
+      "kind": "file",
+      "sha256": "7191b371fde4d3fb3cb20afd98d124fc2c3803d2242acd5e4feecf72a6316420"
+    },
+    {
+      "path": "crates/photara-service/src/pgtests.rs",
+      "kind": "file",
+      "sha256": "a951de9ac7d678eb66e9266ac8783fb12aee658ce805aa18922621cf11c40d24"
+    },
+    {
+      "path": "crates/photara-service/src/release.rs",
+      "kind": "file",
+      "sha256": "07948c02797ae6d7b92fa3e03df695a7d50d5a0fd9884abc148a5f3a715c8c19"
+    },
+    {
+      "path": "crates/photara-service/src/runtime.rs",
+      "kind": "file",
+      "sha256": "8c9fbc1078175712126bcf1371ed1a39b12ed0efb3d50c52570f02c82001a7e6"
+    },
+    {
+      "path": "crates/photara-service/src/sync.rs",
+      "kind": "file",
+      "sha256": "17e96b2e262348450258d0c3f5216f6cb711b1644402faf2425cd74d53b44d39"
+    },
+    {
+      "path": "crates/photara-store/Cargo.toml",
+      "kind": "file",
+      "sha256": "f1f85fbcc46ffb8440525b453dc6b518ba350ba28d069186956c05f9457ac12e"
+    },
+    {
+      "path": "crates/photara-store/src/lib.rs",
+      "kind": "file",
+      "sha256": "a743ec0ece06911dc67ca6d404f074d1a476369b4ac1a5ea238a975322809036"
+    },
+    {
+      "path": "crates/photara-store/src/local_assets.rs",
+      "kind": "file",
+      "sha256": "843e608603b94b21b961f2f408e7d01d72dfefa4fcf5053c7524ba20ee594184"
+    },
+    {
+      "path": "crates/photara-store/src/package/compatibility.rs",
+      "kind": "file",
+      "sha256": "795a750522f47ea3d9433d96d95c3cab346f12382893a922348e90ca9e7ab754"
+    },
+    {
+      "path": "crates/photara-store/src/package/creation.rs",
+      "kind": "file",
+      "sha256": "6fea2ba893a063101999ebeedfe43d4aaacea15f180e0360172f73e889a48e2d"
+    },
+    {
+      "path": "crates/photara-store/src/package/creation/filesystem.rs",
+      "kind": "file",
+      "sha256": "053f3152391648ab0661ee076da4ff3bbecd2acbd071ec5d3afa016856196a03"
+    },
+    {
+      "path": "crates/photara-store/src/package/json.rs",
+      "kind": "file",
+      "sha256": "3e27b65cd5afe7aa7e260d407bf2107ef0ca290f07573191d5bee98b3221a680"
+    },
+    {
+      "path": "crates/photara-store/src/package/mod.rs",
+      "kind": "file",
+      "sha256": "b8400d8203f056de51321b14b60e03f269e82317340fe7358a95342e2d34280e"
+    },
+    {
+      "path": "crates/photara-store/src/package/reader.rs",
+      "kind": "file",
+      "sha256": "f88c9e1fa0899b49eeacec82bbef0f154cb21075aac6824f30559428995b85b0"
+    },
+    {
+      "path": "crates/photara-store/src/package/records.rs",
+      "kind": "file",
+      "sha256": "74909b6f15009dfefed039b9bf6841e6c6ce73f8882ad8b3161f39a203b9bbda"
+    },
+    {
+      "path": "crates/photara-store/src/package/types.rs",
+      "kind": "file",
+      "sha256": "8c3036a55665cbb5e9e3ce8acbc50c53040e64d633d86616daea1223e6c12f2a"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_1/closure.rs",
+      "kind": "file",
+      "sha256": "25144103ffb2771590ad09527dcd3769a024511eec9b75751c43f8a3a671ac2f"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_1/links.rs",
+      "kind": "file",
+      "sha256": "c2a8249f5d32f037ff946587510292f9fad24e040a9d11099d269a516ba4b7a6"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_1/mod.rs",
+      "kind": "file",
+      "sha256": "b38215de7404805f20d266f5601eff825255aaffad84244cf443910d207d166b"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_1/reader.rs",
+      "kind": "file",
+      "sha256": "604124a945a985731b5266c22e56eedce25e2a7fa42fca6dd285c6016dc454d8"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_1/records.rs",
+      "kind": "file",
+      "sha256": "954c4c37c21ad589745fd2c5c796fbbdd44c853cfbe272967a73ea7112e3d57f"
+    },
+    {
+      "path": "crates/photara-store/tests/package_compatibility.rs",
+      "kind": "file",
+      "sha256": "c34ee9c90e630915e36bd87a6c815cc58869f63e39332a6a9293873e86525c1a"
+    },
+    {
+      "path": "crates/photara-store/tests/package_creation.rs",
+      "kind": "file",
+      "sha256": "c972bc1d601161f6780332b012c8cec6e583f5a3ebdab4fc99730854caf287b4"
+    },
+    {
+      "path": "crates/photara-store/tests/package_v1_1.rs",
+      "kind": "file",
+      "sha256": "db2963b8f9af2f7d57ba702b11d8adde6aac74bf1b0e906e36981c279e5bfcbf"
+    },
+    {
+      "path": "crates/photara-store/tests/package_validation.rs",
+      "kind": "file",
+      "sha256": "e37edf9267cf958f757a44eba5b88e41208ff463b23d0bce7983d5cbaa963c90"
+    },
+    {
+      "path": "platform/macos/photara-app/BridgeVerification/main.swift",
+      "kind": "file",
+      "sha256": "fdf7bf358ffa39864e562071efc5281b11c9f19a136d3db7543c21f2a28bc695"
+    },
+    {
+      "path": "platform/macos/photara-app/README.md",
+      "kind": "file",
+      "sha256": "d4d722edd457c274772bdc6f2b8ca08ce304a7f49f1da98b1ee8095bebb017ab"
+    },
+    {
+      "path": "platform/macos/photara-app/Resources/Info.plist",
+      "kind": "file",
+      "sha256": "83c22dedf3e0ce459b7f56ededcb41e8fdadb4614152ff9fce5f9a4e2b208721"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/AppModel+Gallery.swift",
+      "kind": "file",
+      "sha256": "2c2ee2f12b1b33232924d36a9533fec0de3c30f3a5de666ac0134a96d992cc94"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/AppModel.swift",
+      "kind": "file",
+      "sha256": "69e92ab61abc71ee9601c35072a9d9e908c443467efd11e031663865447a7ee6"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/AppModelCreation.swift",
+      "kind": "file",
+      "sha256": "6fc9fbf0bbb89231decedf9e7c45c7a194245428991bf13328075b4bd037a72f"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/AppModelLibrary.swift",
+      "kind": "file",
+      "sha256": "997e0ada458dd442e3a7148aa0e351ba022bf0d303077acf910b7aac1e29397e"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/ApplicationAdapter.swift",
+      "kind": "file",
+      "sha256": "4774ba043e197f06e827c5a87d0d0c8c56d2f10045f68e6fac5ae1999b220d02"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/EditorSessionModel.swift",
+      "kind": "symlink",
+      "sha256": "476a8cefee376e1f2ed8a5c21b548eb884dddf798e53f130042c229e9ec60e80"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/EditorSessionView.swift",
+      "kind": "file",
+      "sha256": "7e4e7567c8035580a5a26713375a815a25d2dca1f95aa987b1a207f11baedc09"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/GalleryPresentationState.swift",
+      "kind": "file",
+      "sha256": "6deb532e37ea2be3a442c26f8a48862fa926921ce461bb5d3c456c8fb148b2d9"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/GraphAdapter.swift",
+      "kind": "file",
+      "sha256": "6cd78fc58fedbebeb6319a33a685582543093a903376b0f5c08b602b6e804bff"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/InspectionAdapter.swift",
+      "kind": "file",
+      "sha256": "a0138792a14b87a0e6bb8a78e0f3f78648a7832a79cdb605f8e39c2d546e14a8"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/PhotaraMacApp.swift",
+      "kind": "file",
+      "sha256": "57809bfd84b3d9509980f89f70d1ddea211ca0eac028f09cab45c038baed9d06"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/ProductionGalleryView.swift",
+      "kind": "file",
+      "sha256": "768a546e7832c351763535a00b5e920da66bb4364a8866e02b7ad05756a515b3"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/ProductionGraphView.swift",
+      "kind": "file",
+      "sha256": "719c64069e3947ee00deeda33b7448e58bd3bc9deed520d08f4a512116892945"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/ProductionOpeningCloudDriver.swift",
+      "kind": "file",
+      "sha256": "91e4cf8640fd4098668a0eda36f06953f2f4f7a891c5f83bbc96debdbd16a6a5"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/ThemeStore.swift",
+      "kind": "symlink",
+      "sha256": "0153590eb20edcb752fd969e9a80f674984033b98d416e8e654c6e30ddcfd345"
+    },
+    {
+      "path": "platform/macos/photara-app/Tests/NativeOnboardingFlowTests.swift",
+      "kind": "file",
+      "sha256": "fc6f1a7d14db623ec41268b312a78ce662d40ae916cb98c9d1ce2165a10e387d"
+    },
+    {
+      "path": "platform/macos/photara-app/Tests/NativeOnboardingKeychainTests.swift",
+      "kind": "file",
+      "sha256": "748bae1f2620f5c80b6f550d60ed43f6b2006c87de3d5570cd54a51cbc1138a5"
+    },
+    {
+      "path": "platform/macos/photara-app/Tests/ServiceFurnace/HTTPFixture.swift",
+      "kind": "file",
+      "sha256": "ed65e7bdb48e09509f54552145e712c51e5ff12fde357fc43fc1f89b48766077"
+    },
+    {
+      "path": "platform/macos/photara-app/Tests/ServiceFurnace/InstalledServiceSmoke.swift",
+      "kind": "file",
+      "sha256": "865ca95a715ee6b6f2fb1f73ea01a7a252f3f702ed3ce6f121765f386c31447b"
+    },
+    {
+      "path": "platform/macos/photara-app/Tests/ServiceFurnace/Launcher.swift",
+      "kind": "file",
+      "sha256": "34f70df341eb2bc05b7fa01a9f431206213e44920506e38b7eeda9d59fb7ec3f"
+    },
+    {
+      "path": "platform/macos/photara-app/Tests/ServiceFurnace/NativeServiceFlow.swift",
+      "kind": "file",
+      "sha256": "4e447e08cf278891adbdb5d99f5b43745455b00e56ef6b29cb1ced928c28131e"
+    },
+    {
+      "path": "platform/macos/photara-app/build-app.sh",
+      "kind": "file",
+      "sha256": "37d6a6c3a177ce4716229e48729a3baf943653e29c25b740c6331f7a046bbcda"
+    },
+    {
+      "path": "platform/macos/photara-app/verify-bridge.sh",
+      "kind": "file",
+      "sha256": "1b7f25e09fa6b78248b284dadb6449d3d6d8c57ea72a39ca5aea4c16b991a7bd"
+    },
+    {
+      "path": "platform/macos/photara-gallery/Resources/photara-gallery-presentation-v1.json",
+      "kind": "file",
+      "sha256": "76a21a35b854d059c56612d44e97408964dcde0e76e0b45285760235ad40fefc"
+    },
+    {
+      "path": "platform/macos/photara-gallery/Sources/GalleryCard.swift",
+      "kind": "file",
+      "sha256": "1a1408594eed74e06fa07f60fb90acb614aa444fe7c1741d9d7c433c648880c0"
+    },
+    {
+      "path": "platform/macos/photara-gallery/Sources/GalleryFullImageView.swift",
+      "kind": "file",
+      "sha256": "f9d37462f26a6f520d4b0a0d19debd965475f2b1ed0d1de8e9b93325fb161519"
+    },
+    {
+      "path": "platform/macos/photara-gallery/Sources/GalleryPresentation.swift",
+      "kind": "file",
+      "sha256": "fa9a4fb55d83032304edd043f88cec06d54a2481768ca0f40311abd88b9d1646"
+    },
+    {
+      "path": "platform/macos/photara-gallery/Sources/GalleryPreset.swift",
+      "kind": "file",
+      "sha256": "27bfa9e80b68e0983808dccb73ad486bc58659263ac69421b860ef7cf3ec4725"
+    },
+    {
+      "path": "platform/macos/photara-gallery/Sources/GalleryView.swift",
+      "kind": "file",
+      "sha256": "5f990d2e2e6641bea300c1838ce0b81bd7e1e24450d1d1c5854ca7f948b5d241"
+    },
+    {
+      "path": "platform/macos/photara-gallery/Sources/PhotoGridLayout.swift",
+      "kind": "file",
+      "sha256": "a5671ea0d52115348d3b02c66db0543e50babed74070cb85574360fd1ec2f5dc"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/.gitignore",
+      "kind": "file",
+      "sha256": "99921edb369e12a35a87d768ae481f8c944573626abd4b8f3a1fe78846f30ba7"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/ENGINEERING_HANDOFF.md",
+      "kind": "file",
+      "sha256": "63acb408118c26dad6bf6c2b2bdaea09be823456fec7bdd9504851738b2880c5"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/INTERACTION_MODEL.md",
+      "kind": "file",
+      "sha256": "3219cb94ca07f5426afcdea9e4b9d1b874d6072021c7d1e78c168363b0da1005"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/README.md",
+      "kind": "file",
+      "sha256": "180fbd5b20122361a864441f0d80fcae6f79d7669329cb7da68571c10c70bed2"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Resources/Info.plist",
+      "kind": "file",
+      "sha256": "beaf4f6875f493acf523679d26572e6f333e3b9bd3482f3a209f5aec5289ccaf"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/SHARED_UI_HANDOFF.md",
+      "kind": "file",
+      "sha256": "8ccf3033573023351c4219dd74da8f32161d7e174b8ce49e3717326611aef230"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Sources/GraphLabApp.swift",
+      "kind": "file",
+      "sha256": "e650f9cfa5edf43ba734557e2e94b645284713e9cd405d347a3b47dcb708322b"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Sources/GraphLabCanvas.swift",
+      "kind": "file",
+      "sha256": "69c85a30b007e7f48b32e1b7a89c2abb5524b58b0d705fa379f2a2a0b7ab7f80"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Sources/GraphLabFixtures.swift",
+      "kind": "file",
+      "sha256": "ef243b5b70e4ad7ed6c0b71d2a72274e5b8ab02c85240fa142125a4d77791517"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Sources/GraphLabTooling.swift",
+      "kind": "file",
+      "sha256": "fda663dc5fa9d783aec003e69987ea915a0d6f5063f57e9050dc121b2b781e2b"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Sources/GraphLabView.swift",
+      "kind": "file",
+      "sha256": "6fe2748f591955a55ff8b799b3f0ef77725501056a9e330de9c774814d54675a"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Tests/GraphBranchOverviewChecks.swift",
+      "kind": "file",
+      "sha256": "fe38fb2b4e3be1ae952e9a9a48c7eeb9553f0f68ee5efb10bcbbabb995d950d8"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Tests/GraphGestureOracle.swift",
+      "kind": "file",
+      "sha256": "1c4572fbda1f3c03363d690bfc77a37b44e3cd8f7848cfa6c35076881589fcaa"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Tests/GraphInteractionChecks.swift",
+      "kind": "file",
+      "sha256": "b9c7ed304453fd6d2dcfc717c4b80b8df733777b85e0fcf907aa658177e919cc"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Tests/GraphNativeInput.swift",
+      "kind": "file",
+      "sha256": "e2511d66f227c72fba3f4067c98b46383b3c20f5f6139cb652bfd4d9ad5a46ce"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Tests/GraphPermissionProbe.swift",
+      "kind": "file",
+      "sha256": "c2c1eac7db2a47916425a7272721945ed1adee8bd0a5788257b66b506938315c"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Tests/GraphRandomGestures.swift",
+      "kind": "file",
+      "sha256": "ae6d08b948225df792a599314e48c32f0934df2bd538dad07553eb0bda928bce"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Tests/GraphVerificationHost.swift",
+      "kind": "file",
+      "sha256": "4dbe7f47bcb0d12af7c4c192fa34ce27c0d16c4dd909df3051c1779599561f20"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Tests/README.md",
+      "kind": "file",
+      "sha256": "178bfdffabff7bd47b0bea176d85878b6cfe116ce52ea5138757f0aff92c0738"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Tests/VERIFICATION.md",
+      "kind": "file",
+      "sha256": "00e05b77f97fa8a2f7fdd924933e9d2d495bfad2ea4439c83f13733d3d27cdce"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/build-graph-lab.sh",
+      "kind": "file",
+      "sha256": "904b7b3f3ff8133bdaaf8c670383d7afcdc6ce295a616788bc751fb2c9962d9e"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/export-shared-preset.swift",
+      "kind": "file",
+      "sha256": "b7420f7ee63e8bc6332ece24514c08dc8907838e80d4b3439feb24c624d08aa0"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/launch-verification.py",
+      "kind": "file",
+      "sha256": "ef4b0c87cc8a7cc7f64491cca8a1354d267daebfe48eef0c4227ead79c371788"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/verify-interactions.sh",
+      "kind": "file",
+      "sha256": "8c77285e968b0056b0f38491e38825d7e13f8125824d810555765593e3413df4"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/verify-launch-furnace.py",
+      "kind": "file",
+      "sha256": "e0f250b9978c37b01384e34640ab49061525d726c3d2622b8f97d1e69cd03fb0"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/verify-permissions.sh",
+      "kind": "file",
+      "sha256": "262868f8af61fd05239b15273184e0468f4b82e06ad3d11bd293f7f91049c1f0"
+    },
+    {
+      "path": "platform/macos/photara-graph/NODE_DESIGN_LANGUAGE.md",
+      "kind": "file",
+      "sha256": "4b02a1fe9c006c5c1bf8030e5eda9c3e438c13cb8858ccee1f7ae4d67542ecd9"
+    },
+    {
+      "path": "platform/macos/photara-graph/Resources/NodeIcons/node-ai-workflow.svg",
+      "kind": "file",
+      "sha256": "5843789b50c24adbce669a300872db881c265560930b8bb90e7d6e591d16f3b7"
+    },
+    {
+      "path": "platform/macos/photara-graph/Resources/NodeIcons/node-disk-folder.svg",
+      "kind": "file",
+      "sha256": "a909cc3d720b5b6b33f8067640efa58150973441f85520cf5808edbc0c51b7a1"
+    },
+    {
+      "path": "platform/macos/photara-graph/Resources/NodeIcons/node-export.svg",
+      "kind": "file",
+      "sha256": "7e477e1d4f2009f679537bed51b59f83b5329bb7a9963acb92aabce25e4b3442"
+    },
+    {
+      "path": "platform/macos/photara-graph/Resources/NodeIcons/node-layout.svg",
+      "kind": "file",
+      "sha256": "d19be313ee04a0a36f472796033ef8387fc0bbfa5937ab16337b1c9be08696d8"
+    },
+    {
+      "path": "platform/macos/photara-graph/Resources/NodeIcons/node-metadata.svg",
+      "kind": "file",
+      "sha256": "7068e1bebbebdb21c23a619b35f74772fb01b66de5cadfa5af8c41c9a7c66bd0"
+    },
+    {
+      "path": "platform/macos/photara-graph/Resources/NodeIcons/node-query.svg",
+      "kind": "file",
+      "sha256": "1adb2ced27c587c91c80decbf58a3090fd4a8376c570a9eb03b9b33abf3f99c2"
+    },
+    {
+      "path": "platform/macos/photara-graph/Resources/NodeIcons/node-rotate.svg",
+      "kind": "file",
+      "sha256": "e0406645da385f2ebf5f689f260a9165170a44c2d569cbdd5e543933f249aa29"
+    },
+    {
+      "path": "platform/macos/photara-graph/Resources/NodeIcons/node-union.svg",
+      "kind": "file",
+      "sha256": "0503cd1bbdae8e9f97fd3a7594bfcf2f7a5e02b549d03ac7ec2412eddd2067e1"
+    },
+    {
+      "path": "platform/macos/photara-graph/Resources/ToolIcons/tool-knife.svg",
+      "kind": "file",
+      "sha256": "1d478e2961e17f81371682c5c43d035ebedc181bc0f0188fdb54df80868d874d"
+    },
+    {
+      "path": "platform/macos/photara-graph/Resources/photara-graph-presentation-v1.json",
+      "kind": "file",
+      "sha256": "3d26d416d4f8555c4b2eb03a4d599c5c13393cc669778c9fb1baddf422c71452"
+    },
+    {
+      "path": "platform/macos/photara-graph/Sources/GraphCanvas.swift",
+      "kind": "file",
+      "sha256": "7ae28dc60f0f9ae9d23d9b9a7a542b9bdaa3a2b5014b3b8e3c28fc14222e8fbd"
+    },
+    {
+      "path": "platform/macos/photara-graph/Sources/GraphDocument.swift",
+      "kind": "file",
+      "sha256": "ad9565d47a578cab737dad185b25c1156e1a19bfe8fd898f83be73a2f0197a4c"
+    },
+    {
+      "path": "platform/macos/photara-graph/Sources/GraphEventSurface.swift",
+      "kind": "file",
+      "sha256": "67b92bd95d913e4fcc03d893d520d700eec2873e0750885e550b7cec1130f3d0"
+    },
+    {
+      "path": "platform/macos/photara-graph/Sources/GraphGeometry.swift",
+      "kind": "file",
+      "sha256": "faf83eb42a69ae277af645ab38da0fc885c3ad27ab2c66d2b2a3c181644fef76"
+    },
+    {
+      "path": "platform/macos/photara-graph/Sources/GraphInteraction.swift",
+      "kind": "file",
+      "sha256": "c1312afb7076d5d9f5262c1731df936ed67f87670d598c6d32e1ff282405ad4a"
+    },
+    {
+      "path": "platform/macos/photara-graph/Sources/GraphNodeView.swift",
+      "kind": "file",
+      "sha256": "72db1d400ec0bdf30d98511df3fd4ea5125796f7a9050d4e8a4309cef499ff14"
+    },
+    {
+      "path": "platform/macos/photara-graph/Sources/GraphOverview.swift",
+      "kind": "file",
+      "sha256": "7e53074a143ca4ee5079d2b63201ba42102aa9234b731176d4f4fa4abe7e10d5"
+    },
+    {
+      "path": "platform/macos/photara-graph/Sources/GraphPresentation.swift",
+      "kind": "file",
+      "sha256": "d32697479f5a1302dde92d902c16c81be4259b9aff5695d10dff2b4982c157aa"
+    },
+    {
+      "path": "platform/macos/photara-graph/Sources/GraphPreset.swift",
+      "kind": "file",
+      "sha256": "7ba18d3f75c0a9855c08ef90708ad4d8886bdae4cc680708907cfbe02686131a"
+    },
+    {
+      "path": "platform/macos/photara-graph/Sources/GraphToolIcons.swift",
+      "kind": "file",
+      "sha256": "573121092b4981bc55be0b8e6dfaefdc20c654c25712e4380b514f1bc5f7e707"
+    },
+    {
+      "path": "platform/macos/photara-graph/Sources/GraphToolRail.swift",
+      "kind": "file",
+      "sha256": "0273f643181e78f3fbfbb2ddb7e596d82e52f6ff167b5e5bc0511432408cd5d9"
+    },
+    {
+      "path": "platform/macos/photara-shell/README.md",
+      "kind": "file",
+      "sha256": "db68e00c2964523f8bed394be3a12c209a51bd6ff69ec52e02beaa6c57f2df7d"
+    },
+    {
+      "path": "platform/macos/photara-shell/Resources/photara-application-presentation-v1.json",
+      "kind": "file",
+      "sha256": "d94312ff7c68cd88f1f3e4d683f9878c4be3385a8f3ac25ac79aeae19fa8111c"
+    },
+    {
+      "path": "platform/macos/photara-shell/Sources/AccountsMenu.swift",
+      "kind": "file",
+      "sha256": "6591586f1cdb9a1994889514829358c58d7f6c1dcbe8467bcefc1fc0a174400c"
+    },
+    {
+      "path": "platform/macos/photara-shell/Sources/ApplicationPresentation.swift",
+      "kind": "file",
+      "sha256": "e39a423a7c6a404357bd715a88cffae67fa14c4e67c91c7ba53842183f62e23d"
+    },
+    {
+      "path": "platform/macos/photara-shell/Sources/ApplicationShell.swift",
+      "kind": "file",
+      "sha256": "e5033944546af57e98a175cbc99151977212e0aa93cd25aacdfd90d4a5f56fb3"
+    },
+    {
+      "path": "platform/macos/photara-shell/Sources/ApplicationShellPreset.swift",
+      "kind": "file",
+      "sha256": "ee6b6f99b59a07657318cac5111832df5f2807ece68563477487217fd00fe2fe"
+    },
+    {
+      "path": "platform/macos/photara-shell/Sources/CreateProjectView.swift",
+      "kind": "file",
+      "sha256": "31faca172cbb8504005aab86a6232c386a7c89c81e8e7f065aa4c0ef494ee7d5"
+    },
+    {
+      "path": "platform/macos/photara-shell/Sources/DiagnosticsView.swift",
+      "kind": "file",
+      "sha256": "38784decb5f2b473587635f3bfa1963070b3b3302b00031605e67f5c52f91124"
+    },
+    {
+      "path": "platform/macos/photara-shell/Sources/EditorSessionModel.swift",
+      "kind": "file",
+      "sha256": "fb9da232f522be6ec5e1d748d098bc189c58de3d7760e1cacd8ea97ab6e3dea9"
+    },
+    {
+      "path": "platform/macos/photara-shell/Sources/OpeningCloudModel.swift",
+      "kind": "file",
+      "sha256": "50300520ec028f05c6c51ca78afa22957fca157567edff08e7f1ad1b187fdb2d"
+    },
+    {
+      "path": "platform/macos/photara-shell/Sources/OpeningLibraryView.swift",
+      "kind": "file",
+      "sha256": "4e3868b993ff4062ce071c554bf5defa509006123f4efd82d33cd3b8cb44038e"
+    },
+    {
+      "path": "platform/macos/photara-shell/Sources/ProjectChrome.swift",
+      "kind": "file",
+      "sha256": "4064e4e7721ec327b208939151e18acfd12a5b916eed6728a1fccca4c7488a78"
+    },
+    {
+      "path": "platform/macos/photara-shell/Sources/ProjectLauncherView.swift",
+      "kind": "file",
+      "sha256": "e1bbc323497db0f71dba6e40f986bff11d0df59cc0f7982fa8d1fd10758f19c8"
+    },
+    {
+      "path": "platform/macos/photara-shell/Sources/TransientSplitView.swift",
+      "kind": "file",
+      "sha256": "e8ed14b438e77b7d87141ade7f59e785f8e6edd4c551ed55f2e933c342039d6e"
+    },
+    {
+      "path": "platform/macos/photara-theme/README.md",
+      "kind": "file",
+      "sha256": "0719ea397b639823a9d3a0410aca7762ca8e6ec95283236d420adea3c70f6b07"
+    },
+    {
+      "path": "platform/macos/photara-theme/Resources/ThemeLab-Info.plist",
+      "kind": "file",
+      "sha256": "ade72bd05ce9d5aeef09b73b7fab9d0ac7fb7823f56d0884dc3a5a300f44e640"
+    },
+    {
+      "path": "platform/macos/photara-theme/Resources/photara-default.json",
+      "kind": "file",
+      "sha256": "10c049f63a0c82b9c0aeb1a1171069cf3ce97b346150e219205c8c15a0ecff8f"
+    },
+    {
+      "path": "platform/macos/photara-theme/Sources/GlassTestScene.swift",
+      "kind": "file",
+      "sha256": "19af87e35274c4568689f58b49df271de6e74796ca7fb9e379b86caf3b101876"
+    },
+    {
+      "path": "platform/macos/photara-theme/Sources/PhotaraTheme.swift",
+      "kind": "file",
+      "sha256": "dd2fb36a69af0965328c4127b4d19f6aa5966b228039172a3137e2a770733c42"
+    },
+    {
+      "path": "platform/macos/photara-theme/Sources/ThemeCLI.swift",
+      "kind": "file",
+      "sha256": "2cbe171d07df5e3da359d20fe4b06626243eec071838eced2e6448efcfafb498"
+    },
+    {
+      "path": "platform/macos/photara-theme/Sources/ThemeLabApp.swift",
+      "kind": "file",
+      "sha256": "8e46c5bcd7b4690dd6806805d094ca60fbd830238d6287aeb86bc94b5a72c2e5"
+    },
+    {
+      "path": "platform/macos/photara-theme/Sources/ThemeLabView.swift",
+      "kind": "file",
+      "sha256": "228fc810a9512cab291a87236ce64a0dd61e6b2ad8eb66604c5fc83e8d8825b8"
+    },
+    {
+      "path": "platform/macos/photara-theme/build-theme-lab.sh",
+      "kind": "file",
+      "sha256": "cd518ab15be34b75c1c1bd3edf0e245f6164b062ec85da363f98aa6d7c818531"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/HDRImageView.swift",
+      "kind": "file",
+      "sha256": "9eefaa1c2eb4feac2025bcedc5ab5c30c3c69422e0495cc126f9a4a56bc2f475"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/ImagePreviewMetadata.swift",
+      "kind": "file",
+      "sha256": "25132d6887d971e829c50ce1fb7cf2739367f181e410cb74d782a3cf431a5a80"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/NativeAccessToken.swift",
+      "kind": "file",
+      "sha256": "b44f049a3ecb0a497daec0a0353a8094566df40825fe2ab36beed94513b487a0"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/NativeAccountProfile.swift",
+      "kind": "file",
+      "sha256": "2f21c7a4c7b216ee50e3916c313c27686b6e37553dd8deeb412e3e8d8ea6f728"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/NativeAuth0Client.swift",
+      "kind": "file",
+      "sha256": "1f9a1b95bd27120d924163f295353fe23c10bb26572ec08a7d6e264add4465c9"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/NativeAuthentication.swift",
+      "kind": "file",
+      "sha256": "e37b98d1273455d6a51567fdb83682386439fa5e0516a97d1bad98fb12ee08d5"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/NativeDevelopmentService.swift",
+      "kind": "file",
+      "sha256": "71bb784071740fc8d7a0142ddd1786e5eb48ac90913eabde22a614c11a7c7bf8"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/NativeIDToken.swift",
+      "kind": "file",
+      "sha256": "e42efe9262b1444f1b19e1faf497ec1d985775b10836e197b1e354500ff398e6"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/NativeOnboardingDiagnostics.swift",
+      "kind": "file",
+      "sha256": "59450fd52043cdef53d6e681f5893271592e3e7b5d1b54d72ba67fbf6d618a63"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/NativeOnboardingLock.swift",
+      "kind": "file",
+      "sha256": "0fcb4187355cf79b0ef750b0a8dcce68606307a467104a9ca4dec90c75a8febb"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/NativeOnboardingState.swift",
+      "kind": "file",
+      "sha256": "a2fdf2912127e22a43ede2d245bc894035ea82e93791eb08ae1d26d4add2038b"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/NativeRefresh.swift",
+      "kind": "file",
+      "sha256": "446f1b266d6b5ce51ceb8b61bfce6ef86acd562ad9e576f4adb47f98fd64d50a"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/NodeInspection.swift",
+      "kind": "file",
+      "sha256": "5ef89d0fa7efa240e7c7afb1ac32180fcaa0cef23c06ff5b4996fa71495ff52e"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/PhotaraEmptyState.swift",
+      "kind": "file",
+      "sha256": "37359f3fad8434dc1b2db735258825b32e98f2c99a4fcb998637fc0f62793d56"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/ReleaseConfiguration.swift",
+      "kind": "file",
+      "sha256": "351f03f79db1ba3658bc688a72f27623eff8d8fac9aa4b3af7185a0d64904f67"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/ThemeLadderSpecimen.swift",
+      "kind": "file",
+      "sha256": "f03295dbc027cdeaa64cef5ad878fd4e933e7e080a9ee91c493f88eb2f72da42"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Sources/ThemeStore.swift",
+      "kind": "file",
+      "sha256": "f944d190153650187f0777508d84efe6133d31fd0d9ad07e1f0febde89b7bbb8"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Tests/NativeAuth0ClientTests.swift",
+      "kind": "file",
+      "sha256": "1931e4fa9dfc989bdfcda9ce6ef3dbcafc238c30317e0dfc001feb2277fb9ec4"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Tests/NativeAuthenticationTests.swift",
+      "kind": "file",
+      "sha256": "3b50fa6ba8acb4ae07d0d88bf5dbb1017aaa5aa2ea9f27812ee3239ba6df098b"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Tests/OpeningCloudModelTests.swift",
+      "kind": "file",
+      "sha256": "749b2d2b8d7bfd3fe78b59f63d24f42ac53ef13f99d99576ce7cf3a04dfb99a0"
+    },
+    {
+      "path": "platform/macos/photara-ui-foundation/Tests/ReleaseConfigurationTests.swift",
+      "kind": "file",
+      "sha256": "4320aaaa77aef6753632063dc5768a082f0340e926cbb8603bf6891c2e46f85b"
+    }
+  ],
+  "migrations": [
+    {
+      "path": "crates/photara-library/migrations/generation_two/0001_local_identity.sql",
+      "sha256": "b99f33adc424a0aae3e717c972e33d72be5f0ec82f11ac0e7fb4ec28037377fd",
+      "declared_tables": [
+        "schema_metadata",
+        "normalization_policies",
+        "local_device",
+        "libraries",
+        "account_cache",
+        "membership_cache",
+        "library_media",
+        "media_local_state"
+      ],
+      "references": [
+        "normalization_policies",
+        "libraries",
+        "account_cache",
+        "libraries",
+        "library_media"
+      ]
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0002_typed_library.sql",
+      "sha256": "7562bc582d3d8a6a8bc1a8d0e5451c24670763c7d3031b78e903c9960c1416a9",
+      "declared_tables": [
+        "people",
+        "organizations",
+        "social_profiles",
+        "person_capabilities",
+        "person_labels",
+        "organization_labels",
+        "person_organization_relationships",
+        "location_kinds",
+        "location_kind_terms",
+        "locations"
+      ],
+      "references": [
+        "libraries",
+        "people",
+        "library_media",
+        "libraries",
+        "organizations",
+        "library_media",
+        "libraries",
+        "people",
+        "organizations",
+        "library_media",
+        "people",
+        "people",
+        "organizations",
+        "people",
+        "organizations",
+        "libraries",
+        "location_kinds",
+        "library_media",
+        "location_kind_terms",
+        "location_kinds",
+        "normalization_policies",
+        "libraries",
+        "location_kinds",
+        "locations",
+        "locations",
+        "library_media"
+      ]
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0003_catalog_device.sql",
+      "sha256": "7331ab5c6742d194fc64eb41557763f92cb93ecdac358aa564d01b82f700fc3e",
+      "declared_tables": [
+        "storage_roots",
+        "project_catalog",
+        "project_locators",
+        "device_root_bindings",
+        "device_project_bindings",
+        "project_observations",
+        "project_party_projection",
+        "project_location_projection",
+        "project_graph_projection"
+      ],
+      "references": [
+        "libraries",
+        "libraries",
+        "project_locators",
+        "project_observations",
+        "project_catalog",
+        "storage_roots",
+        "local_device",
+        "storage_roots",
+        "local_device",
+        "project_locators",
+        "project_locators",
+        "project_observations",
+        "project_observations",
+        "project_observations"
+      ]
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0004_mutations_sync.sql",
+      "sha256": "72c5d345b3a93ee6a5813b8000afd2f33fc614eb45109f2d37f310225148cf4f",
+      "declared_tables": [
+        "sync_targets",
+        "mutations",
+        "local_changes",
+        "mutation_baselines",
+        "sync_object_state",
+        "sync_outbox",
+        "sync_inbox",
+        "sync_cursors",
+        "sync_conflicts",
+        "media_transfers",
+        "remote_mutation_receipts",
+        "local_mutation_dispositions",
+        "sync_snapshot_installs"
+      ],
+      "references": [
+        "libraries",
+        "account_cache",
+        "libraries",
+        "mutations",
+        "mutations",
+        "mutations",
+        "sync_targets",
+        "sync_targets",
+        "mutations",
+        "sync_targets",
+        "sync_targets",
+        "sync_targets",
+        "sync_inbox",
+        "sync_outbox",
+        "mutations",
+        "sync_targets",
+        "library_media",
+        "sync_targets",
+        "sync_outbox",
+        "mutations",
+        "mutations",
+        "sync_targets"
+      ]
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0005_durable_recovery.sql",
+      "sha256": "d0c97f3f49bbcb1581aac714ff5798d90200039867022d01ffed6e18bf59b3fb",
+      "declared_tables": [
+        "operation_intents",
+        "operation_events",
+        "recovery_items",
+        "recovery_publications"
+      ],
+      "references": [
+        "libraries",
+        "operation_intents",
+        "operation_intents",
+        "recovery_items"
+      ]
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0006_invariant_guards.sql",
+      "sha256": "85ff08feb48040eb5bcd1324e275e5593ac98cd4ba2b826e66d867eecfdfd8de",
+      "declared_tables": [],
+      "references": []
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0007_library_project_access.sql",
+      "sha256": "039818c41830ca5da9ab0495034bb69b2d33295c8b94b462b3e0029fe4bac78e",
+      "declared_tables": [
+        "library_contract_state",
+        "project_ownership",
+        "project_access_policies",
+        "project_access_grants",
+        "project_invitations"
+      ],
+      "references": [
+        "libraries",
+        "libraries",
+        "project_ownership",
+        "libraries",
+        "project_ownership",
+        "account_cache",
+        "libraries",
+        "project_ownership",
+        "account_cache",
+        "account_cache",
+        "project_access_grants",
+        "libraries"
+      ]
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0008_storage_locations_bindings.sql",
+      "sha256": "66500faa616fb2e218472262072846a932ff1e086981eb5195fee614e7a2cb5f",
+      "declared_tables": [
+        "storage_location_specs",
+        "storage_slots",
+        "storage_slot_names",
+        "host_bindings",
+        "host_binding_selections",
+        "legacy_external_resource_resolutions"
+      ],
+      "references": [
+        "storage_roots",
+        "libraries",
+        "storage_roots",
+        "storage_slot_names",
+        "libraries",
+        "storage_slots",
+        "libraries",
+        "local_device",
+        "storage_roots",
+        "libraries",
+        "host_bindings",
+        "libraries",
+        "local_device"
+      ]
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0009_library_context.sql",
+      "sha256": "de50a9cd855ab3f48529b90545e2df62f92ee8e1a9950213c360d5cd91d6568f",
+      "declared_tables": [
+        "library_variables",
+        "library_variable_values",
+        "library_variable_names",
+        "library_expressions",
+        "library_expression_dependencies"
+      ],
+      "references": [
+        "library_variable_names",
+        "libraries",
+        "library_variables",
+        "libraries",
+        "library_variables",
+        "libraries",
+        "library_variables",
+        "libraries",
+        "library_expressions",
+        "library_variables",
+        "storage_slots",
+        "libraries"
+      ]
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0010_context_apply_recovery.sql",
+      "sha256": "84cbe8d71a02ad7b491af5a0ec425dd22a566a82de8cc3a2eb5d883536f02aed",
+      "declared_tables": [
+        "device_context_snapshots",
+        "context_apply_intents",
+        "context_apply_receipts"
+      ],
+      "references": [
+        "local_device",
+        "libraries",
+        "context_apply_intents",
+        "libraries"
+      ]
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0011_scoped_sync.sql",
+      "sha256": "d52526b340caff095f16b9c335c4cf824915064eefccd966568afdf1f3f92d15",
+      "declared_tables": [
+        "project_media_links",
+        "scoped_sync_channels",
+        "scoped_sync_operations",
+        "scoped_sync_operation_roots",
+        "scoped_sync_base",
+        "scoped_sync_inbox",
+        "scoped_sync_snapshot_installs"
+      ],
+      "references": [
+        "project_ownership",
+        "library_media",
+        "libraries",
+        "account_cache",
+        "project_ownership",
+        "libraries",
+        "scoped_sync_channels",
+        "scoped_sync_operations",
+        "scoped_sync_operations",
+        "scoped_sync_operations",
+        "scoped_sync_channels",
+        "scoped_sync_channels",
+        "scoped_sync_channels"
+      ]
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0012_d19_guards_and_floor.sql",
+      "sha256": "dedcab39b5511922465061b107fa282bcfb046d625833a1cbed05c10163e0f50",
+      "declared_tables": [],
+      "references": []
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0013_onboarding.sql",
+      "sha256": "ceed9c318dec671c74877117c2163a499ac54375f5871f1532f97c80683b6ea6",
+      "declared_tables": [
+        "onboarding_session",
+        "onboarding_intents",
+        "onboarding_credential_references",
+        "onboarding_receipts",
+        "library_cloud_bindings",
+        "onboarding_library_selection"
+      ],
+      "references": [
+        "local_device",
+        "libraries",
+        "local_device",
+        "onboarding_intents",
+        "libraries",
+        "onboarding_receipts",
+        "libraries",
+        "onboarding_receipts"
+      ]
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0014_onboarding_dispositions.sql",
+      "sha256": "0d7b29380f83d8a28a317557a90d19ac7bc72ea8560bb0c34d01b390d4233ac7",
+      "declared_tables": [
+        "onboarding_dispositions",
+        "onboarding_replacements"
+      ],
+      "references": [
+        "onboarding_intents",
+        "onboarding_intents",
+        "onboarding_dispositions"
+      ]
+    },
+    {
+      "path": "crates/photara-library/migrations/generation_two/0015_project_creation.sql",
+      "sha256": "b6a37b887ec178d410fc900a7c76826df745c27c2c02275840f90558eefe7946",
+      "declared_tables": [
+        "project_creation_intents"
+      ],
+      "references": [
+        "libraries"
+      ]
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0001_identity_library.sql",
+      "sha256": "6fad375e9eb6a892c29848fb2c68bdd57d244bc5e760687756dd02deaf16334d",
+      "declared_tables": [
+        "photara.schema_metadata",
+        "photara.normalization_policies",
+        "photara_identity.accounts",
+        "photara_identity.account_identities",
+        "photara.libraries",
+        "photara_identity.memberships",
+        "photara_identity.devices",
+        "photara_private.library_claim_receipts"
+      ],
+      "references": [
+        "photara_identity.accounts",
+        "photara.normalization_policies",
+        "photara.libraries",
+        "photara_identity.accounts",
+        "photara_identity.accounts",
+        "photara_identity.accounts",
+        "photara.libraries"
+      ]
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0002_entitlements_media.sql",
+      "sha256": "796515d975de7accd53b57c49b4700d55a0f68003b31ea46d5fd0921f4bc72b9",
+      "declared_tables": [
+        "photara_private.billing_events",
+        "photara_private.library_subscriptions",
+        "photara_private.library_entitlement_grants",
+        "photara_private.account_developer_grants",
+        "photara.library_media",
+        "photara_private.media_objects",
+        "photara_private.media_upload_sessions"
+      ],
+      "references": [
+        "photara.libraries",
+        "photara_private.billing_events",
+        "photara.libraries",
+        "photara_private.library_subscriptions",
+        "photara_identity.accounts",
+        "photara.libraries",
+        "photara.library_media",
+        "photara.library_media"
+      ]
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0003_typed_library.sql",
+      "sha256": "60276682ab7d7b8268da81893b214eadb67ce2d4e917cdc49dbaebc62a2ce28a",
+      "declared_tables": [
+        "photara.people",
+        "photara.organizations",
+        "photara.social_profiles",
+        "photara.person_capabilities",
+        "photara.person_labels",
+        "photara.organization_labels",
+        "photara.person_organization_relationships",
+        "photara.location_kinds",
+        "photara.location_kind_terms",
+        "photara.locations"
+      ],
+      "references": [
+        "photara.libraries",
+        "photara.people",
+        "photara.library_media",
+        "photara.libraries",
+        "photara.organizations",
+        "photara.library_media",
+        "photara.libraries",
+        "photara.people",
+        "photara.organizations",
+        "photara.library_media",
+        "photara.people",
+        "photara.people",
+        "photara.organizations",
+        "photara.people",
+        "photara.organizations",
+        "photara.libraries",
+        "photara.location_kinds",
+        "photara.library_media",
+        "photara.normalization_policies",
+        "photara.location_kinds",
+        "photara.location_kind_terms",
+        "photara.libraries",
+        "photara.location_kinds",
+        "photara.locations",
+        "photara.locations",
+        "photara.library_media"
+      ]
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0004_catalog.sql",
+      "sha256": "afaf7a42f0f006b83484848f43478873243921c8b721c4aed4ca946caca9c7a2",
+      "declared_tables": [
+        "photara.storage_roots",
+        "photara.project_catalog",
+        "photara.project_locators",
+        "photara.package_observations"
+      ],
+      "references": [
+        "photara.libraries",
+        "photara.libraries",
+        "photara.project_catalog",
+        "photara.storage_roots",
+        "photara.project_locators",
+        "photara_identity.devices"
+      ]
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0005_mutations_feed.sql",
+      "sha256": "dbea00bae9d1411d290f65c8e927f0784363b3ff6abec8072441f06c31527416",
+      "declared_tables": [
+        "photara_private.library_streams",
+        "photara_private.mutation_receipts",
+        "photara.library_change_batches",
+        "photara.library_changes",
+        "photara_private.sync_clients",
+        "photara_private.security_audit"
+      ],
+      "references": [
+        "photara.libraries",
+        "photara.libraries",
+        "photara_identity.devices",
+        "photara_private.library_streams",
+        "photara_private.mutation_receipts",
+        "photara.library_change_batches",
+        "photara.library_change_batches",
+        "photara_private.library_streams",
+        "photara_identity.devices",
+        "photara_identity.accounts",
+        "photara.libraries"
+      ]
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0006_guards.sql",
+      "sha256": "83d7be3b40dbc347c639aead78891163f2769e220c599b5687552d357d4a1252",
+      "declared_tables": [],
+      "references": []
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0007_privileges.sql",
+      "sha256": "f7aebf23dca7753b776c6917697895c847c12d8e7e2f1dd7f3ed6975b1316728",
+      "declared_tables": [],
+      "references": []
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0008_library_project_access.sql",
+      "sha256": "62fedcc53017b273a1fad5594988fd71dfd0b368fe56771edbb7a928c55cb20f",
+      "declared_tables": [
+        "photara.library_contract_state",
+        "photara.project_ownership",
+        "photara.project_access_policies",
+        "photara_identity.project_access_grants",
+        "photara_identity.project_invitations",
+        "photara_private.project_invitation_secrets"
+      ],
+      "references": [
+        "photara.libraries",
+        "photara.libraries",
+        "photara.project_ownership",
+        "photara.libraries",
+        "photara.project_ownership",
+        "photara_identity.accounts",
+        "photara.libraries",
+        "photara.project_ownership",
+        "photara_identity.accounts",
+        "photara_identity.accounts",
+        "photara_identity.project_access_grants",
+        "photara.libraries",
+        "photara_identity.project_invitations"
+      ]
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0009_storage_locations.sql",
+      "sha256": "a44b2ff69b775e93f2b353481cd1380ebf007d497b7bff7ec19b539b8557296f",
+      "declared_tables": [
+        "photara.storage_location_specs",
+        "photara.storage_slots",
+        "photara.storage_slot_names"
+      ],
+      "references": [
+        "photara.storage_roots",
+        "photara.libraries",
+        "photara.storage_roots",
+        "photara.libraries",
+        "photara.storage_slots",
+        "photara.libraries",
+        "photara.storage_slot_names"
+      ]
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0010_library_context.sql",
+      "sha256": "6a81e63b3ae9f0042568558c30209c68748bac6c58af41938ed55e03c74223ef",
+      "declared_tables": [
+        "photara.library_variables",
+        "photara.library_variable_values",
+        "photara.library_variable_names",
+        "photara.library_expressions",
+        "photara.library_expression_dependencies"
+      ],
+      "references": [
+        "photara.libraries",
+        "photara.library_variables",
+        "photara.libraries",
+        "photara.library_variables",
+        "photara.libraries",
+        "photara.library_variable_names",
+        "photara.library_variables",
+        "photara.libraries",
+        "photara.library_expressions",
+        "photara.library_variables",
+        "photara.storage_slots",
+        "photara.libraries"
+      ]
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0011_scoped_sync.sql",
+      "sha256": "22b9d26c9b7f640ca02ee6c6d4754fdc753b4c87cfe6fbd3b398233a8a290c33",
+      "declared_tables": [
+        "photara.project_media_links",
+        "photara_private.scoped_streams",
+        "photara_private.scoped_change_batches",
+        "photara_private.scoped_changes",
+        "photara_private.scoped_command_receipts",
+        "photara_private.scoped_sync_clients"
+      ],
+      "references": [
+        "photara.project_ownership",
+        "photara.library_media",
+        "photara.libraries",
+        "photara.project_ownership",
+        "photara.libraries",
+        "photara_private.scoped_streams",
+        "photara.libraries",
+        "photara_private.scoped_change_batches",
+        "photara.libraries",
+        "photara_identity.devices",
+        "photara.project_ownership",
+        "photara_private.scoped_change_batches",
+        "photara.libraries",
+        "photara_private.scoped_command_receipts",
+        "photara_private.scoped_streams",
+        "photara_identity.devices",
+        "photara.project_ownership",
+        "photara_identity.accounts"
+      ]
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0012_d19_access_guards.sql",
+      "sha256": "e2ea1a2c256a7566429a6a728e7a0640b0fe53600fdccfe1f21b140b94aec596",
+      "declared_tables": [],
+      "references": []
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0013_runtime_boundary.sql",
+      "sha256": "8b7970566e82b2de4cd1fa4be81165be4b3d13f6716375e99c04ef9a9cd09294",
+      "declared_tables": [],
+      "references": []
+    },
+    {
+      "path": "crates/photara-service/migrations/postgres/0014_onboarding.sql",
+      "sha256": "bf3a84df0a577fa84d90a48b2e45b6e07fd92430a59001e53f9780e34f7509f9",
+      "declared_tables": [
+        "photara_identity.account_defaults",
+        "photara_identity.device_credentials",
+        "photara_private.onboarding_receipts",
+        "photara_private.onboarding_challenges"
+      ],
+      "references": [
+        "photara_identity.accounts",
+        "photara.libraries",
+        "photara_identity.devices",
+        "photara_identity.account_identities",
+        "photara_identity.device_credentials",
+        "photara_private.onboarding_receipts"
+      ]
+    }
+  ]
+}

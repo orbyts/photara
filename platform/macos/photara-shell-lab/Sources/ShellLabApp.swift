@@ -51,6 +51,9 @@ private struct ShellControls: View {
         }
         Button("Open Preview") { openWindow(id: "preview") }
       }
+      if model.scenario == .libraryLifecycle {
+        LifecycleControls(model: model.lifecycle)
+      }
       if model.scenario.isOpening {
         Section("Opening") {
           Text(
@@ -180,4 +183,20 @@ private struct ShellControls: View {
     }
     window.setContentSize(.init(width: width, height: height))
   }
+}
+
+private struct LifecycleControls: View {
+    @ObservedObject var model: LibraryLifecycleFixture
+    var body: some View {
+        Section("Library Lifecycle · review only") {
+            Picker("State", selection: Binding(get: { model.scenario }, set: { model.show($0) })) {
+                ForEach(LibraryLifecycleScenario.allCases) { Text($0.title).tag($0) }
+            }
+            Picker("Switcher context", selection: Binding(get: { model.fixtureCase }, set: { model.configure($0) })) {
+                ForEach(LibrarySwitcherFixtureCase.allCases) { Text($0.title).tag($0) }
+            }
+            Text("Synthetic catalog only. No database, network, credentials or package operations. Use Continue to review the native final destructive dialog.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
 }

@@ -1,5 +1,36 @@
 # Photara 0.2 execution roadmap
 
+## 2026-09-15 accepted LL0 checkpoint — next slice PS0
+
+Suhail accepted [Library Lifecycle LL0](architecture/LIBRARY_LIFECYCLE.md), including the native Library/account
+switcher. The bottom-left avatar/name trigger opens its menu **above** the row;
+cloud Libraries are grouped by account, true locals under On This Mac, with one
+native current checkmark. The sidebar contains only active-Library content.
+
+LL0 contains the contract, lab-only fixtures and native verification evidence.
+Create/select/rename/remove semantics include exact-name and final confirmation,
+owner authorization, retry/reconciliation and catalog cleanup while files remain
+untouched. Production lifecycle wiring and schema changes are not implemented.
+
+The next distinct slice is **Project Session and Graph Durability PS0**, from the
+clean published LL0 checkpoint. This publication does not begin PS0. **LL1 Library
+Lifecycle typed contracts and unnumbered schema delta review remains separately
+gated**; PS0 neither starts nor replaces that Library Lifecycle work.
+
+This checkpoint authorizes the reviewed LL0 commit and a normal fast-forward push
+only. No install/deploy, live database/package/account operation, migration numbering
+or DDL. COV0/COV1/Gallery remain separate; the recorded COV0 ROADMAP conflict is not
+merged here. UI1 remains accepted/published at `b0c2ba7`, with publication record
+`913f3526f51eaa1aaf34ef83ead2860869465e85` as this checkpoint's verified parent.
+
+Verification: 78 native captures (Light/Dark and narrow states), 22 menu placement/
+action checks, 81 switcher context transitions; shared UI 119 captures, 256 scenario
+transitions and 50 contrast pairs. Shell Lab builds. All 273 protected paths and
+29 migrations match the parent. Accessibility metadata and native mouse/keyboard
+checks pass; human VoiceOver speech/navigation remains explicitly manual.
+
+## Historical checkpoint entries
+
 ## 2026-09-14 UI1 real Create Project implementation
 
 UI1 is implemented from `c605475` in the uncommitted working tree. The approved

@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum ShellScenario: String, CaseIterable, Identifiable {
-    case opening, createProject, recentsCollapsed, recentsExpanded, emptyProject, firstNode, selectionCleared
+    case opening, createProject, libraryLifecycle, recentsCollapsed, recentsExpanded, emptyProject, firstNode, selectionCleared
     case assets, layout, review, evaluating, diagnostics, compact, saved, syncing
     var id: String { rawValue }
     var isOpening: Bool { [.opening, .createProject, .recentsCollapsed, .recentsExpanded].contains(self) }
@@ -10,6 +10,7 @@ enum ShellScenario: String, CaseIterable, Identifiable {
         switch self {
         case .opening: "Opening"
         case .createProject: "Create Project"
+        case .libraryLifecycle: "Library Lifecycle"
         case .recentsCollapsed: "Opening · legacy recents collapsed"
         case .recentsExpanded: "Opening · legacy recents expanded"
         case .emptyProject: "Project / Graph · empty"
@@ -20,13 +21,13 @@ enum ShellScenario: String, CaseIterable, Identifiable {
         }
     }
     /// Only scenarios with a Project render the shared module geometry.
-    var authorsModuleGeometry: Bool { !isOpening }
+    var authorsModuleGeometry: Bool { !isOpening && self != .libraryLifecycle }
     static var browserCases: [Self] { allCases.filter { ![.recentsCollapsed, .recentsExpanded].contains($0) } }
 
     static let layoutSurface = NodeWorkSurfacePresentation(nodeID: "layout", contributionID: "photara.layout.work-surface",
         title: "Layout", iconResourceID: "photara.layout.compose", accentHex: "#A682CF")
     var presentation: ApplicationPresentation {
-        let opening = [.opening, .createProject, .recentsCollapsed, .recentsExpanded].contains(self)
+        let opening = [.opening, .createProject, .libraryLifecycle, .recentsCollapsed, .recentsExpanded].contains(self)
         let empty = self == .emptyProject
         let layout = [.layout, .review].contains(self)
         let nodes = opening || empty ? [] : layout ? ["disk", "layout"] : ["disk"]
@@ -60,6 +61,7 @@ final class ShellLabModel: ObservableObject {
             draftDefaults.set(data, forKey: Self.draftKey)
         }
     }
+    let lifecycle = LibraryLifecycleFixture()
     @Published var dark = false
     @Published var createProjectPresentation: CreateProjectPresentation = .shipped
     @Published var identifiesControls = false
@@ -107,6 +109,7 @@ final class ShellLabModel: ObservableObject {
         lastAction = "Restored the shipped preset in Shell Lab."
     }
     func reset() {
+        lifecycle.configure(.cloud)
         // Each scenario owns a fresh disposable presentation session, including
         // pending catalog requests and selections when both roots are Opening.
         session = EditorSessionModel(persists: false)
@@ -161,6 +164,10 @@ struct ShellLabPreview: View {
     var body: some View {
         let appearance: PhotaraThemeAppearance = model.dark ? .dark : .light
         let theme = themeStore.document.resolved(for: appearance)
+        Group {
+        if model.scenario == .libraryLifecycle {
+            LibraryLifecycleLabView(model: model.lifecycle)
+        } else {
         ApplicationShell(presentation: model.presentation, actions: .init(send: model.send), preset: model.preset,
                 workSurface: { surface in
                     AnyView(LayoutAuthoringSurfaceView(presentation: .init(node: InspectorFixture.layout.presentation.node),
@@ -206,6 +213,8 @@ struct ShellLabPreview: View {
                     presentation: model.createProjectPresentation
                 )
             }
+        }
+        }
             .environmentObject(session)
             .environment(\.photaraTheme, theme)
             .preferredColorScheme(model.dark ? .dark : .light)

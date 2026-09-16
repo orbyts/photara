@@ -1,15 +1,16 @@
 # UI ladder and authoring sequence
 
-Status, 2026-09-14: UI0 and Compact are accepted; real UI1 creation is implemented
-in the working tree. See [UI1 implementation and recovery evidence](UI1_CREATE_PROJECT.md).
-The full unchanged Graph furnace passes 15,644 assertions with zero failures.
-Publication is not authorized: no commit/push/install/deploy or live data changes.
-Library Lifecycle remains separately gated with exact-name retyping, impact counts,
-current ownership and orphan-free catalog cleanup; packages and source/archive
-files must remain untouched. UI2/UI3 are not implemented by this slice.
+Status, 2026-09-15: UI0, Compact and transactional UI1 are accepted and published
+at `b0c2ba7`; publication record `913f352`. The final Graph gate passes 19,093
+assertions with zero failures. [UI1 integration evidence](UI1_INTEGRATION_CHECKPOINT.md).
 
-The following visual-checkpoint sections retain historical scope and authorization;
-they do not describe or authorize publication of the new creation implementation.
+[Library Lifecycle LL0](LIBRARY_LIFECYCLE.md) is accepted, including the native
+upward Library/account menu. Its lab-only contract/evidence checkpoint is authorized
+for a normal fast-forward publication. The next distinct slice is **Project Session
+and Graph Durability PS0**, not begun here. **LL1 Library Lifecycle typed/schema
+work remains separately gated**. No production wiring, migration ordinal, DDL,
+install/deploy or live-state operation is authorized. UI2/UI3 and COV0/COV1/Gallery
+remain separately gated. Historical sections below retain their original scope.
 
 ## Accepted UI0 and UI1 visual checkpoint
 
@@ -202,7 +203,7 @@ bounded view authoring and ordinary verification may use the default model.
 
 ## UI0 implementation inventory and compatibility
 
-UI0 and the UI1 Compact visual checkpoint are accepted; real UI1 creation wiring is pending.
+Historical UI0 scope: the Compact visual checkpoint preceded real UI1 wiring, now accepted and published.
 The presentation contract stays in Swift/shared JSON; no Rust, Core, package,
 Library schema, graph digest, synchronization or onboarding behavior is changed.
 
