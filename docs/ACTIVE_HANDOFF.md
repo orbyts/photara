@@ -1,5 +1,23 @@
 # Active handoff
 
+## PS2 current checkpoint — disposable recovery only
+
+Isolated branch `codex/ps2-durability-furnace` now includes child-process exits
+inside checkpoint resume (`bc85ae1`), after every missing immutable publication
+and replacement HEAD from every initial publication prefix. Fresh recovery keeps
+the original persisted intent and IDs, validates old/new closure, and compares the
+complete final file tree across repeated completion. Single-RenameGraph semantic
+replay equality (`69ad2db`) is a separate I/O-free fixture. Store checks: 89 passed,
+3 intentionally ignored; strict all-target Clippy and formatting pass.
+
+[Retention/storage direction](architecture/PS2_RETENTION_STORAGE_DECISION.md),
+[macOS qualification](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md) and
+[writer admission](architecture/PS2_WRITER_ADMISSION_PROPOSAL.md) remain proposals.
+Full typed mutation/undo replay, platform barriers, the remaining I/O failure
+matrix, retention and production integration are unfinished. No installed app,
+live package, main-branch publication or power-loss qualification is implied.
+Continue safe disposable work while those production decisions are reviewed.
+
 ## PS1 accepted; PS2 next — 2026-09-16
 
 [PS1 implementation/evidence](architecture/PS1_PURE_PACKAGE_PLANNER.md) starts from

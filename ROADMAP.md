@@ -24,10 +24,22 @@ recovery adapter. The disposable recovery path can then publish missing
 immutable files and advance HEAD once; a repeated recovery leaves the verified
 candidate unchanged. It refuses tampered intent or immutable bytes before any
 additional write, and freezes on an unrelated HEAD.
-No production journal API, user-package writer, APFS durability qualification,
-semantic replay, checkpoint publication, process-kill matrix, retention decision,
-native autosave or project switching exists yet. PS2 is **not** an acceptance gate
-until those boundaries pass with independently verified old-or-new package recovery.
+The child-process resume matrix (`bc85ae1`) now exits inside resume after every
+missing immutable publication and replacement HEAD, from every initial publication
+prefix. Fresh recovery reuses the same persisted intent/IDs; exact whole-file-tree
+comparison proves completion and repeated completion without duplicate effects.
+The single-RenameGraph replay equality fixture (`69ad2db`) remains I/O-free and
+separate from journal framing. Store verification: 89 passed, 3 explicitly ignored;
+strict all-target Clippy and formatting pass.
+
+The [retention/storage decision](docs/architecture/PS2_RETENTION_STORAGE_DECISION.md),
+[macOS qualification plan](docs/architecture/PS2_MACOS_STORAGE_QUALIFICATION.md) and
+[cooperative writer admission proposal](docs/architecture/PS2_WRITER_ADMISSION_PROPOSAL.md)
+record remaining design gates. No complete typed mutation/undo journal, qualified
+package edit writer, production recovery, retention implementation, native autosave
+or project switching exists yet. Process exits do not qualify OS-crash/power-loss
+durability; the remaining per-I/O failure matrix and platform qualification are
+still required. PS2 remains incomplete.
 
 ## Current checkpoint: PS1 accepted; PS2 next — 2026-09-16
 

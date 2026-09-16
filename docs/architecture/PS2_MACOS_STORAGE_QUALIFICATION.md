@@ -58,6 +58,9 @@ known competing writers/providers are excluded; if that assertion cannot be
 supported, the present interface must refuse a qualified profile. Detecting a
 change after publication does not undo a race already lost to an uncooperative
 writer. A later proposal to relax this assumption needs explicit architecture review.
+The [writer admission proposal](PS2_WRITER_ADMISSION_PROPOSAL.md) now makes that
+review concrete: registered in-place editing with cooperative guarantees, or the
+more restrictive managed-root alternative. Neither changes the current policy yet.
 
 Apple's [rename manual](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/rename.2.html)
 documents replacement and same-filesystem behavior. Atomic replacement is not
