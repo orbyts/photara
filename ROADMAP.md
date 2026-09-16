@@ -6,6 +6,9 @@ The first test-only journal increment validates canonical framed records, chaine
 checksums, exact sequence and package identity, every torn suffix, corruption,
 unsupported versions, and idempotent reconciliation after uncertain append/sync.
 It reopens a disposable file and preserves original evidence on short writes.
+The disposable package-publication fixture also stops after intent, each new
+immutable file and HEAD replacement, checking the existing reader accepts only
+the complete old or new closure and that stale HEAD blocks publication.
 No production journal API, user-package writer, APFS durability qualification,
 semantic replay, checkpoint publication, process-kill matrix, retention decision,
 native autosave or project switching exists yet. PS2 is **not** an acceptance gate

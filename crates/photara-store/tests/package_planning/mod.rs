@@ -2,6 +2,9 @@ use super::*;
 use package::{MemoryPackage, planning::io::*, planning::*};
 use photara_core::{NodeDefinitionRegistry, ValueTypeRegistry, creation::PackageExtension};
 
+#[path = "furnace.rs"]
+mod furnace;
+
 fn incarnation() -> IncarnationId {
     IncarnationId::parse(&id(30000)).unwrap()
 }
