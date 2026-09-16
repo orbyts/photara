@@ -1,5 +1,31 @@
 # Roadmap to Photara 0.2.0
 
+## PS0 architecture review gate — 2026-09-15
+
+[Project Session and Graph Durability PS0](docs/architecture/PROJECT_SESSION_DURABILITY.md) is drafted against published
+LL0 baseline `114ce43af1089c8bac7fa5c3010a440521027571`. It audits the legacy
+explicit-save and UI1 read-only package routes and proposes journal, writer,
+coordinator, failure recovery and review-only typed/schema contracts.
+
+Order: **PS0 review → BR0 Brand Cutover / Rename Readiness → PS1 pure
+writer/contracts → PS2 disposable persistence and
+recovery furnace → PS3 native coordinator/autosave → PS4 Project-switch integration**.
+Retention/current-reader compatibility is a production gate. No writer/session
+wiring, migration numbering/execution, package mutation or real switching occurs
+in PS0. Stop for Suhail review; no commit or push is authorized for this checkpoint.
+
+**PS1 is blocked until BR0 passes.** Branding, website, domain, marketing name and
+production trust enrollment stay deferred until the product is concrete. BR0 proves
+public renaming and extension replacement are a bounded configuration cutover,
+including synthetic-brand tests, legacy-extension reads and explicit security/local-
+directory transition contracts. Stable internal compatibility IDs remain unchanged.
+Known hard-coded naming leaks are BR0 inputs, not readiness claims; PS0 implements
+none of this gate and authorizes no live trust enrollment.
+
+LL0 remains accepted/published. LL1 remains independently gated; PS0 does not start
+Library lifecycle implementation. COV and Gallery work remain separate. The older
+LL0 publication authorization below applies only to that historical checkpoint.
+
 ## 2026-09-15 accepted LL0 checkpoint — next slice PS0
 
 Suhail accepted [Library Lifecycle LL0](docs/architecture/LIBRARY_LIFECYCLE.md), including the native Library/account
