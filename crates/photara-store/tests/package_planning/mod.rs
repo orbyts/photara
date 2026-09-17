@@ -2,6 +2,8 @@ use super::*;
 use package::{MemoryPackage, planning::io::*, planning::*};
 use photara_core::{NodeDefinitionRegistry, ValueTypeRegistry, creation::PackageExtension};
 
+#[path = "authority.rs"]
+mod authority;
 #[path = "furnace.rs"]
 mod furnace;
 #[path = "journal.rs"]

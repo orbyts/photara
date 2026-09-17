@@ -38,6 +38,14 @@ HEAD/incarnation/volume/owner/protocol bindings, and four compile-fail doctests 
 forgery/raw-lock/default/profile bypasses. `WriterBusy` is typed; no actual GUI/agent
 contention or progress claim is made. Current store checks: 96 regular tests plus
 4 compile-fail doctests passed, 4 ignored; strict Clippy/fmt pass.
+The subsequent [logical-client fixture](../crates/photara-store/tests/package_planning/authority.rs)
+adds GUI/agent ordering with actual pure rename planning, private host-grant
+fixtures, stale-coordinate refusal, original-ID dedupe, ordered reconnect/gap
+behavior, finite virtual checkpoint prefixes, and detach isolation. A second logical
+owner gets WriterBusy; no real OS contention, authorization service, durable append,
+owner-turnover recovery or production coordinator is implemented. Current store
+checks: 98 regular tests plus 4 compile-fail doctests passed, 4 ignored; strict
+Clippy/fmt pass. See [evidence limits](architecture/proposals/ps0/VERIFICATION.md#completed-bounded-logical-client-evidence).
 Full typed mutation/undo replay, platform barriers, the remaining I/O failure
 matrix, retention and production integration are unfinished. No installed app,
 live package, main-branch publication or power-loss qualification is implied.

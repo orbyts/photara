@@ -61,6 +61,14 @@ forgery and attempts to use raw locks/defaults/profiles as permission. `WriterBu
 is typed, but real multi-process contention/routing remains untested. Store checks:
 96 regular tests plus 4 compile-fail doctests passed, 4 intentionally ignored;
 strict Clippy/fmt pass. No complete typed mutation/undo journal, qualified
+package writer or production coordinator is implied by those interface checks.
+The [logical-client furnace](crates/photara-store/tests/package_planning/authority.rs)
+now adds two test-only cases using the real pure rename planner: GUI/agent ordering,
+scoped host-grant fixtures, exact stale checks, dedupe, reconnect gaps, finite virtual
+checkpoint prefixes and detach isolation. It models WriterBusy for a second logical
+owner, not OS contention or routing. Current store verification: 98 regular tests
+plus 4 compile-fail doctests passed, 4 ignored; strict Clippy/fmt pass.
+No complete typed mutation/undo journal, qualified
 package edit writer, production recovery, retention implementation, native autosave
 or project switching exists yet. Process exits do not qualify OS-crash/power-loss
 durability; the remaining per-I/O failure matrix and platform qualification are

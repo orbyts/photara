@@ -30,6 +30,27 @@ These are new acceptance obligations, not executable fixtures or completed evide
 Actual routing/handoff and qualified-storage failure tests remain required before
 promising multi-process progress or production autosave.
 
+### Completed bounded logical-client evidence
+
+The [authority fixture](../../../../crates/photara-store/tests/package_planning/authority.rs)
+now exercises GUI-like and agent-like attachments to one in-memory Rust ordering
+model. It uses actual PS1 RenameGraph planning and independently re-verifies virtual
+candidate bytes. Tests cover exact stale-coordinate rejection, original-operation
+dedupe before stale checks, different-intent refusal, ordered observations, reconnect
+gap/snapshot and future-cursor refusal, a finite checkpoint prefix while later edits
+exist, and detach without discarding another client's accepted work. Private
+synthetic host grants enforce principal, grantor, package/Graph scope, generation
+and revocation; original credential-free acceptance provenance survives grant renewal
+and revocation. A second logical owner receives WriterBusy; a stale owner token
+cannot submit.
+
+This model has no durable append, production receipt, authorization service, IPC,
+real OS contention, owner-turnover recovery or coordinator implementation. Its
+two-event observation window is a fixture input, not a production retention limit;
+accepted evidence/dedupe remains intact. Other journal/process furnaces remain
+separate evidence and are not implicitly composed into end-to-end durability by
+these two model tests. The remaining obligations above stay open.
+
 ## BR0 acceptance — required before PS1
 
 These tests are proposed, not run in PS0. Build a disposable release using a synthetic
