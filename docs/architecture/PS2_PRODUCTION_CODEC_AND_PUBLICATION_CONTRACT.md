@@ -172,19 +172,39 @@ even if backed by APFS, is not admitted merely by its filesystem label.
    authored state).
 2. Publish immutable dependencies, roots, operation/dedupe evidence and commit
    without replacement; complete qualified file and directory barriers.
-3. Validate the full candidate independently, then recheck lease, identity,
-   pins and exact old HEAD. Only then atomically replace `HEAD.json` on the same
-   qualified volume.
+3. From a qualified previously audited/published selected root bound to the
+   exact HEAD and storage identity, validate the candidate's changed and new
+   dependency paths, exact typed edges, operation inclusion and active/recovery
+   root commitments independently; do not scan
+   unchanged lifetime history on every publication. Recheck lease, identity,
+   pins and exact old HEAD. An externally changed HEAD invalidates the prior
+   session's writable trust; it is not treated as the next writable base.
+   Only then atomically replace `HEAD.json` on the same qualified volume.
+   An imported root without completed audit is not admitted for writing by
+   this incremental path.
 4. Complete the qualified HEAD/device/directory barriers, reopen the exact
-   selected HEAD and full closure, and durably record acknowledgement and
-   recovery/dedupe transition. `Saved` refers only to this verified receipt
-   **when its included authored revision and digest equal the current accepted
-   session state**. A valid older-prefix receipt cannot label later pending
-   edits as saved.
+   selected HEAD, current authored state and changed/accessed closure, and
+   durably record acknowledgement and recovery/dedupe transition. `Saved`
+   refers only to this verified receipt **when its included authored revision
+   and digest equal the current accepted session state**. A valid older-prefix
+   receipt cannot label later pending edits as saved. This scoped reopen is not
+   an exhaustive historical audit.
 5. Retain all unknown-outcome evidence. Old HEAD means pending; exact candidate
    requires original-ID barrier/inclusion reconciliation; unrelated HEAD or
    rollback after receipt freezes in conflict. Never retry with fresh IDs or
    infer “not performed” from a later failure.
+
+The approved 2026-09-17 assurance distinction is: ordinary opening
+authenticates the selected/current state and accessed structure without
+traversing every historical index or inventory page. An
+explicit full integrity audit traverses and cross-checks the complete retained
+package-object closure. An imported/unaudited package may be inspected
+structurally read-only; writable admission waits for that full audit to
+succeed. A previous audit or qualified publication establishes structural
+continuity for incremental checking, not perpetual freedom from bitrot in
+unread pages: later corruption must refuse on access or full audit. The exact
+scalable index and compositional inventory wire is still under review; these
+assurance levels do not freeze the candidate flat appendix.
 
 The separate managed Asset Store publication persists intent, stages/verifies
 and durably publishes the backing **before** package descriptor/obligation
@@ -193,8 +213,11 @@ retain original operation identity and backing evidence for reconciliation.
 
 Reserve finite capacity before accepting bounded work: union of active,
 recovery, pinned and conversion package closure; journal/dedupe/index/staging;
-embedded bytes and safety margin. Reserve Asset Store work separately and
-combine reservations when package and store share a physical capacity domain.
+embedded bytes and safety margin. Capacity accounting uses registered actual
+physical allocations and unresolved reservations, not a per-operation walk
+through lifetime history or the sum of shared child sizes. Reserve Asset Store
+work separately and combine reservations when package and store share a
+physical capacity domain.
 No experimental fixture threshold becomes a production default. Exhaustion
 causes backpressure/refusal with preserved recovery state; dedupe exhaustion
 cannot silently forget IDs or reset an incarnation. This contract identifies
@@ -206,7 +229,9 @@ conversion-source release, or user-source deletion is authorized.
 - New reader positive/negative tests for exact IDs, floor, bootstrap preservation,
   feature/discriminator disagreement, old-reader refusal, active/recovery closure,
   inventory surplus/omission, resource cross-links, offline backing and zero
-  routine external-media reads.
+  routine external-media reads. Separate structural-open tests from complete
+  historical-audit tests, and enforce read-only admission for imported roots
+  until exhaustive audit succeeds.
 - Conversion tests at every publication cut, exact original inventory (including
   unknown bytes), legacy-reader reopening, insufficient reserve and occupied/
   unsafe namespace refusal. Repeated conversion cannot mint new identities.

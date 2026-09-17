@@ -1,6 +1,6 @@
 # Active handoff
 
-## PS2 index/inventory scaling — architecture review
+## PS2 index/inventory scaling — disposable real-file review
 
 The [scaling review](architecture/PS2_INDEX_INVENTORY_SCALING_REVIEW.md)
 compares flat index/inventory, linked segments, LSM runs, paged trees and a
@@ -8,25 +8,33 @@ compressed OperationId map plus dense ordinal Merkle sequence over shared
 immutable receipts. A disposable 1k–1M operation byte-work model shows the
 flat rewrite problem and a bounded-page proxy, while explicitly **not**
 claiming filesystem durability or acceptable physical write amplification.
-The key new assurance boundary is fast structural selected-state opening vs.
-on-demand path validation vs. explicit exhaustive history audit. A compact
-real-file prototype and that assurance decision precede revised permanent
-wire bytes. No production reader/writer, live-package data, or existing flat
-goldens changed.
+The [real-file comparison](architecture/PS2_INDEX_INVENTORY_REAL_FILE_COMPARISON.md)
+now tests complete 1k–1M disposable fixtures for compressed radix and paged
+B-tree OperationId maps over the same ordinal history, receipt and pack.
+Radix leads on incremental bytes, B-tree on bulk-built baseline size. Both
+are dominated by an unoptimized ten-sync publication schedule. Structural
+opening, old-ID retry, full audit and fault/recovery cases are measured, with
+raw evidence retained. The user approved structural/read-only imported opening
+versus explicit exhaustive audit and audit-gated writable admission, now
+reflected in the publication contract. The next review is batching/flush,
+storage layout/compaction, inventory edges and qualified durability before
+revised permanent wire. No production reader/writer, live-package data, or
+existing flat goldens changed.
 
 ## PS2 exact wire appendix and golden bytes — paused
 
 The [production boundary](architecture/PS2_PRODUCTION_CODEC_AND_PUBLICATION_CONTRACT.md)
 is approved as direction. The [candidate exact wire appendix](architecture/PS2_PRODUCTION_WIRE_APPENDIX.md)
 and [19 golden canonical-byte vectors](architecture/proposals/ps2/sealed-wire-golden.json)
-are not frozen; their flat index/inventory portions await the scaling gate.
+are not frozen; their flat index/inventory portions await a revised proposal
+after the real-file scaling and physical-storage gates.
 The selected commit's 1.2 minimum-reader floor is
 separate from bootstrap, HEAD/commit schema, public app and filename versions.
 Portable `working-binding` contains only logical location/coordinate state,
 never host observations or grants. A test-only encoder check pins bytes; no
 production reader, publication/recovery code, live writes or conversion was
-added. Next: resolve index/inventory scaling before revising exact bytes or
-implementing production reader/synthetic publication. Shared Rust
+added. Next: review real-file comparison and unresolved storage gates before
+revising exact bytes or implementing production reader/synthetic publication. Shared Rust
 session/autosave follows, before project switching.
 
 ## 2026-09-17 local main cleanup safeguard

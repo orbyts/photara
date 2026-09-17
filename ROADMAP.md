@@ -1,16 +1,22 @@
 # Roadmap to Photara 0.2.0
 
-## PS2 index/inventory scaling — current architecture gate
+## PS2 index/inventory real-file comparison — review gate
 
 The [index and inventory scaling review](docs/architecture/PS2_INDEX_INVENTORY_SCALING_REVIEW.md)
 finds that the current flat lifetime operation index and flat exact-union
 inventories cannot meet continuous-autosave, root-turnover and snappy-open
-targets. **Do not freeze or amend those candidate wire bytes yet.** Next is a
-disposable real-file comparison of a shared-receipt ordinal Merkle sequence
-plus OperationId map against a paged ordered-tree alternative, including
-physical write amplification and staged structural-open/full-audit semantics.
-The actual permanent wire awaits those results and approval of the assurance
-boundary. No production reader/writer or live-package change is authorized.
+targets. The [disposable real-file comparison](docs/architecture/PS2_INDEX_INVENTORY_REAL_FILE_COMPARISON.md)
+fully materialized 1k–1M operations for both a compressed radix OperationId
+map and paged B-tree alternative over the same ordinal sequence and immutable
+pack. It supports the radix map as the leading *logical* candidate, while
+showing that the fixture's per-operation sync schedule is not yet snappy and
+that pack bytes are not physical device-write telemetry. The user approved
+structural/read-only imported opening versus explicit full audit and
+audit-gated writable admission; the publication contract now states it.
+**Do not freeze or amend the candidate flat wire/goldens yet.** Next review
+the comparison, batching/flush and storage layout/compaction gates before
+proposing revised permanent wire bytes. No production reader/writer or
+live-package change is authorized.
 
 ## PS2 exact wire and golden-byte review — paused
 
