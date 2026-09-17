@@ -1,5 +1,12 @@
 # Generation-two architecture
 
+**Current PS2 review gate:** [Production sealed-root codec and publication
+contract](PS2_PRODUCTION_CODEC_AND_PUBLICATION_CONTRACT.md) proposes stable
+feature/schema IDs, a 1.2 reader boundary, managed-backing records and
+recovery ordering. It is not yet an approved production format or writer; the
+[experimental on-disk checkpoint](PS2_EXPERIMENTAL_SEALED_CODEC_CHECKPOINT.md)
+remains disposable evidence.
+
 **2026-09-17: resource/storage semantic boundary approved.**
 [Resource storage, verification and retention](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
 consolidates three storage roles, typed `$library.project_store` /

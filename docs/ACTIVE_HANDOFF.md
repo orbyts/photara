@@ -1,5 +1,17 @@
 # Active handoff
 
+## PS2 production codec/publication contract — awaiting review
+
+The [review proposal](architecture/PS2_PRODUCTION_CODEC_AND_PUBLICATION_CONTRACT.md)
+now names candidate permanent features and schemas, a 1.2 reader floor,
+managed-backing records, original conversion preservation and the exact
+publication/reconciliation order. No production codec or writer was changed.
+The fixture codec remains `example.fixture.*` and must not be promoted merely
+by renaming. Next: review/approve or amend this contract; then implement the
+field-level typed wire appendix and production reader/synthetic
+publication/recovery without admitting live writes. Shared Rust session/
+autosave follows, before project switching.
+
 ## 2026-09-17 local main cleanup safeguard
 
 The old local `main` checkout was fast-forwarded to published `305987d` after
