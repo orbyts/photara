@@ -9,6 +9,9 @@ mod furnace;
 #[path = "journal.rs"]
 mod journal;
 #[cfg(target_os = "macos")]
+#[path = "macos_lease.rs"]
+mod macos_lease;
+#[cfg(target_os = "macos")]
 #[path = "macos_probe.rs"]
 mod macos_probe;
 #[path = "replay.rs"]

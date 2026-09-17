@@ -63,6 +63,15 @@ without requiring a managed root. All controlled writer surfaces use one Rust
 authority; another direct process gets WriterBusy while the lifetime lease is held.
 The interface separation does not qualify storage or implement admission/routing.
 
+The [disposable lease fixture](../../crates/photara-store/tests/package_planning/macos_lease.rs)
+observes actual independent-process contention: a contender receives typed
+WriterBusy while the holder lives; after holder termination, a fresh process
+acquires and verifies unchanged inode coordinates, manifest/HEAD and full closure.
+Per-mode completion markers and bounded waits guard against skipped or hung child
+tests. This establishes only the exercised advisory-lock behavior. It does not
+qualify path/lock substitution, inherited descriptors, noncooperators, providers,
+power-loss durability or production ownership/routing.
+
 Apple's [rename manual](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/rename.2.html)
 documents replacement and same-filesystem behavior. Atomic replacement is not
 compare-and-swap and does not independently prove persistence of the referenced

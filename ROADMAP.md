@@ -58,7 +58,7 @@ non-cloneable registered lease required by every mutation; no production constru
 or registrar exists. Four synthetic binding tests reject absent admission and exact
 identity/HEAD/volume/owner/protocol mismatches; four compile-fail checks cover
 forgery and attempts to use raw locks/defaults/profiles as permission. `WriterBusy`
-is typed, but real multi-process contention/routing remains untested. Store checks:
+is typed; the interface checks alone do not test contention or routing. Store checks:
 96 regular tests plus 4 compile-fail doctests passed, 4 intentionally ignored;
 strict Clippy/fmt pass. No complete typed mutation/undo journal, qualified
 package writer or production coordinator is implied by those interface checks.
@@ -66,8 +66,16 @@ The [logical-client furnace](crates/photara-store/tests/package_planning/authori
 now adds two test-only cases using the real pure rename planner: GUI/agent ordering,
 scoped host-grant fixtures, exact stale checks, dedupe, reconnect gaps, finite virtual
 checkpoint prefixes and detach isolation. It models WriterBusy for a second logical
-owner, not OS contention or routing. Current store verification: 98 regular tests
+owner, not OS contention or routing. Current store verification: 100 regular tests
 plus 4 compile-fail doctests passed, 4 ignored; strict Clippy/fmt pass.
+The [macOS lease fixture](crates/photara-store/tests/package_planning/macos_lease.rs)
+now observes an independent contender receiving WriterBusy while a child holds the
+disposable package's stable `.writer-lock`. After holder termination, a fresh
+process acquires the lock and verifies expected inode coordinates, exact
+manifest/HEAD and the package closure; original package bytes remain unchanged.
+Bounded waits and completion markers verify child execution. This is not a
+production adapter or path-substitution, inherited-descriptor, noncooperator,
+provider or power-loss qualification; GUI/agent routing remains unimplemented.
 No complete typed mutation/undo journal, qualified
 package edit writer, production recovery, retention implementation, native autosave
 or project switching exists yet. Process exits do not qualify OS-crash/power-loss
