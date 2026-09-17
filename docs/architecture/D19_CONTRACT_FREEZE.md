@@ -17,6 +17,18 @@ L1/L2 sources and S2–S6 fixtures have a separately verified Library naming
 rebaseline. Their earlier preservation claims describe historical slice boundaries,
 not a requirement to retain unshipped naming.
 
+**2026-09-17 additive resource/storage boundary:** the approved
+[resource storage and verification contract](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
+extends the target model with managed external version backing, explicit capture/
+retention separation and typed default roles. It does not alter the frozen forms
+below: `ProjectResourceId` versions currently require embedded blob ObjectRefs,
+and external reference revisions bind their logical coordinates. Future backing
+relocation independent of content version needs an additive reviewed form;
+`external-output` cannot be repurposed to claim managed custody. Existing canonical
+bytes, identifiers, enum tags, schema floors and migrations remain unchanged.
+The corrected slot source syntax is `$library.<slot>`; default-role wiring for
+`$library.project_store` / `$library.asset_store` remains future implementation.
+
 ## Decisions and approval boundary
 
 | ID | Accepted decision — all R1–R8, 2026-09-12 | Implementation gate |

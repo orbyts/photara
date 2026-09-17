@@ -1,5 +1,34 @@
 # Active handoff
 
+## 2026-09-17 resource/storage contract — next PS2 gate
+
+The reviewed direction is consolidated in
+[Resource storage and verification](architecture/RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
+and sequenced in the [roadmap](../ROADMAP.md#resource-location-and-verification-contract--2026-09-17).
+It distinguishes the transactional package from user-managed source locations
+and configurable managed asset storage; mutable working bindings from immutable
+captured versions and independently retained byte backings; availability from
+retention compliance; and capture evidence from an indefinite retention promise.
+Library storage slots and device Host Bindings remain the only location-variable
+mechanism. Approved initial default spellings are `$library.project_store` and
+`$library.asset_store`; `$project.root` and `$project.artifacts` keep their
+existing meanings. The implementation accepts `$library.<slot>` while older
+conceptual documentation used `$library.storage.<slot>`; the contract records
+that reconciliation rather than adding another path language.
+
+**Next work:** implement only disposable PS2 positive sealed-root fixtures under
+the amended package-closure versus external-backing boundary. Cover independent
+roots, exact keep-set, no large-media reads for metadata checkpoints, offline
+versus confirmed loss, pinned versus retirement-eligible captured versions,
+qualified placement and cross-store interruption. Preserve legacy 1.1 package
+bytes and negative boundary fixtures. Review fixture results before choosing a
+production codec, migration, managed-store publisher, asset cleanup or native
+integration. The current reader still hashes embedded blobs on full validation;
+the documented structural-open/deferred-hash distinction is not implemented.
+No storage profile beyond the separately qualified initial scope, asset-store
+writer, CLI/agent routing, live-data migration or deletion is implied by this
+documentation checkpoint. The entries below retain earlier PS2 evidence.
+
 ## PS2 current checkpoint — disposable recovery only
 
 Isolated branch `codex/ps2-durability-furnace` now includes child-process exits

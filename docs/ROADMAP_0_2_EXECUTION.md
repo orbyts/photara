@@ -1,5 +1,20 @@
 # Photara 0.2 execution roadmap
 
+## 2026-09-17 current gate — resource contract before PS2 positive fixtures
+
+The approved [resource storage and verification contract](architecture/RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
+is the semantic input to the next disposable PS2 sealed-root fixtures. It adds
+typed `$library.project_store` / `$library.asset_store` default roles through the
+existing Storage Slot/Host Binding architecture; separates mutable working files,
+captured versions, retention pins and managed external byte backings; and keeps
+offline availability distinct from a proven retention failure. The
+[current roadmap](../ROADMAP.md#resource-location-and-verification-contract--2026-09-17)
+lists the fixture gate and deferred implementation work. PS2 remains incomplete;
+PS3 native session/autosave integration follows separately. No production codec,
+managed-store publisher, migration, deletion or live-data change is implemented
+or authorized by this documentation checkpoint. Entries below retain historical
+slice status and must not be read as the current next-step instruction.
+
 ## 2026-09-15 accepted LL0 checkpoint — next slice PS0
 
 Suhail accepted [Library Lifecycle LL0](architecture/LIBRARY_LIFECYCLE.md), including the native Library/account
@@ -58,9 +73,8 @@ without database orphans; never deletion of packages or source/archive files.
 The earlier visual-checkpoint status and its publication authorization below are
 historical and do not authorize publication of this implementation.
 
-This is the authoritative execution order for generation two. `ROADMAP.md` retains
-the broader product and node-contract rationale; this document defines what task
-starts next, its bounded slices, and where user approval stops progress.
+At that historical checkpoint, this was the execution order for generation two.
+The current gate is stated at the top of this document and in `ROADMAP.md`.
 
 ## 2026-09-14 accepted UI0 and UI1 visual checkpoint
 

@@ -260,14 +260,26 @@ grant enters portable JSON. Identical logical paths survive move/rebind; actual
 path-dependent behavior is an explicit nonportable dependency and disables shared
 cache reuse. A ResourceHandle is not authority to overwrite an existing file.
 
-Library storage slots follow the same typed rule. Conceptual
-`$library.storage.raw_archive` source resolves an ID-bound Library Storage
+Library storage slots follow the same typed rule.
+`$library.raw_archive` source resolves an ID-bound Library Storage
 Location; the current device separately supplies an authorized Host Binding.
 Renaming the display label or slot cannot retarget a compiled expression, and an
 unavailable binding remains distinct from deletion. External source resources,
 managed Project resources, external artifacts and transient cache have separate
 retention and authority classes. See the canonical
 [storage-location and host-binding contract](STORAGE_LOCATIONS_AND_HOST_BINDINGS.md).
+
+The implemented grammar is `$library.<slot>`; earlier nested
+`$library.storage.<slot>` examples are corrected, not added as an alias grammar.
+The [approved storage boundary](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md#one-typed-location-and-naming-system)
+uses initial slots `$library.project_store` (new-package parent default) and
+`$library.asset_store` (managed-publication default). Their default roles select
+stable SlotIds; names remain editor syntax subject to existing collision rules.
+Capture pins the slot revision and selected StorageLocationId. Rename/retarget
+cannot rewrite historical references, and changing a default never moves existing
+bytes. These default roles are an approved additive target, not implemented
+built-ins. `$project.root`, `$project.artifacts`, `$asset` and uppercase HostPlaces
+retain their existing meanings and authority boundaries.
 
 Node-private or Project variables may hold portable resource references. A node
 can propose a Project-variable update only through a revision-checked declared

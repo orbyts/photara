@@ -9,6 +9,13 @@ way one device reaches bytes. It complements [D19](LIBRARY_AND_NODE_WORK_SURFACE
 the [typed context contract](TYPED_CONTEXT_AND_EXPRESSIONS.md), and the
 [Project package schema](PROJECT_PACKAGE_SCHEMA.md).
 
+**2026-09-17 additive target:** the approved
+[resource storage and verification contract](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
+defines three storage roles, `$library.project_store` / `$library.asset_store`
+default slots, managed external backing, placement and independent retention/
+availability. Current CXT/D19 serialized forms below remain unchanged; the new
+managed-backing form and default-role wiring are not implemented.
+
 ## Accepted exact contract and compatibility
 
 The [D19 freeze](D19_CONTRACT_FREEZE.md#storage-resolution-slots-and-retention)
@@ -114,6 +121,15 @@ Photara distinguishes storage class from semantic asset identity:
    renders and resumable-transfer state. It is disposable, host-local and never
    portable Project authority.
 
+These are the current frozen classes. The approved additive target separates
+custody from placement: managed captured bytes can live in qualified Asset Stores
+outside the package. Such backing cannot be encoded as `external-output`, whose
+contract disclaims custody, or as an existing in-package blob. See the
+[compatibility boundary](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md#resource-working-file-capture-and-backing).
+Capture does not imply indefinite retention; explicit policy and pins govern
+lifecycle. A temporarily offline retained store preserves publication evidence and
+reports unavailability, not automatically a retention breach.
+
 A deliberately retained cover image, historical snapshot or evidence artifact is
 a managed Project resource; a regenerable thumbnail is cache. Node definitions
 declare output/effect behavior and retention expectations rather than relying on
@@ -140,20 +156,27 @@ preserve exact membership, order, referenced revisions and authorization.
 ## Variables and expressions
 
 Storage expressions return typed handles, never interpolated absolute path
-strings. Examples of approved conceptual source notation are:
+strings. Source notation follows the implemented `$library.<slot>` grammar:
 
 ```text
-`$library.storage.raw_archive`
-`path.join($library.storage.raw_archive, "2026", "Coastal-Studies")`
+`$library.raw_archive`
+`path.join($library.raw_archive, "2026", "Coastal-Studies")`
+`$library.project_store`
+`$library.asset_store`
 `$project.root`
 `path.join($project.artifacts, "masters")`
 `$HOME`
 ```
 
-- `$library.storage.<slot>` is a Library-scoped typed Storage Location reference.
+- `$library.<slot>` is a Library-scoped typed Storage Slot reference captured to
+  its revision and selected logical location; the earlier nested `storage` examples
+  were conceptual and are not a second supported grammar.
+- `project_store` and `asset_store` are approved initial slot names for default
+  creation and managed-publication roles, respectively. The roles bind stable
+  SlotIds, not spellings; the additive default-role wiring is not implemented.
 - `$project.root` is the capability-backed root of the current Project package.
-- `$project.artifacts` is a proposed typed managed-artifact root; its exact
-  built-in name and rights require the context/package freeze.
+- `$project.artifacts` is the reserved typed publisher request target; it grants
+  no arbitrary package write rights and placement is resolved by publisher policy.
 - uppercase HostPlaces such as `$HOME` and `$DOWNLOADS` are resolved at runtime
   from a closed registry and are never serialized as machine paths.
 - node-private and Project variables may contain typed portable resource

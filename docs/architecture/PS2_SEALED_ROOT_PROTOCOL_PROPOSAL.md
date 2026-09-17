@@ -6,6 +6,11 @@ The [retention direction](PS2_RETENTION_STORAGE_DECISION.md) and
 This document selects no production format number, feature identifier, threshold,
 migration, deletion or live-package operation.
 
+The [resource/storage semantic boundary](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
+was approved 2026-09-17 for the next positive fixtures. Its distinctions below
+are approved semantics; exact root encoding, feature identifiers and production
+implementation remain proposed.
+
 ## Recommendation and alternatives
 
 Keep `HEAD.json` as the sole authoritative atomic dispatch point. It selects one
@@ -62,20 +67,45 @@ to equal the union of its schema-defined dependencies. Account separately for
 dispatch, inventory, journal/index and attempt-owned staging metadata.
 
 Preserve current authored content, explicit history, captured source-authored and
-Graph/context/input snapshots, retained resource versions and managed blobs,
-evidence/artifacts, opaque extensions, and all unresolved recovery/undo references.
+Graph/context/input snapshots, retained resource-version records and required
+embedded managed blobs, external-backing obligations, evidence/artifacts, opaque
+extensions, and all unresolved recovery/undo references.
 Current optional fields remain byte-preserved; reference-looking opaque JSON must
 not be reinterpreted as filesystem edges. Unknown required semantics refuse.
 
-External-resource descriptors remain descriptors: retaining them does not copy or
-verify external bytes. A predecessor hash or archive pointer is not a substitute
-for an available, complete retained closure.
+Keep dependency classes explicit: required package-resident objects; authoritative
+resource/version/location/backing/evidence records; and separately retained
+external byte backings. External descriptors remain descriptors: retaining them
+does not copy or hash their media at each checkpoint. Validate the exact package
+closure independently of live external availability. A required embedded object
+missing from that closure is package damage; a previously durably published and
+verified retained backing on an offline store is unavailable with preserved
+retention evidence, not automatically a broken promise. Confirmed loss/corruption
+or definite failure to establish required backing makes retention unsatisfied only
+when an active obligation cannot be met by the remaining qualified backings.
+Ambiguous lookup and unknown publication outcomes require reconciliation.
+
+Captured Version is immutable identity/evidence, not an indefinite retention pin.
+Authored use/history promising reconstruction, recovery roots, explicit policy,
+pending operations, active leases and other declared obligations pin backing.
+After all obligations end it may become eligible for conservative retirement;
+identity/provenance can remain without promising byte availability. Descriptor-only
+history and predecessor commitments do not recursively pin all media versions.
+Package-object retirement and Asset Store retirement are separate operations;
+neither may infer permission to remove user-owned sources. A predecessor hash or
+archive pointer alone is not a recoverable backing.
 
 Only registered objects proven unnecessary to every retained or pending reference
 can become retirement candidates. Age, filename or one stale reachability scan is
 insufficient. Unknown files remain untouched. This bounds obsolete autosave
 ancestry, not user-authored content growth; capacity exhaustion requires refusal
 and recovery options, not deletion of authored content.
+
+Checkpoint reserve covers package closure, journal/index, recovery and staging,
+including newly embedded bytes. External-media descriptors do not reserve or
+rehash their entire media payload at every root turnover. Asset publication has
+its own target-store reserve; shared physical volumes need combined accounting
+so concurrent reservations do not spend the same free space twice.
 
 ## Publication and recovery
 
@@ -103,6 +133,11 @@ the checkpoint target; later accepted work remains recoverable separately.
 
 Successful syscalls and process-exit tests do not establish power-loss durability.
 The [storage qualification gate](PS2_MACOS_STORAGE_QUALIFICATION.md) remains open.
+Managed external publication also crosses the package/store authority boundary:
+persist intent, stage/verify and durably publish backing before committing its
+descriptor/obligation. No single atomic rename spans the two. Reconcile unknown
+outcomes under their original operation IDs and preserve recovery-critical staging.
+See the [publication contract](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md#publication-relocation-and-capacity).
 
 ## Dedupe and optional conversion
 
@@ -130,6 +165,15 @@ prove unchanged legacy reads and negative reader-boundary behavior, not this
 positive protocol. Next prove independent roots, complete keep-set equality,
 multiple turnovers, exact dedupe/inclusion, interrupted conversion and every
 publication/retirement boundary, including capacity exhaustion and concurrent work.
+
+The approved [resource/storage fixture matrix](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md#positive-fixture-acceptance-and-deferred-work)
+also requires zero external media reads on root turnover, synthetic 8 GB working
+changes and weak-observation uncertainty, retained V1 versus edited V2, finite
+capture pinning/retirement eligibility, offline versus proven retention loss,
+embedded-object damage, placement fallback/refusal, slot retarget without history
+retargeting, same-version verified relocation, cross-store recovery, independent/
+shared-volume reserves, and package-only versus complete-backup claims. Use
+fixture models/read counters rather than real media allocation or production GC.
 
 No additional product decision blocks a clearly fixture-only positive model.
 Before production codec implementation, approve the exact root/feature contract,

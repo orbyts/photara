@@ -287,10 +287,17 @@ Closed uppercase HostPlace symbols `$HOME`, `$DOWNLOADS`, `$DESKTOP`, `$DOCUMENT
 `$PICTURES` and `$TEMP` retain native host resolution and declared grants; there is
 no arbitrary process environment lookup. `$project.root` remains a logical
 capability-backed resource root, not a string or general package-write grant.
-Library storage slots such as conceptual `$library.storage.raw_archive` resolve
+Library storage slots such as `$library.raw_archive` resolve
 to typed logical handles whose physical bindings are selected and authorized by
 the current host. Node and Project variables never serialize absolute host paths
 or use variables to hide AssetSet dataflow.
+
+The [approved resource/storage boundary](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
+uses the same `$library.<slot>` grammar for `$library.project_store` and
+`$library.asset_store`. These are initial names for ID-bound default roles, not
+raw paths or an alternative configuration system. Captured versions and backing
+retention remain independent; managed external backing needs an additive reviewed
+contract without changing the existing D19 wire forms.
 
 Cache keys cover exact input membership/order, captured revisions/projections,
 negative facts, metadata/representation fingerprints and relevant implementation

@@ -32,14 +32,25 @@ read-only codecs/validation are implemented; see [supported scope and limits](PR
 This document specifies the full target format/protocol, not an implemented
 writer, application integration or SMB durability guarantee. It contains no DDL.
 
+**2026-09-17 approved additive boundary:**
+[Resource storage, verification and retention](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
+defines the target split between package metadata, user-owned sources and managed
+external Asset Stores. Existing embedded-blob/external-reference wire forms below
+remain current compatibility semantics; new backing forms need an additive reviewed
+feature boundary. The approved short default slots are `$library.project_store`
+and `$library.asset_store`; no runtime implementation is claimed here.
+
 ## Scope and authority
 
 A `.photara` directory package contains portable Project authority: authored
 metadata, typed Library snapshots/assignments, the Project's asset subset,
 named Graphs, and separately recorded durable execution history. Its ProjectId
 survives movement; its directory name and current device location do not identify
-it. Default creation is under `~/Pictures/Photara/Projects`; another authorized
-local or SMB root may be selected.
+it. The approved target uses the typed `$library.project_store` default for new
+packages. `~/Pictures/Photara/Projects` is a configurable first-run suggestion,
+not a hard-coded identity or placement rule. Other authorized locations may be
+configured, but each must independently qualify for the requested write and
+durability contract; selection alone does not qualify SMB/provider writes.
 
 Local SQLite stores Library records, catalog projections, device bindings and
 operational intents outside the package. Storexa 0.2.0 provides database
@@ -173,9 +184,19 @@ Opening validates bootstrap, HEAD, referenced commit and inventory, then typed
 JSON objects and internal references. Managed blob size/presence is checked;
 large blob hashing can be deferred until materialization or explicit full
 verification. Until hashed, bytes are not reported as content-verified. Missing
-managed bytes produce a damaged/incomplete-package report; missing external
+required embedded bytes produce a damaged/incomplete-package report; missing external
 bytes produce representation unavailability. Both allow safe metadata inspection
 without inventing assets or silently discarding descriptors.
+
+That deferred-hashing behavior is a target distinction: the current
+[reader](../../crates/photara-store/src/package/reader.rs) hashes reachable embedded
+blobs. Structural validity, embedded-object presence and full byte verification
+must be reported separately when implemented. Normal opening/checkpointing does
+not require hashing large external media. For approved managed external backing,
+an offline store preserves prior publication/verification evidence and package
+validity; retention becomes unsatisfied only when evidence establishes that an
+active obligation is unmet, not merely when inspection is unavailable. See the
+[retention state distinctions](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md#availability-and-retention-are-separate-facts).
 
 Checksums detect inconsistency, not authenticity. A malicious actor able to
 rewrite the whole package can recompute them. Package data cannot grant node
@@ -246,7 +267,7 @@ that bytes equal a SHA-256 content digest. The current Core digest-plus-evidence
 representation can be embedded losslessly during compatibility import; no weak
 observation is upgraded merely because it is stored in this package.
 
-A content revision binds to exactly one:
+Under the current frozen forms, a content revision binds to exactly one:
 
 1. **Managed ProjectResource:** ResourceId plus immutable blob ObjectRef and a
    generated normalized package-relative path matching that reference. Original
@@ -274,6 +295,15 @@ descriptor and blob in the same commit. Explicit **Collect into Package** copies
 external resources without deleting their originals. An external representation
 can remain offline indefinitely without corrupting portable authored state.
 No hardlink to a mutable outside source is accepted as managed storage.
+
+The approved additive target also permits qualified managed Asset Store backing
+outside the package and separates working binding/observation, Captured Version
+and version backing. Capture establishes immutable identity/evidence rather than
+an indefinite pin. Policy, authored reconstruction/history, recovery, pending work
+and other explicit obligations govern retention; backing can become eligible for
+conservative retirement after all obligations end. A digest alone promises no
+recoverability. These semantics require new reviewed forms and do not reinterpret
+the blob requirement or coordinate-bound external revisions above.
 
 Reproducible proxies, Gallery thumbnails, decoded images, materialization paths
 and rendered previews stay in device cache. A deliberately supplied Project
@@ -461,7 +491,8 @@ it never fabricates terminal success.
 | Locate/rebind | Verify ProjectId and commit lineage at selected candidate; update device binding/catalog, not asset/graph IDs |
 | Missing package | Mark locator unavailable; retain catalog identity and last observed summary; no deletion or new project |
 | Duplicate ProjectId | Show both candidate locations and lineage/digests; open read-only until the intended active copy is chosen and other writers are excluded |
-| Backup copy | Pin one committed snapshot and copy all retained referenced data without locks/staging; preserve ProjectId and commits, so it is not a second independent editing project |
+| Package-state backup copy | Pin one committed snapshot and copy its complete package-resident closure without locks/staging; preserve ProjectId and commits, so it is not a second independent editing project; external byte backing is outside this scope |
+| Complete project backup/export | In the additive managed-backing model, also collect and verify every managed backing required by the selected retained roots/obligations across locations; offline required bytes make this incomplete/pending; user-owned RAW collection remains a separate explicit choice |
 | Duplicate as new / fork | Allocate new ProjectId and remap owned IDs under the explicit rules below; publish a new initial chain |
 | Remove from catalog | Remove/hide discovery entry only; package/evidence remains intact |
 
@@ -469,6 +500,8 @@ Even identical copies cannot independently edit under one identity: their local
 locks do not coordinate separate package directories. v1 has one nominated
 active package location per ProjectId, no automatic replica synchronization.
 Selection of an active copy is explicit; divergent copies are never auto-merged.
+Cloud catalog synchronization likewise makes no claim that referenced managed
+media has been uploaded or is available on another computer.
 
 Fork remaps Graph, NodeInstance, Connection, party/Location assignment, snapshot,
 Asset, Representation/content revision, Resource and external binding-handle IDs,

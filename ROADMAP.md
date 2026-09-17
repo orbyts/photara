@@ -1,5 +1,41 @@
 # Roadmap to Photara 0.2.0
 
+## Resource, location and verification contract — 2026-09-17
+
+The approved architecture direction is recorded in
+[Resource storage and verification](docs/architecture/RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md).
+Project packages remain the transactional metadata authority; large retained
+media may have separately governed managed backings, while user-owned sources
+remain where their owners store them. Resource identity, mutable working
+bindings, immutable captured versions, physical backings, retention pins and
+current availability are distinct. A captured digest is not a promise to retain
+its bytes indefinitely. A qualified retained backing that is temporarily offline
+is unavailable, not thereby proved lost or in breach of retention.
+
+The existing typed Library storage-slot/Host Binding mechanism supplies the
+configurable Project Location and Managed Asset Store defaults, with approved
+initial slot spellings `$library.project_store` and `$library.asset_store`.
+Multiple source locations remain supported; `$project.root` continues to mean
+the current package and `$project.artifacts` remains a publisher request target.
+The implemented `$library.<slot>` spelling now replaces conceptual
+`$library.storage.<slot>` examples in the current contract documentation,
+without creating a second path mechanism. Role-to-SlotId binding, captured
+destination, authorization and storage qualification govern creation and
+publication. Changing a default never moves or retargets existing packages or
+resource versions.
+
+**Next PS2 gate:** amend the sealed-root dependency/keep-set contract and build
+disposable positive fixtures for independent active/recovery roots, retained
+external-managed descriptors without media traversal, working-file observation
+versus exact capture, offline versus confirmed loss, conservative version pins,
+qualified placement/fallback, interrupted cross-store publication, and separate
+package/asset capacity. Existing 1.1 packages and reader behavior remain
+compatible; no production format number, migration, asset-store writer, deletion
+algorithm or live-data operation is selected by this documentation checkpoint.
+Production package/admission qualification and the PS3 native session/autosave
+integration remain separate later gates. Physical asset layout, CAS/chunking,
+watchers, settings UI, provider/NAS write profiles and thresholds remain deferred.
+
 ## PS2 disposable durability furnace — in progress
 
 The first test-only journal increment validates canonical framed records, chained
@@ -87,7 +123,9 @@ The [sealed-root protocol proposal](docs/architecture/PS2_SEALED_ROOT_PROTOCOL_P
 recommends a single HEAD dispatch with independently verifiable active/recovery
 roots and explicit preservation of the conversion source. Its exact production
 codec, dispatch and conversion/retirement semantics still require review and
-approval; clearly fixture-only positive validation work may continue meanwhile.
+approval. The resource/location contract above must be reflected in its positive
+fixture model before treating managed retention as package-embedded bytes; clearly
+fixture-only positive validation work may then continue.
 It selects no production format number or threshold and authorizes no migration,
 deletion or live-package writes.
 No complete typed mutation/undo journal, qualified

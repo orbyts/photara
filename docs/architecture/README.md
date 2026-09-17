@@ -1,5 +1,15 @@
 # Generation-two architecture
 
+**2026-09-17: resource/storage semantic boundary approved.**
+[Resource storage, verification and retention](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
+consolidates three storage roles, typed `$library.project_store` /
+`$library.asset_store` defaults, working/captured/backing distinctions, placement,
+qualified publication, separate availability/retention, finite retention policy,
+verification/capacity/backup boundaries and the next positive sealed-root fixtures.
+It is an additive target; current frozen wire forms and implemented reader behavior
+remain explicitly identified. Storage layout, production codec/GC and provider
+qualification remain deferred.
+
 - [UI ladder and authoring sequence](UI_LADDER_AND_AUTHORING_SEQUENCE.md) — proposed
   three-step neutral token system, lab ownership and UI0–UI6 execution order.
 
@@ -63,6 +73,7 @@ govern conflicts in the older physical/package/sync baseline below.
     [L2 local Library implementation and limits](LOCAL_LIBRARY_IMPLEMENTATION.md)
 15. [Project assets and representations](ASSETS.md)
 16. [Storage locations and host bindings](STORAGE_LOCATIONS_AND_HOST_BINDINGS.md)
+    [Approved resource storage and verification boundary](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
 17. [Project proxy infrastructure](PROXIES.md)
 18. [Layout node](LAYOUT_NODE.md)
 19. [Disk node](DISK_NODE.md)

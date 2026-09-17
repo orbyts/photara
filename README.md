@@ -1,5 +1,12 @@
 # Photara
 
+**2026-09-17: resource/storage architecture approved for the next PS2 fixture gate.**
+The [resource storage and verification contract](docs/architecture/RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
+separates project-package state, user-managed sources and configurable managed
+assets, with typed location defaults and explicit verification/retention rules.
+This is documentation, not a production asset-store implementation. See the
+[current roadmap](ROADMAP.md) and [active handoff](docs/ACTIVE_HANDOFF.md).
+
 **2026-09-12: CXT3a and the clean Library nomenclature rebaseline are complete.**
 [Verification and authority](docs/architecture/LIBRARY_NOMENCLATURE_REBASELINE.md)
 record 245 passing offline tests, regenerated schema/fixture hashes, checked SQLite

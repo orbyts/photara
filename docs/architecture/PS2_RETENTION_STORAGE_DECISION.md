@@ -5,12 +5,19 @@ Status: direction approved 2026-09-16, **not implemented**. This memo narrows th
 format version, required-feature identifier, migration number, or production limit.
 The [PS0 contract](PROJECT_SESSION_DURABILITY.md) remains the current baseline.
 
+**2026-09-17 clarification approved:** the
+[resource storage and verification contract](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
+separates package-resident closure from managed external byte backing, availability
+from retention compliance, and capture identity from retention policy. Those
+semantics govern the positive sealed-root fixtures; they add no production codec.
+
 ## Approved decision and remaining gates
 
 Design a versioned sealed-checkpoint-root protocol for production autosave, with
 explicit migration consent and deliberate loss of obsolete intermediate autosave
 save points. Preserve all current authored content and explicitly retained history,
-source snapshots, resource versions, evidence and opaque extensions. Retain a
+source snapshots, resource versions required by retention/pinning policy, evidence
+and opaque extensions. Retain a
 verified previous root for recovery; retain operation-ID dedupe independently of
 undo and package ancestry. Require a reader that understands the new root contract;
 older readers must refuse it. This is approval of retention/compatibility direction,
@@ -58,8 +65,11 @@ test-only and does not implement the complete typed journal contract.
    and identity. The predecessor commitment records provenance; it is not a claim
    that discarded historical bytes remain available. Specify exact traversal and
    validation rules before choosing an encoding/version.
-2. Preserve every byte reachable from current authored state, retained history,
-   source snapshots and evidence, including unknown optional fields. Only obsolete
+2. Preserve each required package-resident byte and each external backing obligation
+   reachable from current authored state, retained history, source snapshots and
+   evidence, including unknown optional fields. Descriptors alone neither embed
+   external bytes nor pin them forever; retained history promising reconstruction
+   must carry the necessary backing obligations. Only obsolete
    autosave commit envelopes and objects proven unreachable from every retained
    root/history/undo/recovery reference become cleanup candidates. A timer, filename
    or ancestry age alone never authorizes deletion. This policy does not prune
@@ -79,12 +89,30 @@ test-only and does not implement the complete typed journal contract.
    or 50% of the existing JSON/object budget, whichever comes first (64 MiB aggregate
    JSON or 50,000 inventory objects). These are proposed experiment thresholds,
    **not validated production defaults**. Account separately for both retained
-   closures, blobs, journal, index, staging and filesystem space. Before accepting
+   package closures, embedded blobs, journal, index, staging and filesystem space.
+   External media described by a root is not duplicated/reserved for each
+   checkpoint; managed publication needs its own Asset Store reserve, with shared
+   physical-volume accounting when applicable. Before accepting
    a mutation, prove capacity for its entire bounded checkpoint and recovery work
    while retaining the old base. Reject before admission if that reserve cannot be
    met. A live closure that cannot fit requires backpressure and user-directed
    recovery/export, not deletion of authored content. Real workloads must determine
    the reserve and final trigger values before production approval.
+
+An offline retained Asset Store does not invalidate package metadata or undo its
+prior durable-publication/verification evidence. Report unavailability and current
+observation uncertainty independently. Only evidence that an active obligation is
+unmet establishes unsatisfied retention: for example confirmed loss/corruption
+without enough remaining qualified copies, or definite failure to establish a
+required backing. Apparent missing files and unknown publication outcomes first
+require identity/binding reconciliation. Offline alone is not proven loss.
+
+Captured versions are not automatically retained indefinitely. Authored history,
+recovery roots, explicit policy, pending operations and other declared obligations
+pin bytes. Once all pins end, backing may become eligible for conservative
+retirement while useful identity/evidence survives. No cleanup algorithm is
+approved here; the positive model must prove that neither obsolete root ancestry
+nor descriptor-only provenance accidentally pins every historical media version.
 
 ## Alternatives not recommended
 

@@ -1,5 +1,20 @@
 # Project assets and representations
 
+## Approved resource/storage boundary — 2026-09-17
+
+The [resource storage and verification contract](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
+now governs the target model: separate logical resource identity, editable working
+binding, cheap observation, immutable capture and version backing. Producers do
+not own retained bytes, and capture does not imply indefinite retention. Explicit
+policy/history/recovery/pending obligations pin backing; releasing all obligations
+can permit conservative retirement. A previously verified retained store going
+offline reports unavailability without automatically breaking retention.
+
+Managed custody may extend to qualified Asset Stores outside the package through
+a future additive form. Current embedded managed blobs and coordinate-bound
+external revisions keep their frozen meaning. This approval adds no publisher,
+watcher, runtime backing resolver or production cleanup.
+
 ## Current exact review packet — 2026-09-12
 
 The [D19 AssetSet contract](D19_CONTRACT_FREEZE.md#assetset-metadata-and-variables) now defines immutable v2 snapshots, exact ordered member/content/metadata dependencies, bounded pages and explicit patch/group targets. The package ledger supplies closure, never implicit node membership. Portable external/managed resources and device handles have distinct IDs. [CXT1a](CXT1A_CONTRACTS.md) implements these pure snapshot/resource contracts in `photara_core::contracts`; package closure and compatibility conversion remain CXT3a. [CXT1b](CXT1B_CONTEXT_CONTRACTS.md) adds pure metadata values/common/distinct over supplied immutable selections and observation references, with explicit negative facts and no extraction. Existing AssetSet v1/v2 digests remain unchanged. Implemented v1 behavior below remains compatibility evidence.
@@ -112,15 +127,20 @@ managed Project resources, external output artifacts and transient cache. See
 [Storage locations and host bindings](STORAGE_LOCATIONS_AND_HOST_BINDINGS.md).
 
 Output placement is separate from representation identity and current binding.
-Configurable storage policy may choose targets per role. A useful default is:
+The approved target policy can select targets per semantic kind. One possible
+configuration is:
 
 ```text
 RAW/original location
 ├── camera RAW
-└── layered PSB
+└── editable layered PSB
 
 Project location
-├── RAW preview TIFF
+└── .photara package (Graph, resource records, evidence, history)
+
+Managed Asset Store
+├── retained immutable PSB versions
+├── retained RAW preview TIFF
 ├── flattened SDR TIFF
 └── flattened HDR TIFF
 ```
@@ -129,6 +149,15 @@ That is a preference, not a Core requirement. A user may place any role in any
 resolved storage target. Storage-policy adapters control output placement;
 assets, representations, fingerprints, graph values, and proxy keys remain
 independent of those choices.
+
+Precedence is explicit operation choice, Project kind-specific rule, Project
+default, Library kind-specific rule, then Library default. Asset Store, Prefer
+Beside Source, Require Beside Source and Explicit Qualified Location each require
+appropriate current rights/qualification; source-read rights do not authorize
+sibling writes. Prefer can use a recorded preauthorized qualified fallback, while
+Require pauses/refuses an unsuitable destination. The shared publisher resolves
+placement and grants staging. `$library.project_store` and `$library.asset_store`
+are the approved initial default-slot spellings; role identity is bound to SlotId.
 
 ## Portable versus runtime state
 
