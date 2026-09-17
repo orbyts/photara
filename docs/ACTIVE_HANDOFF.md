@@ -1,5 +1,15 @@
 # Active handoff
 
+## 2026-09-17 local main cleanup safeguard
+
+The old local `main` checkout was fast-forwarded to published `305987d` after
+preserving its 71-path pre-fast-forward onboarding state in a **local-only**
+recoverable stash (`ce39772a4008c886265ac9a25485b2970d0f8332`). The checkout
+is clean and matches `origin/main`. The stash is not part of GitHub history and
+must not be dropped yet. The [roadmap housekeeping gate](../ROADMAP.md#housekeeping-after-real-project-browsing-and-switching)
+requires comparing it with validated `main`, recovering any unique work, and
+only then dropping it after real project browsing/switching acceptance.
+
 ## 2026-09-17 PS2 experimental sealed-root codec — disposable implementation
 
 The [checkpoint](architecture/PS2_EXPERIMENTAL_SEALED_CODEC_CHECKPOINT.md)

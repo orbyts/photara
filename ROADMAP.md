@@ -17,6 +17,17 @@ qualify storage and shared Rust session/autosave coordination. Real project
 browsing/switching and Library lifecycle remain later steps. Do not patch the
 current Swift browse/close flow around the durability gate.
 
+## Housekeeping after real project browsing and switching
+
+After the Rust-owned session/autosave boundary and real project browse/switch
+workflow pass interactive acceptance on `main`, audit the recoverable
+pre-fast-forward local-main onboarding stash against the validated tree. Restore
+or deliberately retain any unique work, confirm the app and repository remain
+healthy, and only then drop that stash. Do not treat a clean checkout today as
+permission to delete it. At the same checkpoint, consolidate completed PS2–PS4
+working notes into durable reference docs and retire superseded task evidence
+without losing architectural decisions or user guidance.
+
 ## PS2 positive sealed-root fixture checkpoint — 2026-09-17
 
 The [disposable positive fixtures](docs/architecture/PS2_POSITIVE_SEALED_ROOT_FIXTURES.md)
