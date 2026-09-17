@@ -1,7 +1,8 @@
-# PS2 writer admission — cooperative ownership proposal
+# PS2 writer admission — approved cooperative direction
 
-Status: review-only. No compiled contract or production admission changes.
-This proposes replacing the unsupported exclusion assertion in
+Status: registered cooperative in-place direction approved 2026-09-16.
+No compiled contract or production admission changes. The proposed contract replaces
+the unsupported exclusion assertion in
 [PackageIo/CapabilityProfile](../../crates/photara-store/src/package/planning/io.rs),
 not weakening a check in the existing implementation. The present policy continues
 to refuse profiles lacking `excludes_uncooperative_writers`; no production adapter
@@ -34,7 +35,7 @@ The existing workflows provide no stronger admission evidence:
   route nor the bridge's in-process mutex participates in a package `.writer-lock`
   protocol. They cannot be advertised as cooperating package editors.
 
-## Recommended admission model
+## Approved admission model; implementation pending
 
 Separate qualified storage primitives from an explicit **registered, cooperative
 writer assumption**. Preserve the intended workflow: the user chooses a project
@@ -74,6 +75,16 @@ guarantee. They can be undetected in the last comparison/rename gap or overwrite
 data later. Do not claim universal lost-update prevention, detection of every race,
 mandatory locking, or permanent preservation merely because a receipt once existed.
 
+All Photara-controlled GUI, CLI, headless, scripting, automation and AI-agent writers
+participate in the same Rust per-package authority, including credential-free
+provenance and host-validated authorization. Voice/chat workflow proposals use that
+boundary too; their planning and approval UX are deferred. A second direct process
+gets WriterBusy while another holds the lifetime lease. That is safe exclusion
+among cooperators, not proof of agent progress while the GUI owns the package.
+Routing/handoff remains undecided. See the normative
+[shared authority contract](PROJECT_SESSION_DURABILITY.md#shared-authority-authorization-and-concurrent-clients)
+and [typed proposals](proposals/ps0/CONTRACTS.md).
+
 ## Proposed typed boundary (not compiled or a wire format)
 
 ```rust
@@ -93,12 +104,12 @@ fn publish(lease: &mut RegisteredCooperativeLease,
            plan: &CheckpointPlan) -> PublishOutcome;
 ```
 
-On approval, remove `excludes_uncooperative_writers` from *storage capability*
+In a later reviewed code slice, remove `excludes_uncooperative_writers` from *storage capability*
 assertions and make publication require this separate opaque admission/lease.
 Keep safe handles, exclusive cooperating lock, no-replace publication, atomic HEAD
 replacement and file/directory barriers as independently qualified requirements.
 No caller-provided boolean grants registered admission. No new profile/format number
-is selected here; the existing version-1 interface remains unchanged pending review.
+is selected here; the existing version-1 interface remains unchanged pending implementation.
 
 ## Conservative failure behavior
 
@@ -116,7 +127,7 @@ invalidate current writable/Saved state while retaining the historical receipt a
 pending journal. Watchers accelerate checks; they cannot make the guarantee apply
 to unseen writers. Do not auto-delete an unknown file or suspected writer's lock.
 
-## Viable alternative and its cost
+## Rejected managed-root-only alternative and its cost
 
 Managed-root-only authoring can reduce accidental overlap with unrelated tools by
 restricting registration to an app-controlled location and participating app
@@ -137,8 +148,8 @@ without overstating the protection offered by managed directories.
 
 ## Verification and decision gate
 
-Before implementation, revise the normative PS0 wording to scope its no-lost-update
-promise to cooperating writers. Then test all own writer/move/delete routes against
+The normative PS0 wording now scopes its no-lost-update promise to cooperating
+writers. Before implementation, test all own writer/move/delete routes against
 the same lease; independent-process contention/death; missing registration and
 wrong protocol; in-place admission at user-selected local paths; provider/unknown
 storage refusal; changed permission and every pin;
@@ -148,12 +159,9 @@ that test documents the limit and must not be reported as successful exclusion.
 Repeat the [storage failure matrix](PS2_MACOS_STORAGE_QUALIFICATION.md) under the
 admitted model; storage barriers and retention remain independent release gates.
 
-**Approval needed before production contract changes:** accept explicitly
-cooperative concurrency guarantees with registered in-place editing at user-chosen
-qualified local paths, acknowledging that arbitrary noncooperating writers can
-race outside the protocol. Alternatively choose managed-root-only admission with
-the path/copy tradeoff above. Neither promises exclusion of arbitrary writers.
-This changes the scope of PS0's no-lost-update claim; it must not be introduced as
-a naming cleanup. If neither model is acceptable, retain read-only package opening
-while a different ownership protocol is designed. The decision does not block
-remaining disposable PS2 tests or authorize live admission, copying or migration.
+**Direction approved:** registered cooperative in-place editing at user-chosen
+qualified local paths, without a managed-root requirement. Arbitrary noncooperating
+writers can race outside the protocol. The compiled policy change, shared-authority
+implementation, routing/handoff selection and qualification tests remain future
+work. No new approval is needed for transport-neutral contract/test work; this
+direction does not authorize live admission, copying, migration or deployment.

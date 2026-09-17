@@ -1,13 +1,13 @@
-# PS2 retention and storage decision — proposal for review
+# PS2 retention and storage decision — approved direction
 
-Status: proposed, **not approved or implemented**. This memo narrows the
+Status: direction approved 2026-09-16, **not implemented**. This memo narrows the
 [PS1 retention proposal](PS1_RETENTION_PROPOSAL.md); it does not select or reserve a
 format version, required-feature identifier, migration number, or production limit.
 The [PS0 contract](PROJECT_SESSION_DURABILITY.md) remains the current baseline.
 
-## Decision requested
+## Approved decision and remaining gates
 
-Approve designing a sealed-checkpoint-root protocol for production autosave, with
+Design a versioned sealed-checkpoint-root protocol for production autosave, with
 explicit migration consent and deliberate loss of obsolete intermediate autosave
 save points. Preserve all current authored content and explicitly retained history,
 source snapshots, resource versions, evidence and opaque extensions. Retain a
@@ -16,10 +16,13 @@ undo and package ancestry. Require a reader that understands the new root contra
 older readers must refuse it. This is approval of retention/compatibility direction,
 not approval to convert, prune, install, publish or edit a live package.
 
-Without that decision, continue disposable PS2 verification and retain the existing
-read-only/explicit-save routes. Native editing of current 1.1 packages and production
-autosave remain gated. The separate storage qualification work can proceed without
-selecting retention semantics.
+Continue disposable PS2 verification and retain existing read-only/explicit-save
+routes until implementation and qualification pass. This approval selects no format
+number, migration or production threshold. The experimental numbers below are
+fixture inputs only. Multi-surface authority follows the
+[shared Rust contract](PROJECT_SESSION_DURABILITY.md#shared-authority-authorization-and-concurrent-clients);
+root turnover must preserve its dedupe/recovery and credential-free operation
+provenance, not turn historical authorization into a reusable grant.
 
 ## What the evidence establishes
 

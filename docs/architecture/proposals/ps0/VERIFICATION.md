@@ -5,6 +5,31 @@ All persistence fixtures use disposable roots, synthetic projects and fake catal
 runtime adapters. No production app launch, service, live catalog, user package,
 source photograph, Keychain or network account is a test fixture.
 
+## Multi-surface authority — required, not yet implemented
+
+Use a deterministic fixture with two logical clients before selecting transport:
+
+- GUI and agent submit against one exact coordinate: one ordered success, one
+  explicit stale conflict; retry the successful operation after reconnect and owner
+  turnover with the original ID/intent and no duplicate effect. Different intent
+  under that ID refuses. Simulate an acknowledged append with a lost response.
+- Reject forged actor/grant/scope, expired or revoked admission and unauthorized
+  receipt lookup. Keep original accepted provenance through recovery/compaction;
+  assert no credentials, bookmarks or prompts enter mutation evidence.
+- Flush a fixed sequence while the other client continues; prove finite-prefix
+  inclusion without falsely labelling newer state Saved. Detach/switch one client
+  without cancelling another's work; stale owner/attachment events cannot apply.
+- Direct second-process acquisition while a GUI or headless owner holds the stable
+  lifetime lease returns WriterBusy. Test owner death and exact recovery before new
+  admission. This proves safety only, not routing, handoff or fairness/liveness.
+- Keep undo groups client/principal-bound, reject implicit cross-client undo, and
+  preserve exact IDs/dedupe at sealed-root turnover. Voice/chat proposals get no
+  alternate authority or bypass; planning and approval UX remain a later iteration.
+
+These are new acceptance obligations, not executable fixtures or completed evidence.
+Actual routing/handoff and qualified-storage failure tests remain required before
+promising multi-process progress or production autosave.
+
 ## BR0 acceptance — required before PS1
 
 These tests are proposed, not run in PS0. Build a disposable release using a synthetic

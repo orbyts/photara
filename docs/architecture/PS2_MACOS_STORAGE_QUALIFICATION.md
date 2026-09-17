@@ -3,8 +3,8 @@
 Status: review-only test plan; **no storage profile is qualified by this document**.
 Inputs: [PS0 publication protocol](PROJECT_SESSION_DURABILITY.md),
 [PackageIo interface](../../crates/photara-store/src/package/planning/io.rs), and the
-[retention/storage decision proposal](PS2_RETENTION_STORAGE_DECISION.md). Retention
-approval is independent of the disposable work described here. No production
+[approved retention/storage direction](PS2_RETENTION_STORAGE_DECISION.md). Retention
+implementation is independent of the disposable work described here. No production
 writer, live package access, migration, installation or power-loss experiment is
 authorized by this plan.
 
@@ -53,14 +53,14 @@ adapter offers implementation references but does not supply edit-writer qualifi
 Apple's [flock manual](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/flock.2.html)
 defines advisory locking: other processes can ignore it. Duplicated/fork-inherited
 descriptors also share the lock. Therefore `excludes_uncooperative_writers` cannot
-be inferred from a lock test. Define the admitted ownership environment and how
-known competing writers/providers are excluded; if that assertion cannot be
-supported, the present interface must refuse a qualified profile. Detecting a
+be inferred from a lock test. The compiled interface still refuses profiles without
+that assertion; no production adapter constructs one. Detecting a
 change after publication does not undo a race already lost to an uncooperative
-writer. A later proposal to relax this assumption needs explicit architecture review.
-The [writer admission proposal](PS2_WRITER_ADMISSION_PROPOSAL.md) now makes that
-review concrete: registered in-place editing with cooperative guarantees, or the
-more restrictive managed-root alternative. Neither changes the current policy yet.
+writer. The approved [writer admission direction](PS2_WRITER_ADMISSION_PROPOSAL.md)
+separates registered in-place cooperative admission from storage qualification,
+without requiring a managed root. All controlled writer surfaces use one Rust
+authority; another direct process gets WriterBusy while the lifetime lease is held.
+This revises the proposed contract, not the compiled policy or qualification result.
 
 Apple's [rename manual](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/rename.2.html)
 documents replacement and same-filesystem behavior. Atomic replacement is not

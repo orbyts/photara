@@ -1,6 +1,9 @@
 # PS0 — Project Session and Graph Durability
 
-Status: architecture checkpoint **proposed for Suhail review**. Baseline: clean
+Status: architecture contract; PS2 sealed-root retention and registered cooperative
+in-place admission directions approved 2026-09-16. Multi-surface contract below is
+transport-neutral; production implementation and storage qualification remain gated.
+Historical audit baseline: clean
 `114ce43af1089c8bac7fa5c3010a440521027571` (HEAD and local origin/main).
 No production implementation, migration reservation, package conversion or switch
 is authorized by this document. LL0 is accepted/published; LL1 is independent.
@@ -48,9 +51,14 @@ Project session coordinator**. Legacy explicit saving does not close this gap.
    and establish a verified save barrier. If saving fails, show Save Failed in the
    current Project instead of this confirmation. Confirmation does not replace the
    mandatory post-confirmation freeze/flush barrier. Block editor mutation while the
-   sheet is present; recheck revision/run state when accepting.
-5. One writer owns one package incarnation. Old session callbacks cannot mutate a
-   new one. No cloud round trip is required to save already authorized local edits.
+   sheet is present; recheck revision/run state when accepting. This freezes the
+   switching attachment, not other clients. With concurrent clients, the dialog
+   must describe its verified save barrier without implying that later shared
+   changes are saved; refresh or withhold the claim when it would be false.
+5. One Rust mutation authority orders writes for each registered package incarnation.
+   GUI, CLI, headless, scripting, automation and AI agents are legitimate clients of
+   that same protocol. Old owner/client callbacks cannot mutate a new attachment.
+   No cloud round trip is required to save already authorized local edits.
 6. Never label memory-only state Saved. Never silently overwrite a changed HEAD.
 
 | Data | Authority / placement |
@@ -67,6 +75,49 @@ Project/Library/Graph IDs in package and catalog must agree at open. A path is a
 locator, not identity. Cloud outage does not invalidate a verified package save;
 access denial is surfaced separately and must not erase pending work. Creating or
 transferring catalog ownership is UI1/LL1 work, not a side effect of autosave.
+
+### Shared authority, authorization and concurrent clients
+
+The per-package Rust authority owns admission, exact expected-coordinate checks,
+semantic planning, ordered journal append, operation dedupe and package publication.
+Calling the same Rust library in two processes does not itself share that authority.
+Clients never edit package files directly. Distinguish a package owner epoch from
+client attachment identity/generation and GUI activation generation; identify a
+package by registered incarnation and pinned identity, not its path spelling.
+
+Host authorization supplies a validated principal, acting application/automation,
+granting authority, package/action scope, and current grant validity/revocation
+policy. Rust admission enforces that context; caller-provided actor strings or
+possession of a path/operation ID are not authority. Persist bounded, credential-free
+operation provenance (actor and grant references, effective scope and policy
+decision) alongside accepted-operation evidence. Credentials, access tokens,
+security-scoped bookmarks, prompts and unrestricted host paths remain outside the
+journal/package. Historical provenance explains acceptance; it never grants future
+access. Reauthorization and receipt lookup must not disclose another principal's
+work or duplicate an already accepted operation after revocation.
+
+Concurrent clients are ordered, not silently merged. If both submit against the
+same authored coordinate, one may succeed and the other receives a stale-coordinate
+conflict unless it is the same operation retry. Preserve operation IDs and canonical
+request identity across retries/restarts; different intent with the same ID refuses.
+Resolve authorized duplicate lookup before treating its old expected coordinate as
+a new stale mutation. Ordered observations provide reconnect snapshots and explicit
+gap recovery; local speculative UI is never an acknowledged shared state.
+
+The lifetime OS lease remains exclusive. A second direct process gets WriterBusy
+while the GUI (or any other owner) holds it: safety does not establish liveness.
+Routing to the owner or coordinated handoff is deferred; no agent-progress promise
+through another process's ownership exists yet. Never steal a live lease by timeout.
+A future handoff must resolve journal/intent state, fence the old owner, transfer
+authority without overlap and revalidate/recover before new admission. Changing to
+transaction-scoped direct leasing would require a separately specified lifecycle,
+not just replacing the lock call. Transport/ABI and owner-process choice remain open.
+
+Forward compatibility: voice/chat may later propose and preview entire workflow
+changes. Accepted commands use this same Rust authorization, exact-revision,
+journal, dedupe, publication and recovery boundary, never direct package edits.
+Conversational planning semantics and interaction/approval UX are deferred; this
+PS2 contract neither implements an agent planner nor grants it blanket authority.
 
 ## Brand independence and BR0 rename readiness invariant
 
@@ -137,8 +188,8 @@ in PS0. BR0 acceptance is specified in the companion verification document.
 
 ## Autosave and revision model
 
-Keep five distinct coordinates: session generation, journal sequence, each Graph
-revision, authored revision, package revision/HEAD digest. Graph commands increment
+Keep distinct owner epoch, attachment/activation generation, journal sequence,
+each Graph revision, authored revision and package revision/HEAD digest. Graph commands increment
 the affected Graph revision; an accepted authored transaction increments authored
 revision once; a package checkpoint increments package revision once and may include
 many journal transactions. Revisions are checked unsigned integers with overflow
@@ -167,11 +218,20 @@ cannot set Saved. Journal-durable/package-pending remains **Saving…**; **Saved
 requires current authored state and the verified durable package receipt to match.
 **Save Failed** includes retry/recovery action and the last known durable coordinate.
 
+A client flush captures a finite accepted journal sequence after submitting its
+pending input. The returned receipt covers that target (or a later included prefix),
+not an unbounded wait for every client's future work. Later mutations may leave the
+shared status Saving while the caller's barrier succeeds. Close/switch drains and
+freezes the relevant attachment, not unrelated clients; no receipt promises success
+or latency on failed storage. Bounded queues/backpressure apply to all surfaces.
+
 Undo/redo submit new durable semantic transactions with new operation IDs and
 preconditions; never rewind HEAD. Persist undo group boundaries and before/after
 patches. A recovery checkpoint in a gesture is not another user undo step. Redo
 branch invalidation is journaled with the edit that invalidates it. Unknown node
 schemas or command versions prohibit editing/replay, but preserve bytes.
+Bind groups to their originating attachment/principal and exact target transaction;
+never implicitly undo another client's edit. Cross-client undo policy/UI is deferred.
 
 ## Package publication protocol
 
@@ -212,14 +272,18 @@ preserved by the writer; never round-trip it through a lossy legacy aggregate.
 5. Validate candidate using the same reader rules (a virtual candidate HEAD over
    pinned data), including old ancestry, before publication. Recheck root/manifest,
    lock and exact old HEAD under lock. Atomic rename is not hardware CAS: this is
-   compare-under-exclusive-lock. Uncooperative writers cannot be made safe by a
-   final read alone; storage qualification must exclude them. Watcher events are
+   compare-under-exclusive-lock among registered cooperating writers. Arbitrary
+   noncooperating changes are outside the guarantee, not a filesystem capability
+   asserted to be excluded. Detected conflicts refuse; unknown outcomes retain
+   evidence and reconcile. Watcher events are
    hints; polling/revalidation and pre/post-write checks are authoritative.
 6. Write and sync temporary canonical HEAD in package root; atomically replace only
    HEAD.json on the same volume, sync root, then reopen and validate published HEAD,
    revision, digest and closure. No Saved receipt until these barriers pass. File
-   sync alone is insufficient; platform adapter must qualify full power-loss flush
-   semantics (including macOS full-sync support) before advertising durability.
+   sync alone is insufficient; the adapter must qualify its file/directory barrier
+   ordering and explicitly bounded failure model, including macOS full-sync support.
+   Successful fsync/F_FULLFSYNC calls or process-exit tests are not an unconditional
+   power-loss guarantee.
 7. Append and sync local checkpoint receipt before trimming any recovery records.
    If any publication/flush/receipt outcome is unknown, retain intent and journal,
    block further writes and reconcile by exact write_id/commit/digest, not retry with
@@ -235,7 +299,13 @@ per blob and 4 GiB total blobs. Apply existing validator budgets to the entire
 candidate before accepting it. Backpressure before exceeding limits; never create
 an unreadable HEAD. **Production autosave is gated on a separately reviewed bounded
 retention/compaction and reader-compatibility policy**; the 1,024-commit ceiling is
-not a usable indefinite autosave policy. No chain truncation/version bump in PS0.
+not a usable indefinite autosave policy. The approved
+[sealed-root direction](PS2_RETENTION_STORAGE_DECISION.md) preserves current authored
+content, explicitly retained history, source snapshots/resource versions, evidence,
+opaque extensions and recovery/dedupe while allowing obsolete intermediate autosave
+ancestry to compact. Exact reader compatibility, encoding, migration and retirement
+proofs remain unimplemented; no format number or production threshold is selected.
+Existing 1.1 ancestry cannot be truncated under its current reader contract.
 
 ### Storage capability policy
 
@@ -245,6 +315,13 @@ verified file/directory/full-flush barriers. APFS name alone is insufficient; de
 known provider-managed locations and uncertain storage. Record capability profile
 version and volume identity; requalify after remount/move. Disposable qualification
 belongs to PS2, never probes inside a user's package.
+
+Approved admission is registered cooperative editing in place at a user-selected
+qualified path; no managed-root requirement or implicit copy/move/conversion.
+Registration binds identity, access policy and cooperative ownership separately
+from storage qualification. See [writer admission](PS2_WRITER_ADMISSION_PROPOSAL.md).
+The compiled PS1 capability policy remains unchanged until a reviewed code slice;
+its `excludes_uncooperative_writers` flag does not represent achievable exclusion.
 
 SMB/NAS, cloud-sync/File Provider folders and unqualified local filesystems are
 **read-only** initially. A successful rename test cannot prove remote power-loss
@@ -325,34 +402,42 @@ Recovery runs before enabling mutations:
 
 ## Coordinator and native lifecycle
 
-A single ProjectSessionCoordinator owns ordered mutation admission, journal,
-package lease, autosave scheduler, flush and activation. Swift MainActor projects
-state; UniFFI transports typed requests/receipts; Rust domain/store performs pure
-validation and durable sequencing. No AppKit types in Rust. Evaluation callbacks
-carry session generation and cannot apply to a replaced session. All windows share
-one coordinator; second editable ownership is refused.
+A Rust per-package authority owns ordered mutation admission, journal, package
+lease, checkpoint scheduling and flush for every supported client surface. Client
+activation/lifecycle is a separate coordinator responsibility, not ownership of all
+work by the GUI. Swift MainActor projects state; UniFFI transports native typed
+requests/receipts without becoming a second persistence protocol. Other transports
+remain undecided. No AppKit types in Rust. Callbacks bind owner epoch and attachment
+generation and cannot apply to a replaced attachment. All clients of an incarnation
+share ordering; second independent ownership is refused.
 
-Switch states: Current → Confirmation → Frozen → Flushing → Verified →
+GUI attachment switch states: Current → Confirmation → Frozen → Flushing → Verified →
 Released → OpeningTarget → RestoringTarget → Current(target). Only the final step
 updates visible Project identity and persisted active-session pointer. Keep current
 Graph visibly present but frozen during the transaction. Store a rollback capsule
 with verified snapshot, package identity/HEAD, view state and reacquisition data
-before release. Releasing current writer ownership does not discard this capsule.
+before detaching. Detaching does not discard this capsule or another client's work.
+Package ownership release, if needed, requires its separate authority transition.
 
 Save failure transitions back to Current(current), with Save Failed and retained
 work. Target validation/open/view restoration failure discards target provisional
 session, then reopens/reacquires current at its saved coordinate. If current is now
 missing, externally changed or locked, retain its verified Graph on screen in
 read-only recovery state with Retry/Locate; never present an empty surface or falsely
-claim restored editability. No concurrent current and target writable sessions.
+claim restored editability. No concurrent current and target editable attachments
+for this GUI switch transaction; other authorized clients/projects are not forbidden.
 A failed local active-pointer write also rolls activation back. Crash during switch
 recovers current until a durable target activation receipt; after receipt it opens
 target or presents explicit recovery with current rollback capsule available.
 
-Active evaluation blocks switching and asks **Stop Run and Switch / Cancel**.
+An evaluation owned by the switching attachment blocks switching and asks
+**Stop Run and Switch / Cancel**.
 Cancellation request is not completion: await terminal run state and outstanding
 callbacks/effect bookkeeping. Failure or unknown stop outcome retains current.
-Recheck at freeze; no background/detached evaluation in this slice. Same-project
+Recheck at freeze; this slice adds no background/detached evaluation facility.
+Switching the GUI cannot implicitly cancel another client's independently owned
+job or revoke its authority. Such job lifecycle/ownership must be specified before
+that facility is enabled. Same-project
 activation does not stop evaluation. Switch/close/termination requests serialize;
 a second target cannot replace an in-flight transaction.
 
@@ -385,8 +470,9 @@ SessionStateFailed. Include phase, retryability and last proven durable coordina
 redact path/content/credentials. Unknown outcomes require reconciliation, not blind
 retry. Failures never authorize deletion of package history or recovery records.
 
-- **PS0 (this checkpoint):** review architecture, typed proposal, schema deltas,
-  furnace and compatibility blockers. Stop before implementation. No commit/push.
+- **PS0 (historical checkpoint):** review architecture, typed proposal, schema deltas,
+  furnace and compatibility blockers. Its original stop-before-implementation gate
+  is not a prohibition on later authorized isolated PS2 contract/test slices.
 - **BR0 — Brand Cutover / Rename Readiness:** mandatory after PS0, before PS1.
   Close known public-identity leaks, validate generated configuration and synthetic
   rename/extension compatibility, and review security/directory cutover contracts.
@@ -398,8 +484,8 @@ retry. Failures never authorize deletion of package history or recovery records.
   adapter and journal behind test-only entry points; inject every boundary, prove
   replay/unknown outcomes, resource ceilings and restoration. Review retention/
   compaction compatibility before production gate. No live package migration.
-- **PS3 — native coordinator/autosave:** synthetic native session lab first, then
-  separately reviewed production session wiring; all entry points, lifecycle and
+- **PS3 — shared authority and native autosave:** synthetic multi-client/session lab
+  first, then separately reviewed production session wiring; all entry points, lifecycle and
   truthful statuses. Preserve legacy route unless explicit conversion approved.
 - **PS4 — Project switching integration:** only after PS3 durability acceptance,
   integrate accepted confirmation and failure restoration; Gallery implementation

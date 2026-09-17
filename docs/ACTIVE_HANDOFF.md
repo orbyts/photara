@@ -20,11 +20,22 @@ unproved. No production body schema or qualified profile is selected.
 
 [Retention/storage direction](architecture/PS2_RETENTION_STORAGE_DECISION.md),
 [macOS qualification](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md) and
-[writer admission](architecture/PS2_WRITER_ADMISSION_PROPOSAL.md) remain proposals.
+[writer admission](architecture/PS2_WRITER_ADMISSION_PROPOSAL.md) now distinguish
+approved sealed-root retention and registered cooperative in-place editing from
+unfinished implementation/qualification. No managed-root requirement, production
+threshold, format number or migration is selected. The
+[shared Rust contract](architecture/PROJECT_SESSION_DURABILITY.md#shared-authority-authorization-and-concurrent-clients)
+and [typed proposals](architecture/proposals/ps0/CONTRACTS.md) cover all controlled
+surfaces, authorization/provenance, owner epochs versus attachments, ordered dedupe,
+finite flush and client lifecycle. Future voice/chat workflow proposals use that
+same boundary. A GUI-held lifetime lease returns WriterBusy to a direct second
+process; routing/handoff and agent-progress guarantees remain deferred.
+Compiled policy and production code are unchanged by this architecture slice.
 Full typed mutation/undo replay, platform barriers, the remaining I/O failure
 matrix, retention and production integration are unfinished. No installed app,
 live package, main-branch publication or power-loss qualification is implied.
-Continue safe disposable work while those production decisions are reviewed.
+Continue safe disposable work; qualification and production integration remain
+separate gates, not a request to reapprove the accepted directions.
 
 ## PS1 accepted; PS2 next — 2026-09-16
 
@@ -36,8 +47,9 @@ contracts. Configured outer extensions and stable internal schemas remain intact
 
 **PS1 accepted for publication.** No filesystem edit writer,
 journal, native autosave/session coordinator, project switch or migration is wired.
-The [retention proposal](architecture/PS1_RETENTION_PROPOSAL.md) must be reviewed before
-production autosave: 1,024 commits remain a hard bound, with no history truncation
+The [retention proposal](architecture/PS1_RETENTION_PROPOSAL.md) now has an
+[approved direction](architecture/PS2_RETENTION_STORAGE_DECISION.md), not an
+implementation: 1,024 commits remain a hard bound, with no history truncation
 or indefinite-autosave claim. Exact 15-file inventory and tests are in the report.
 PS2 is the disposable writer/journal/recovery furnace; PS3 is native session and
 autosave integration. The BR0/PS0 entries below are historical review checkpoints.
