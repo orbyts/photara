@@ -83,6 +83,13 @@ but cannot legitimize cutting its revision-2 parent, even after commit/HEAD hash
 are recomputed. A deliberately unsupported fixture-only required feature instead
 produces reader refusal. No positive sealed-root reader, production feature/version,
 migration, compaction or deletion policy is implemented by these tests.
+The [sealed-root protocol proposal](docs/architecture/PS2_SEALED_ROOT_PROTOCOL_PROPOSAL.md)
+recommends a single HEAD dispatch with independently verifiable active/recovery
+roots and explicit preservation of the conversion source. Its exact production
+codec, dispatch and conversion/retirement semantics still require review and
+approval; clearly fixture-only positive validation work may continue meanwhile.
+It selects no production format number or threshold and authorizes no migration,
+deletion or live-package writes.
 No complete typed mutation/undo journal, qualified
 package edit writer, production recovery, retention implementation, native autosave
 or project switching exists yet. Process exits do not qualify OS-crash/power-loss
