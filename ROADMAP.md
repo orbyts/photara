@@ -1,5 +1,24 @@
 # Roadmap to Photara 0.2.0
 
+## PS2 positive sealed-root fixture checkpoint — 2026-09-17
+
+The [disposable positive fixtures](docs/architecture/PS2_POSITIVE_SEALED_ROOT_FIXTURES.md)
+now exercise the approved resource/storage semantics without changing production
+package bytes or readers. Nineteen new tests pass; the full store suite passes
+125 tests with four pre-existing ignored tests. Across 64 modeled turnovers the
+exact package keep-set stays at eight IDs. A synthetic 8 GB external resource
+incurs zero media reads during ordinary metadata opening, autosave and root
+turnover; capture and verified publication account for reads separately. Nine
+root and six cross-store publication cuts, offline-versus-loss, finite pins,
+placement, capacity and backup claims are covered. These are in-memory fixture
+observations, not filesystem durability or production performance qualification.
+
+**Next PS2 boundary:** review the exact root/required-feature/dispatch contract,
+conversion-source representation and capacity/retirement/rollback policy, then
+separately qualify production storage/publication and its failure matrix. No
+production format/version, migration, live writer, Asset Store, garbage collector,
+layout or threshold was selected here. PS2 and PS3 remain incomplete.
+
 ## Resource, location and verification contract — 2026-09-17
 
 The approved architecture direction is recorded in
@@ -24,8 +43,8 @@ destination, authorization and storage qualification govern creation and
 publication. Changing a default never moves or retargets existing packages or
 resource versions.
 
-**Next PS2 gate:** amend the sealed-root dependency/keep-set contract and build
-disposable positive fixtures for independent active/recovery roots, retained
+The completed fixture gate amended the sealed-root dependency/keep-set contract
+and built disposable positive fixtures for independent active/recovery roots, retained
 external-managed descriptors without media traversal, working-file observation
 versus exact capture, offline versus confirmed loss, conservative version pins,
 qualified placement/fallback, interrupted cross-store publication, and separate

@@ -18,6 +18,8 @@ mod macos_probe;
 mod replay;
 #[path = "retention_boundary.rs"]
 mod retention_boundary;
+#[path = "sealed_positive/mod.rs"]
+mod sealed_positive;
 
 fn incarnation() -> IncarnationId {
     IncarnationId::parse(&id(30000)).unwrap()

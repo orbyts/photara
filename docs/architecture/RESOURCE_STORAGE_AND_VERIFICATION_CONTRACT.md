@@ -250,7 +250,9 @@ upload, replication, retention compliance or availability on another computer.
 
 ## Positive fixture acceptance and deferred work
 
-Next implement a disposable, fixture-only positive sealed-root model. Cover:
+The disposable, fixture-only positive sealed-root model is recorded in
+[PS2 fixture evidence](PS2_POSITIVE_SEALED_ROOT_FIXTURES.md). Its acceptance
+matrix covers:
 
 - Independent active/recovery roots, complete package keep-set equality, repeated
   turnover, dedupe/inclusion and interrupted publication/conversion boundaries.

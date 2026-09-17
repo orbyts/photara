@@ -1,5 +1,25 @@
 # Active handoff
 
+## 2026-09-17 PS2 positive sealed-root fixtures — ready for review
+
+The [fixture evidence](architecture/PS2_POSITIVE_SEALED_ROOT_FIXTURES.md)
+records 19 new positive tests, 125 passing store tests and four pre-existing
+ignored tests. Sixty-four root turnovers retain at most eight package IDs;
+synthetic 8 GB external media has zero reads during ordinary metadata/open/
+autosave/turnover cycles, including offline and ambiguous backing scenarios.
+Nine root and six cross-store interruption cuts, exact dedupe, conversion-source
+preservation, finite pins, placement, capacity and backup scope are covered.
+The 1.1 negative reader-boundary tests remain unchanged and pass.
+
+Only test-module registration and three test-only fixture files changed, plus
+this handoff, roadmap and evidence report. No production package code, wire
+format, migration, live package, Asset Store, GC, directory layout or thresholds
+changed. The in-memory model is not physical durability or performance evidence.
+No new architectural decision emerged. Next review the production root/feature/
+dispatch contract and conversion/retirement/rollback specifics, then separately
+qualify storage and publication. PS2 and PS3 remain incomplete; no commit, push,
+installation or live-data operation was performed for this fixture checkpoint.
+
 ## 2026-09-17 resource/storage contract — next PS2 gate
 
 The reviewed direction is consolidated in
@@ -16,7 +36,7 @@ existing meanings. The implementation accepts `$library.<slot>` while older
 conceptual documentation used `$library.storage.<slot>`; the contract records
 that reconciliation rather than adding another path language.
 
-**Next work:** implement only disposable PS2 positive sealed-root fixtures under
+**Completed fixture step:** implemented disposable PS2 positive sealed-root fixtures under
 the amended package-closure versus external-backing boundary. Cover independent
 roots, exact keep-set, no large-media reads for metadata checkpoints, offline
 versus confirmed loss, pinned versus retirement-eligible captured versions,

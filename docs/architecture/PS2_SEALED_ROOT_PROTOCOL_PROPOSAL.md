@@ -162,9 +162,11 @@ evidence; never silently rewind HEAD to a superseded dispatch record.
 
 The existing [boundary fixtures](../../crates/photara-store/tests/package_planning/retention_boundary.rs)
 prove unchanged legacy reads and negative reader-boundary behavior, not this
-positive protocol. Next prove independent roots, complete keep-set equality,
-multiple turnovers, exact dedupe/inclusion, interrupted conversion and every
-publication/retirement boundary, including capacity exhaustion and concurrent work.
+positive protocol. The [positive fixture evidence](PS2_POSITIVE_SEALED_ROOT_FIXTURES.md)
+now models independent roots, complete keep-set equality,
+multiple turnovers, exact dedupe/inclusion, interrupted conversion, and the
+defined publication/retirement cuts, including capacity exhaustion and concurrent
+work. This is fixture evidence, not production reader or durability qualification.
 
 The approved [resource/storage fixture matrix](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md#positive-fixture-acceptance-and-deferred-work)
 also requires zero external media reads on root turnover, synthetic 8 GB working
@@ -175,7 +177,7 @@ retargeting, same-version verified relocation, cross-store recovery, independent
 shared-volume reserves, and package-only versus complete-backup claims. Use
 fixture models/read counters rather than real media allocation or production GC.
 
-No additional product decision blocks a clearly fixture-only positive model.
+No additional product decision blocked the clearly fixture-only positive model.
 Before production codec implementation, approve the exact root/feature contract,
 dispatch validation, conversion-source representation and retirement/rollback
 semantics. Existing directional approval does not reserve a wire format or
