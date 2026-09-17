@@ -17,8 +17,9 @@ format, migration, live package, Asset Store, GC, directory layout or thresholds
 changed. The in-memory model is not physical durability or performance evidence.
 No new architectural decision emerged. Next review the production root/feature/
 dispatch contract and conversion/retirement/rollback specifics, then separately
-qualify storage and publication. PS2 and PS3 remain incomplete; no commit, push,
-installation or live-data operation was performed for this fixture checkpoint.
+qualify storage and publication. PS2 and PS3 remain incomplete. The fixture
+checkpoint was committed and pushed to `main` as `f8c387b`; no installation or
+live-data operation was performed.
 
 ## 2026-09-17 resource/storage contract — next PS2 gate
 
