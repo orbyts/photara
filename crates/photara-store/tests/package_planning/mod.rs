@@ -16,6 +16,8 @@ mod macos_lease;
 mod macos_probe;
 #[path = "replay.rs"]
 mod replay;
+#[path = "retention_boundary.rs"]
+mod retention_boundary;
 
 fn incarnation() -> IncarnationId {
     IncarnationId::parse(&id(30000)).unwrap()

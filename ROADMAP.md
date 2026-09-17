@@ -66,7 +66,7 @@ The [logical-client furnace](crates/photara-store/tests/package_planning/authori
 now adds two test-only cases using the real pure rename planner: GUI/agent ordering,
 scoped host-grant fixtures, exact stale checks, dedupe, reconnect gaps, finite virtual
 checkpoint prefixes and detach isolation. It models WriterBusy for a second logical
-owner, not OS contention or routing. Current store verification: 100 regular tests
+owner, not OS contention or routing. Current store verification: 102 regular tests
 plus 4 compile-fail doctests passed, 4 ignored; strict Clippy/fmt pass.
 The [macOS lease fixture](crates/photara-store/tests/package_planning/macos_lease.rs)
 now observes an independent contender receiving WriterBusy while a child holds the
@@ -76,6 +76,13 @@ manifest/HEAD and the package closure; original package bytes remain unchanged.
 Bounded waits and completion markers verify child execution. This is not a
 production adapter or path-substitution, inherited-descriptor, noncooperator,
 provider or power-loss qualification; GUI/agent routing remains unimplemented.
+The [retention-boundary fixtures](crates/photara-store/tests/package_planning/retention_boundary.rs)
+now verify ordinary 1.1 packages remain readable with byte-identical inputs under
+repeated pure validation. Optional root metadata is tolerated on a complete chain
+but cannot legitimize cutting its revision-2 parent, even after commit/HEAD hashes
+are recomputed. A deliberately unsupported fixture-only required feature instead
+produces reader refusal. No positive sealed-root reader, production feature/version,
+migration, compaction or deletion policy is implemented by these tests.
 No complete typed mutation/undo journal, qualified
 package edit writer, production recovery, retention implementation, native autosave
 or project switching exists yet. Process exits do not qualify OS-crash/power-loss
