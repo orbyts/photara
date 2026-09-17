@@ -1,9 +1,10 @@
 # Generation-two architecture
 
-**Current PS2 review gate:** the [approved production boundary](PS2_PRODUCTION_CODEC_AND_PUBLICATION_CONTRACT.md)
-now has a [candidate field-level wire appendix](PS2_PRODUCTION_WIRE_APPENDIX.md)
-and [golden canonical bytes](proposals/ps2/sealed-wire-golden.json). The exact
-format still awaits review; no production reader or writer exists. The
+**Current PS2 review gate:** [index and inventory scaling](PS2_INDEX_INVENTORY_SCALING_REVIEW.md)
+must be resolved before freezing the [candidate field-level wire appendix](PS2_PRODUCTION_WIRE_APPENDIX.md)
+or [golden canonical bytes](proposals/ps2/sealed-wire-golden.json). The flat
+index/inventory portions are not accepted permanent wire. No production reader
+or writer exists. The
 [experimental on-disk checkpoint](PS2_EXPERIMENTAL_SEALED_CODEC_CHECKPOINT.md)
 remains disposable evidence.
 
