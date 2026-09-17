@@ -415,7 +415,6 @@ fn capability_policy_refuses_network_providers_and_missing_barriers() {
         atomic_same_volume_head: true,
         full_file_flush: true,
         directory_flush: true,
-        excludes_uncooperative_writers: true,
     };
     qualified.check_policy().unwrap();
     for kind in [
@@ -431,7 +430,7 @@ fn capability_policy_refuses_network_providers_and_missing_barriers() {
     p.full_file_flush = false;
     assert_eq!(p.check_policy(), Err(PlanError::UnsupportedStorage));
     let mut p = qualified.clone();
-    p.excludes_uncooperative_writers = false;
+    p.directory_flush = false;
     assert_eq!(p.check_policy(), Err(PlanError::UnsupportedStorage));
     let mut p = qualified;
     p.version = 2;

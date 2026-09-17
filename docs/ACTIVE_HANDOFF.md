@@ -30,7 +30,14 @@ surfaces, authorization/provenance, owner epochs versus attachments, ordered ded
 finite flush and client lifecycle. Future voice/chat workflow proposals use that
 same boundary. A GUI-held lifetime lease returns WriterBusy to a direct second
 process; routing/handoff and agent-progress guarantees remain deferred.
-Compiled policy and production code are unchanged by this architecture slice.
+The following compiled interface slice removes the impossible storage exclusion
+assertion and requires opaque registered admission for every mutating `PackageIo`
+method. No production constructor, registrar or writer exists; primitive policy
+success does not authorize writes. Four synthetic tests check absent/mismatched
+HEAD/incarnation/volume/owner/protocol bindings, and four compile-fail doctests check
+forgery/raw-lock/default/profile bypasses. `WriterBusy` is typed; no actual GUI/agent
+contention or progress claim is made. Current store checks: 96 regular tests plus
+4 compile-fail doctests passed, 4 ignored; strict Clippy/fmt pass.
 Full typed mutation/undo replay, platform barriers, the remaining I/O failure
 matrix, retention and production integration are unfinished. No installed app,
 live package, main-branch publication or power-loss qualification is implied.

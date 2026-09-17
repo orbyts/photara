@@ -320,8 +320,11 @@ Approved admission is registered cooperative editing in place at a user-selected
 qualified path; no managed-root requirement or implicit copy/move/conversion.
 Registration binds identity, access policy and cooperative ownership separately
 from storage qualification. See [writer admission](PS2_WRITER_ADMISSION_PROPOSAL.md).
-The compiled PS1 capability policy remains unchanged until a reviewed code slice;
-its `excludes_uncooperative_writers` flag does not represent achievable exclusion.
+The compiled interface now separates primitive capability policy from opaque
+`RegisteredCooperativeLease` admission. The impossible exclusion flag is removed;
+every mutating I/O method requires the opaque lease, which has no production
+constructor. Exact binding checks alone do not mint authority. Real registration,
+authorization, qualified adapter and multi-client ownership remain unimplemented.
 
 SMB/NAS, cloud-sync/File Provider folders and unqualified local filesystems are
 **read-only** initially. A successful rename test cannot prove remote power-loss

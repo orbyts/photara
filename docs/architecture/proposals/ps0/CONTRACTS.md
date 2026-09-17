@@ -202,7 +202,10 @@ before/after/error/unknown. Domain code receives no OS-specific descriptor numbe
 `RegisteredCooperativeLease` is opaque evidence of validated registration, access,
 storage qualification and held stable OS lock. Storage does not assert exclusion of
 arbitrary noncooperating writers. Chosen qualified paths are admitted in place;
-no managed-root requirement. Compiled PS1 `CapabilityProfile` is unchanged here.
+no managed-root requirement. The compiled interface now requires an opaque
+`RegisteredCooperativeLease` for every mutation and separates primitive policy from
+admission; no production constructor, registrar or adapter is implemented. Its
+exact expectation check is necessary, not authorization or OS lock revalidation.
 Competing direct acquisition returns WriterBusy while any owner holds the lifetime
 lease. This ensures safety, not agent progress through GUI ownership. Routing or
 coordinated handoff, owner location, IPC/ABI and fairness implementation are deferred;

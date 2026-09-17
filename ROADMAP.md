@@ -53,7 +53,14 @@ proposals. Authorization/provenance, owner epochs versus attachments, ordered
 dedupe, finite flush and client lifecycle remain transport-neutral. A GUI-held
 lifetime lease makes a direct second writer busy; routing/handoff is deferred.
 No managed-root requirement, format number, migration or production threshold is
-selected; compiled policy is unchanged. No complete typed mutation/undo journal, qualified
+selected. The compiled I/O seam now separates primitive policy from an opaque,
+non-cloneable registered lease required by every mutation; no production constructor
+or registrar exists. Four synthetic binding tests reject absent admission and exact
+identity/HEAD/volume/owner/protocol mismatches; four compile-fail checks cover
+forgery and attempts to use raw locks/defaults/profiles as permission. `WriterBusy`
+is typed, but real multi-process contention/routing remains untested. Store checks:
+96 regular tests plus 4 compile-fail doctests passed, 4 intentionally ignored;
+strict Clippy/fmt pass. No complete typed mutation/undo journal, qualified
 package edit writer, production recovery, retention implementation, native autosave
 or project switching exists yet. Process exits do not qualify OS-crash/power-loss
 durability; the remaining per-I/O failure matrix and platform qualification are

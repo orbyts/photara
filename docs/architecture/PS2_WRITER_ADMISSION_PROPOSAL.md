@@ -1,12 +1,11 @@
 # PS2 writer admission — approved cooperative direction
 
 Status: registered cooperative in-place direction approved 2026-09-16.
-No compiled contract or production admission changes. The proposed contract replaces
-the unsupported exclusion assertion in
+The compiled interface now replaces the unsupported exclusion assertion in
 [PackageIo/CapabilityProfile](../../crates/photara-store/src/package/planning/io.rs),
-not weakening a check in the existing implementation. The present policy continues
-to refuse profiles lacking `excludes_uncooperative_writers`; no production adapter
-constructs a qualified profile.
+with a separate opaque `RegisteredCooperativeLease` required by every mutating
+method. Primitive `check_policy` success is not admission. The opaque lease has no
+production constructor: no production registrar, adapter or package writer exists.
 
 ## Audit conclusion
 
@@ -104,12 +103,17 @@ fn publish(lease: &mut RegisteredCooperativeLease,
            plan: &CheckpointPlan) -> PublishOutcome;
 ```
 
-In a later reviewed code slice, remove `excludes_uncooperative_writers` from *storage capability*
-assertions and make publication require this separate opaque admission/lease.
+The interface slice removes `excludes_uncooperative_writers` from *storage capability*
+assertions and makes every mutation require a separate opaque admission/lease.
 Keep safe handles, exclusive cooperating lock, no-replace publication, atomic HEAD
 replacement and file/directory barriers as independently qualified requirements.
 No caller-provided boolean grants registered admission. No new profile/format number
-is selected here; the existing version-1 interface remains unchanged pending implementation.
+is selected here. A fresh owner epoch and exact HEAD/incarnation, volume and protocol
+digest are checked by a pure necessary binding check. Synthetic unit fixtures cover
+absent/mismatched evidence; compile-fail tests prevent field forgery, raw-lock/default
+promotion and use of a passing primitive profile as publication permission. These
+are not real registration/authentication or GUI/agent contention tests. `WriterBusy`
+is now a typed lock-acquisition outcome, not a selected routing/handoff mechanism.
 
 ## Conservative failure behavior
 
@@ -161,7 +165,7 @@ admitted model; storage barriers and retention remain independent release gates.
 
 **Direction approved:** registered cooperative in-place editing at user-chosen
 qualified local paths, without a managed-root requirement. Arbitrary noncooperating
-writers can race outside the protocol. The compiled policy change, shared-authority
+writers can race outside the protocol. Real registration, shared-authority
 implementation, routing/handoff selection and qualification tests remain future
 work. No new approval is needed for transport-neutral contract/test work; this
 direction does not authorize live admission, copying, migration or deployment.

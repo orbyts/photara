@@ -53,14 +53,15 @@ adapter offers implementation references but does not supply edit-writer qualifi
 Apple's [flock manual](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/flock.2.html)
 defines advisory locking: other processes can ignore it. Duplicated/fork-inherited
 descriptors also share the lock. Therefore `excludes_uncooperative_writers` cannot
-be inferred from a lock test. The compiled interface still refuses profiles without
-that assertion; no production adapter constructs one. Detecting a
+be inferred from a lock test. The compiled interface removes that assertion and
+requires opaque registered admission for every mutation; no production path can
+construct it or a qualified adapter. Detecting a
 change after publication does not undo a race already lost to an uncooperative
 writer. The approved [writer admission direction](PS2_WRITER_ADMISSION_PROPOSAL.md)
 separates registered in-place cooperative admission from storage qualification,
 without requiring a managed root. All controlled writer surfaces use one Rust
 authority; another direct process gets WriterBusy while the lifetime lease is held.
-This revises the proposed contract, not the compiled policy or qualification result.
+The interface separation does not qualify storage or implement admission/routing.
 
 Apple's [rename manual](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/rename.2.html)
 documents replacement and same-filesystem behavior. Atomic replacement is not

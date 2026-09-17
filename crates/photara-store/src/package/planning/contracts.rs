@@ -33,6 +33,8 @@ macro_rules! identity {
 }
 identity!(WriteId);
 identity!(IncarnationId);
+// Fresh, non-reused identity for one authority's lifetime; not a client identity.
+identity!(OwnerEpoch);
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct GraphCoordinate {
