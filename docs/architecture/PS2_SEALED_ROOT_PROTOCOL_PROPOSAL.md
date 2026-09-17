@@ -1,6 +1,6 @@
-# PS2 sealed-root protocol — review-only proposal
+# PS2 sealed-root protocol — approved disposable semantics, production proposal
 
-Status: proposed protocol, not an approved production codec or implementation.
+Status: approved for disposable implementation, not an approved production codec.
 The [retention direction](PS2_RETENTION_STORAGE_DECISION.md) and
 [cooperative admission direction](PS2_WRITER_ADMISSION_PROPOSAL.md) are approved.
 This document selects no production format number, feature identifier, threshold,
@@ -10,6 +10,10 @@ The [resource/storage semantic boundary](RESOURCE_STORAGE_AND_VERIFICATION_CONTR
 was approved 2026-09-17 for the next positive fixtures. Its distinctions below
 are approved semantics; exact root encoding, feature identifiers and production
 implementation remain proposed.
+
+The [experimental on-disk checkpoint](PS2_EXPERIMENTAL_SEALED_CODEC_CHECKPOINT.md)
+tests these semantics with real temporary packages and a fixture-only codec.
+It does not select production identifiers or authorize live conversion/writes.
 
 ## Recommendation and alternatives
 

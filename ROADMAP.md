@@ -1,5 +1,22 @@
 # Roadmap to Photara 0.2.0
 
+## PS2 experimental on-disk sealed-root codec — 2026-09-17
+
+The [disposable codec checkpoint](docs/architecture/PS2_EXPERIMENTAL_SEALED_CODEC_CHECKPOINT.md)
+implements real-file root-set dispatch, independent active/recovery closure
+validation, old-reader refusal, exact original-package conversion snapshots and
+operation-ID-preserving reconciliation. It carries authoritative resource,
+version, backing, provenance and retention records without ordinary external
+media reads. All identifiers and package writes are fixture-only; this is not
+a production format, migration, storage qualification or native integration.
+Verification: 24 focused tests, 149 full store tests (four ignored), strict
+Clippy, formatting and whitespace checks passed.
+
+Next: review the exact production codec/feature and publication contract, then
+qualify storage and shared Rust session/autosave coordination. Real project
+browsing/switching and Library lifecycle remain later steps. Do not patch the
+current Swift browse/close flow around the durability gate.
+
 ## PS2 positive sealed-root fixture checkpoint — 2026-09-17
 
 The [disposable positive fixtures](docs/architecture/PS2_POSITIVE_SEALED_ROOT_FIXTURES.md)

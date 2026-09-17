@@ -1,5 +1,23 @@
 # Active handoff
 
+## 2026-09-17 PS2 experimental sealed-root codec — disposable implementation
+
+The [checkpoint](architecture/PS2_EXPERIMENTAL_SEALED_CODEC_CHECKPOINT.md)
+records a test-only on-disk codec, reader, and recovery/reconciliation boundary.
+`HEAD.json` remains the sole atomic dispatch; independently validated active
+and recovery roots include authoritative resource/version/backing/provenance/
+retention records. The actual old reader refuses the required feature. Original
+1.1 bytes remain independently readable throughout the interrupted opt-in
+conversion fixture. Synthetic 8 GB external media is never read during ordinary
+root opening/turnover. Production code and live packages remain unchanged.
+
+Verification: 24 focused tests and 149 full store tests passed, with four
+intentionally ignored fixture generators/probes; strict Clippy, formatting and
+whitespace checks passed. Next review exact production format/feature,
+storage qualification and publication protocol; then shared Rust session/
+autosave coordination before Swift project browsing/switching, followed by
+Library lifecycle. No new architectural decision arose from this fixture.
+
 ## 2026-09-17 PS2 positive sealed-root fixtures — ready for review
 
 The [fixture evidence](architecture/PS2_POSITIVE_SEALED_ROOT_FIXTURES.md)
