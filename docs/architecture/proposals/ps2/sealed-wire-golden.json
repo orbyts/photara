@@ -1,0 +1,646 @@
+{
+  "status": "candidate-review-bytes-only",
+  "vectors": [
+    {
+      "name": "unchanged-head-v1",
+      "value": {
+        "schema": {
+          "id": "photara.package.head",
+          "version": 1
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "commit_id": "00000014-0000-4000-8000-000000000014",
+        "commit_sha256": "a9df709bea40f62f3b1cab7655a91551296d51860ccf26ddb5c0fd681eed711a"
+      },
+      "canonical": "{\"commit_id\":\"00000014-0000-4000-8000-000000000014\",\"commit_sha256\":\"a9df709bea40f62f3b1cab7655a91551296d51860ccf26ddb5c0fd681eed711a\",\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"schema\":{\"id\":\"photara.package.head\",\"version\":1}}",
+      "sha256": "9964c68b4a8e7cc556f29570cc43f96f35cca2aa6c9cb57c4365a9d7b2b4bc58"
+    },
+    {
+      "name": "outer-commit-v1-reader-1.2",
+      "value": {
+        "schema": {
+          "id": "photara.package.commit",
+          "version": 1
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "commit_id": "00000014-0000-4000-8000-000000000014",
+        "package_revision": "2",
+        "parent": null,
+        "write_id": "00000015-0000-4000-8000-000000000015",
+        "created_at": "2026-09-17T00:00:00.000Z",
+        "bootstrap_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "minimum_reader": {
+          "major": 1,
+          "minor": 2
+        },
+        "required_features": [
+          "photara.resource-backings.v1",
+          "photara.sealed-roots.v1"
+        ],
+        "authored": {
+          "kind": "json",
+          "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "byte_length": "100"
+        },
+        "history": {
+          "kind": "json",
+          "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+          "byte_length": "100"
+        },
+        "inventory": {
+          "kind": "json",
+          "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+          "byte_length": "100"
+        },
+        "root_set": {
+          "schema": {
+            "id": "photara.package.root-set",
+            "version": 1
+          },
+          "project_id": "00000001-0000-4000-8000-000000000001",
+          "library_id": "00000002-0000-4000-8000-000000000002",
+          "bootstrap_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "kind": "sealed",
+          "active": {
+            "kind": "json",
+            "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "byte_length": "100"
+          },
+          "recovery": {
+            "kind": "json",
+            "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "byte_length": "100"
+          },
+          "pinned_roots": [],
+          "operation_index": {
+            "kind": "json",
+            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "byte_length": "100"
+          },
+          "conversion_source": {
+            "kind": "json",
+            "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "byte_length": "100"
+          },
+          "inventory": {
+            "kind": "json",
+            "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "byte_length": "100"
+          },
+          "extensions": {}
+        }
+      },
+      "canonical": "{\"authored\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"1111111111111111111111111111111111111111111111111111111111111111\"},\"bootstrap_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"commit_id\":\"00000014-0000-4000-8000-000000000014\",\"created_at\":\"2026-09-17T00:00:00.000Z\",\"history\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"2222222222222222222222222222222222222222222222222222222222222222\"},\"inventory\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"4444444444444444444444444444444444444444444444444444444444444444\"},\"minimum_reader\":{\"major\":1,\"minor\":2},\"package_revision\":\"2\",\"parent\":null,\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"required_features\":[\"photara.resource-backings.v1\",\"photara.sealed-roots.v1\"],\"root_set\":{\"active\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"},\"bootstrap_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"conversion_source\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\"},\"extensions\":{},\"inventory\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"},\"kind\":\"sealed\",\"library_id\":\"00000002-0000-4000-8000-000000000002\",\"operation_index\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"},\"pinned_roots\":[],\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"recovery\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"},\"schema\":{\"id\":\"photara.package.root-set\",\"version\":1}},\"schema\":{\"id\":\"photara.package.commit\",\"version\":1},\"write_id\":\"00000015-0000-4000-8000-000000000015\"}",
+      "sha256": "a9df709bea40f62f3b1cab7655a91551296d51860ccf26ddb5c0fd681eed711a"
+    },
+    {
+      "name": "root-set",
+      "value": {
+        "schema": {
+          "id": "photara.package.root-set",
+          "version": 1
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "library_id": "00000002-0000-4000-8000-000000000002",
+        "bootstrap_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "kind": "sealed",
+        "active": {
+          "kind": "json",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "byte_length": "100"
+        },
+        "recovery": {
+          "kind": "json",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "byte_length": "100"
+        },
+        "pinned_roots": [],
+        "operation_index": {
+          "kind": "json",
+          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "byte_length": "100"
+        },
+        "conversion_source": {
+          "kind": "json",
+          "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "byte_length": "100"
+        },
+        "inventory": {
+          "kind": "json",
+          "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "byte_length": "100"
+        },
+        "extensions": {}
+      },
+      "canonical": "{\"active\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"},\"bootstrap_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"conversion_source\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\"},\"extensions\":{},\"inventory\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"},\"kind\":\"sealed\",\"library_id\":\"00000002-0000-4000-8000-000000000002\",\"operation_index\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"},\"pinned_roots\":[],\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"recovery\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"},\"schema\":{\"id\":\"photara.package.root-set\",\"version\":1}}",
+      "sha256": "3a7c7b96301d127f01f09635f2792ac64f59692e5c8537092207e2af381ec9db"
+    },
+    {
+      "name": "state-root",
+      "value": {
+        "schema": {
+          "id": "photara.package.state-root",
+          "version": 1
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "library_id": "00000002-0000-4000-8000-000000000002",
+        "bootstrap_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "root_id": "00000009-0000-4000-8000-000000000009",
+        "authored_revision": "1",
+        "authored": {
+          "kind": "json",
+          "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "byte_length": "100"
+        },
+        "history": {
+          "kind": "json",
+          "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+          "byte_length": "100"
+        },
+        "resource_state": {
+          "kind": "json",
+          "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+          "byte_length": "100"
+        },
+        "operation_index": {
+          "kind": "json",
+          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "byte_length": "100"
+        },
+        "accepted": {
+          "through_ordinal": "0",
+          "prefix_sha256": "a3e30465ce1090e78b6494657d696c1beb17e3b0456c0cd092522b9bc4d06a4e"
+        },
+        "journal_inclusion": null,
+        "predecessor": null,
+        "inventory": {
+          "kind": "json",
+          "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+          "byte_length": "100"
+        },
+        "extensions": {}
+      },
+      "canonical": "{\"accepted\":{\"prefix_sha256\":\"a3e30465ce1090e78b6494657d696c1beb17e3b0456c0cd092522b9bc4d06a4e\",\"through_ordinal\":\"0\"},\"authored\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"1111111111111111111111111111111111111111111111111111111111111111\"},\"authored_revision\":\"1\",\"bootstrap_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"extensions\":{},\"history\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"2222222222222222222222222222222222222222222222222222222222222222\"},\"inventory\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"4444444444444444444444444444444444444444444444444444444444444444\"},\"journal_inclusion\":null,\"library_id\":\"00000002-0000-4000-8000-000000000002\",\"operation_index\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"},\"predecessor\":null,\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"resource_state\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"3333333333333333333333333333333333333333333333333333333333333333\"},\"root_id\":\"00000009-0000-4000-8000-000000000009\",\"schema\":{\"id\":\"photara.package.state-root\",\"version\":1}}",
+      "sha256": "986ccac46f675a8de93c1e852ba93458ca87fcf6c389714a7f52a631ae194d4b"
+    },
+    {
+      "name": "empty-operation-index",
+      "value": {
+        "schema": {
+          "id": "photara.package.operation-index",
+          "version": 1
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "library_id": "00000002-0000-4000-8000-000000000002",
+        "bootstrap_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "accepted": {
+          "through_ordinal": "0",
+          "prefix_sha256": "a3e30465ce1090e78b6494657d696c1beb17e3b0456c0cd092522b9bc4d06a4e"
+        },
+        "entries": [],
+        "extensions": {}
+      },
+      "canonical": "{\"accepted\":{\"prefix_sha256\":\"a3e30465ce1090e78b6494657d696c1beb17e3b0456c0cd092522b9bc4d06a4e\",\"through_ordinal\":\"0\"},\"bootstrap_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"entries\":[],\"extensions\":{},\"library_id\":\"00000002-0000-4000-8000-000000000002\",\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"schema\":{\"id\":\"photara.package.operation-index\",\"version\":1}}",
+      "sha256": "8c91306f70b5f910ee15efc438a9bce21fc8d530c024b09d9c605ae6d024a7be"
+    },
+    {
+      "name": "portable-working-binding",
+      "value": {
+        "schema": {
+          "id": "photara.resource.working-binding",
+          "version": 1
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "resource_id": "00000005-0000-4000-8000-000000000005",
+        "binding_id": "00000003-0000-4000-8000-000000000003",
+        "revision": "1",
+        "location": {
+          "library_id": "00000002-0000-4000-8000-000000000002",
+          "storage_location_id": "0000000c-0000-4000-8000-00000000000c",
+          "coordinate": {
+            "kind": "filesystem",
+            "components": [
+              "Assets",
+              "hero.raw"
+            ]
+          }
+        },
+        "extensions": {}
+      },
+      "canonical": "{\"binding_id\":\"00000003-0000-4000-8000-000000000003\",\"extensions\":{},\"location\":{\"coordinate\":{\"components\":[\"Assets\",\"hero.raw\"],\"kind\":\"filesystem\"},\"library_id\":\"00000002-0000-4000-8000-000000000002\",\"storage_location_id\":\"0000000c-0000-4000-8000-00000000000c\"},\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"resource_id\":\"00000005-0000-4000-8000-000000000005\",\"revision\":\"1\",\"schema\":{\"id\":\"photara.resource.working-binding\",\"version\":1}}",
+      "sha256": "55e49945aa2cc150623335c45ee93913a3cd9c95ec99499700c2deb288f6acbe"
+    },
+    {
+      "name": "conversion-source",
+      "value": {
+        "schema": {
+          "id": "photara.package.conversion-source",
+          "version": 1
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "conversion_id": "0000000a-0000-4000-8000-00000000000a",
+        "source_format_version": {
+          "major": 1,
+          "minor": 1
+        },
+        "source_bootstrap_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "source_head_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "source_commit_id": "0000000d-0000-4000-8000-00000000000d",
+        "snapshot_directory": [
+          "conversion-sources",
+          "0000000a-0000-4000-8000-00000000000a",
+          "package"
+        ],
+        "files": [
+          {
+            "components": [
+              "HEAD.json"
+            ],
+            "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+            "byte_length": "72"
+          },
+          {
+            "components": [
+              "manifest.json"
+            ],
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "byte_length": "180"
+          }
+        ],
+        "extensions": {}
+      },
+      "canonical": "{\"conversion_id\":\"0000000a-0000-4000-8000-00000000000a\",\"extensions\":{},\"files\":[{\"byte_length\":\"72\",\"components\":[\"HEAD.json\"],\"sha256\":\"5555555555555555555555555555555555555555555555555555555555555555\"},{\"byte_length\":\"180\",\"components\":[\"manifest.json\"],\"sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}],\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"schema\":{\"id\":\"photara.package.conversion-source\",\"version\":1},\"snapshot_directory\":[\"conversion-sources\",\"0000000a-0000-4000-8000-00000000000a\",\"package\"],\"source_bootstrap_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"source_commit_id\":\"0000000d-0000-4000-8000-00000000000d\",\"source_format_version\":{\"major\":1,\"minor\":1},\"source_head_sha256\":\"5555555555555555555555555555555555555555555555555555555555555555\"}",
+      "sha256": "620e1f6311d43f0e0d5386129b63e2782cf968a4c71347ed72443859330c529c"
+    },
+    {
+      "name": "representation-v3",
+      "value": {
+        "binding": {
+          "kind": "managed-captured",
+          "resource_id": "00000005-0000-4000-8000-000000000005",
+          "version_id": "00000004-0000-4000-8000-000000000004",
+          "version": {
+            "kind": "json",
+            "sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+            "byte_length": "234"
+          }
+        },
+        "schema": {
+          "version": 3,
+          "id": "photara.project.representation-content"
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "asset_id": "99999999-9999-4999-8999-999999999999",
+        "representation_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "content_revision_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "media": {
+          "media_type": "image/png",
+          "byte_length": "5"
+        },
+        "fingerprint": {
+          "kind": "content-digest",
+          "algorithm": "sha256",
+          "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "evidence_strength": "verified-bytes"
+        },
+        "lineage": [],
+        "extensions": {}
+      },
+      "canonical": "{\"asset_id\":\"99999999-9999-4999-8999-999999999999\",\"binding\":{\"kind\":\"managed-captured\",\"resource_id\":\"00000005-0000-4000-8000-000000000005\",\"version\":{\"byte_length\":\"234\",\"kind\":\"json\",\"sha256\":\"7777777777777777777777777777777777777777777777777777777777777777\"},\"version_id\":\"00000004-0000-4000-8000-000000000004\"},\"content_revision_id\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"extensions\":{},\"fingerprint\":{\"algorithm\":\"sha256\",\"evidence_strength\":\"verified-bytes\",\"kind\":\"content-digest\",\"value\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"},\"lineage\":[],\"media\":{\"byte_length\":\"5\",\"media_type\":\"image/png\"},\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"representation_id\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"schema\":{\"id\":\"photara.project.representation-content\",\"version\":3}}",
+      "sha256": "402f93ee9df8b0b690723f4d8f80f88221029ccc5871c56e251d91739de9228b"
+    },
+    {
+      "name": "resource-identity",
+      "value": {
+        "schema": {
+          "id": "photara.resource.identity",
+          "version": 1
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "resource_id": "00000005-0000-4000-8000-000000000005",
+        "purpose": "photara.original",
+        "custody": "photara-managed",
+        "producer": null,
+        "extensions": {}
+      },
+      "canonical": "{\"custody\":\"photara-managed\",\"extensions\":{},\"producer\":null,\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"purpose\":\"photara.original\",\"resource_id\":\"00000005-0000-4000-8000-000000000005\",\"schema\":{\"id\":\"photara.resource.identity\",\"version\":1}}",
+      "sha256": "86f49263102fb2cbada3457318939e64067eb76d5bafb35f2c2cd165ef0ab802"
+    },
+    {
+      "name": "captured-version",
+      "value": {
+        "schema": {
+          "id": "photara.resource.captured-version",
+          "version": 1
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "resource_id": "00000005-0000-4000-8000-000000000005",
+        "version_id": "00000004-0000-4000-8000-000000000004",
+        "media_type": "image/raw",
+        "byte_length": "4096",
+        "sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+        "captured_at": "2026-09-17T00:00:00.000Z",
+        "capture_operation_id": "00000006-0000-4000-8000-000000000006",
+        "capture_evidence": {
+          "kind": "json",
+          "sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+          "byte_length": "100"
+        },
+        "extensions": {}
+      },
+      "canonical": "{\"byte_length\":\"4096\",\"capture_evidence\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"9999999999999999999999999999999999999999999999999999999999999999\"},\"capture_operation_id\":\"00000006-0000-4000-8000-000000000006\",\"captured_at\":\"2026-09-17T00:00:00.000Z\",\"extensions\":{},\"media_type\":\"image/raw\",\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"resource_id\":\"00000005-0000-4000-8000-000000000005\",\"schema\":{\"id\":\"photara.resource.captured-version\",\"version\":1},\"sha256\":\"8888888888888888888888888888888888888888888888888888888888888888\",\"version_id\":\"00000004-0000-4000-8000-000000000004\"}",
+      "sha256": "114dcf4ab61a855773156a497da6e23f9fcdb18567ae965e72c83539f5a0d029"
+    },
+    {
+      "name": "retained-backing",
+      "value": {
+        "schema": {
+          "id": "photara.resource.backing",
+          "version": 1
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "resource_id": "00000005-0000-4000-8000-000000000005",
+        "version_id": "00000004-0000-4000-8000-000000000004",
+        "backing_id": "00000007-0000-4000-8000-000000000007",
+        "revision": "1",
+        "sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+        "byte_length": "4096",
+        "location": {
+          "library_id": "00000002-0000-4000-8000-000000000002",
+          "storage_location_id": "0000000c-0000-4000-8000-00000000000c",
+          "coordinate": {
+            "kind": "filesystem",
+            "components": [
+              "Assets",
+              "hero.raw"
+            ]
+          }
+        },
+        "publication_evidence": {
+          "kind": "json",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "byte_length": "100"
+        },
+        "extensions": {}
+      },
+      "canonical": "{\"backing_id\":\"00000007-0000-4000-8000-000000000007\",\"byte_length\":\"4096\",\"extensions\":{},\"location\":{\"coordinate\":{\"components\":[\"Assets\",\"hero.raw\"],\"kind\":\"filesystem\"},\"library_id\":\"00000002-0000-4000-8000-000000000002\",\"storage_location_id\":\"0000000c-0000-4000-8000-00000000000c\"},\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"publication_evidence\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"resource_id\":\"00000005-0000-4000-8000-000000000005\",\"revision\":\"1\",\"schema\":{\"id\":\"photara.resource.backing\",\"version\":1},\"sha256\":\"8888888888888888888888888888888888888888888888888888888888888888\",\"version_id\":\"00000004-0000-4000-8000-000000000004\"}",
+      "sha256": "7cddd8b15f19765bb69f5681add4368a699e65292343344a352b12cdf15f0d0f"
+    },
+    {
+      "name": "retention-obligation",
+      "value": {
+        "schema": {
+          "id": "photara.resource.retention-obligation",
+          "version": 1
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "obligation_id": "0000000e-0000-4000-8000-00000000000e",
+        "revision": "1",
+        "resource_id": "00000005-0000-4000-8000-000000000005",
+        "version_id": "00000004-0000-4000-8000-000000000004",
+        "origin": {
+          "kind": "authored",
+          "source_id": "0000000f-0000-4000-8000-00000000000f"
+        },
+        "minimum_qualified_copies": "1",
+        "required_backing_ids": [
+          "00000007-0000-4000-8000-000000000007"
+        ],
+        "required_qualification": {
+          "profile_id": "00000008-0000-4000-8000-000000000008",
+          "minimum_profile_revision": "1",
+          "failure_model_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "extensions": {}
+      },
+      "canonical": "{\"extensions\":{},\"minimum_qualified_copies\":\"1\",\"obligation_id\":\"0000000e-0000-4000-8000-00000000000e\",\"origin\":{\"kind\":\"authored\",\"source_id\":\"0000000f-0000-4000-8000-00000000000f\"},\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"required_backing_ids\":[\"00000007-0000-4000-8000-000000000007\"],\"required_qualification\":{\"failure_model_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"minimum_profile_revision\":\"1\",\"profile_id\":\"00000008-0000-4000-8000-000000000008\"},\"resource_id\":\"00000005-0000-4000-8000-000000000005\",\"revision\":\"1\",\"schema\":{\"id\":\"photara.resource.retention-obligation\",\"version\":1},\"version_id\":\"00000004-0000-4000-8000-000000000004\"}",
+      "sha256": "39e854377a626cb93760d71ed5c6b01b2704a47c01c93bb7c454a87d1b52b746"
+    },
+    {
+      "name": "publication-evidence",
+      "value": {
+        "schema": {
+          "id": "photara.resource.publication-evidence",
+          "version": 1
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "evidence_id": "00000010-0000-4000-8000-000000000010",
+        "operation_id": "00000006-0000-4000-8000-000000000006",
+        "request_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "resource_id": "00000005-0000-4000-8000-000000000005",
+        "version_id": "00000004-0000-4000-8000-000000000004",
+        "sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+        "byte_length": "4096",
+        "established_at": "2026-09-17T00:00:00.000Z",
+        "evidence_kind": "retained-publication",
+        "destination": {
+          "backing_id": "00000007-0000-4000-8000-000000000007",
+          "backing_revision": "1",
+          "location": {
+            "library_id": "00000002-0000-4000-8000-000000000002",
+            "storage_location_id": "0000000c-0000-4000-8000-00000000000c",
+            "coordinate": {
+              "kind": "filesystem",
+              "components": [
+                "Assets",
+                "hero.raw"
+              ]
+            }
+          }
+        },
+        "qualification": {
+          "profile_id": "00000008-0000-4000-8000-000000000008",
+          "profile_revision": "1",
+          "failure_model_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "extensions": {}
+      },
+      "canonical": "{\"byte_length\":\"4096\",\"destination\":{\"backing_id\":\"00000007-0000-4000-8000-000000000007\",\"backing_revision\":\"1\",\"location\":{\"coordinate\":{\"components\":[\"Assets\",\"hero.raw\"],\"kind\":\"filesystem\"},\"library_id\":\"00000002-0000-4000-8000-000000000002\",\"storage_location_id\":\"0000000c-0000-4000-8000-00000000000c\"}},\"established_at\":\"2026-09-17T00:00:00.000Z\",\"evidence_id\":\"00000010-0000-4000-8000-000000000010\",\"evidence_kind\":\"retained-publication\",\"extensions\":{},\"operation_id\":\"00000006-0000-4000-8000-000000000006\",\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"qualification\":{\"failure_model_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"profile_id\":\"00000008-0000-4000-8000-000000000008\",\"profile_revision\":\"1\"},\"request_sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"resource_id\":\"00000005-0000-4000-8000-000000000005\",\"schema\":{\"id\":\"photara.resource.publication-evidence\",\"version\":1},\"sha256\":\"8888888888888888888888888888888888888888888888888888888888888888\",\"version_id\":\"00000004-0000-4000-8000-000000000004\"}",
+      "sha256": "210c8769d31b088917daf8845c1838351878908a5e89ffa45d61e061cb372f18"
+    },
+    {
+      "name": "resource-state",
+      "value": {
+        "schema": {
+          "id": "photara.resource.state",
+          "version": 1
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "library_id": "00000002-0000-4000-8000-000000000002",
+        "identities": [
+          {
+            "resource_id": "00000005-0000-4000-8000-000000000005",
+            "identity": {
+              "kind": "json",
+              "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "byte_length": "100"
+            }
+          }
+        ],
+        "working_bindings": [
+          {
+            "binding_id": "00000003-0000-4000-8000-000000000003",
+            "binding": {
+              "kind": "json",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "byte_length": "100"
+            }
+          }
+        ],
+        "versions": [
+          {
+            "version_id": "00000004-0000-4000-8000-000000000004",
+            "version": {
+              "kind": "json",
+              "sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+              "byte_length": "234"
+            }
+          }
+        ],
+        "backings": [
+          {
+            "backing_id": "00000007-0000-4000-8000-000000000007",
+            "backing": {
+              "kind": "json",
+              "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "byte_length": "100"
+            }
+          }
+        ],
+        "obligations": [
+          {
+            "obligation_id": "0000000e-0000-4000-8000-00000000000e",
+            "obligation": {
+              "kind": "json",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+              "byte_length": "100"
+            }
+          }
+        ],
+        "extensions": {}
+      },
+      "canonical": "{\"backings\":[{\"backing\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"},\"backing_id\":\"00000007-0000-4000-8000-000000000007\"}],\"extensions\":{},\"identities\":[{\"identity\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"},\"resource_id\":\"00000005-0000-4000-8000-000000000005\"}],\"library_id\":\"00000002-0000-4000-8000-000000000002\",\"obligations\":[{\"obligation\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\"},\"obligation_id\":\"0000000e-0000-4000-8000-00000000000e\"}],\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"schema\":{\"id\":\"photara.resource.state\",\"version\":1},\"versions\":[{\"version\":{\"byte_length\":\"234\",\"kind\":\"json\",\"sha256\":\"7777777777777777777777777777777777777777777777777777777777777777\"},\"version_id\":\"00000004-0000-4000-8000-000000000004\"}],\"working_bindings\":[{\"binding\":{\"byte_length\":\"100\",\"kind\":\"json\",\"sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\"},\"binding_id\":\"00000003-0000-4000-8000-000000000003\"}]}",
+      "sha256": "6ac1156ba950a2def08fba691cb10269f2906f291cda111209ade8e3dba465af"
+    },
+    {
+      "name": "operation-receipt",
+      "value": {
+        "schema": {
+          "id": "photara.package.operation-receipt",
+          "version": 1
+        },
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "library_id": "00000002-0000-4000-8000-000000000002",
+        "bootstrap_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "operation_id": "00000006-0000-4000-8000-000000000006",
+        "request_sha256": "f3a8cf23afec1051d32b90d88fa078eb15cf86a5be50499e6a335babc2c6cf14",
+        "acceptance_ordinal": "1",
+        "journal_id": "0000000b-0000-4000-8000-00000000000b",
+        "journal_sequence": "1",
+        "outcome": "accepted",
+        "before": {
+          "revision": "0",
+          "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "after": {
+          "revision": "1",
+          "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "undo_group_id": null,
+        "provenance": {
+          "principal": {
+            "kind": "account",
+            "account_id": "00000011-0000-4000-8000-000000000011"
+          },
+          "actor": {
+            "kind": "photara.gui",
+            "actor_id": "00000012-0000-4000-8000-000000000012"
+          },
+          "grantor": {
+            "kind": "account",
+            "account_id": "00000011-0000-4000-8000-000000000011"
+          },
+          "grant_ref": {
+            "kind": "photara.project-grant",
+            "reference_id": "00000013-0000-4000-8000-000000000013"
+          },
+          "effective_scope": {
+            "project_id": "00000001-0000-4000-8000-000000000001",
+            "actions": 71
+          },
+          "policy_decision_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "extensions": {}
+      },
+      "canonical": "{\"acceptance_ordinal\":\"1\",\"after\":{\"digest\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"revision\":\"1\"},\"before\":{\"digest\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"revision\":\"0\"},\"bootstrap_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"extensions\":{},\"journal_id\":\"0000000b-0000-4000-8000-00000000000b\",\"journal_sequence\":\"1\",\"library_id\":\"00000002-0000-4000-8000-000000000002\",\"operation_id\":\"00000006-0000-4000-8000-000000000006\",\"outcome\":\"accepted\",\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"provenance\":{\"actor\":{\"actor_id\":\"00000012-0000-4000-8000-000000000012\",\"kind\":\"photara.gui\"},\"effective_scope\":{\"actions\":71,\"project_id\":\"00000001-0000-4000-8000-000000000001\"},\"grant_ref\":{\"kind\":\"photara.project-grant\",\"reference_id\":\"00000013-0000-4000-8000-000000000013\"},\"grantor\":{\"account_id\":\"00000011-0000-4000-8000-000000000011\",\"kind\":\"account\"},\"policy_decision_sha256\":\"3333333333333333333333333333333333333333333333333333333333333333\",\"principal\":{\"account_id\":\"00000011-0000-4000-8000-000000000011\",\"kind\":\"account\"}},\"request_sha256\":\"f3a8cf23afec1051d32b90d88fa078eb15cf86a5be50499e6a335babc2c6cf14\",\"schema\":{\"id\":\"photara.package.operation-receipt\",\"version\":1},\"undo_group_id\":null}",
+      "sha256": "a4afdd0a5e96f14cc8e731e44e8d4d0784def04cff8d987415dae309228c75d2"
+    },
+    {
+      "name": "semantic-intent",
+      "value": {
+        "domain": "photara.package.operation-intent.v1",
+        "version": 1,
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "library_id": "00000002-0000-4000-8000-000000000002",
+        "bootstrap_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "operation_id": "00000006-0000-4000-8000-000000000006",
+        "expected": {
+          "revision": "0",
+          "authored_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+          "graphs": {}
+        },
+        "command": {
+          "kind": "project-metadata",
+          "title": "Sample",
+          "description": ""
+        },
+        "updated_at": "2026-09-17T00:00:00.000Z",
+        "undo_group_id": null,
+        "boundary": "single"
+      },
+      "canonical": "{\"bootstrap_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"boundary\":\"single\",\"command\":{\"description\":\"\",\"kind\":\"project-metadata\",\"title\":\"Sample\"},\"domain\":\"photara.package.operation-intent.v1\",\"expected\":{\"authored_digest\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"graphs\":{},\"revision\":\"0\"},\"library_id\":\"00000002-0000-4000-8000-000000000002\",\"operation_id\":\"00000006-0000-4000-8000-000000000006\",\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"undo_group_id\":null,\"updated_at\":\"2026-09-17T00:00:00.000Z\",\"version\":1}",
+      "sha256": "f3a8cf23afec1051d32b90d88fa078eb15cf86a5be50499e6a335babc2c6cf14"
+    },
+    {
+      "name": "accepted-journal-frame",
+      "value": {
+        "schema": {
+          "id": "photara.package.accepted-journal-frame",
+          "version": 1
+        },
+        "journal_id": "0000000b-0000-4000-8000-00000000000b",
+        "sequence": "1",
+        "operation_id": "00000006-0000-4000-8000-000000000006",
+        "request_sha256": "f3a8cf23afec1051d32b90d88fa078eb15cf86a5be50499e6a335babc2c6cf14",
+        "receipt_sha256": "a4afdd0a5e96f14cc8e731e44e8d4d0784def04cff8d987415dae309228c75d2"
+      },
+      "canonical": "{\"journal_id\":\"0000000b-0000-4000-8000-00000000000b\",\"operation_id\":\"00000006-0000-4000-8000-000000000006\",\"receipt_sha256\":\"a4afdd0a5e96f14cc8e731e44e8d4d0784def04cff8d987415dae309228c75d2\",\"request_sha256\":\"f3a8cf23afec1051d32b90d88fa078eb15cf86a5be50499e6a335babc2c6cf14\",\"schema\":{\"id\":\"photara.package.accepted-journal-frame\",\"version\":1},\"sequence\":\"1\"}",
+      "sha256": "188de9e61093b4383b04c17e30b491d9f4a720361a5a68d9622746413822b0df"
+    },
+    {
+      "name": "accepted-prefix-zero",
+      "value": {
+        "domain": "photara.package.accepted-prefix.v1",
+        "project_id": "00000001-0000-4000-8000-000000000001",
+        "library_id": "00000002-0000-4000-8000-000000000002",
+        "bootstrap_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "through_ordinal": "0"
+      },
+      "canonical": "{\"bootstrap_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"domain\":\"photara.package.accepted-prefix.v1\",\"library_id\":\"00000002-0000-4000-8000-000000000002\",\"project_id\":\"00000001-0000-4000-8000-000000000001\",\"through_ordinal\":\"0\"}",
+      "sha256": "a3e30465ce1090e78b6494657d696c1beb17e3b0456c0cd092522b9bc4d06a4e"
+    },
+    {
+      "name": "accepted-prefix-link-one",
+      "value": {
+        "domain": "photara.package.accepted-prefix-link.v1",
+        "previous_sha256": "a3e30465ce1090e78b6494657d696c1beb17e3b0456c0cd092522b9bc4d06a4e",
+        "acceptance_ordinal": "1",
+        "operation_id": "00000006-0000-4000-8000-000000000006",
+        "request_sha256": "f3a8cf23afec1051d32b90d88fa078eb15cf86a5be50499e6a335babc2c6cf14",
+        "receipt_sha256": "a4afdd0a5e96f14cc8e731e44e8d4d0784def04cff8d987415dae309228c75d2"
+      },
+      "canonical": "{\"acceptance_ordinal\":\"1\",\"domain\":\"photara.package.accepted-prefix-link.v1\",\"operation_id\":\"00000006-0000-4000-8000-000000000006\",\"previous_sha256\":\"a3e30465ce1090e78b6494657d696c1beb17e3b0456c0cd092522b9bc4d06a4e\",\"receipt_sha256\":\"a4afdd0a5e96f14cc8e731e44e8d4d0784def04cff8d987415dae309228c75d2\",\"request_sha256\":\"f3a8cf23afec1051d32b90d88fa078eb15cf86a5be50499e6a335babc2c6cf14\"}",
+      "sha256": "5075065ff3261242d5d82df2553d23677186e5c0dbe13777aedef832271332c7"
+    }
+  ]
+}

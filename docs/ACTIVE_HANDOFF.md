@@ -1,16 +1,18 @@
 # Active handoff
 
-## PS2 production codec/publication contract — awaiting review
+## PS2 exact wire appendix and golden bytes — awaiting review
 
-The [review proposal](architecture/PS2_PRODUCTION_CODEC_AND_PUBLICATION_CONTRACT.md)
-now names candidate permanent features and schemas, a 1.2 reader floor,
-managed-backing records, original conversion preservation and the exact
-publication/reconciliation order. No production codec or writer was changed.
-The fixture codec remains `example.fixture.*` and must not be promoted merely
-by renaming. Next: review/approve or amend this contract; then implement the
-field-level typed wire appendix and production reader/synthetic
-publication/recovery without admitting live writes. Shared Rust session/
-autosave follows, before project switching.
+The [production boundary](architecture/PS2_PRODUCTION_CODEC_AND_PUBLICATION_CONTRACT.md)
+is approved as direction. The [candidate exact wire appendix](architecture/PS2_PRODUCTION_WIRE_APPENDIX.md)
+and [19 golden canonical-byte vectors](architecture/proposals/ps2/sealed-wire-golden.json)
+are the next review gate. The selected commit's 1.2 minimum-reader floor is
+separate from bootstrap, HEAD/commit schema, public app and filename versions.
+Portable `working-binding` contains only logical location/coordinate state,
+never host observations or grants. A test-only encoder check pins bytes; no
+production reader, publication/recovery code, live writes or conversion was
+added. Next: review exact wire/bytes, then implement the production reader and
+synthetic publication/recovery under the approved boundary. Shared Rust
+session/autosave follows, before project switching.
 
 ## 2026-09-17 local main cleanup safeguard
 

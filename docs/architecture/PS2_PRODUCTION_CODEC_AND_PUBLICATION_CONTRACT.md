@@ -1,20 +1,24 @@
-# PS2 production codec and publication contract — review proposal
+# PS2 production codec and publication contract — approved direction
 
-Status: **proposed for explicit review, not a production format freeze**.
+Status: **boundary approved as direction; exact wire appendix awaits review,
+not a production format freeze**.
 This is the next boundary after the [approved disposable semantics](PS2_SEALED_ROOT_PROTOCOL_PROPOSAL.md)
 and [on-disk experimental evidence](PS2_EXPERIMENTAL_SEALED_CODEC_CHECKPOINT.md).
 It selects candidate permanent identifiers and validation rules for review.
 Nothing in this document enables live conversion, a production writer, deletion,
 an Asset Store, project switching, or a writable storage profile.
 
-## Decision requested
+## Approved direction and remaining gate
 
-Approve or amend one additive package-reader capability for sealed roots and
-one additive resource-backing capability. Keep the current bootstrap and
+The approved direction adds one package-reader capability for sealed roots and
+one resource-backing capability. Keep the current bootstrap and
 `HEAD.json` envelopes byte-identical. A selected commit carries the new
 required features, minimum reader, and typed root-set record. The existing 1.1
 reader refuses the new feature before traversing legacy ancestry; unconverted
 packages continue down their existing reader path without a rewrite.
+The [candidate exact wire appendix](PS2_PRODUCTION_WIRE_APPENDIX.md) and
+[golden bytes](proposals/ps2/sealed-wire-golden.json) require review before
+production reader or synthetic publication/recovery implementation.
 
 These identifiers are stable internal protocol names, not the future public
 brand, app name, or package filename extension:
@@ -88,7 +92,7 @@ reinterpretation. Candidate v1 record schemas are:
 | --- | --- |
 | `photara.resource.state` | Root-selected resource/version/backing/obligation relationships |
 | `photara.resource.identity` | Stable logical identity, purpose and custody |
-| `photara.resource.working-binding` | Revisable working coordinate and cheap observation |
+| `photara.resource.working-binding` | Revisable logical StorageLocationId and portable coordinate only |
 | `photara.resource.captured-version` | Immutable exact digest/length, capture and provenance evidence |
 | `photara.resource.backing` | Version-specific backing identity/revision, logical StorageLocationId, portable locator and publication evidence |
 | `photara.resource.retention-obligation` | Explicit policy/pin and requirements, including replica requirements when present |
@@ -110,7 +114,11 @@ authored or node-value references mean something new.
 
 Package opening validates these records, cross-links and package-resident
 closure, not external media bytes. Host paths, credentials, live access grants
-and device Host Bindings are not portable authored records. Previously verified
+and device Host Bindings are not portable authored records. In particular,
+`working-binding` contains **no** absolute native path, inode/file observation,
+bookmark, mount state, credential or access grant. Cheap watcher/stat/provider
+observations remain device/runtime state; they do not become root-selected
+portable facts. Previously verified
 retained media on an offline store is unavailable/unconfirmed, not automatically
 lost or a retention breach. Confirmed loss/corruption can leave metadata
 structurally valid while an active retention obligation is unsatisfied. Normal
@@ -212,18 +220,20 @@ conversion-source release, or user-source deletion is authorized.
   power-loss proof. Do not enable production writes or a `Saved` claim before
   the stated profile and failure model are qualified.
 
-After contract approval, complete and review the field-level wire appendix
-below, then implement the production reader and synthetic publication/recovery.
+The [candidate field-level wire appendix](PS2_PRODUCTION_WIRE_APPENDIX.md) and
+[golden bytes](proposals/ps2/sealed-wire-golden.json) are now written for
+review. After that exact-wire review, implement the production reader and
+synthetic publication/recovery.
 Storage-profile qualification and the shared Rust session/autosave coordinator
 follow. Real project browsing/switching and Library lifecycle wiring wait for
 that durability boundary.
 
 ## Field-level wire completion required before codec code
 
-The identifiers and invariant rules above are proposed for product review;
-they are **not yet an exact serializable wire specification**. Before changing
-the production reader, the implementation patch must include a reviewed typed
-schema/closure appendix and golden canonical bytes for:
+The identifiers and invariant rules above are approved as direction, but
+**not yet frozen as an exact serializable wire specification**. Before changing
+the production reader, review the linked typed schema/closure appendix and
+golden canonical bytes for:
 
 - RootSet, StateRoot, independent operation index/receipt and their exact
   reference edges, ordering and inventory equality. Define the accepted-prefix
@@ -248,10 +258,10 @@ is not that appendix and must never be promoted by string substitution.
 
 ## Approval boundary
 
-Review the candidate stable IDs, 1.2 floor and unchanged HEAD/outer commit,
+The approved boundary covers candidate stable IDs, the 1.2 floor and unchanged HEAD/outer commit,
 new managed-backing record/reference model, complete original conversion copy,
 independent operation evidence and ordered publication/reconciliation rules as
-one contract. It authorizes completing the typed wire appendix and synthetic
+one contract. It authorizes review of the typed wire appendix and synthetic
 reader/recovery work after that appendix passes review, not inventing it inside
 a live writer. This review does **not** approve production writes, migration,
 retirement, automatic conversion, an Asset Store, numeric thresholds or a

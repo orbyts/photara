@@ -1,16 +1,18 @@
 # Roadmap to Photara 0.2.0
 
-## PS2 production codec/publication contract — review gate
+## PS2 exact wire and golden-byte review — current gate
 
-The [proposed production boundary](docs/architecture/PS2_PRODUCTION_CODEC_AND_PUBLICATION_CONTRACT.md)
+The [approved production boundary](docs/architecture/PS2_PRODUCTION_CODEC_AND_PUBLICATION_CONTRACT.md)
 specifies candidate stable identifiers, reader floor and fail-closed dispatch;
 independent sealed roots; additive managed-backing records; exact opt-in
 conversion-source preservation; and the shared Rust publication/reconciliation
-order. **This is not yet a format approval or production writer.** Review that
-contract before assigning permanent wire identifiers or enabling conversion.
-Finish and review the field-level typed wire appendix before production reader
-code. Synthetic session/autosave work may proceed separately; real browsing/
-switching still waits for the qualified durability boundary.
+order. The [field-level wire appendix](docs/architecture/PS2_PRODUCTION_WIRE_APPENDIX.md)
+and [golden canonical bytes](docs/architecture/proposals/ps2/sealed-wire-golden.json)
+are now candidate review artifacts. **The exact production format is not yet
+frozen, and no production reader or writer was added.** Review those bytes and
+typed edges before reader or synthetic publication/recovery implementation.
+Shared Rust session/autosave follows; real browsing/switching still waits for
+the qualified durability boundary.
 
 ## PS2 experimental on-disk sealed-root codec — 2026-09-17
 
