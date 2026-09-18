@@ -133,8 +133,9 @@ Auth0 logout, Keychain changes, or remote object deletion.
 ## Unnumbered schema signatures
 
 These are logical relation signatures and invariant deltas, **not executable DDL**.
-Physical names, codec bounds, index design, grants, and exact floor values remain
-review work. Local ID encoding follows existing BLOB16 rules; service IDs follow
+Physical DDL, indexes and grants remain review work; the concrete recommendations
+below fix proposed codec bounds, relation responsibilities and compatibility floors.
+Local ID encoding follows existing BLOB16 rules; service IDs follow
 UUID rules. Existing migration files/checksums remain unchanged.
 
 | Proposed relation | Scope/key and required facts | Constraints and retention |
@@ -175,10 +176,11 @@ remain enabled. PostgreSQL runtime gets only the reviewed service boundary, not
 general destructive privileges; SQLite raw SQL is not a supported lifecycle API.
 
 Fresh and upgrade paths must preserve replay/authentication bytes and UI1 recovery,
-then negotiate new reader/writer/API floors before exposing removal. Floor numbers
-are deliberately unassigned. Old writers must fail closed before the new admission
-protocol is active; startup cannot recreate a removed default or replay an archived
-binding. Existing data is not migrated by this review.
+then negotiate new reader/writer/API floors before exposing removal. The floor
+recommendation below is separate from migration numbering. Old writers must fail
+closed before the new admission protocol is active; startup cannot recreate a
+removed default or replay an archived binding. Existing data is not migrated by
+this review.
 
 ## Enumerated table dispositions
 
@@ -278,15 +280,324 @@ An owned active evaluation requires the PS contract's Stop Run and Switch/Cancel
 and terminal completion. Independent clients' work is not implicitly cancelled.
 Concurrent A→B→C requests cannot let late B results overwrite C.
 
-Proposed coordination rule for review: the local selected-Library pointer and
-GUI project-activation intent have one coordinated durable activation outcome,
-with a recovery capsule until it commits. No two independent successful pointer
-writes may leave visible Library A with active Project B. Recheck actor, access,
-projection, request and attachment generations at final activation. Exact storage
-sharing/receipt mapping must be agreed with PS3/PS4; no PS2 file or protocol is
-changed here. Voluntary removal with active attachments must first settle them
-through their owning session workflow or remain blocked; removal does not flush
-or close packages itself.
+The recommendation below gives the local selected-Library pointer and GUI
+project-activation intent one coordinated durable activation outcome, with a
+recovery capsule until it commits. No two independent successful pointer writes
+may leave visible Library A with active Project B. PS3/PS4 must accept that mapping
+before implementation; no PS2 file or protocol is changed here. Voluntary removal
+with active attachments first settles them through their owning session workflow
+or remains blocked; removal does not flush or close packages itself.
+
+## Concrete recommendations for the five LL1 decisions
+
+These recommendations resolve the design direction for review. They do not mark
+LL1 approved or authorize DDL, implementation, deployment, or live deletion.
+
+### R1 — detached evidence and narrow retirement
+
+Use separate logical relations for `lifecycle_intents`, `lifecycle_receipts`,
+`removed_library_identities`, `retired_operation_dispositions`, and
+`historical_authentication_evidence`. Do not put all five in a generic archive
+JSON table. Their semantic keys and retention follow the signatures above;
+retired IDs are scalars with explicit historical types, never nullable live FKs
+that ordinary repositories can later fill in.
+
+The retirement unit stages a typed disposition manifest in the same transaction:
+target Library, initiating operation/hash, reviewed generations, exact source
+record identities/digests, allowed output evidence identities/digests, and
+disposition kind. It validates complete dependency closure, copies permitted
+evidence, deletes matched children/cycles and roots, inserts final receipt/marker
+and invalidations, checks postconditions, then commits. A manifest is internal
+transaction admission, not a new durable copy of all deleted data. Failed
+postconditions roll back the whole database unit. No visible “half retired” state.
+
+PostgreSQL should expose one narrow control-role retirement operation with a
+fixed qualified search path and no caller-selected table names/dynamic SQL.
+Runtime clients cannot directly insert retirement permits or delete protected
+tables. Trigger exceptions must match the current transaction, admitted operation,
+Library and exact manifest row; a caller-set GUC/boolean alone is not admission.
+Authentication/authorization still belongs to the verified service boundary;
+an `actor_id` parameter by itself proves nothing. Role and privilege tests must
+demonstrate that ordinary API/control entry points cannot mint the exception.
+
+SQLite should use the private typed repository's single write transaction with
+the same matched-manifest guards and deferred closure where needed. Ordinary
+repository calls cannot enter retirement. This does not claim security against
+a process already able to rewrite the local database file or issue unrestricted
+SQL; that remains the existing trusted-host boundary. Do not disable foreign
+keys, drop guards at runtime, or expose a public raw-SQL retirement flag.
+
+Apply this exception allowlist; unknown codecs/payload shapes block voluntary
+removal rather than expanding retention automatically:
+
+| Existing evidence | Recommended terminal representation |
+| --- | --- |
+| Completed/cancelled UI1 creation and package/context operation rows | Operation ID, actor scope, request hash, historical Library/Project IDs when required, terminal result and retirement receipt reference. Drop destination/stage fields and command/recovery payload. Keep files untouched. Unresolved work follows LL0's blocker/remote-fence rules. |
+| Old claim/mutation/scoped receipt and disposition rows | Preserve original request/response hashes, authenticated actor/device, operation identity, original terminal outcome and historical coordinates; add `LibraryRemoved` applicability disposition. Do not return old content-bearing response bytes or stream payload. Former success remains historical success, never a new permission to apply it. |
+| Security audit | Retain allowlisted action/time/actor/target IDs and original details digest. Drop arbitrary details after checking for required accounting/authentication evidence; any unhandled retention obligation blocks and requires explicit review. |
+| Local exact onboarding receipt | Archive only the validated original receipt bytes/hash and required principal/operation binding. Do not archive the whole intent, access projection, credential reference, challenge/nonce, request name, or replacement chain payload. Preserve chain identity/hash/result in detached dispositions. |
+| Service onboarding receipts/challenges already account-scoped | Keep existing immutable bytes and existing challenge-retention policy in their current account domain; do not copy them into a new Library archive. Every replay reader checks terminal identity before proposing Library projection. |
+| Billing history | Leave independent immutable provider events under their existing account/provider policy; classify embedded Library IDs as historical. For Library-owned links retain only an approved accounting disposition, then delete links. Active obligations still block. No provider cancellation or new billing retention rule. |
+
+The inspected [service onboarding types](../../crates/photara-service/src/onboarding.rs)
+and [local counterpart](../../crates/photara-library/src/gen2/onboarding.rs) show
+that exact bootstrap receipts include membership/stream IDs and a device
+credential **digest**, not the secret. These are the narrow LL0 immutable-byte
+exception: preserve the original bytes where required for receipt verification,
+but expose them only through account-scoped evidence readers. Do not treat the
+embedded membership/stream IDs as live links, import the old access projection,
+or use the digest as a credential. The normal lifecycle receipt contains none
+of these authentication fields.
+
+**Approval boundary:** LL0 already permits exact authentication evidence and
+minimal terminal history. It does not authorize indefinite retention of arbitrary
+domain payloads, paths, secrets, or new billing obligations. If a real legacy
+receipt cannot satisfy the allowlist while preserving required authentication,
+stop that removal and present the exact codec/field conflict for user/security
+review. This draft does not choose “keep everything” or destroy required evidence.
+
+### R2 — aggregate admission, generation and lock order
+
+Use three independent equality tokens: Library name/state revision, Library-wide
+aggregate generation, and the existing authorization generation. An effective
+database write to any row included in impact, blockers or permissions advances
+the relevant Library aggregate generation in that transaction. A generation may
+advance more than once for a multi-row command; it is not a per-command revision
+or a wall clock. Use checked positive signed-64-bit counters locally and on the
+service, transported as canonical decimal strings; overflow fails closed.
+
+Cover every disposition-matrix table's affected Library: typed children and
+tombstones, catalog/projection/binding changes, grants/invitations, stream/client
+cursors, media/upload sessions, receipts, context/recovery rows, billing links,
+default/controller state and queue state. A writer touching multiple Libraries
+declares them all. Terminal receipt lookup, read-only impact preparation, its
+ephemeral review token, account inventory delivery acknowledgments, and session
+selection are outside the aggregate generation unless they change an actual
+impact/blocker fact. Otherwise preparation would invalidate itself. Package
+authored edits are not SQL aggregate changes; active session/pending-operation
+admission is rechecked separately, without reading packages from removal.
+
+Recommend this common service order for **every** affected writer:
+
+1. Resolve the full lock set from an untrusted preliminary snapshot, with no
+   mutation. Include actor, affected owners/default accounts, membership/grant
+   targets, and inventory recipients needed by the operation.
+2. Acquire any required canonical authentication-principal locks first; then
+   Account locks in UUID byte order; then their identity/device/credential/default
+   rows in fixed table-and-key order. All ownership/default create/remove paths
+   use those account locks, including creation of a new Library ID.
+3. Acquire Library admission rows in UUID byte order, then Project policy rows,
+   operation/dedupe rows, and remaining affected children in fixed table/key order.
+   No account lock may be acquired after a Library lock.
+4. Re-read the closure and lock-set membership. If discovery added an account or
+   Library, roll back and restart with the enlarged set; never acquire it out of
+   order. Check current identity/device, owner/controller, entitlement, default
+   for every affected account, last-owned count, and exact reviewed generations.
+5. Publish mutation/generation/receipt/inventory in the same serializable unit.
+   Serialization retry retains operation identity but must reject a stale review;
+   no retry automatically renews confirmation or bypasses a blocker.
+
+SQLite serializes the matching validation and closure through `BEGIN IMMEDIATE`;
+there is no distributed lock shared with the service. Existing service
+[access](../../crates/photara-service/src/access.rs) and
+[onboarding](../../crates/photara-service/src/onboarding.rs) have their own locking
+paths today. LL2 must audit and adapt all of them before enabling deletion; this
+recommendation does not assert they already satisfy the complete order.
+
+Receipt recovery authenticates the actor and serializes on the operation identity
+without requiring deleted Library locks/membership. A fresh execution locks its
+live Library before the operation key; duplicate recovery of an existing terminal
+receipt never subsequently takes a Library lock. An in-flight/missing result
+returns to the normal ordered execution path with the same bytes. This prevents
+recovery from introducing an operation→Library inversion.
+
+The conservative contract can invalidate a five-minute review during background
+sync/media activity. LL2 should test that consequence and report stale-impact
+honestly. Excluding real impact changes or holding a long write lock throughout
+human confirmation would change accepted LL0 behavior and needs a new decision;
+neither is selected here.
+
+### R3 — inventory codec, watermark and privacy
+
+Recommend a dedicated `photara.library-lifecycle.v1` envelope using the existing
+`photara.canonical-json.v1` rules, strict discriminated variants, canonical UUIDs,
+lowercase SHA-256, decimal counters, and no unknown mandatory fields. It is a
+control/inventory protocol, not a new Library content stream. Add account-owned
+immutable `library_inventory_events`, a materialized current inventory, and
+device-local inventory positions; the current view is derived from the event log.
+
+Each account inventory has an epoch and monotonically ordered sequence. Library
+create/rename/access changes/removal emit the necessary per-account events in the
+same authority transaction as their effects. At rollout, seed a versioned current
+inventory snapshot from verified current authority, explicitly marked as baseline;
+do not invent historical lifecycle actions. Retain events and terminal identity
+evidence without time-based pruning for this bounded release. A later compaction
+policy must preserve old-device/backup recovery before it can replace that rule.
+
+Full inventory pages describe the state **as of one captured high-water H**, using
+immutable event history plus the baseline. Page by stable Library UUID key, with
+an opaque service cursor binding account, environment, device, epoch, H, last key,
+codec and authorization/privacy generation. Do not hold a database transaction
+open across network requests. Each page checks current authenticated account/device
+and privacy generation; a removal/revocation/access-policy change invalidates the
+snapshot before exposing now-forbidden fields. Restart at a new watermark without
+inferring absence from the interrupted snapshot. Name-only changes after H may be
+delivered in the next delta rather than rewriting an earlier page.
+
+On complete inventory, the client may fence a formerly visible ID absent from
+the accessible set, but absence means `AccessUnavailable`, **not** `Removed`.
+Only an explicit authenticated removed event/terminal proof permits deletion
+reconciliation and installing a removal marker. Delta application and local cursor
+advance are atomic; reject duplicate sequence with different bytes, gaps, wrong
+epoch/account and mismatched snapshot continuation. An epoch change forces a full
+inventory before queued work resumes, preserving pending local work until a typed
+disposition is known.
+
+| Recipient/event | Permitted response |
+| --- | --- |
+| Currently authorized accessible Library | ID, display name, authority mode, membership role/access summary, revisions, lifecycle availability and default protection relevant to that account. No project contents, paths or member list. |
+| Active member at removal | Historical Library ID, removed event/version and account-specific invalidation. No impact counts, other recipients or actor details. |
+| Revoked account | Its own `AccessRevoked`/unavailable result with already-known ID; no subsequent removed/name updates or newly learned catalog facts. |
+| Initiating remover querying its receipt | Its authenticated scoped terminal receipt and previously reviewed bounded counts; no broader inventory access follows. |
+| Unrelated account / guessed Library ID | Uniform access-unavailable response; no existence oracle. |
+
+Receipt recovery is separate from inventory: former members cannot query the
+owner's operation receipt. Tombstone identity does not make an ID discoverable.
+Routine logs remain code/operation oriented, without names or confirmation text.
+
+### R4 — one device activation receipt with PS3/PS4
+
+Recommend one protected local SQLite activation transaction, owned by the Rust
+session coordinator, to publish both scoped Library selection and the GUI's active
+Project pointer. Add a logical `activation_intent` (recovery workflow) and immutable
+`activation_receipt` (committed outcome), keyed by database/device/principal and
+activation operation. The target contains Library ID and optional Project ID;
+selecting a Library alone does not silently open a remembered Project. A Project
+activation requires matching Library ownership/access and exact package identity.
+
+The intent binds prior committed selection, latest request generation, actor/access
+generation, attachment/owner epoch, target identity, expected pointer revisions,
+and PS3's verified barrier coordinate plus opaque recovery-capsule reference. PS3
+owns any device-local capsule bytes/paths and package lease; LL1 stores only the
+typed reference and required identity/checksum. This is a session protocol record,
+never a package-authored record or cloud inventory item.
+
+The coordinator first resolves pending input/run outcomes and prepares/restores
+the target through PS3/PS4. It then rechecks authority, projection, target identity,
+latest request and attachment generations, and atomically inserts the activation
+receipt, advances committed generation and updates **both** pointers. The UI
+projects that committed receipt; no separate Swift preference write completes
+selection. Frozen current content and its verified rollback capsule remain until
+this transaction succeeds. Other client attachments retain their independent jobs.
+
+Before receipt commit, crash/cancel/target failure recovers the old activation or
+PS4's explicit read-only recovery if reacquisition fails. After receipt commit,
+restart recovers the target or explicit target recovery; it never silently rewinds
+the pointer to old state. A lost receipt response queries the original activation
+ID. Pointer-write failure leaves old committed selection intact. Capsule disposal
+occurs only through the existing session recovery owner after it is safe.
+
+Library selection requests may supersede an earlier request **before** PS4 freezes
+and starts its activation transaction. After freeze, serialize/reject another target
+until completion/cancel; do not replace the in-flight rollback capsule. Thus late
+B cannot overwrite C, while PS0's rule against replacing an active switch remains
+intact. Same-target selection/activation remains idempotent.
+
+Remote Library removal fences matching session attachments before cleanup. Cleanup
+invalidates associated activation intents and clears live pointers atomically with
+terminal dispositions; minimal historical activation receipts survive without live
+Library FKs or capsule/binding references. It does not read/delete capsules or packages. Retained unsaved memory
+is visible only as explicit recovery, not an editable revoked Library. If removal
+or access change races target preparation, final activation CAS fails; if observed
+after commit, the normal invalidation path fences the committed target.
+
+This recommendation chooses a shared **local session transaction**, not cross-store
+ACID or a transport. PS3/PS4 owners must review it before accepting their persistence
+shape. If they choose an active-pointer authority outside this SQLite transaction,
+stop integration for an explicit recovery-protocol decision; do not silently fall
+back to two independent pointer writes.
+
+### R5 — compatibility, bounded codecs and rollout
+
+For the inspected baseline only, recommend local reader/writer floors **6/6**
+(current 5/5), service minimum API **4** (current 3), and mandatory lifecycle
+capability `photara.library-lifecycle.v1`. These are proposed protocol/schema floors,
+**not migration ordinals or reservations**. Retain current schema-family/epoch and
+canonical codec unless physical review proves an incompatible family change is
+needed. Re-evaluate floor values if another slice advances the baseline first;
+never edit an already applied migration or fabricate its checksum ledger.
+
+| Envelope or field | Proposed hard bound |
+| --- | --- |
+| Create/rename/remove/query command | 64 KiB canonical bytes; strict exact fields for its variant. |
+| Library name / exact typed confirmation | Name is 1–128 UTF-8 bytes after the specified creation trim; confirmation is at most 128 raw bytes, never normalized. |
+| Removal token | Opaque 32-byte random value represented canonically; authority stores its digest and bound review facts. Five-minute expiry stays fixed; token is not a bearer authorization. |
+| Impact/receipt | 64 KiB; closed category enum (maximum 64 categories), decimal nonnegative counts; no full affected-ID list on wire. Internal closure digest is computed incrementally in deterministic order. |
+| Inventory page | At most 100 entries, 2 KiB per entry and 256 KiB total canonical page; byte limit can end a page earlier. Positive progress or explicit error, never a looping empty continuation. |
+| Inventory continuation | Opaque cursor up to 2 KiB, authority-bound as in R3; no client-generated cursor claims. |
+| Detached authentication evidence | Existing known onboarding codec's 64 KiB bound and exact bytes; no generic larger archive fallback. |
+
+Enforce size limits before allocation/canonical decoding, reject duplicate keys,
+unknown variants, invalid decimal/UUID/hash encodings and counter overflow. Exact
+confirmation may never be silently truncated. Large valid aggregate deletion uses
+bounded-memory enumeration in one atomic transaction; it does not split committed
+deletion over pages. Failure to finish within the admitted transaction budget rolls
+back and reports a retryable capacity/timeout failure, not partial completion.
+A background/chunked externally visible removal would require a new LL0 decision.
+
+Recommended rollout sequence, still separately gated:
+
+1. Accept LL1 recommendations and review physical unnumbered deltas, trigger/FK
+   closure, privilege changes, receipt codecs and upgrade fixtures. Retain the
+   full 79-table local/59-table service baseline classification; rerun inventory
+   at implementation time and fail on unclassified additions.
+2. Authorize LL2 implementation on disposable databases only. Add new migration
+   files after physical approval; prove upgrade/fresh parity, original evidence
+   verification, global writer-lock/generation coverage and session fakes. Keep
+   lifecycle endpoints/actions disabled.
+3. Complete PS3/PS4 acceptance and wire the accepted LL0 native flow. Prove signed
+   two-Library/two-project behavior, failure recovery and zero removal-origin file
+   effects on isolated targets. A synthetic coordinator fixture is not acceptance.
+4. Under separate rollout authorization, quiesce affected service writers, verify
+   backup/recovery, install reviewed schema and all participating writer code,
+   verify roles/floors, seed inventory and then enable lifecycle capability.
+   Do not serve an old writer alongside deletion-capable code. Local migration
+   likewise runs exclusively before normal startup workers/selection hydration.
+5. Negotiate capability/floor before dispatch and inventory-before-replay on every
+   returning device. Old clients refuse mutation/activation; no automatic local
+   fallback, bootstrap or Library recreation. An older client that cannot present
+   a terminal receipt must upgrade to recover it; retain evidence meanwhile.
+
+Before any accepted lifecycle writes, deployment can remain disabled or restore
+the verified pre-cutover state under its approved recovery procedure. After a
+committed removal, do not restore a stale backup as live authority or roll back to
+old readers: it could resurrect the Library. Prefer forward repair; any database
+restore must preserve/reconcile all terminal identities and accepted operation
+evidence before admitting clients. Cross-epoch disaster recovery needs a separately
+reviewed fence/reconciliation plan, not a reset of the marker ledger.
+
+## Additional verification for R1–R5
+
+Add these cases to LL2's disposable furnaces; no tests or migrations are executed
+by this documentation change:
+
+- R1: original known onboarding receipt bytes/hash still verify; archived receipt
+  cannot rehydrate membership/stream; unknown or path-bearing payload blocks;
+  forged/out-of-transaction retirement permit fails; failure before each evidence,
+  cycle, root and marker step rolls back all rows.
+- R2: enumerate each write path against generation coverage; concurrent last-owned
+  removals and membership/default changes; incomplete lock-set restart; stable lock
+  ordering across onboarding/access/media/registration; receipt recovery after root
+  deletion without operation→Library lock inversion; overflow refusal.
+- R3: seed, page interruption, delta gap/duplicate mismatch, wrong account/device/
+  epoch, concurrent rename, revoke/removal between pages, authoritative absence
+  versus explicit removal, stale-backup resnapshot, and guessed-ID privacy.
+- R4: faults before/after one activation commit; lost response; late B after C;
+  in-flight target serialization; save/run-stop failure; PS4 reacquisition failure;
+  removal during preparation and after commit; no mixed Library/Project pointers.
+- R5: exact byte boundaries including multibyte names, oversized/duplicate-key and
+  unknown-codec refusal, old-client floor failure before any replay, fresh/upgrade
+  checksum parity, disabled-feature rollout and forward recovery after deletion.
 
 ## Review and acceptance checklist
 
@@ -304,13 +615,18 @@ or close packages itself.
 | File isolation | Injected filesystem/package/object APIs record zero removal-origin calls; independent before/after canary byte/name/metadata manifests unchanged, including symlinks, caches and staged packages. |
 | Upgrade/native | Explicit new floors and old-writer refusal; UI1/auth recovery preserved; accepted LL0 native menu and both confirmation gates; signed two-Library/two-project acceptance remains a later gate. |
 
-Open design decisions for the next review are: (1) physical detached-evidence and
-guarded-retirement design, including every immutable payload exception; (2) exact
-aggregate-generation/admission coverage and account/Library lock ordering;
-(3) inventory codec, watermark and account-privacy policy; (4) coordinated
-selection/activation receipt storage with PS3/PS4; and (5) exact compatibility
-floors, bounded codecs and migration/rollout plan. Accepted LL0 names, ownership,
-two confirmations, protected defaults, database cleanup, and untouched files are
-not reopened. LL1 review approval precedes any numbered migration or implementation;
-LL2 authorization and PS3/PS4 acceptance remain distinct prerequisites for production
-lifecycle wiring and the signed two-Library/two-project acceptance.
+R1–R5 now provide concrete contract recommendations for the five previously open
+design items. **Approval remains pending** for those recommendations and their
+physical schema/privilege proof. No runtime correctness is claimed by document
+checks. Accepted LL0 names, ownership, two confirmations, protected defaults,
+database cleanup, and untouched files are not reopened.
+
+Before leaving LL1, review the evidence allowlist/guarded retirement, writer-lock
+coverage, inventory privacy and bounds, and PS3/PS4 activation mapping; confirm
+floor values against the then-current baseline. Any required arbitrary payload
+retention, weakened impact invalidation, distributed pointer publication, chunked
+visible deletion, or cross-epoch restore policy is a new decision and remains
+unselected. LL1 approval precedes numbered migration authoring or implementation.
+LL2 authorization, PS3/PS4 acceptance, disposable furnaces, and separately approved
+rollout remain distinct gates before production lifecycle wiring/live removal and
+signed two-Library/two-project acceptance.
