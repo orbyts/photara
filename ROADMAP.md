@@ -43,6 +43,7 @@ below. Do not force-push or publish unverified live-data changes.
    plus [scoped-cycle PostgreSQL comparison](docs/architecture/verification/LL1_SCOPED_CYCLE_COMPARISON.md)
    and [actual-schema PostgreSQL baseline](docs/architecture/verification/LL1_ACTUAL_POSTGRES_BASELINE.md)
    plus [actual-schema SQLite baseline](docs/architecture/verification/LL1_ACTUAL_SQLITE_BASELINE.md)
+   and the [disposable protected-executor comparison](docs/architecture/verification/LL1_PROTECTED_EXECUTOR_CONTRACT.md)
    advance while PS2 proceeds; none authorizes LL2 production wiring.
 5. **LL2 — production Library lifecycle.** First wire create/select/rename
    through the shared catalog/service and native avatar menu; one active

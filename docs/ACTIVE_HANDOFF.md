@@ -31,15 +31,27 @@ populated RESTRICT cycles remain undeletable under current retention guards;
 API/control roles also lack DELETE. This establishes the protected-executor,
 guard-exception and mandatory receipt/marker/inventory implementation boundary,
 not successful full retirement. No production migration, role change or live
- data access. The [actual SQLite baseline](architecture/verification/LL1_ACTUAL_SQLITE_BASELINE.md)
- loads all 15 unchanged local migrations and passes 24 behavior cases plus four
- logical-join checks over 79 tables, 137 FKs and 190 triggers. Its existing
- guards also refuse aggregate retirement; PostgreSQL-style data-modifying
- DELETE CTEs do not parse on SQLite. This rules out directly porting that
- statement shape, not every unchanged-RESTRICT strategy. Neither engine has
- demonstrated successful protected retirement or terminal evidence. Keep
- RESTRICT unchanged; an engine-specific, unnumbered executor/security design
- and committed whole-aggregate closure remain the next LL1 gate.
+data access. The [actual SQLite baseline](architecture/verification/LL1_ACTUAL_SQLITE_BASELINE.md)
+loads all 15 unchanged local migrations and passes 24 behavior cases plus four
+logical-join checks over 79 tables, 137 FKs and 190 triggers. Its existing
+guards also refuse aggregate retirement; PostgreSQL-style data-modifying
+DELETE CTEs do not parse on SQLite. This rules out directly porting that
+statement shape, not every unchanged-RESTRICT strategy.
+
+## LL1 disposable protected-executor comparison — 2026-09-18
+
+The [shared contract and comparison](architecture/verification/LL1_PROTECTED_EXECUTOR_CONTRACT.md)
+links the [PostgreSQL 24-case](architecture/verification/LL1_PROTECTED_POSTGRES_EXECUTOR.md)
+and [SQLite 21-case](architecture/verification/LL1_PROTECTED_SQLITE_EXECUTOR.md)
+experiments. Both load all unchanged migrations and close their seeded mutual
+cycles with existing `RESTRICT` actions; no `NO ACTION` migration is justified
+by this evidence. Each verifies seeded rollback, terminal agreement, stale/retry
+behavior and unrelated-row preservation. Both require test-only narrow deletion
+guard exceptions and modeled terminal relations. Coverage is sparse relative to
+the complete schema. Crucially, the PostgreSQL API SQL login can spoof owner
+context through caller-set GUCs; the SQL fixture does **not** prove authenticated
+authorization. Stop for security/physical-design review before any production
+deletion, migration or LL2b wiring.
 
 ## PS2 bounded typed-recipe recovery prerequisite — 2026-09-18
 
