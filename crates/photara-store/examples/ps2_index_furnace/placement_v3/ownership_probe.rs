@@ -115,6 +115,7 @@ struct PlacementPlan {
 impl PlacementPlan {
     fn continuation(&self) -> Continuation {
         Continuation {
+            inventory: Inventory::default(),
             active: self.active.clone(),
             recovery: self.recovery.clone(),
             data_pack: self.data.pack,
@@ -143,6 +144,7 @@ fn placement_plan(f: &mut Fixture, owners: &[Owner], fixed: bool) -> Result<Plac
         updates.push((
             k,
             Some(Location {
+                membership: Membership::Semantic,
                 object: Ref {
                     offset: k,
                     len: bytes.len() as u64,

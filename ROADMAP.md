@@ -39,6 +39,7 @@ below. Do not force-push or publish unverified live-data changes.
    [physical review](docs/architecture/LL1_PHYSICAL_SCHEMA_AND_PRIVILEGE_REVIEW.md)
    and [synthetic activation evidence](docs/architecture/verification/LL1_ACTIVATION_FIXTURE.md)
    plus [disposable retirement-constraint evidence](docs/architecture/verification/LL1_RETIREMENT_CONSTRAINT_FIXTURE.md)
+   and the [full-schema gap audit](docs/architecture/LL1_FULL_SCHEMA_GAPS.md)
    advance while PS2 proceeds; none authorizes LL2 production wiring.
 5. **LL2 — production Library lifecycle.** First wire create/select/rename
    through the shared catalog/service and native avatar menu; one active
@@ -77,6 +78,17 @@ recover any unique work, verify the signed app and repository, then explicitly
 decide whether to drop it. Do not discard it automatically or before that
 audit. Thereafter keep worktrees short-lived and publish each bounded verified
 PS2/PS3/PS4/LL1/LL2/platform checkpoint to `main` by normal fast-forward.
+
+## PS2 actual-v3 typed inventory fixture — 2026-09-18
+
+The [approved typed-inventory direction](docs/architecture/PS2_V3_TYPED_INVENTORY_FIXTURE.md)
+now has disposable actual-v3 reader/audit/recovery evidence and
+[1k/10k measurements](docs/architecture/verification/ps2-v3-typed-inventory.jsonl).
+Separate exact semantic and ownership closures share the HEAD-selected
+locator. Forty-six furnace tests pass. This validates selected claims, not
+complete per-pack/control ownership, refundable capacity, qualified barriers
+or the genuine Graph journal; no production wire is frozen. Finish those PS2
+dependencies before PS3 autosave or project switching.
 
 ## PS2 actual-v3 ownership closure gate — 2026-09-18
 

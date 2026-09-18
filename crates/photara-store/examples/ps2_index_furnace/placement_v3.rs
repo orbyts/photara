@@ -14,6 +14,9 @@ use std::collections::{HashMap, VecDeque};
 
 #[path = "placement_v3/ownership_probe.rs"]
 mod ownership_probe;
+#[path = "placement_v3/typed_inventory.rs"]
+mod typed_inventory;
+use typed_inventory::{Inventory, Membership};
 
 const PACK: u64 = 256 * 1024;
 const TX_OBJECTS: usize = 4096;
@@ -135,6 +138,7 @@ impl WritePlan {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct Location {
+    membership: Membership,
     object: Ref,
     data: PRef,
 }
@@ -161,6 +165,7 @@ impl Page {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct Selection {
+    inventory: Inventory,
     semantic: Head,
     gate: GateState,
     active: PRef,
@@ -362,6 +367,7 @@ impl Arena {
     }
 }
 struct Fixture {
+    imported_read_only: bool,
     dir: PathBuf,
     data: Arena,
     meta: Arena,
@@ -716,6 +722,10 @@ impl Fixture {
             .ok_or("missing selected object")?;
         ensure(loc.object == *r, "object identity conflict")?;
         ensure(
+            loc.membership == Membership::Semantic && r.offset < typed_inventory::OWNER_KEY,
+            "semantic membership/namespace",
+        )?;
+        ensure(
             loc.data.pack < self.head.data_pack
                 || (loc.data.pack == self.head.data_pack
                     && loc
@@ -744,6 +754,7 @@ impl Fixture {
         self.c.data_reads += 1;
         self.c.data_read_bytes += data.len;
         Ok(Location {
+            membership: Membership::Semantic,
             object: r.clone(),
             data,
         })
@@ -776,10 +787,15 @@ impl Fixture {
     }
     fn publish(&mut self, active: PRef, recovery: PRef, semantic: Head, cut: Cut) -> Result<()> {
         ensure(
+            !self.imported_read_only,
+            "imported inventory requires explicit full audit",
+        )?;
+        ensure(
             !self.dir.join("intent").exists(),
             "unresolved fixture transaction",
         )?;
         let next = Selection {
+            inventory: self.selected_inventory(&active, &recovery)?,
             semantic,
             gate: self
                 .desired_gate
@@ -905,6 +921,7 @@ impl Fixture {
             sha: String::new(),
         };
         let head = Selection {
+            inventory: Inventory::default(),
             semantic: semantic.clone(),
             gate: GateState::default(),
             active: placeholder.clone(),
@@ -918,6 +935,7 @@ impl Fixture {
             meta_cursor: 0,
         };
         let mut f = Self {
+            imported_read_only: false,
             dir: dir.to_owned(),
             data,
             meta,
@@ -990,6 +1008,7 @@ impl Fixture {
                 .map_err(error)?;
             ensure(hash(&bytes) == r.sha, "planned source hash")?;
             let loc = Location {
+                membership: Membership::Semantic,
                 object: r.clone(),
                 data: data.push(bytes, Some(r.offset))?,
             };
@@ -1027,7 +1046,13 @@ impl Fixture {
                 && plan.recovery == self.head.active,
             "prepared append identity",
         )?;
-        self.check_continuation(&Continuation::append(&plan))?;
+        let mut actual = Continuation::append(&plan);
+        actual.inventory = Inventory {
+            active: self.head.inventory.active.clone(),
+            recovery: self.head.inventory.active.clone(),
+            next: self.head.inventory.next,
+        };
+        self.check_continuation(&actual)?;
         let delta = json!({"added":plan.added,"removed":plan.removed});
         plan.data.write(&mut self.data, &mut self.c)?;
         plan.meta.write(&mut self.meta, &mut self.c)?;
@@ -1043,6 +1068,7 @@ impl Fixture {
             }
         }
         let mut pages = vec![(root.clone(), Vec::<(u8, u64, bool)>::new())];
+        let owned = self.audit_inventory(root)?;
         let mut locations = HashSet::new();
         while let Some((at, path)) = pages.pop() {
             ensure(path.len() <= 64, "audit locator depth")?;
@@ -1050,7 +1076,15 @@ impl Fixture {
                 Page::Leaf { key, value } => {
                     ensure(
                         key == value.object.offset
-                            && seen.contains(&value.object)
+                            && match value.membership {
+                                Membership::Semantic => {
+                                    key < typed_inventory::OWNER_KEY && seen.contains(&value.object)
+                                }
+                                Membership::Ownership => {
+                                    key >= typed_inventory::OWNER_KEY
+                                        && owned.contains(&value.object)
+                                }
+                            }
                             && locations.insert(value.object),
                         "extraneous or duplicate locator leaf",
                     )?;
@@ -1080,8 +1114,11 @@ impl Fixture {
                 }
             }
         }
-        ensure(locations.len() == seen.len(), "locator coverage mismatch")?;
-        Ok(seen.len())
+        ensure(
+            locations.len() == seen.len() + owned.len(),
+            "locator coverage mismatch",
+        )?;
+        Ok(seen.len() + owned.len())
     }
     fn audit(&mut self) -> Result<usize> {
         self.cache.clear();
@@ -1098,6 +1135,7 @@ impl Fixture {
             (&h.active, &h.semantic.active),
             (&h.recovery, &h.semantic.recovery),
         ] {
+            self.inventory_probe(locator)?;
             let Node::Root {
                 kind,
                 count,
@@ -1626,6 +1664,7 @@ const EXTRA_CLASSES: [PinClass; 10] = [
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct Obligation {
+    inventory: Inventory,
     token: u64,
     epoch: u64,
     class: PinClass,
@@ -1653,6 +1692,7 @@ struct Liability {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct Continuation {
+    inventory: Inventory,
     active: PRef,
     recovery: PRef,
     data_pack: u64,
@@ -1663,6 +1703,7 @@ struct Continuation {
 impl Continuation {
     fn from_selection(h: &Selection) -> Self {
         Self {
+            inventory: h.inventory.clone(),
             active: h.active.clone(),
             recovery: h.recovery.clone(),
             data_pack: h.data_pack,
@@ -1673,6 +1714,7 @@ impl Continuation {
     }
     fn append(p: &PreparedAppend) -> Self {
         Self {
+            inventory: Inventory::default(),
             active: p.active.clone(),
             recovery: p.recovery.clone(),
             data_pack: p.data.pack,
@@ -1745,6 +1787,10 @@ enum Fault {
 impl Fixture {
     fn authorize_pending(&self) -> Result<()> {
         ensure(
+            !self.imported_read_only,
+            "imported inventory requires explicit full audit",
+        )?;
+        ensure(
             self.head.gate.holds.is_empty()
                 || (self.head.gate.holds.len() == 1
                     && self
@@ -1785,6 +1831,10 @@ impl Fixture {
     }
     fn select_gate(&mut self, mut gate: GateState) -> Result<()> {
         ensure(
+            !self.imported_read_only,
+            "imported inventory requires explicit full audit",
+        )?;
+        ensure(
             !self.dir.join("intent").exists(),
             "pending selection retains all gate state",
         )?;
@@ -1812,6 +1862,7 @@ impl Fixture {
         ensure(gate.pins.len() < MAX_PINS, "pin admission cap")?;
         let token = gate.token()?;
         let pin = Obligation {
+            inventory: self.head.inventory.clone(),
             token,
             epoch: self.head.epoch,
             class,
@@ -1888,6 +1939,7 @@ impl Fixture {
             continuation,
             control,
             origin: Continuation {
+                inventory: self.head.inventory.clone(),
                 active: self.head.active.clone(),
                 recovery: self.head.recovery.clone(),
                 data_pack: self.data.pack,
@@ -1961,6 +2013,7 @@ impl Fixture {
     }
     fn gate_candidate(&mut self, pack: u64, data: bool) -> Result<()> {
         self.authorize_pending()?;
+        self.inventory_retirement_guard(pack, data)?;
         self.head.gate.validate()?;
         let pins = self.head.gate.pins.values().cloned().collect::<Vec<_>>();
         if pins.is_empty() {
@@ -2061,6 +2114,7 @@ impl Fixture {
         let data = Self::reopen_arena(dir, "data", extent.data_pack, extent.data_end)?;
         let meta = Self::reopen_arena(dir, "meta", extent.meta_pack, extent.meta_end)?;
         Ok(Self {
+            imported_read_only: false,
             dir: dir.into(),
             data,
             meta,
@@ -2111,6 +2165,7 @@ impl Fixture {
                 "audit observed allocation exceeds charged+held model",
             )?;
         }
+        self.imported_read_only = false;
         Ok(count)
     }
     fn checkpoint(
@@ -2129,11 +2184,17 @@ impl Fixture {
             preflight["allocation_bound"].as_u64().ok_or("plan bound")?,
             self.control_bound(&self.head.gate)? * 3,
         )?;
+        let mut continuation = Continuation::append(&plan);
+        continuation.inventory = Inventory {
+            active: self.head.inventory.active.clone(),
+            recovery: self.head.inventory.active.clone(),
+            next: self.head.inventory.next,
+        };
         let hold = self.reserve_with(
             plan.semantic.clone(),
             None,
             &[(0, budget)],
-            Some(Continuation::append(&plan)),
+            Some(continuation),
         )?;
         self.authorized_hold = Some(hold.token);
         if matches!(fault, Fault::EnospcBefore) {
@@ -2465,6 +2526,9 @@ fn combined_run(n: u64, kind: Kind) -> Result<serde_json::Value> {
     )
 }
 pub(super) fn run_cli(args: &[String]) -> Result<()> {
+    if args.first().is_some_and(|s| s == "typed-inventory") {
+        return typed_inventory::run_cli(&args[1..]);
+    }
     if args.first().is_some_and(|s| s == "ownership-probe") {
         return ownership_probe::run_cli(&args[1..]);
     }

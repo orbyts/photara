@@ -22,6 +22,26 @@ Live LL2 switching must consume the Rust-owned
 session/durability boundary. No numbered migration or production data change
 is authorized by this sequencing update.
 
+## PS2 actual-v3 typed inventory fixture — 2026-09-18
+
+The [disposable typed-inventory fixture](architecture/PS2_V3_TYPED_INVENTORY_FIXTURE.md)
+and [four measurement rows](architecture/verification/ps2-v3-typed-inventory.jsonl)
+implement separate exact semantic/ownership closures in the existing
+HEAD-selected locator. Forty-six furnace tests, strict Clippy and formatting
+pass. Controlled recovery, forged/missing/extra leaves and all-pin retention
+are covered. Only two selected allocation claims were measured; complete
+charge/refund, locator/control self-ownership, qualified barriers and genuine
+Graph/journal integration remain PS2 gates. No production wire or Saved claim.
+
+## LL1 full-schema static audit — 2026-09-18
+
+The [full inventory](architecture/verification/LL1_FULL_SCHEMA_STATIC_INVENTORY.md)
+and [gap review](architecture/LL1_FULL_SCHEMA_GAPS.md) cover all 79/59 tables,
+137/114 FK edges and 190/122 triggers. They expose a scoped PostgreSQL
+receipt/batch RESTRICT cycle absent from the previous four-FK proposal.
+Physical deletion order and any additional FK adjustment await explicit
+review; no migration, SQL execution or live data change occurred.
+
 ## PS2 actual-v3 ownership closure gate — 2026-09-18
 
 The [bounded actual-v3 probe](architecture/PS2_V3_OWNERSHIP_CLOSURE_GATE.md)
