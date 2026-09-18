@@ -11,6 +11,8 @@ production lifecycle implementation, wiring, and acceptance gate.**
 The [physical schema and privilege review](LL1_PHYSICAL_SCHEMA_AND_PRIVILEGE_REVIEW.md)
 maps R1–R5 onto proposed relation keys, exact FK changes, retirement guards,
 privilege boundaries and explicit remaining proof/approval gates. It executes no DDL.
+The [PS3/PS4 compatibility review](LL1_PS3_PS4_COMPATIBILITY_REVIEW.md)
+records the session/barrier/activation evidence still required before LL2a.
 
 Read LL0 first, then [Project Session durability](PROJECT_SESSION_DURABILITY.md),
 [local schema](LOCAL_SQLITE_SCHEMA.md), [service schema](SERVICE_POSTGRESQL_SCHEMA.md),
@@ -498,13 +500,15 @@ Before receipt commit, crash/cancel/target failure recovers the old activation o
 PS4's explicit read-only recovery if reacquisition fails. After receipt commit,
 restart recovers the target or explicit target recovery; it never silently rewinds
 the pointer to old state. A lost receipt response queries the original activation
-ID. Pointer-write failure leaves old committed selection intact. Capsule disposal
-occurs only through the existing session recovery owner after it is safe.
+ID. Pointer-write failure leaves old committed selection intact. The session
+recovery owner retains the capsule through successful establishment of the next
+target; receipt commitment alone does not authorize disposal.
 
-Library selection requests may supersede an earlier request **before** PS4 freezes
-and starts its activation transaction. After freeze, serialize/reject another target
-until completion/cancel; do not replace the in-flight rollback capsule. Thus late
-B cannot overwrite C, while PS0's rule against replacing an active switch remains
+Library selection requests may supersede discovery **before activation
+preparation or confirmation begins**. Once preparation/confirmation begins,
+serialize or reject another target until the current request settles; do not
+replace its bound confirmation or rollback capsule. Thus late B cannot
+overwrite C, and PS0's rule against replacing an in-flight switch remains
 intact. Same-target selection/activation remains idempotent.
 
 Remote Library removal fences matching session attachments before cleanup. Cleanup
