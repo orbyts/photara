@@ -81,3 +81,13 @@ engineering. They do not prove full lifecycle authorization or closure, and
 they require reviewed narrow guard exceptions plus terminal evidence designs.
 No production executor, migration, live deletion or `NO ACTION` change follows
 from this experiment. Stop for the security/physical-design review before LL2b.
+
+Subsequent disposable evidence expands this comparison: the
+[46-case SQL authority boundary](LL1_PROTECTED_AUTHORIZATION.md) denies ordinary
+logins even with forged owner settings; [PostgreSQL dense coverage](LL1_PROTECTED_PG_COVERAGE.md)
+populates all 48 reviewed owned tables; and [SQLite retained-chain coverage](LL1_PROTECTED_SQLITE_RETAINED_COVERAGE.md)
+populates all 79 source tables. The
+[service authority handoff review](LL1_SERVICE_AUTHORITY_HANDOFF_REVIEW.md)
+specifies the remaining authenticated Rust/OIDC integration gate. Populated
+table coverage is not exhaustive state/codec/privacy coverage; no production
+format, role deployment or deletion is authorized by these later fixtures.

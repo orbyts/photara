@@ -50,8 +50,34 @@ behavior and unrelated-row preservation. Both require test-only narrow deletion
 guard exceptions and modeled terminal relations. Coverage is sparse relative to
 the complete schema. Crucially, the PostgreSQL API SQL login can spoof owner
 context through caller-set GUCs; the SQL fixture does **not** prove authenticated
-authorization. Stop for security/physical-design review before any production
-deletion, migration or LL2b wiring.
+authorization. The next disposable authorization and denser closure fixtures
+are recorded below; no production deletion, migration or LL2b wiring follows.
+
+## LL1 authority and dense closure evidence — 2026-09-18
+
+The [46-case authority fixture](architecture/verification/LL1_PROTECTED_AUTHORIZATION.md)
+shows ordinary API/control/auth SQL logins cannot mint or execute deletion by
+asserting owner GUCs. A separate service-only role issues one-use grants bound
+to the exact transaction, backend, actor, Library, revision, operation and
+digest. Substitution, stale/replayed authority and missing terminal evidence
+refuse; legitimate seeded deletion commits. The
+[service handoff review](architecture/verification/LL1_SERVICE_AUTHORITY_HANDOFF_REVIEW.md)
+maps this to existing Rust/OIDC verification but does not execute that route.
+
+The [dense PostgreSQL fixture](architecture/verification/LL1_PROTECTED_PG_COVERAGE.md)
+passes 19 cases with target rows in all 48 reviewed owned tables (53 rows).
+It found one additional `guard_kind_term` exception, qualified only for exact
+current-transaction DELETE rows; ordinary and wrong-scope actions still deny.
+The [expanded SQLite fixture](architecture/verification/LL1_PROTECTED_SQLITE_COVERAGE.md)
+passes 41 owned deletion tables/48 target rows. Its
+[retained-chain extension](architecture/verification/LL1_PROTECTED_SQLITE_RETAINED_COVERAGE.md)
+populates all 79 source tables: 73 target tables/82 rows retire, six retained
+tables remain, and 15 test-only detached evidence rows publish atomically.
+Pending work blocks; eight rollback faults pass. Production canonical
+evidence/replay codecs, remaining lifecycle states and the Rust/OIDC authority
+handoff remain unimplemented. Keep existing `RESTRICT`; no constraint migration
+is justified. The disposable authorization and full-table implementation
+evidence are ready for review, not production deletion approval.
 
 ## PS2 bounded typed-recipe recovery prerequisite — 2026-09-18
 

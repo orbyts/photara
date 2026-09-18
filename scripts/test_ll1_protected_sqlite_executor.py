@@ -99,8 +99,12 @@ class Fixture:
     def closure(self):
         rows = {}
         for table, info in self.source['tables'].items():
-            cols = ['rowid'] + [c[1] for c in self.db.execute(f'PRAGMA table_info({table})')]
-            rows[table] = [dict(zip(cols, row)) for row in self.db.execute(f'SELECT rowid,* FROM {table}')]
+            cursor = self.db.execute(f'SELECT rowid AS __ll1_rowid,* FROM {table}')
+            # PRAGMA table_info omits generated columns while SELECT * includes
+            # them. Use the actual result columns for full-schema FK traversal.
+            cols = [column[0] for column in cursor.description]
+            cols[0] = 'rowid'
+            rows[table] = [dict(zip(cols, row)) for row in cursor]
         selected = {('libraries', r['rowid']) for r in rows['libraries'] if r['library_id'] == self.target}
         while True:
             before = len(selected)
