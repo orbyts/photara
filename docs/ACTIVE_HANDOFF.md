@@ -16,9 +16,23 @@ PS2 remains the active engineering gate. The consolidated disposable fixture
 below does not approve a permanent wire or production writer. The
 [LL1 typed-contract and unnumbered schema review](architecture/LL1_TYPED_CONTRACT_AND_SCHEMA_DELTA.md)
 now has concrete R1–R5 recommendations pending review; project-browser
-presentation can be prepared in parallel. Live LL2 switching must consume the Rust-owned
+presentation can be prepared in parallel. The [synthetic activation fixture](architecture/verification/LL1_ACTIVATION_FIXTURE.md)
+passes 12 injected tests but is not SQL, package durability or native acceptance.
+Live LL2 switching must consume the Rust-owned
 session/durability boundary. No numbered migration or production data change
 is authorized by this sequencing update.
+
+## PS2 active-prefix ownership adapter — 2026-09-18
+
+The [disposable adapter report](architecture/PS2_ACTIVE_PREFIX_OWNERSHIP_ADAPTER.md)
+and [three raw rows](architecture/verification/ps2-prefix-ownership.jsonl)
+cover same-inode prefix growth, original-hold retry, sealing and retirement
+for data/locator/control-like packs. Sixteen release tests, strict Clippy and
+formatting pass. It uses a forked bounded ownership model, not actual v3
+locator pages or a Graph writer. Twenty-four syncs per group and substantial
+write amplification are negative performance evidence. Integrate real v3
+placement/liveness, qualified storage and Graph/journal receipts before wire
+selection or production `Saved` claims.
 
 ## PS2 refundable allocation-credit prerequisite — 2026-09-18
 

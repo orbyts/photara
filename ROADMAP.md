@@ -35,8 +35,10 @@ below. Do not force-push or publish unverified live-data changes.
    is the scope already assigned to LL1 by the accepted LL0 contract; it is
    not itself a live Library switcher. Review the detached removal evidence,
    authorization, inventory and session fences without numbered migration or
-   DDL. The [LL1 review draft](docs/architecture/LL1_TYPED_CONTRACT_AND_SCHEMA_DELTA.md)
-   can advance while PS2 proceeds.
+   DDL. The [LL1 review draft](docs/architecture/LL1_TYPED_CONTRACT_AND_SCHEMA_DELTA.md),
+   [physical review](docs/architecture/LL1_PHYSICAL_SCHEMA_AND_PRIVILEGE_REVIEW.md)
+   and [synthetic activation evidence](docs/architecture/verification/LL1_ACTIVATION_FIXTURE.md)
+   advance while PS2 proceeds; none authorizes LL2 production wiring.
 5. **LL2 — production Library lifecycle.** First wire create/select/rename
    through the shared catalog/service and native avatar menu; one active
    Library is shown at a time, and switching back restores its projects.
@@ -74,6 +76,17 @@ recover any unique work, verify the signed app and repository, then explicitly
 decide whether to drop it. Do not discard it automatically or before that
 audit. Thereafter keep worktrees short-lived and publish each bounded verified
 PS2/PS3/PS4/LL1/LL2/platform checkpoint to `main` by normal fast-forward.
+
+## PS2 active-prefix ownership adapter — 2026-09-18
+
+The [disposable prefix adapter](docs/architecture/PS2_ACTIVE_PREFIX_OWNERSHIP_ADAPTER.md)
+and [raw measurements](docs/architecture/verification/ps2-prefix-ownership.jsonl)
+extend refundable accounting to three growing data/locator/control-like packs.
+Sixteen release tests, strict Clippy and formatting pass; interrupted retries
+reuse exact extents, and sealing does not double-charge ownership. Its 24 syncs
+per group and 4.79–19.65× process-write amplification are **negative practical
+evidence**, not an app latency target. Actual v3 locator/liveness integration,
+qualified storage and the genuine Graph/journal/map comparison remain open.
 
 ## PS2 refundable allocation-credit prerequisite — 2026-09-18
 
