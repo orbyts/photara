@@ -20,6 +20,17 @@ presentation can be prepared in parallel. Live LL2 switching must consume the Ru
 session/durability boundary. No numbered migration or production data change
 is authorized by this sequencing update.
 
+## PS2 refundable allocation-credit prerequisite — 2026-09-18
+
+The [standalone disposable report](architecture/PS2_ALLOCATION_OWNERSHIP_CREDIT_PREREQUISITE.md)
+and [three raw rows](architecture/verification/ps2-allocation-credit.jsonl)
+show exact retirement releasing a recorded project allocation charge only
+after pin/root/unknown-outcome and physical-absence checks. Nine release
+tests, strict Clippy and formatting pass. This never credits OS free space.
+Extending active-pack charge growth, locator/control metadata ownership,
+qualified availability and genuine Graph+v3 integration remain open. No
+production reserve, `Saved` path or live package writer is established.
+
 ## PS2 genuine Graph/journal furnace — 2026-09-17
 
 The [disposable report](architecture/PS2_GRAPH_JOURNAL_CHECKPOINT_FURNACE.md)

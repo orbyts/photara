@@ -75,6 +75,17 @@ decide whether to drop it. Do not discard it automatically or before that
 audit. Thereafter keep worktrees short-lived and publish each bounded verified
 PS2/PS3/PS4/LL1/LL2/platform checkpoint to `main` by normal fast-forward.
 
+## PS2 refundable allocation-credit prerequisite — 2026-09-18
+
+The [disposable ownership-credit fixture](docs/architecture/PS2_ALLOCATION_OWNERSHIP_CREDIT_PREREQUISITE.md)
+and [three raw rows](docs/architecture/verification/ps2-allocation-credit.jsonl)
+prove that an exact, unpinned, barrier-verified retired immutable pack can
+release its recorded **project charge** without inventing filesystem free
+space. Nine release tests, strict Clippy and formatting pass. This does not
+yet account for extending active packs or locator/control metadata in v3;
+that adapter, qualified availability and genuine Graph+v3 integration remain
+PS2 gates. No production capacity guarantee or write path is approved.
+
 ## PS2 genuine Graph/journal comparison — 2026-09-17
 
 The [disposable Graph furnace](docs/architecture/PS2_GRAPH_JOURNAL_CHECKPOINT_FURNACE.md)
