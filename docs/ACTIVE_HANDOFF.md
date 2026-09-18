@@ -31,7 +31,15 @@ populated RESTRICT cycles remain undeletable under current retention guards;
 API/control roles also lack DELETE. This establishes the protected-executor,
 guard-exception and mandatory receipt/marker/inventory implementation boundary,
 not successful full retirement. No production migration, role change or live
-data access. SQLite full-schema behavior remains a separate gate.
+ data access. The [actual SQLite baseline](architecture/verification/LL1_ACTUAL_SQLITE_BASELINE.md)
+ loads all 15 unchanged local migrations and passes 24 behavior cases plus four
+ logical-join checks over 79 tables, 137 FKs and 190 triggers. Its existing
+ guards also refuse aggregate retirement; PostgreSQL-style data-modifying
+ DELETE CTEs do not parse on SQLite. This rules out directly porting that
+ statement shape, not every unchanged-RESTRICT strategy. Neither engine has
+ demonstrated successful protected retirement or terminal evidence. Keep
+ RESTRICT unchanged; an engine-specific, unnumbered executor/security design
+ and committed whole-aggregate closure remain the next LL1 gate.
 
 ## PS2 bounded typed-recipe recovery prerequisite — 2026-09-18
 
