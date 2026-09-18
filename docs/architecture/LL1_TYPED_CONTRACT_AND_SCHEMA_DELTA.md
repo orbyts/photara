@@ -8,6 +8,10 @@ command, live-data change, or rollout is authorized by this draft.
 **LL1 ends at typed-contract and unnumbered-schema review. LL2 is the separate
 production lifecycle implementation, wiring, and acceptance gate.**
 
+The [physical schema and privilege review](LL1_PHYSICAL_SCHEMA_AND_PRIVILEGE_REVIEW.md)
+maps R1–R5 onto proposed relation keys, exact FK changes, retirement guards,
+privilege boundaries and explicit remaining proof/approval gates. It executes no DDL.
+
 Read LL0 first, then [Project Session durability](PROJECT_SESSION_DURABILITY.md),
 [local schema](LOCAL_SQLITE_SCHEMA.md), [service schema](SERVICE_POSTGRESQL_SCHEMA.md),
 and [onboarding security](CXT4A_ONBOARDING_SECURITY_CONTRACT.md). The current
