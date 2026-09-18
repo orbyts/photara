@@ -22,6 +22,26 @@ Live LL2 switching must consume the Rust-owned
 session/durability boundary. No numbered migration or production data change
 is authorized by this sequencing update.
 
+## PS2 actual-v3 ownership closure gate — 2026-09-18
+
+The [bounded actual-v3 probe](architecture/PS2_V3_OWNERSHIP_CLOSURE_GATE.md)
+and [four raw rows](architecture/verification/ps2-v3-ownership-placement-probe.jsonl)
+compare 1k/10k-operation placements and preserve the negative recovery result:
+the current audit correctly rejects ownership leaves outside semantic closure
+and retains the old selection/hold. Six new tests and all 40 furnace tests
+pass. Select a typed semantic-plus-ownership closure within the existing
+locator or a separate persistent ownership root under the same HEAD before
+permanent wire or refundable v3 integration. Fixed upfront pack-capacity
+admission is a separate tradeoff. No production writer or live conversion.
+
+## LL1 disposable retirement constraints — 2026-09-18
+
+The [isolated engine fixture](architecture/verification/LL1_RETIREMENT_CONSTRAINT_FIXTURE.md)
+passes 38 SQLite and 40 private-cluster PostgreSQL cases for the narrow
+current-name FK/permit proposal. It is not a production migration or
+authorization proof; full-schema closure, role/RLS and retirement-facade
+review remain gates. No Neon or installed service was touched.
+
 ## PS2 active-prefix ownership adapter — 2026-09-18
 
 The [disposable adapter report](architecture/PS2_ACTIVE_PREFIX_OWNERSHIP_ADAPTER.md)

@@ -38,6 +38,7 @@ below. Do not force-push or publish unverified live-data changes.
    DDL. The [LL1 review draft](docs/architecture/LL1_TYPED_CONTRACT_AND_SCHEMA_DELTA.md),
    [physical review](docs/architecture/LL1_PHYSICAL_SCHEMA_AND_PRIVILEGE_REVIEW.md)
    and [synthetic activation evidence](docs/architecture/verification/LL1_ACTIVATION_FIXTURE.md)
+   plus [disposable retirement-constraint evidence](docs/architecture/verification/LL1_RETIREMENT_CONSTRAINT_FIXTURE.md)
    advance while PS2 proceeds; none authorizes LL2 production wiring.
 5. **LL2 — production Library lifecycle.** First wire create/select/rename
    through the shared catalog/service and native avatar menu; one active
@@ -76,6 +77,18 @@ recover any unique work, verify the signed app and repository, then explicitly
 decide whether to drop it. Do not discard it automatically or before that
 audit. Thereafter keep worktrees short-lived and publish each bounded verified
 PS2/PS3/PS4/LL1/LL2/platform checkpoint to `main` by normal fast-forward.
+
+## PS2 actual-v3 ownership closure gate — 2026-09-18
+
+The [bounded actual-v3 comparison](docs/architecture/PS2_V3_OWNERSHIP_CLOSURE_GATE.md)
+and [raw rows](docs/architecture/verification/ps2-v3-ownership-placement-probe.jsonl)
+show why adding physical ownership descriptors to the present locator is not
+yet an integrated solution: its correct audit rejects leaves outside the
+selected semantic closure and retains the old HEAD/hold. Before production
+wire selection, review a typed semantic-plus-ownership closure in that locator
+versus a distinct persistent ownership root under the same HEAD; separately
+decide fixed upfront pack-capacity admission. No audit invariant, permanent
+format or production writer changed.
 
 ## PS2 active-prefix ownership adapter — 2026-09-18
 

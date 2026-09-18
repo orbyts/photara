@@ -12,6 +12,9 @@
 use super::*;
 use std::collections::{HashMap, VecDeque};
 
+#[path = "placement_v3/ownership_probe.rs"]
+mod ownership_probe;
+
 const PACK: u64 = 256 * 1024;
 const TX_OBJECTS: usize = 4096;
 const CACHE: usize = 128;
@@ -2462,6 +2465,9 @@ fn combined_run(n: u64, kind: Kind) -> Result<serde_json::Value> {
     )
 }
 pub(super) fn run_cli(args: &[String]) -> Result<()> {
+    if args.first().is_some_and(|s| s == "ownership-probe") {
+        return ownership_probe::run_cli(&args[1..]);
+    }
     if args.first().is_some_and(|s| s == "turnover") {
         return turnover_cli(&args[1..]);
     }
