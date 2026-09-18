@@ -1,19 +1,27 @@
 # Photara 0.2 execution roadmap
 
-## 2026-09-17 current gate — resource contract before PS2 positive fixtures
+## 2026-09-17 current delivery gate — PS2 to LL1 and platform readiness
 
-The approved [resource storage and verification contract](architecture/RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
-is the semantic input to the next disposable PS2 sealed-root fixtures. It adds
-typed `$library.project_store` / `$library.asset_store` default roles through the
-existing Storage Slot/Host Binding architecture; separates mutable working files,
-captured versions, retention pins and managed external byte backings; and keeps
-offline availability distinct from a proven retention failure. The
-[current roadmap](../ROADMAP.md#resource-location-and-verification-contract--2026-09-17)
-lists the fixture gate and deferred implementation work. PS2 remains incomplete;
-PS3 native session/autosave integration follows separately. No production codec,
-managed-store publisher, migration, deletion or live-data change is implemented
-or authorized by this documentation checkpoint. Entries below retain historical
-slice status and must not be read as the current next-step instruction.
+The [root roadmap's delivery path](../ROADMAP.md#delivery-path-ll1-acceptance-then-platform-ready-vertical-slice--2026-09-17)
+is authoritative for current sequencing; entries below retain historical
+slice detail, not competing next-step instructions. PS2's
+[combined packed evidence](architecture/PS2_CONSOLIDATED_ENGINEERING_EVIDENCE.md)
+is disposable and supports only a provisional B-tree/ordinal lead. Complete
+the production wire, genuine authored/journal/receipt codec, refundable
+capacity-accounting contract and qualified storage/barrier profile before
+claiming a live `Saved` path. PS3 then wires the Rust-owned one-project
+session/autosave; PS4 wires typed project browsing and safe switching; LL1
+wires real Library lifecycle. LL1 contract/schema review and project-browser
+lab work may be prepared in parallel, without bypassing those production
+dependencies. Keep Fly.io available for controlled full-route acceptance.
+
+The first signed two-Library/two-project acceptance is after LL1. A separate
+platform-ready gate then proves asset paths/proxies, the shared Gallery,
+Graph authoring, a versioned reference-node runtime and a second-machine
+end-to-end path before Layout becomes the first product node. Commit and
+fast-forward push verified bounded slices to `main`; retain the local-only
+stash until the post-LL1 audit. No current fixture authorizes production
+codec, migration, GC, Asset Store publication or live-data changes.
 
 ## 2026-09-15 accepted LL0 checkpoint — next slice PS0
 

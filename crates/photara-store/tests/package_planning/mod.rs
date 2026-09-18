@@ -9,11 +9,23 @@ mod furnace;
 #[path = "journal.rs"]
 mod journal;
 #[cfg(target_os = "macos")]
+#[path = "macos_barrier_faults.rs"]
+mod macos_barrier_faults;
+#[cfg(target_os = "macos")]
 #[path = "macos_lease.rs"]
 mod macos_lease;
 #[cfg(target_os = "macos")]
 #[path = "macos_probe.rs"]
 mod macos_probe;
+#[cfg(target_os = "macos")]
+#[path = "macos_profile_gate.rs"]
+mod macos_profile_gate;
+#[cfg(target_os = "macos")]
+#[path = "macos_path_classifier.rs"]
+mod macos_path_classifier;
+#[cfg(target_os = "macos")]
+#[path = "macos_remount_harness.rs"]
+mod macos_remount_harness;
 #[path = "replay.rs"]
 mod replay;
 #[path = "retention_boundary.rs"]

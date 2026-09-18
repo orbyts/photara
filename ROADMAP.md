@@ -1,5 +1,145 @@
 # Roadmap to Photara 0.2.0
 
+## Delivery path: LL1 acceptance, then platform-ready vertical slice — 2026-09-17
+
+**Current position: PS2.** PS0/BR0/PS1 are accepted; the PS2 packed writer,
+liveness and capacity results below are disposable evidence, not a production
+package writer or an app autosave path. Move through the following bounded
+checkpoints, committing and fast-forward pushing verified slices to `main`
+periodically rather than carrying a long-lived dirty checkout. Preserve the
+recoverable pre-fast-forward stash until the LL1 acceptance and stash audit
+below. Do not force-push or publish unverified live-data changes.
+
+1. **Complete PS2 production durability boundary.** Review/freeze the exact
+   scalable package wire and original-receipt/authored-journal semantics;
+   implement the shared Rust reader, writer, recovery and capacity admission;
+   qualify the selected macOS local-storage/barrier profile with disposable
+   fault evidence. Keep `Accepted` and `Saved` tied to their approved durable
+   evidence. No production write or migration follows merely from the
+   disposable fixture result.
+2. **PS3 — one-project session/autosave.** Route GUI, CLI/headless and future
+   automation through the same Rust-owned writer admission/lease, journal,
+   dedupe, checkpoint and recovery protocol. Wire native `Saving…`/`Saved`/
+   failure state, final flush, crash reopen and exact authored revision. The
+   first signed hands-on build may use a disposable single project here.
+3. **PS4 — project browse/reopen/switch.** Wire the typed Project Catalog to a
+   minimal native browser (including a default cover; final asset Gallery
+   polish is not a prerequisite). Opening another project must confirm the
+   switch, flush and verify the current revision, preserve it on failure, and
+   then validate/open the target package. Test local/cloud catalog agreement,
+   missing/moved packages, quit/relaunch and recovery. Project removal
+   remains an explicit separate disk-versus-catalog choice.
+4. **LL1 — real Library lifecycle.** Finish typed contracts and schema review,
+   then implement create/select/rename/remove in the shared catalog/service
+   and native avatar-menu flow. One active Library is shown at a time;
+   switching back restores its projects. Destructive removal requires owner
+   authorization, impact review, exact-name confirmation and no database
+   orphans; packages/source files remain untouched. Run the signed two-Library,
+   two-project end-to-end acceptance on `main` before declaring this milestone
+   testable with personal projects.
+
+**Parallel work for speed:** LL1 contract/schema and the project-browser UI
+fixture may proceed while PS2/PS3 are underway, but their production mutations
+must respect the Rust durability and catalog boundaries. Keep Fly.io open and
+available for controlled remote acceptance of the complete sign-in/service/
+database path; do not deprovision it as part of this sequence. This is not a
+production launch decision.
+
+**After LL1 acceptance, before the first real Layout node:** pass a distinct
+platform-ready vertical-slice gate. In one signed development build, exercise
+authentication (including the Fly route), local/cloud Library and Project
+lifecycles, user-selected project and asset locations, package autosave and
+recovery, asset import/proxy/default-or-hero cover, the shared Gallery module,
+Graph authoring and a small disposable reference node through the first
+versioned Node SDK/runtime contract. Verify a second-machine reopen and
+failure/offline states. The reference node proves typed ports, execution,
+resource/permission boundaries, packaging/versioning and diagnostics without
+making Layout the infrastructure test. The shared Rust core remains host-
+neutral; native macOS/Windows adapters may differ. Only then make Layout the
+first product node and focus primarily on nodes plus visual polish. Branding,
+website, store, LLC and public launch are later gates, not blockers here.
+
+**Git housekeeping after LL1 acceptance:** compare the local-only stash
+`ce39772a4008c886265ac9a25485b2970d0f8332` against validated `main`,
+recover any unique work, verify the signed app and repository, then explicitly
+decide whether to drop it. Do not discard it automatically or before that
+audit. Thereafter keep worktrees short-lived and publish each bounded verified
+PS2/PS3/PS4/LL1/platform checkpoint to `main` by normal fast-forward.
+
+## PS2 consolidated packed-engineering checkpoint — 2026-09-17
+
+The [consolidated disposable review](docs/architecture/PS2_CONSOLIDATED_ENGINEERING_EVIDENCE.md)
+composes bounded non-tail-copy packs, HEAD-selected physical locators, all
+twelve root/pin classes, exact operation liability and candidate-local
+reclamation. The [final six-row comparison](docs/architecture/verification/ps2-combined-packed-final.jsonl)
+at 1k/10k/100k and 1/8/32-operation batches favors paged B-tree plus ordinal
+sequence in *total physical fixture bytes*, reversing the earlier logical-only
+radix advantage. B-tree is the provisional packed lead; radix remains the
+comparison. Thirty-four combined release tests, including 15 independent
+actual-code fault checks, strict Clippy and formatting pass. A rollover/restart
+counterexample was fixed and retained. No permanent wire is frozen.
+
+The preflight reserve for a 100k-operation compaction fell from an unusable
+~3.34 GB to 3.3–3.6 MB without pre-crediting expected deletion. High-garbage
+candidates can reclaim; all-live candidates cause zero writes. The remaining
+engineering gates are exact refundable allocation provenance and fresh
+qualified per-domain free-space/quota admission, genuine authored/journal/
+receipt/barrier codec evidence, cross-surface Rust lease/queue integration,
+and designated macOS remount/abrupt-power and provider/path qualification.
+The current high-water ledger safely over-refuses over time; it is **not** a
+complete long-lived capacity/progress proof. Production `Saved`, live writes,
+migration, GC, Asset Store and project switching remain gated. Earlier PS2
+sections below retain historical negative and logical-only evidence.
+
+## PS2 physical dispatch/liveness/reserve/barrier gate — 2026-09-17
+
+The [disposable review](docs/architecture/PS2_PHYSICAL_DISPATCH_LIVENESS_RESERVE_BARRIERS.md)
+and [six raw real-file fixtures](docs/architecture/verification/ps2-physical-dispatch-liveness-reserve.jsonl)
+tested a HEAD-bound locator, generation-safe cache, persistent liveness/queue,
+allocation-unit reserve liabilities and local-APFS barrier cuts at 1k/10k/100k
+operations. Bounded lookup and candidate work passed, but the physical layout
+is **rejected as a production candidate**: at 100k, four radix publications
+each added 222–233 KB metadata and copied 250–287 KB tail for only about
+12–13 KB new logical source bytes. B-tree was worse. The bootstrap metadata
+arena and old tail generations lack bounded reclaim. A separate 344-scenario
+macOS subprocess matrix passed and observed real `fsync`/`F_FULLFSYNC`, but
+does not qualify power-loss/directory ordering or a production `Saved` barrier.
+
+Next: design a bounded append-unit/pack placement without tail copying, a
+reclaimable metadata bootstrap with all pins/reader leases, and integrated
+per-capacity-domain admission/reconciliation; qualify the exact local storage
+profile separately. Shared-volume free-space accounting can prove conservative
+refusal and preservation, not unconditional future progress after `Accepted`.
+Retain radix as a **conditional logical** lead and B-tree as comparison; freeze
+neither logical nor physical wire. Production writer, GC, migration, Asset
+Store, native autosave and project switching remain gated. The earlier review
+below is historical evidence, not approval of its physical implementations.
+
+## PS2 batching, packing and qualified-flush review — 2026-09-17
+
+The [disposable review](docs/architecture/PS2_BATCHING_PACKING_AND_FLUSH_REVIEW.md)
+extends the real-file index comparison to 1k/10k/100k fully materialized
+operations, 1/8/32-operation checkpoint batches, sealed versus relocatable
+segments, old-ID retry, fresh-handle open, independently valid recovery,
+bounded-copy relocation and interruption/replay. The [raw results](docs/architecture/verification/ps2-batching-packing-flush.jsonl)
+and five passing release example tests preserve the evidence. At 100k,
+batch-32 fixture writes favor radix (7.20 KB/op pack growth versus 10.27 KB/op
+for B-tree), but uncached locator reads and a severe timing anomaly prevent a
+physical layout/latency endorsement. Sealed segments stranded bytes in this
+mixed-lifetime workload; relocation needs an independently reviewed placement
+selector and incremental liveness. The synthetic reserve is **not** the
+required physical-capacity proof, and `sync_all` is not a qualified Saved
+barrier.
+
+Next: review placement dispatch/caching and bounded liveness; derive and fault
+test a full physical reserve ledger and qualified macOS file/directory barrier
+profile; then revise permanent index/inventory wire bytes. `Accepted` requires
+durable journal evidence, while `Saved` requires selected package closure plus
+its original checkpoint receipt for the latest authored revision. The real
+Graph journal/session, production package writer, Asset Store, migration, GC,
+native autosave and project switching remain gated. **Do not freeze either map
+as permanent wire yet.**
+
 ## PS2 index/inventory real-file comparison — review gate
 
 The [index and inventory scaling review](docs/architecture/PS2_INDEX_INVENTORY_SCALING_REVIEW.md)
@@ -50,16 +190,16 @@ qualify storage and shared Rust session/autosave coordination. Real project
 browsing/switching and Library lifecycle remain later steps. Do not patch the
 current Swift browse/close flow around the durability gate.
 
-## Housekeeping after real project browsing and switching
+## Housekeeping after LL1 acceptance
 
-After the Rust-owned session/autosave boundary and real project browse/switch
-workflow pass interactive acceptance on `main`, audit the recoverable
-pre-fast-forward local-main onboarding stash against the validated tree. Restore
-or deliberately retain any unique work, confirm the app and repository remain
-healthy, and only then drop that stash. Do not treat a clean checkout today as
-permission to delete it. At the same checkpoint, consolidate completed PS2–PS4
-working notes into durable reference docs and retire superseded task evidence
-without losing architectural decisions or user guidance.
+After PS3 autosave, PS4 real project browse/switch and LL1 cross-Library
+acceptance pass on validated `main`, audit the recoverable pre-fast-forward
+local-main onboarding stash against that tree. Restore or deliberately retain
+any unique work, confirm the signed app and repository remain healthy, and
+only then decide with Suhail whether to drop the stash. A clean checkout now
+is not permission to delete it. At that checkpoint consolidate completed
+PS2–PS4/LL1 working notes into durable reference docs and retire superseded
+task evidence without losing architectural decisions or user guidance.
 
 ## PS2 positive sealed-root fixture checkpoint — 2026-09-17
 

@@ -1,5 +1,74 @@
 # Active handoff
 
+## Current delivery direction — 2026-09-17
+
+The [root roadmap](../ROADMAP.md#delivery-path-ll1-acceptance-then-platform-ready-vertical-slice--2026-09-17)
+now separates two milestones: first, a signed PS3/PS4/LL1 build that safely
+autosaves, reopens and switches real projects and Libraries; second, a
+platform-ready vertical slice (Gallery, asset/proxy paths, reference Node SDK
+runtime, second-machine/full Fly route) before Layout becomes the first
+product node. Keep existing Fly.io resources available; do not deprovision
+them merely because local development remains possible. Publish verified
+bounded checkpoints to `main` by normal fast-forward and keep the recoverable
+local-only stash through the post-LL1 audit, not an automatic drop.
+
+PS2 remains the active engineering gate. The consolidated disposable fixture
+below does not approve a permanent wire or production writer. LL1 typed
+contracts/unnumbered schema review and project-browser presentation can be
+prepared in parallel; live LL1 switching must consume the Rust-owned
+session/durability boundary. No numbered migration or production data change
+is authorized by this sequencing update.
+
+## PS2 consolidated packed engineering — 2026-09-17
+
+The [consolidated evidence](architecture/PS2_CONSOLIDATED_ENGINEERING_EVIDENCE.md),
+[final scale/economics data](architecture/verification/ps2-combined-packed-final.jsonl)
+and [independent fault record](architecture/verification/ps2-combined-v3-independent-review.jsonl)
+are ready as a disposable engineering checkpoint. Bounded append packs and
+HEAD-selected locator roots avoid tail copying. The combined fixture covers
+all twelve root/pin classes, exact work-bound liabilities, verified physical
+continuation, candidate-local reclaim and no-effect unprofitable refusal.
+Thirty-four release tests (15 independent actual-v3 checks), strict Clippy,
+formatting and whitespace checks pass. The independent rollover/restart
+counterexample is retained as regression evidence.
+
+At 100k, packed total bytes/op at batch 32 are 20,303 radix versus 17,562
+B-tree; B-tree is the provisional packed lead, radix the comparator. An
+oversized 3.34 GB compaction reserve was rejected and reduced to 3.3–3.6 MB
+modeled admission with no speculative deletion credit. The fixture still has
+a nonrefundable high-water ledger and cannot qualify real APFS/quota free-space
+progress. Actual disposable remount/abrupt-power trials and arbitrary-path
+provider exclusion are unexecuted; macOS storage and production `Saved` remain
+unqualified. Genuine authored/journal/receipt/barrier codec, refundable
+ownership accounting and shared Rust multi-surface coordination precede any
+permanent wire or writer approval. No live package, migration, production GC,
+Asset Store, project switch, commit or push was performed in this review.
+
+## PS2 batching/packing/qualified flush review — 2026-09-17
+
+The [disposable review](architecture/PS2_BATCHING_PACKING_AND_FLUSH_REVIEW.md)
+and [raw evidence](architecture/verification/ps2-batching-packing-flush.jsonl)
+compare the ordinal sequence plus compressed radix map with the paged B-tree
+under sealed and relocatable 1 MiB segments, 1/8/32-operation batches and
+complete 1k/10k/100k histories. At 100k, the 32-operation batch wrote
+7.20 KB/op (radix) versus 10.27 KB/op (B-tree) of fixture pack bytes, but
+the current uncached relocation locator has large and unstable read/latency
+cost. Whole-segment retirement reclaimed nothing; relocation at 100k radix
+copied about 2.04 MB to save only 53 KB of current data. The full scale run
+took 2,238 seconds wall; anomalous timing is preserved, not explained away.
+Five release example tests, strict Clippy and formatting pass. Journal-only,
+pack/HEAD and relocation cuts reconcile original synthetic operation IDs.
+
+The recommendation is a **conditional logical** radix write-heavy lead,
+not a permanent wire or physical-pack choice. `Accepted` requires a qualified
+durable journal prefix; `Saved` requires selected package closure and original
+checkpoint receipt for the latest authored revision. Production still needs
+physical locator/dispatch and incremental-liveness decisions, real reserve
+proof, macOS full-file/directory barrier qualification, authored Graph-journal
+recovery, and process/power fault evidence. The synthetic fixture does not
+authorize production reader/writer, migration, GC, Asset Store, live packages
+or project switching. Candidate flat wire/goldens remain unfrozen.
+
 ## PS2 index/inventory scaling — disposable real-file review
 
 The [scaling review](architecture/PS2_INDEX_INVENTORY_SCALING_REVIEW.md)
@@ -1482,3 +1551,31 @@ Untracked files need explicit inspection; ordinary git diff omits them. Whole-
 library tests were not needed for this bounded slice; selected Library tests
 now run with L2's temporary-database authority. Compilation is not service or
 package-publication verification.
+## PS2 physical dispatch/liveness/reserve/barrier gate — 2026-09-17
+
+The [disposable review](architecture/PS2_PHYSICAL_DISPATCH_LIVENESS_RESERVE_BARRIERS.md)
+records six 1k/10k/100k real-file placement fixtures, their [raw
+measurements](architecture/verification/ps2-physical-dispatch-liveness-reserve.jsonl),
+and 344 local-APFS process-fault scenarios. A HEAD-bound, generation-keyed
+locator and persistent 32-step liveness queue showed bounded lookup/selection
+and exact old/candidate placement retention. The tested physical layout is
+**not acceptable for continuous authoring**: at 100k, radix physical-only
+publication wrote 222–233 KB metadata plus 250–287 KB copied tail per small
+logical append; B-tree amplified more. The metadata bootstrap and old tail
+generations are not reclaimable in bounded work. Liveness covers only the
+fixture's active/recovery/queued pins, not all product obligations.
+
+The APFS matrix observed 2,994 successful `fsync` and 2,875 `F_FULLFSYNC`
+calls across 344 passing scenarios, with 284 old and 60 candidate HEAD
+reopens. These are process-cut observations, not a production-qualified
+file/directory/power-loss profile. Physical reserve liabilities proved safe
+refusal under injected exhaustion, not exclusive OS capacity or guaranteed
+progress. Eight release example tests, the ordinary package suite, strict
+Clippy, Rustfmt and whitespace checks passed. No permanent wire, production
+reader/writer, live package, migration, GC, Asset Store or project switch was
+changed. No commit/push. Main remains separate and clean.
+
+**Next gate:** non-tail-copy bounded physical placement, reclaimable bootstrap
+metadata, all pins/leases, integrated admission/reconciliation and exact
+qualified-storage barriers. Radix remains a conditional *logical* lead;
+B-tree remains a comparison. Do not freeze wire or claim production latency.

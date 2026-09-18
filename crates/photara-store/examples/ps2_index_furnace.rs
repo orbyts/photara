@@ -15,6 +15,15 @@ use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+#[path = "ps2_index_furnace/packing.rs"]
+mod packing;
+#[path = "ps2_index_furnace/placement_gate.rs"]
+mod placement_gate;
+#[path = "ps2_index_furnace/placement_v2.rs"]
+mod placement_v2;
+#[path = "ps2_index_furnace/placement_v3.rs"]
+mod placement_v3;
+
 type Result<T> = std::result::Result<T, String>;
 const FAN: usize = 16;
 const MAX_NODE: u64 = 65_536;
@@ -144,6 +153,14 @@ struct Stats {
     head_read_bytes: u64,
     sync_calls: u64,
     sync_micros: u128,
+    placement_reads: u64,
+    placement_read_bytes: u64,
+    placement_write_bytes: u64,
+    staging_encoded_bytes: u64,
+    staging_reads: u64,
+    physical_data_read_calls: u64,
+    physical_data_read_bytes: u64,
+    relocation_write_bytes: u64,
 }
 struct Store {
     dir: PathBuf,
@@ -154,6 +171,8 @@ struct Store {
     partial_next: bool,
     partial_envelope: bool,
     changed: Option<Vec<Ref>>,
+    packed: Option<packing::Backend>,
+    staging: Option<packing::Staging>,
 }
 impl Store {
     fn open(dir: &Path) -> Result<Self> {
@@ -174,9 +193,14 @@ impl Store {
             partial_next: false,
             partial_envelope: false,
             changed: None,
+            packed: None,
+            staging: None,
         })
     }
     fn size(&self) -> u64 {
+        if let Some(packed) = &self.packed {
+            return packed.logical_len();
+        }
         self.file.metadata().unwrap().len()
     }
     fn allocated(&self) -> u64 {
@@ -193,21 +217,29 @@ impl Store {
         Ok(())
     }
     fn put(&mut self, node: &Node) -> Result<Ref> {
+        if let Some(staging) = &mut self.staging {
+            return staging.put(node, &mut self.stats);
+        }
         let bytes = serde_json::to_vec(node).map_err(|e| e.to_string())?;
         ensure(bytes.len() as u64 <= MAX_NODE, "oversized fixture node")?;
         self.debit(bytes.len() as u64)?;
-        let offset = self
-            .file
-            .seek(SeekFrom::End(0))
-            .map_err(|e| e.to_string())?;
-        if self.partial_next {
-            self.partial_next = false;
-            self.file
-                .write_all(&bytes[..bytes.len() / 2])
+        let offset = if let Some(packed) = &mut self.packed {
+            packed.append(&bytes, &mut self.stats)?
+        } else {
+            let offset = self
+                .file
+                .seek(SeekFrom::End(0))
                 .map_err(|e| e.to_string())?;
-            return Err("injected partial object write".to_owned());
-        }
-        self.file.write_all(&bytes).map_err(|e| e.to_string())?;
+            if self.partial_next {
+                self.partial_next = false;
+                self.file
+                    .write_all(&bytes[..bytes.len() / 2])
+                    .map_err(|e| e.to_string())?;
+                return Err("injected partial object write".to_owned());
+            }
+            self.file.write_all(&bytes).map_err(|e| e.to_string())?;
+            offset
+        };
         self.stats.object_writes += 1;
         self.stats.object_encoded_bytes += bytes.len() as u64;
         self.stats.object_write_bytes += bytes.len() as u64;
@@ -222,6 +254,11 @@ impl Store {
         Ok(reference)
     }
     fn get(&mut self, r: &Ref) -> Result<Node> {
+        if let Some(staging) = &self.staging
+            && packing::is_staged(r)
+        {
+            return staging.get(r, &mut self.stats);
+        }
         ensure(r.len > 0 && r.len <= MAX_NODE, "invalid object length")?;
         ensure(
             r.offset
@@ -229,13 +266,18 @@ impl Store {
                 .is_some_and(|end| end <= self.size()),
             "missing object range",
         )?;
-        self.file
-            .seek(SeekFrom::Start(r.offset))
-            .map_err(|e| e.to_string())?;
-        let mut bytes = vec![0; usize::try_from(r.len).map_err(|e| e.to_string())?];
-        self.file
-            .read_exact(&mut bytes)
-            .map_err(|e| e.to_string())?;
+        let bytes = if let Some(packed) = &mut self.packed {
+            packed.read(r, &mut self.stats)?
+        } else {
+            self.file
+                .seek(SeekFrom::Start(r.offset))
+                .map_err(|e| e.to_string())?;
+            let mut bytes = vec![0; usize::try_from(r.len).map_err(|e| e.to_string())?];
+            self.file
+                .read_exact(&mut bytes)
+                .map_err(|e| e.to_string())?;
+            bytes
+        };
         self.stats.object_reads += 1;
         self.stats.object_read_bytes += r.len;
         ensure(hash(&bytes) == r.sha, "object digest mismatch")?;
@@ -243,6 +285,9 @@ impl Store {
         serde_json::from_slice(&bytes).map_err(|e| e.to_string())
     }
     fn sync(&mut self) -> Result<()> {
+        if let Some(packed) = &mut self.packed {
+            return packed.sync(&mut self.stats);
+        }
         let now = Instant::now();
         self.file.sync_all().map_err(|e| e.to_string())?;
         self.stats.sync_calls += 1;
@@ -1385,6 +1430,18 @@ fn fault_suite(kind: Kind) -> Result<Vec<String>> {
 }
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().is_some_and(|s| s == "placement-v2") {
+        return placement_v2::run_cli(&args[1..]);
+    }
+    if args.first().is_some_and(|s| s == "placement-v3") {
+        return placement_v3::run_cli(&args[1..]);
+    }
+    if args.first().is_some_and(|s| s == "placement-gate") {
+        return placement_gate::run_cli(&args[1..]);
+    }
+    if args.first().is_some_and(|s| s == "packing") {
+        return packing::run_cli(&args[1..]);
+    }
     let counts: Vec<u64> = if args.is_empty() {
         vec![1_000, 10_000, 100_000]
     } else {

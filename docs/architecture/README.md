@@ -1,14 +1,22 @@
 # Generation-two architecture
 
-**Current PS2 review gate:** the [scaling design](PS2_INDEX_INVENTORY_SCALING_REVIEW.md)
-and [disposable real-file comparison](PS2_INDEX_INVENTORY_REAL_FILE_COMPARISON.md)
-precede any revised permanent index/inventory wire. Review batching/flush,
-physical layout/compaction and qualified durability before freezing the
-[candidate field-level wire appendix](PS2_PRODUCTION_WIRE_APPENDIX.md)
-or [golden canonical bytes](proposals/ps2/sealed-wire-golden.json). The flat
-index/inventory portions are not accepted permanent wire. No production reader
+**Current PS2 review gate:** the
+[consolidated packed engineering result](PS2_CONSOLIDATED_ENGINEERING_EVIDENCE.md)
+composes bounded append packs, HEAD-selected locators, all-class liveness and
+modeled reserve with process-fault recovery. It makes B-tree plus ordinal
+sequence the provisional packed lead, with radix retained as comparator; no
+permanent wire is frozen. The earlier
+[tail-copy negative result](PS2_PHYSICAL_DISPATCH_LIVENESS_RESERVE_BARRIERS.md),
+[scaling design](PS2_INDEX_INVENTORY_SCALING_REVIEW.md),
+[real-file comparison](PS2_INDEX_INVENTORY_REAL_FILE_COMPARISON.md) and
+[batching review](PS2_BATCHING_PACKING_AND_FLUSH_REVIEW.md) remain evidence.
+Allocation-credit provenance, genuine authored/journal/receipt codec,
+shared Rust coordination and qualified macOS remount/power-loss/path evidence
+remain before the [candidate wire appendix](PS2_PRODUCTION_WIRE_APPENDIX.md)
+or [golden bytes](proposals/ps2/sealed-wire-golden.json) can be revised and
+frozen. The flat index/inventory portions are rejected; no production reader
 or writer exists. The
-[experimental on-disk checkpoint](PS2_EXPERIMENTAL_SEALED_CODEC_CHECKPOINT.md)
+[experimental sealed codec](PS2_EXPERIMENTAL_SEALED_CODEC_CHECKPOINT.md)
 remains disposable evidence.
 
 **2026-09-17: resource/storage semantic boundary approved.**
