@@ -67,7 +67,7 @@ authentication receipts requiring original bytes use the separate archive below.
 
 | Command/query | Inputs and result | Owning boundary |
 | --- | --- | --- |
-| `CreateLibrary` | Operation envelope, explicit authority, canonical name and proposed new Library ID. Returns durable `Created` receipt or typed rejection. Reused/terminal IDs rejected. | Local Library + controller + receipt, or service Library + contract + owner membership + empty stream + receipt, commit together. No project/package/root binding. |
+| `CreateLibrary` | Operation envelope, explicit authority, canonical name and proposed new Library ID. Returns durable `Created` receipt or typed rejection. Reused/terminal IDs rejected. | Local Library + controller + receipt, or service Library + contract + owner membership + empty stream + receipt, commit together. Cloud creation requires current online account/device and service-side create entitlement at dispatch; cached membership or a prior entitlement observation is insufficient. No project/package/root binding. |
 | `RequestLibrarySelection` | Target, current committed generation, new request generation, session evidence when relevant. Returns `Selected`, `Cancelled`, `Unavailable`, `AccessDenied`, or `RecoveryRequired`. | Device/session operation; no remote lifecycle mutation or default change. Persist only after access/projection/session admission succeeds. |
 | `RenameLibrary` | Operation envelope, target, expected Library revision, canonical new name. Returns `Renamed` receipt with resulting revision or CAS/auth rejection. | Owner/controller check, rename, revision, inventory event, and receipt in one authority transaction. |
 | `PrepareLibraryRemoval` | Target, preallocated operation ID, current actor context and known session blockers. Returns `Blocked` reasons or `RemovalImpact` + bound review token. | Read-only aggregate impact under a consistent snapshot; token issuance is not deletion or final consent. No file access. |
@@ -292,7 +292,7 @@ or close packages itself.
 
 | Gate | Independent proof required; not claimed by this draft |
 | --- | --- |
-| Contract | Canonical name limits vs raw confirmation; same-ID/hash outcomes; owner/controller enforcement; no default change or cloud-offline dispatch. |
+| Contract | Canonical name limits vs raw confirmation; same-ID/hash outcomes; owner/controller enforcement; current service-side cloud create entitlement (including denied/expired cases and original-result retry); no default change or cloud-offline dispatch. |
 | Schema closure | Compare every source/runtime table, FK, trigger, logical UUID and canonical-payload reference against the disposition inventory; reject unknown/unclassified tables. |
 | Local integrity | Populated active/tombstoned/revoked fixtures; wrong principal denied; zero owned rows/orphans; FK/integrity checks; unrelated row content unchanged. |
 | Cloud integrity | Disposable service/PG; owner success and all weaker roles denied; account/default/last/billing races; receipt/batch cycles; no post-delete stream writer. |
