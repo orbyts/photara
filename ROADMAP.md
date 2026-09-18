@@ -79,6 +79,17 @@ decide whether to drop it. Do not discard it automatically or before that
 audit. Thereafter keep worktrees short-lived and publish each bounded verified
 PS2/PS3/PS4/LL1/LL2/platform checkpoint to `main` by normal fast-forward.
 
+## PS2 bounded typed-recipe recovery prerequisite — 2026-09-18
+
+The [disposable original-token recipe fixture](docs/architecture/PS2_TYPED_RECIPE_RECOVERY_PREREQUISITE.md)
+and [bounded/negative measurements](docs/architecture/verification/ps2-typed-recipe-bounded.jsonl)
+prove idempotent partial-record recovery for selected typed writes without
+routine lifetime audit; all 53 furnace tests pass. The unchanged fixture HEAD
+cap contains the recipe, but control writes/syncs and a roughly 3 MB modeled
+hold for 4 KiB net allocation are negative practical evidence. A permanent
+recipe placement, complete all-pack/control ownership and refundable capacity
+are **not** selected or implemented. Continue PS2 before PS3/autosave.
+
 ## PS2 actual-v3 typed inventory fixture — 2026-09-18
 
 The [approved typed-inventory direction](docs/architecture/PS2_V3_TYPED_INVENTORY_FIXTURE.md)

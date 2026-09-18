@@ -22,6 +22,18 @@ Live LL2 switching must consume the Rust-owned
 session/durability boundary. No numbered migration or production data change
 is authorized by this sequencing update.
 
+## PS2 bounded typed-recipe recovery prerequisite — 2026-09-18
+
+The [disposable report](architecture/PS2_TYPED_RECIPE_RECOVERY_PREREQUISITE.md),
+[final bounded data](architecture/verification/ps2-typed-recipe-bounded.jsonl)
+and [rejected exhaustive path](architecture/verification/ps2-typed-recipe-exhaustive-negative.jsonl)
+show exact original-token partial-record replay without routine lifetime scan.
+All 53 furnace tests pass. The fixture HEAD cap is unchanged, but ~50 KB of
+process writes, 28 syncs and a ~3 MB conservative hold for 4 KiB net allocation
+are negative production-readiness evidence. Complete ownership/refund,
+qualified barriers, genuine Graph/journal receipts and permanent recipe
+placement remain PS2 gates; no Accepted/Saved or live writer claim.
+
 ## PS2 actual-v3 typed inventory fixture — 2026-09-18
 
 The [disposable typed-inventory fixture](architecture/PS2_V3_TYPED_INVENTORY_FIXTURE.md)

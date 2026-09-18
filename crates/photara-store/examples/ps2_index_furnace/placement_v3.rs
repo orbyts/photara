@@ -29,6 +29,7 @@ struct PRef {
     sha: String,
 }
 type PackRecord = (Option<u64>, PRef, Vec<u8>);
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct WritePlan {
     pack: u64,
     end: u64,
@@ -187,6 +188,8 @@ struct ExtraPin {
 }
 #[derive(Clone, Debug, Default, Serialize)]
 struct Counters {
+    recipe_prefix_read_bytes: u64,
+    recipe_suffix_read_bytes: u64,
     meta_reads: u64,
     meta_read_bytes: u64,
     meta_writes: u64,
@@ -1692,6 +1695,8 @@ struct Liability {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct Continuation {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recipe: Option<typed_inventory::recipe::Recipe>,
     inventory: Inventory,
     active: PRef,
     recovery: PRef,
@@ -1703,6 +1708,7 @@ struct Continuation {
 impl Continuation {
     fn from_selection(h: &Selection) -> Self {
         Self {
+            recipe: None,
             inventory: h.inventory.clone(),
             active: h.active.clone(),
             recovery: h.recovery.clone(),
@@ -1714,6 +1720,7 @@ impl Continuation {
     }
     fn append(p: &PreparedAppend) -> Self {
         Self {
+            recipe: None,
             inventory: Inventory::default(),
             active: p.active.clone(),
             recovery: p.recovery.clone(),
@@ -1930,7 +1937,7 @@ impl Fixture {
             0,
             checked(by_domain.get(&0).copied().unwrap_or(0), control)?,
         );
-        let hold = Liability {
+        let mut hold = Liability {
             token,
             epoch: self.head.epoch,
             target,
@@ -1939,6 +1946,7 @@ impl Fixture {
             continuation,
             control,
             origin: Continuation {
+                recipe: None,
                 inventory: self.head.inventory.clone(),
                 active: self.head.active.clone(),
                 recovery: self.head.recovery.clone(),
@@ -1949,6 +1957,18 @@ impl Fixture {
             },
         };
         gate.holds.insert(token, hold.clone());
+        if hold
+            .continuation
+            .as_ref()
+            .is_some_and(|c| c.recipe.is_some())
+        {
+            let complete_control = checked(self.control_bound(&gate)?, 65536)?;
+            let extra = complete_control.saturating_sub(hold.control);
+            hold.control = hold.control.max(complete_control);
+            *hold.by_domain.get_mut(&0).ok_or("control domain")? =
+                checked(hold.by_domain[&0], extra)?;
+            gate.holds.insert(token, hold.clone());
+        }
         gate.validate()?;
         self.select_gate(gate)?;
         Ok(hold)
@@ -2271,6 +2291,21 @@ impl Fixture {
         old_end: u64,
         exact: &Liability,
     ) -> Result<()> {
+        if exact
+            .continuation
+            .as_ref()
+            .is_some_and(|c| c.recipe.is_some())
+        {
+            ensure(
+                source.head()? == exact.target,
+                "wrong recipe semantic target",
+            )?;
+            return typed_inventory::recipe::resume(
+                self,
+                exact,
+                typed_inventory::recipe::Fault::None,
+            );
+        }
         ensure(
             exact.retirement.is_none() && source.head()? == exact.target,
             "wrong original checkpoint",

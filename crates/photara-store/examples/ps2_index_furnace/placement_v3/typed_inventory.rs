@@ -5,6 +5,8 @@
 )]
 use super::*;
 use std::os::unix::fs::MetadataExt;
+#[path = "typed_inventory/recipe.rs"]
+pub(super) mod recipe;
 pub(super) const OWNER_KEY: u64 = 1 << 63;
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub(super) enum Membership {
@@ -446,6 +448,7 @@ fn plan(f: &mut Fixture, claim: &Claim) -> Result<TypedPlan> {
     let active = meta.staged(&active, &pages, &mut memo)?;
     let recovery = meta.staged(&recovery, &pages, &mut memo)?;
     let continuation = Continuation {
+        recipe: None,
         inventory: Inventory {
             active: Some(ar),
             recovery: Some(br),
@@ -493,6 +496,9 @@ fn publish_claim(f: &mut Fixture, claim: &Claim, cut: Cut) -> Result<serde_json:
     Ok(json!({"preflight":bound,"original_hold":hold.by_domain,"used_model":used}))
 }
 pub(super) fn run_cli(args: &[String]) -> Result<()> {
+    if args.first().is_some_and(|s| s == "recipe") {
+        return recipe::run_cli(&args[1..]);
+    }
     for n in if args.is_empty() {
         vec![1000]
     } else {

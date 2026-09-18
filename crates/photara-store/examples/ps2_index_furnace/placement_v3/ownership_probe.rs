@@ -115,6 +115,7 @@ struct PlacementPlan {
 impl PlacementPlan {
     fn continuation(&self) -> Continuation {
         Continuation {
+            recipe: None,
             inventory: Inventory::default(),
             active: self.active.clone(),
             recovery: self.recovery.clone(),
