@@ -45,6 +45,16 @@ are covered. Only two selected allocation claims were measured; complete
 charge/refund, locator/control self-ownership, qualified barriers and genuine
 Graph/journal integration remain PS2 gates. No production wire or Saved claim.
 
+## LL1 scoped-cycle disposable comparison — 2026-09-18
+
+The [private-cluster comparison](architecture/verification/LL1_SCOPED_CYCLE_COMPARISON.md)
+passes 87 PostgreSQL cases. Both original RESTRICT edges refuse either
+separate-statement deletion order, while two tested single-statement CTE
+forms commit in the minimal fixture. Either one-edge deferred NO ACTION
+variant permits its corresponding separate-statement order. No strategy is
+selected: full production triggers, RLS, privileges, concurrency and facade
+publication remain unproved. No numbered migration, Neon or live deletion.
+
 ## LL1 full-schema static audit — 2026-09-18
 
 The [full inventory](architecture/verification/LL1_FULL_SCHEMA_STATIC_INVENTORY.md)

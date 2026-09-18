@@ -40,6 +40,7 @@ below. Do not force-push or publish unverified live-data changes.
    and [synthetic activation evidence](docs/architecture/verification/LL1_ACTIVATION_FIXTURE.md)
    plus [disposable retirement-constraint evidence](docs/architecture/verification/LL1_RETIREMENT_CONSTRAINT_FIXTURE.md)
    and the [full-schema gap audit](docs/architecture/LL1_FULL_SCHEMA_GAPS.md)
+   plus [scoped-cycle PostgreSQL comparison](docs/architecture/verification/LL1_SCOPED_CYCLE_COMPARISON.md)
    advance while PS2 proceeds; none authorizes LL2 production wiring.
 5. **LL2 — production Library lifecycle.** First wire create/select/rename
    through the shared catalog/service and native avatar menu; one active
