@@ -1,26 +1,29 @@
 # Photara 0.2 execution roadmap
 
-## 2026-09-17 current delivery gate — PS2 to LL1 and platform readiness
+## 2026-09-17 current delivery gate — PS2 to LL2 and platform readiness
 
-The [root roadmap's delivery path](../ROADMAP.md#delivery-path-ll1-acceptance-then-platform-ready-vertical-slice--2026-09-17)
+The [root roadmap's delivery path](../ROADMAP.md#delivery-path-cross-library-acceptance-then-platform-ready-vertical-slice--2026-09-17)
 is authoritative for current sequencing; entries below retain historical
 slice detail, not competing next-step instructions. PS2's
 [combined packed evidence](architecture/PS2_CONSOLIDATED_ENGINEERING_EVIDENCE.md)
 is disposable and supports only a provisional B-tree/ordinal lead. Complete
-the production wire, genuine authored/journal/receipt codec, refundable
-capacity-accounting contract and qualified storage/barrier profile before
+the genuine authored/journal/receipt workload and refundable
+capacity-accounting contract before freezing the production wire; qualify
+the selected storage/barrier profile before
 claiming a live `Saved` path. PS3 then wires the Rust-owned one-project
-session/autosave; PS4 wires typed project browsing and safe switching; LL1
-wires real Library lifecycle. LL1 contract/schema review and project-browser
-lab work may be prepared in parallel, without bypassing those production
-dependencies. Keep Fly.io available for controlled full-route acceptance.
+session/autosave; PS4 wires typed project browsing and safe switching. LL1
+reviews typed Library contracts and unnumbered schema deltas; **LL2**, not
+LL1, wires the real lifecycle. LL1 review and project-browser lab work may
+proceed in parallel, without bypassing production dependencies. Keep Fly.io
+available for controlled full-route acceptance.
 
-The first signed two-Library/two-project acceptance is after LL1. A separate
+The first signed two-Library/two-project acceptance is after LL2a
+(create/select/rename); guarded Remove follows in LL2b. A separate
 platform-ready gate then proves asset paths/proxies, the shared Gallery,
 Graph authoring, a versioned reference-node runtime and a second-machine
 end-to-end path before Layout becomes the first product node. Commit and
 fast-forward push verified bounded slices to `main`; retain the local-only
-stash until the post-LL1 audit. No current fixture authorizes production
+stash until the post-LL2a audit. No current fixture authorizes production
 codec, migration, GC, Asset Store publication or live-data changes.
 
 ## 2026-09-15 accepted LL0 checkpoint — next slice PS0

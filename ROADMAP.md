@@ -1,22 +1,23 @@
 # Roadmap to Photara 0.2.0
 
-## Delivery path: LL1 acceptance, then platform-ready vertical slice — 2026-09-17
+## Delivery path: cross-Library acceptance, then platform-ready vertical slice — 2026-09-17
 
 **Current position: PS2.** PS0/BR0/PS1 are accepted; the PS2 packed writer,
 liveness and capacity results below are disposable evidence, not a production
 package writer or an app autosave path. Move through the following bounded
 checkpoints, committing and fast-forward pushing verified slices to `main`
 periodically rather than carrying a long-lived dirty checkout. Preserve the
-recoverable pre-fast-forward stash until the LL1 acceptance and stash audit
+recoverable pre-fast-forward stash until the cross-Library acceptance and stash audit
 below. Do not force-push or publish unverified live-data changes.
 
-1. **Complete PS2 production durability boundary.** Review/freeze the exact
-   scalable package wire and original-receipt/authored-journal semantics;
-   implement the shared Rust reader, writer, recovery and capacity admission;
-   qualify the selected macOS local-storage/barrier profile with disposable
+1. **Complete PS2 production durability boundary.** Finish the genuine
+   authored-Graph/journal workload and refundable capacity provenance, then
+   review/freeze the exact scalable package wire and receipt semantics;
+   implement the shared Rust reader, writer, recovery and capacity admission.
+   Qualify the selected macOS local-storage/barrier profile with disposable
    fault evidence. Keep `Accepted` and `Saved` tied to their approved durable
    evidence. No production write or migration follows merely from the
-   disposable fixture result.
+   earlier disposable fixture result.
 2. **PS3 — one-project session/autosave.** Route GUI, CLI/headless and future
    automation through the same Rust-owned writer admission/lease, journal,
    dedupe, checkpoint and recovery protocol. Wire native `Saving…`/`Saved`/
@@ -29,14 +30,21 @@ below. Do not force-push or publish unverified live-data changes.
    then validate/open the target package. Test local/cloud catalog agreement,
    missing/moved packages, quit/relaunch and recovery. Project removal
    remains an explicit separate disk-versus-catalog choice.
-4. **LL1 — real Library lifecycle.** Finish typed contracts and schema review,
-   then implement create/select/rename/remove in the shared catalog/service
-   and native avatar-menu flow. One active Library is shown at a time;
-   switching back restores its projects. Destructive removal requires owner
-   authorization, impact review, exact-name confirmation and no database
-   orphans; packages/source files remain untouched. Run the signed two-Library,
-   two-project end-to-end acceptance on `main` before declaring this milestone
-   testable with personal projects.
+4. **LL1 — typed Library contracts and unnumbered schema delta review.** This
+   is the scope already assigned to LL1 by the accepted LL0 contract; it is
+   not itself a live Library switcher. Review the detached removal evidence,
+   authorization, inventory and session fences without numbered migration or
+   DDL. The [LL1 review draft](docs/architecture/LL1_TYPED_CONTRACT_AND_SCHEMA_DELTA.md)
+   can advance while PS2 proceeds.
+5. **LL2 — production Library lifecycle.** First wire create/select/rename
+   through the shared catalog/service and native avatar menu; one active
+   Library is shown at a time, and switching back restores its projects.
+   Run the signed two-Library/two-project end-to-end acceptance on `main`
+   after this safe subset (**LL2a**) before testing with personal projects.
+   Then wire guarded Remove (**LL2b**): owner authorization, impact review,
+   exact-name confirmation, no database orphans, and no package/source-file
+   deletion. LL2b is required for the complete lifecycle/platform-ready gate,
+   not for the first cross-Library switching test.
 
 **Parallel work for speed:** LL1 contract/schema and the project-browser UI
 fixture may proceed while PS2/PS3 are underway, but their production mutations
@@ -45,7 +53,7 @@ available for controlled remote acceptance of the complete sign-in/service/
 database path; do not deprovision it as part of this sequence. This is not a
 production launch decision.
 
-**After LL1 acceptance, before the first real Layout node:** pass a distinct
+**After LL2 acceptance, before the first real Layout node:** pass a distinct
 platform-ready vertical-slice gate. In one signed development build, exercise
 authentication (including the Fly route), local/cloud Library and Project
 lifecycles, user-selected project and asset locations, package autosave and
@@ -59,12 +67,12 @@ neutral; native macOS/Windows adapters may differ. Only then make Layout the
 first product node and focus primarily on nodes plus visual polish. Branding,
 website, store, LLC and public launch are later gates, not blockers here.
 
-**Git housekeeping after LL1 acceptance:** compare the local-only stash
+**Git housekeeping after LL2a cross-Library acceptance:** compare the local-only stash
 `ce39772a4008c886265ac9a25485b2970d0f8332` against validated `main`,
 recover any unique work, verify the signed app and repository, then explicitly
 decide whether to drop it. Do not discard it automatically or before that
 audit. Thereafter keep worktrees short-lived and publish each bounded verified
-PS2/PS3/PS4/LL1/platform checkpoint to `main` by normal fast-forward.
+PS2/PS3/PS4/LL1/LL2/platform checkpoint to `main` by normal fast-forward.
 
 ## PS2 consolidated packed-engineering checkpoint — 2026-09-17
 
@@ -190,15 +198,15 @@ qualify storage and shared Rust session/autosave coordination. Real project
 browsing/switching and Library lifecycle remain later steps. Do not patch the
 current Swift browse/close flow around the durability gate.
 
-## Housekeeping after LL1 acceptance
+## Housekeeping after LL2a cross-Library acceptance
 
-After PS3 autosave, PS4 real project browse/switch and LL1 cross-Library
+After PS3 autosave, PS4 real project browse/switch and LL2a cross-Library
 acceptance pass on validated `main`, audit the recoverable pre-fast-forward
 local-main onboarding stash against that tree. Restore or deliberately retain
 any unique work, confirm the signed app and repository remain healthy, and
 only then decide with Suhail whether to drop the stash. A clean checkout now
 is not permission to delete it. At that checkpoint consolidate completed
-PS2–PS4/LL1 working notes into durable reference docs and retire superseded
+PS2–PS4/LL1/LL2 working notes into durable reference docs and retire superseded
 task evidence without losing architectural decisions or user guidance.
 
 ## PS2 positive sealed-root fixture checkpoint — 2026-09-17

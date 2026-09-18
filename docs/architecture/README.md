@@ -19,6 +19,11 @@ or writer exists. The
 [experimental sealed codec](PS2_EXPERIMENTAL_SEALED_CODEC_CHECKPOINT.md)
 remains disposable evidence.
 
+The [LL1 typed-contract and unnumbered-schema draft](LL1_TYPED_CONTRACT_AND_SCHEMA_DELTA.md)
+prepares Library lifecycle review in parallel. Accepted LL0 semantics remain
+unchanged; LL2 is the separately gated production implementation and signed
+cross-Library acceptance.
+
 **2026-09-17: resource/storage semantic boundary approved.**
 [Resource storage, verification and retention](RESOURCE_STORAGE_AND_VERIFICATION_CONTRACT.md)
 consolidates three storage roles, typed `$library.project_store` /

@@ -2,20 +2,21 @@
 
 ## Current delivery direction — 2026-09-17
 
-The [root roadmap](../ROADMAP.md#delivery-path-ll1-acceptance-then-platform-ready-vertical-slice--2026-09-17)
-now separates two milestones: first, a signed PS3/PS4/LL1 build that safely
+The [root roadmap](../ROADMAP.md#delivery-path-cross-library-acceptance-then-platform-ready-vertical-slice--2026-09-17)
+now separates two milestones: first, a signed PS3/PS4/LL2a build that safely
 autosaves, reopens and switches real projects and Libraries; second, a
 platform-ready vertical slice (Gallery, asset/proxy paths, reference Node SDK
 runtime, second-machine/full Fly route) before Layout becomes the first
 product node. Keep existing Fly.io resources available; do not deprovision
 them merely because local development remains possible. Publish verified
 bounded checkpoints to `main` by normal fast-forward and keep the recoverable
-local-only stash through the post-LL1 audit, not an automatic drop.
+local-only stash through the post-LL2a audit, not an automatic drop.
 
 PS2 remains the active engineering gate. The consolidated disposable fixture
-below does not approve a permanent wire or production writer. LL1 typed
-contracts/unnumbered schema review and project-browser presentation can be
-prepared in parallel; live LL1 switching must consume the Rust-owned
+below does not approve a permanent wire or production writer. The
+[LL1 typed-contract and unnumbered schema review](architecture/LL1_TYPED_CONTRACT_AND_SCHEMA_DELTA.md)
+and project-browser presentation can be prepared in parallel; live LL2
+switching must consume the Rust-owned
 session/durability boundary. No numbered migration or production data change
 is authorized by this sequencing update.
 
