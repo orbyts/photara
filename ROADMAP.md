@@ -10,9 +10,10 @@ periodically rather than carrying a long-lived dirty checkout. Preserve the
 recoverable pre-fast-forward stash until the cross-Library acceptance and stash audit
 below. Do not force-push or publish unverified live-data changes.
 
-1. **Complete PS2 production durability boundary.** Finish the genuine
-   authored-Graph/journal workload and refundable capacity provenance, then
-   review/freeze the exact scalable package wire and receipt semantics;
+1. **Complete PS2 production durability boundary.** Integrate the measured
+   genuine authored-Graph/journal workload with the packed physical placement,
+   liveness and refundable capacity provenance; then review/freeze the exact
+   scalable package wire and receipt semantics;
    implement the shared Rust reader, writer, recovery and capacity admission.
    Qualify the selected macOS local-storage/barrier profile with disposable
    fault evidence. Keep `Accepted` and `Saved` tied to their approved durable
@@ -73,6 +74,20 @@ recover any unique work, verify the signed app and repository, then explicitly
 decide whether to drop it. Do not discard it automatically or before that
 audit. Thereafter keep worktrees short-lived and publish each bounded verified
 PS2/PS3/PS4/LL1/LL2/platform checkpoint to `main` by normal fast-forward.
+
+## PS2 genuine Graph/journal comparison — 2026-09-17
+
+The [disposable Graph furnace](docs/architecture/PS2_GRAPH_JOURNAL_CHECKPOINT_FURNACE.md)
+and [six raw rows](docs/architecture/verification/ps2-graph-authored-v2.jsonl)
+exercise real Core Graph commands, original typed operation receipts, grouped
+journal/checkpoint recovery and old-operation lookup at 1k/10k/100k. Seven
+release tests, strict Clippy and formatting pass. In its *simple append-only
+pack*, radix uses fewer process-write bytes than B-tree at 100k, but the
+earlier combined placement fixture favors B-tree in total physical bytes.
+Neither map is selected until the genuine Graph path and combined physical
+locator/liveness/reserve design are measured together. This fixture does not
+qualify `Accepted`, `Saved`, capacity, imported-package integrity or macOS
+storage barriers; no permanent wire or live writer is approved.
 
 ## PS2 consolidated packed-engineering checkpoint — 2026-09-17
 

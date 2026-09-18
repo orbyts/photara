@@ -15,10 +15,23 @@ local-only stash through the post-LL2a audit, not an automatic drop.
 PS2 remains the active engineering gate. The consolidated disposable fixture
 below does not approve a permanent wire or production writer. The
 [LL1 typed-contract and unnumbered schema review](architecture/LL1_TYPED_CONTRACT_AND_SCHEMA_DELTA.md)
-and project-browser presentation can be prepared in parallel; live LL2
-switching must consume the Rust-owned
+now has concrete R1–R5 recommendations pending review; project-browser
+presentation can be prepared in parallel. Live LL2 switching must consume the Rust-owned
 session/durability boundary. No numbered migration or production data change
 is authorized by this sequencing update.
+
+## PS2 genuine Graph/journal furnace — 2026-09-17
+
+The [disposable report](architecture/PS2_GRAPH_JOURNAL_CHECKPOINT_FURNACE.md)
+and [exact six-row data](architecture/verification/ps2-graph-authored-v2.jsonl)
+add real Core Graph commands, original typed operation receipts, finite
+journal groups, controlled interruption/recovery and old-ID lookup at
+1k/10k/100k. Seven release tests, strict Clippy and formatting pass.
+Radix writes fewer process bytes in this simple append-only pack at 100k;
+the combined physical fixture below still favors B-tree in total physical
+bytes. Keep both until the genuine Graph path is integrated with the physical
+locator/liveness/reserve and qualified barrier model. No production `Saved`,
+permanent wire, live package write or migration is established.
 
 ## PS2 consolidated packed engineering — 2026-09-17
 
@@ -40,8 +53,9 @@ modeled admission with no speculative deletion credit. The fixture still has
 a nonrefundable high-water ledger and cannot qualify real APFS/quota free-space
 progress. Actual disposable remount/abrupt-power trials and arbitrary-path
 provider exclusion are unexecuted; macOS storage and production `Saved` remain
-unqualified. Genuine authored/journal/receipt/barrier codec, refundable
-ownership accounting and shared Rust multi-surface coordination precede any
+unqualified. Integration of the separate genuine Graph/journal evidence with
+this physical path, refundable ownership accounting and shared Rust
+multi-surface coordination precede any
 permanent wire or writer approval. No live package, migration, production GC,
 Asset Store, project switch, commit or push was performed in this review.
 
