@@ -22,6 +22,17 @@ Live LL2 switching must consume the Rust-owned
 session/durability boundary. No numbered migration or production data change
 is authorized by this sequencing update.
 
+## LL1 actual PostgreSQL baseline — 2026-09-18
+
+The [private-cluster actual-migration check](architecture/verification/LL1_ACTUAL_POSTGRES_BASELINE.md)
+passes 30 behavioral cases and matches all 59 tables, 114 FKs, 122 enabled
+triggers, 173 policies, 52 functions and 45 forced-RLS tables. All three
+populated RESTRICT cycles remain undeletable under current retention guards;
+API/control roles also lack DELETE. This establishes the protected-executor,
+guard-exception and mandatory receipt/marker/inventory implementation boundary,
+not successful full retirement. No production migration, role change or live
+data access. SQLite full-schema behavior remains a separate gate.
+
 ## PS2 bounded typed-recipe recovery prerequisite — 2026-09-18
 
 The [disposable report](architecture/PS2_TYPED_RECIPE_RECOVERY_PREREQUISITE.md),
