@@ -67,9 +67,10 @@ physical-name preservation and next-step labels. Library is the durable ownershi
 domain; Project authored workflow remains package-authoritative and editor session
 preferences remain local. CXT3b/c and deployment are separate gates.
 
-Start active work with [the active handoff](../ACTIVE_HANDOFF.md) and the
-[versioned execution roadmap](../ROADMAP_0_2_EXECUTION.md). The current complete
-product model is recorded in
+Start active work with [the active handoff](../ACTIVE_HANDOFF.md), the sole
+current operational entry point. It supplies the minimal reading order; this
+architecture index and the versioned execution roadmap are references, not
+competing handoffs. The current complete product model is recorded in
 [Generation-two product architecture](GENERATION_TWO_PRODUCT_ARCHITECTURE.md).
 
 ## Reading order

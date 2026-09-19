@@ -492,7 +492,8 @@ retry. Failures never authorize deletion of package history or recovery records.
   truthful statuses. Preserve legacy route unless explicit conversion approved.
 - **PS4 — Project switching integration:** only after PS3 durability acceptance,
   integrate accepted confirmation and failure restoration; Gallery implementation
-  remains its own scope. LL1 Library switching/lifecycle does not piggyback on PS4.
+  remains its own scope. LL1 is parallel Library contract/schema/security review;
+  production Library switching/lifecycle is LL2 and does not piggyback on PS4.
 
 Each slice requires its own review/authorization; labels follow the existing PS0
 roadmap convention and do not reserve migration ordinals. Existing package 1.0 and

@@ -1,5 +1,9 @@
 # Graph task integration handoff
 
+> Historical Graph integration handoff. The current project state and reading
+> order are in [`docs/ACTIVE_HANDOFF.md`](../../../docs/ACTIVE_HANDOFF.md); this
+> file remains a focused Graph reference only.
+
 The existing Graph source, presets, lab and complete verification suite remain
 the reference implementation. Gallery and Inspector now follow its shared-view
 pattern; see [shared UI architecture](../SHARED_UI.md).

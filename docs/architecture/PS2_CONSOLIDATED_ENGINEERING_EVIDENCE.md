@@ -7,6 +7,62 @@ and Retention contract and the separate `Accepted`/`Saved` acknowledgements
 remain unchanged. Large external managed media is not read or strongly hashed
 by ordinary open, autosave, root turnover or metadata validation.
 
+## Current PS2 synthesis and next gate — 2026-09-19
+
+This section incorporates the later prerequisite fixtures so a fresh task does
+not need to reconstruct PS2 from every experiment report.
+
+The approved direction remains one authoritative `HEAD.json` selecting both
+exact semantic and exact physical-ownership closure. The disposable actual-v3
+typed-inventory fixture proves that those closures can be independently checked
+inside the selected locator, but automatic all-pack ownership, locator/control
+self-coverage and refundable capacity are not integrated. The earlier attempt to
+add untyped ownership leaves to the semantic locator correctly failed as an
+extraneous closure; weakening that audit is rejected.
+
+The bounded typed-recipe fixture proves exact original-token replay of partial
+records without a routine lifetime scan; all 53 furnace tests pass. It preserves
+the original hold and does not duplicate payload bytes. Its roughly 50 KB of
+process writes, 28 syncs and roughly 3 MB conservative hold for a 4 KiB net
+allocation are negative practical evidence, not a final publication path.
+
+The active-prefix adapter proves same-inode growth, retry, sealing and retirement
+across data/locator/control-like packs, but is a forked bounded model rather than
+actual-v3 integration. Its 24 syncs per group and 4.79–19.65× write amplification
+are also negative evidence. The allocation-credit prerequisite proves that an
+exact retired immutable pack can release its project-owned charge only after all
+pin/root/reader/unknown-outcome and physical-absence checks. That credit is not
+filesystem free space, and active-pack growth, metadata/control ownership and
+qualified availability remain open.
+
+The separate Graph/journal furnace uses genuine Core Graph commands, typed PS1
+intents and original receipts. It retains every accepted operation, exercises
+no-op/inverse behavior and bounded old-ID lookup, and keeps both representations
+in comparison: radix wins its simple append workload while the combined packed
+physical fixture favors B-tree. Neither result selects permanent wire.
+
+The immediate engineering dependency is therefore:
+
+1. use bounded recipe replay to generate complete ownership closure and
+   original-token coverage for active-prefix growth, metadata self-coverage and
+   control generations in the actual-v3 placement;
+2. reconcile exact measured allocation ownership and post-retirement project
+   credits across active/recovery/reader/all-pin/hold roots without double charge,
+   speculative deletion credit or an OS-space-reservation claim;
+3. integrate the genuine Graph/journal workload and canonical receipts with that
+   packed physical path and the qualified barrier model;
+4. compare B-tree and radix again on the integrated workload, then present the
+   permanent recipe/wire and macOS storage qualification for review.
+
+Until those steps pass, there is no production reader/writer, live package write,
+qualified `Accepted`/`Saved`, migration, project switching or latency claim. See
+[typed recipe recovery](PS2_TYPED_RECIPE_RECOVERY_PREREQUISITE.md),
+[actual-v3 ownership closure](PS2_V3_OWNERSHIP_CLOSURE_GATE.md),
+[active-prefix ownership](PS2_ACTIVE_PREFIX_OWNERSHIP_ADAPTER.md),
+[allocation credit](PS2_ALLOCATION_OWNERSHIP_CREDIT_PREREQUISITE.md) and
+[Graph/journal evidence](PS2_GRAPH_JOURNAL_CHECKPOINT_FURNACE.md) only when the
+focused implementation or exact measurement is needed.
+
 ## What changed after the negative tail-copy experiment
 
 The [prior physical review](PS2_PHYSICAL_DISPATCH_LIVENESS_RESERVE_BARRIERS.md)

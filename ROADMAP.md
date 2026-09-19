@@ -31,29 +31,31 @@ below. Do not force-push or publish unverified live-data changes.
    then validate/open the target package. Test local/cloud catalog agreement,
    missing/moved packages, quit/relaunch and recovery. Project removal
    remains an explicit separate disk-versus-catalog choice.
-4. **LL1 — typed Library contracts and unnumbered schema delta review.** This
-   is the scope already assigned to LL1 by the accepted LL0 contract; it is
-   not itself a live Library switcher. Review the detached removal evidence,
-   authorization, inventory and session fences without numbered migration or
-   DDL. The [LL1 review draft](docs/architecture/LL1_TYPED_CONTRACT_AND_SCHEMA_DELTA.md),
-   [physical review](docs/architecture/LL1_PHYSICAL_SCHEMA_AND_PRIVILEGE_REVIEW.md)
-   and [synthetic activation evidence](docs/architecture/verification/LL1_ACTIVATION_FIXTURE.md)
-   plus [disposable retirement-constraint evidence](docs/architecture/verification/LL1_RETIREMENT_CONSTRAINT_FIXTURE.md)
-   and the [full-schema gap audit](docs/architecture/LL1_FULL_SCHEMA_GAPS.md)
-   plus [scoped-cycle PostgreSQL comparison](docs/architecture/verification/LL1_SCOPED_CYCLE_COMPARISON.md)
-   and [actual-schema PostgreSQL baseline](docs/architecture/verification/LL1_ACTUAL_POSTGRES_BASELINE.md)
-   plus [actual-schema SQLite baseline](docs/architecture/verification/LL1_ACTUAL_SQLITE_BASELINE.md)
-   and the [disposable protected-executor comparison](docs/architecture/verification/LL1_PROTECTED_EXECUTOR_CONTRACT.md),
-   [authority boundary](docs/architecture/verification/LL1_PROTECTED_AUTHORIZATION.md),
-   [dense PostgreSQL coverage](docs/architecture/verification/LL1_PROTECTED_PG_COVERAGE.md)
-   and [expanded SQLite coverage](docs/architecture/verification/LL1_PROTECTED_SQLITE_COVERAGE.md)
-   including [all-table retained-chain evidence](docs/architecture/verification/LL1_PROTECTED_SQLITE_RETAINED_COVERAGE.md)
-   advance while PS2 proceeds; none authorizes LL2 production wiring.
-5. **LL2 — production Library lifecycle.** First wire create/select/rename
+
+**Parallel prerequisite — LL1 typed Library contracts and unnumbered schema
+delta review.** This is the scope already assigned to LL1 by the accepted LL0
+contract; it is not itself a live Library switcher and it does not sit between
+PS2 and PS3/PS4. Review the detached removal evidence, authorization, inventory
+and session fences without numbered migration or DDL. The
+[LL1 review draft](docs/architecture/LL1_TYPED_CONTRACT_AND_SCHEMA_DELTA.md) and
+[current protected-executor evidence](docs/architecture/verification/LL1_PROTECTED_EXECUTOR_CONTRACT.md)
+are the authoritative entry points. Their linked authorization, PostgreSQL and
+SQLite coverage reports advance while PS2–PS4 proceed; none authorizes LL2
+production wiring. Older physical/constraint reviews are historical inputs and
+must not override the later RESTRICT-preserving evidence.
+
+4. **LL2 — production Library lifecycle.** First wire create/select/rename
    through the shared catalog/service and native avatar menu; one active
    Library is shown at a time, and switching back restores its projects.
    Run the signed two-Library/two-project end-to-end acceptance on `main`
    after this safe subset (**LL2a**) before testing with personal projects.
+   This is the cumulative first major human gate: make ordinary authored edits
+   without manual saving; observe truthful `Saving…`/`Saved` or failure state;
+   quit/relaunch and recover the authored state; browse, reopen and safely switch
+   projects; switch through the intended two-Library/two-project matrix; and
+   verify each state restores correctly. Preserve unknown/failure context. This
+   consolidates PS3/PS4 acceptance; it does not require two projects per Library,
+   final Gallery polish, second-machine acceptance or Library removal.
    Then wire guarded Remove (**LL2b**): owner authorization, impact review,
    exact-name confirmation, no database orphans, and no package/source-file
    deletion. LL2b is required for the complete lifecycle/platform-ready gate,

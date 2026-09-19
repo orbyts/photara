@@ -1,5 +1,9 @@
 # Graph Lab interaction engineering handoff
 
+> Historical Graph Lab task handoff. Do not continue from its described working
+> tree or treat its next-step instructions as current. A fresh Photara task starts
+> with [`docs/ACTIVE_HANDOFF.md`](../../../docs/ACTIVE_HANDOFF.md).
+
 ## Objective
 
 Graph Lab is visually close to the desired result. The next task is not another
@@ -9,8 +13,9 @@ deterministic, smooth, reusable, and ready to exchange document data with the
 Rust core that will eventually own Photara's graph data and operations.
 
 Limit implementation work to Graph Lab and the reusable Graph presentation
-module. Continue directly from the current working tree. Preserve the accepted
-visual design, current node/noodle/port appearance, and saved authoring
+module. In its historical task, work continued from that task's working tree.
+Preserve the accepted visual design, current node/noodle/port appearance, and
+saved authoring
 preferences exactly unless a rendering change is strictly required to correct
 interaction behavior and is called out before making it.
 

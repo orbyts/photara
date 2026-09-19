@@ -1,10 +1,9 @@
 # Modular frame and local Library handoff
 
-> Historical frame/Library implementation handoff. For current work, begin with
-> [Active handoff](ACTIVE_HANDOFF.md) and the
-> [Photara 0.2 execution roadmap](ROADMAP_0_2_EXECUTION.md). Preserve the work
-> recorded here, but do not use its next-step guidance to bypass the current
-> Architecture and Database Schema approval gates.
+> Historical frame/Library implementation handoff only. A fresh task begins
+> with the [active handoff](ACTIVE_HANDOFF.md), the sole current operational
+> entry point. Preserve the work recorded here, but do not use its next-step
+> guidance to override the current critical path or approval gates.
 
 This change integrates the previously uncommitted Shell/Gallery/Inspector
 preset and empty-state authoring work with the new module frame and local

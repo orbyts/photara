@@ -1,5 +1,14 @@
 # LL1 physical schema and privilege delta — unnumbered review
 
+> **Historical proposal, superseded for current execution.** Later full-schema
+> PostgreSQL and SQLite protected-executor fixtures close the populated cycles
+> while preserving the existing `RESTRICT` actions; current evidence does not
+> justify the `NO ACTION` changes proposed below. Begin with the
+> [current protected-executor contract](verification/LL1_PROTECTED_EXECUTOR_CONTRACT.md),
+> then follow its authorization, dense PostgreSQL, retained SQLite and service
+> handoff links. The cycle counts and recommendations below record the earlier
+> static review and must not be treated as current implementation direction.
+
 Status: **proposal and static review only, 2026-09-18**. Inputs are accepted
 [LL0](LIBRARY_LIFECYCLE.md) and the pending [LL1 R1–R5 recommendations](LL1_TYPED_CONTRACT_AND_SCHEMA_DELTA.md).
 No migration ordinal, executable installer, DDL execution, production code,

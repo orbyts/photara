@@ -1,9 +1,9 @@
 # Codex handoff
 
-> Historical implementation handoff. For current work, begin with
-> [Active handoff](ACTIVE_HANDOFF.md) and the
-> [Photara 0.2 execution roadmap](ROADMAP_0_2_EXECUTION.md). Their Architecture
-> Gate supersedes older immediate-next-step instructions in this document.
+> Historical implementation handoff only. A fresh task begins with the
+> [active handoff](ACTIVE_HANDOFF.md), which is the sole current operational
+> entry point and supplies the minimal reading order. Do not use this file's
+> objective, ordering or next-step guidance to override it.
 
 ## Resume objective
 

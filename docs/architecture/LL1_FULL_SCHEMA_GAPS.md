@@ -1,5 +1,13 @@
 # LL1 full-schema inventory: decision gate and remaining proof
 
+> **Historical gap review, resolved for current direction by later disposable
+> evidence.** The protected PostgreSQL and SQLite executors preserve the existing
+> `RESTRICT` actions and close the seeded cycles with engine-specific transaction
+> strategies. Do not select the `NO ACTION` alternative below unless new
+> independent full-schema evidence requires it. The current entry is the
+> [protected-executor contract](verification/LL1_PROTECTED_EXECUTOR_CONTRACT.md),
+> with its authorization, coverage and service-handoff links.
+
 Status: **static review only, 2026-09-18; stop for physical-design review**.
 No migration, SQL execution, production modification or LL2 approval in this slice.
 The [generated inventory](verification/LL1_FULL_SCHEMA_STATIC_INVENTORY.md) and
