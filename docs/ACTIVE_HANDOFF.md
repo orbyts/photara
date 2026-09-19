@@ -188,6 +188,10 @@ migration, deployment or deletion. Also stop if evidence requires a schema or
 constraint change, or if LL2a acceptance would materially differ from the
 roadmap definition above.
 
+Use an Astra task for major architecture, production-code or broad repository
+changes. Keep routine bounded work moving without asking for approval unless a
+stop condition above is reached.
+
 ## Minimal reading order
 
 1. This file.
