@@ -1,0 +1,21 @@
+{
+  "date": "2026-09-27",
+  "parent_commit": "365acc0",
+  "status": "unfrozen-phase-subproof",
+  "production_changes": false,
+  "tests": 13,
+  "independent_parent_test": {
+    "command": "cargo test -p photara-store --test scalable_phase_candidate",
+    "result": "13 passed, 0 failed, debug profile, 10.13s"
+  },
+  "generator_byte_identical": true,
+  "source_manifest": "ps2-canonical-phase-source-hashes.json",
+  "evidence_sha256": {
+    "ps2-canonical-phase-source-hashes.json": "024e4e36ced3262bea21fcb1d1d53ac0f08f2a500780cf804cfccc1c51ac44c2",
+    "ps2-canonical-phase-tests.log": "8109fc726ec42712b8502d2889953002efd0744ce69b37567971316855bd659c",
+    "ps2-canonical-phase-clippy.log": "0205f4778bf0e6c006e7c7a3f61a33423aed538fb7ff327eb2ee5771d9f844fa"
+  },
+  "targeted_rustfmt": "pass",
+  "independent_review": "Actual supplied suffixes, original standing/tickets, supplied phase size/newborn set, successor parents/revisions, nonnil IDs, exact original terminal retry all verified after fixes",
+  "remaining_boundary": "External original/phase records are not yet HEAD-selected accounting authority; joined original-admission/phase/C route required. No production IO or storage qualification."
+}

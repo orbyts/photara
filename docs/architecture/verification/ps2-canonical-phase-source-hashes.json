@@ -1,0 +1,10 @@
+{
+  "crates/photara-store/tests/scalable_phase_candidate.rs": "e5a6bed271a95c47166499cc066853477be0f281f96e098ea331a023e6f3e742",
+  "crates/photara-store/tests/scalable_phase_candidate/phases.rs": "cedd5136dad4bd0b745990621ed418ae91723222fc522379f96e228be18e7470",
+  "docs/architecture/proposals/ps2/phases/generate.py": "11a692206e1ff36a933c36ed33e55c115e2c9cbde7283657fb1f0b24f3dcbf1b",
+  "docs/architecture/proposals/ps2/phases/linked-phases.json": "adc32c2e0ec026bd36e896633f21933f334fa2f67a88442104afa5e76ef92b7b",
+  "crates/photara-store/tests/scalable_operation_candidate/operations.rs": "ad1397dae8d65bd0011a9919d7f176373d2baaeccf84d100698b489c0173990f",
+  "crates/photara-store/tests/scalable_wire_candidate/wire.rs": "9c6f19d918dda37f28f17ebb1b67f41c430ab498209fb0f24c86243af2a28667",
+  "docs/architecture/proposals/ps2/operations/linked-operations.json": "b18f3d5960bff213c35ea12d9f2e32791eb83cc904046d9f47ed21f93ada2421",
+  "docs/architecture/PS2_CANONICAL_PHASE_SUBPROOF.md": "e17d72c5aea2e61396d6e784f6df725177c928cdcfabc8f7d96ad53eef95035d"
+}

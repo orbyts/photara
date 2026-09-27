@@ -162,7 +162,13 @@ snapshot preservation at nineteen copy cuts and original attempt registration.
 It distinguishes structural readability from synthetic retention support and
 performs no media access. Its [evidence](verification/ps2-resource-conversion-byte-candidate-20260927.json)
 remains a bounded projection; the [readiness checklist](PS2_WIRE_REVIEW_READINESS.md)
-tracks the required final composition and review boundary.
+tracks the required final composition and review boundary. The subsequent
+[canonical phase subproof](PS2_CANONICAL_PHASE_SUBPROOF.md) passes thirteen
+tests, independently confirmed in the [parent check](verification/ps2-canonical-phase-parent-verification-20260927.json).
+It binds actual supplied suffix bytes, exact original standing/ticket charges,
+control caps, birth witnesses and source-independent retry. Its external phase
+records still require HEAD-selected accounting integration; it is not the final
+single-authority proof.
 
 The macOS syscall and split-process matrix has been rerun. Three explicitly
 authorized private APFS-image clean-remount cases cover successful publication

@@ -127,8 +127,12 @@ separate PS2 prerequisite.
   adds nine tests for typed inventory/operation/charge branches and exact physical
   bytes. A [resource/conversion specimen](architecture/PS2_RESOURCE_CONVERSION_BYTE_CANDIDATE.md)
   passes twelve tests across 26 linked scenarios, preserving all eighteen original
-  snapshot files and checking same-attempt copy registration. Joint package
-  selection and original phase controls remain engineering work, tracked in the
+  snapshot files and checking same-attempt copy registration. The
+  [canonical phase subproof](architecture/PS2_CANONICAL_PHASE_SUBPROOF.md) adds
+  thirteen tests for original reserves, birth witnesses, actual suffix integrity
+  and once-only credit. Its external phase records are not yet selected
+  accounting authority. Joint package selection and original phase controls
+  remain engineering work, tracked in the
   [wire readiness checklist](architecture/PS2_WIRE_REVIEW_READINESS.md).
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
