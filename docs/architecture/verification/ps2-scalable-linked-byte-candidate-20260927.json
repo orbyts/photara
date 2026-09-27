@@ -1,0 +1,37 @@
+{
+  "date": "2026-09-27",
+  "status": "unfrozen-disposable-byte-and-closure-candidate",
+  "parent_commit": "0544d99",
+  "production_changes": false,
+  "tests": 8,
+  "linked_scenarios": 14,
+  "canonical_records": 112,
+  "generator_byte_identical": true,
+  "source_sha256": {
+    "crates/photara-store/tests/scalable_wire_candidate.rs": "2022e57806e68c8a47161c06f894976b688344e0217eb6789a8e83699b5639d8",
+    "crates/photara-store/tests/scalable_wire_candidate/wire.rs": "9c6f19d918dda37f28f17ebb1b67f41c430ab498209fb0f24c86243af2a28667",
+    "docs/architecture/proposals/ps2/scalable/generate.py": "6d9faac9186f6e326bcb08b96c05e9c0857bb15cf762192dfa02909bb8ed6aba",
+    "docs/architecture/proposals/ps2/scalable/linked-vectors.json": "48109252e5b9b47099ce7d12b314e576b8d0c9bcce048b42aad564cba13c5ba2"
+  },
+  "outputs": {
+    "tests": "   Compiling photara-store v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-store)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.41s\n     Running tests/scalable_wire_candidate.rs (/Users/suhail/.cache/cargo/targets/debug/deps/scalable_wire_candidate-73385a968e72fa20)\n\nrunning 8 tests\ntest duplicate_unknown_and_noncanonical_json_refuse ... ok\ntest missing_capability_and_reader_refuse_before_any_pack_lookup ... ok\ntest fixed_canonical_bytes_frames_lengths_and_hashes_match_independent_vectors ... ok\ntest optional_extension_and_predecessor_commitments_are_not_edges ... ok\ntest altered_frame_bytes_header_and_missing_locator_page_refuse ... ok\ntest complete_bootstrap_and_independent_physical_closures_are_linked ... ok\ntest padding_is_exact_bounded_owned_and_nonreferenceable ... ok\ntest linked_semantic_negatives_reach_specific_validation_boundaries ... ok\n\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s\n\n",
+    "clippy": "    Checking photara-store v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-store)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.38s\n"
+  },
+  "output_sha256": {
+    "tests": "47c6a784b91491d2c513b6ca16247429c76afdfa86ee5fbe43cb16f6e1332686",
+    "clippy": "babefcc2e6d7493de4b32db99cdddeef20680b3278ac78a80718f517c07ec4bf"
+  },
+  "commands": [
+    "python3 docs/architecture/proposals/ps2/scalable/generate.py",
+    "cargo test -p photara-store --test scalable_wire_candidate",
+    "cargo clippy -p photara-store --test scalable_wire_candidate -- -D warnings",
+    "rustfmt --edition 2024 --check crates/photara-store/tests/scalable_wire_candidate.rs"
+  ],
+  "limits": [
+    "No production reader/writer or permanent format/reader-floor freeze.",
+    "Authored/history leaves are semantic closure probes; accepted operation index is empty.",
+    "No publication/admission/local barrier qualification.",
+    "Explicit padded fixture extents and synthetic snapshot allowance are not production allocation policy.",
+    "Scalable inventory/charge trees and other linked vector groups remain open."
+  ]
+}

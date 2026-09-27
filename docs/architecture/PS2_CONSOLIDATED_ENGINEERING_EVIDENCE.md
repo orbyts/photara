@@ -117,6 +117,13 @@ closure, original admission and physical accounting. It explicitly separates
 portable identities from local allocation evidence. Linked canonical vectors,
 the compact-manifest experiment and final readiness review remain engineering
 work; this draft does not freeze compatibility or authorize production code.
+The [first linked byte specimen](PS2_SCALABLE_PACKED_BYTE_CANDIDATE.md) now passes
+eight pure tests over fourteen linked scenarios and 112 fixed canonical records.
+It verifies exact semantic, ownership and locator closure separately, including
+recovery with active-only allocations absent. Independent Python generation
+reproduces the literal bytes. Semantic probe leaves and an empty operation index
+keep this a bounded closure specimen; real operation, scalable index and
+publication/admission vectors remain open.
 
 The macOS syscall and split-process matrix has been rerun. Three explicitly
 authorized private APFS-image clean-remount cases cover successful publication

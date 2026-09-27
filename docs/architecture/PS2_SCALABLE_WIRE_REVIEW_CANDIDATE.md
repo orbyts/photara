@@ -16,6 +16,12 @@ owns the final regression snapshot and readiness conclusions. The
 [live relocation](PS2_LIVE_OWNED_RELOCATION.md) records establish bounded fixture
 behavior; the proposed portable types below are not implemented by those tests.
 
+The subsequent [packed byte and independent closure specimen](PS2_SCALABLE_PACKED_BYTE_CANDIDATE.md)
+provides fourteen fully linked candidate scenarios and eight pure tests for
+bootstrap, placement and independent closure. It explicitly uses semantic probe
+leaves and an empty operation index. Real operation evidence, scalable inventory
+and owned charge trees, and publication/admission vectors remain separate work.
+
 ## Proposed delta to the earlier appendix
 
 Keep HEAD and the outer commit envelope, project/bootstrap identity, independent
@@ -91,10 +97,13 @@ Selecting either physical tree must preserve these same typed closure rules.
 Pin records retain their approved reasons and exact root/closure references;
 the ten extra fixture classes are coverage, not new public pin spellings.
 
-Two distinct equalities must be tested. Logical inventory equals the typed
-semantic/ownership closure selected by each root. Physical ownership covers all
-allocations required to resolve that closure, including the inventory and
-locator implementation itself. Sharing is counted once by allocation identity.
+Three distinct equalities must be tested. StateRoot inventory retains the
+earlier appendix's exact semantic closure and self-exclusions. Locator membership
+equals that semantic closure plus StateRoot/inventory and the separately traversed
+ownership nodes, with explicit membership types. Physical ownership covers all
+allocations required by those records and the locator implementation itself.
+The linked byte specimen makes these sets explicit without adding a locator
+self-reference. Sharing is counted once by allocation identity.
 An authenticated prefix is not falsely presented as a full-allocation digest;
 an extent is not falsely presented as proof of every byte's integrity.
 

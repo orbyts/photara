@@ -115,7 +115,10 @@ separate PS2 prerequisite.
   commitments are the next engineering experiment, not a permanent format.
 - A [scalable wire review candidate](architecture/PS2_SCALABLE_WIRE_REVIEW_CANDIDATE.md)
   describes typed closure, placement and accounting records and required linked
-  vectors. It is an unfrozen draft; the vectors and final readiness review remain.
+  vectors. Its [first linked byte specimen](architecture/PS2_SCALABLE_PACKED_BYTE_CANDIDATE.md)
+  passes eight tests across fourteen bootstrap/closure scenarios, with exact
+  independent canonical bytes and recovery closure. Real operation, scalable
+  index and publication/admission vectors and final readiness review remain.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification

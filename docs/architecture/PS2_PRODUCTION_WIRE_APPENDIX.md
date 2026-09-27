@@ -6,6 +6,12 @@ without enabling live conversion, writing, Asset Store publication, retirement,
 or project switching. The [golden vectors](proposals/ps2/sealed-wire-golden.json)
 are byte-encoding examples, not proof of storage durability or semantic closure.
 
+The subsequent [scalable closure candidate](PS2_SCALABLE_WIRE_REVIEW_CANDIDATE.md)
+proposes an explicit capability/schema delta for typed indexes, placement and
+physical ownership. This earlier flat-array appendix is retained as the semantic
+and canonical-encoding reference, not a claim that the scalable physical format
+has already been reviewed or frozen.
+
 ## Version coordinates are independent
 
 The proposed `minimum_reader: {"major":1,"minor":2}` is **only the selected
