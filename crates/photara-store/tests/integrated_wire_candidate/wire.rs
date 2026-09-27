@@ -264,6 +264,22 @@ impl World {
         extra_features: &[&str],
         transition: Option<&Transition<'_>>,
     ) -> Result<Value> {
+        self.bootstrap_context(
+            extra_features,
+            transition,
+            transition.and_then(|t| t.selection),
+        )
+    }
+    #[allow(
+        clippy::too_many_lines,
+        reason = "Exact bootstrap dispatch shared by selected proof modes"
+    )]
+    fn bootstrap_context(
+        &self,
+        extra_features: &[&str],
+        transition: Option<&Transition<'_>>,
+        operation: Option<&OperationSelection>,
+    ) -> Result<Value> {
         fields(
             &self.head,
             &["schema", "project_id", "commit_id", "commit_sha256"],
@@ -311,7 +327,12 @@ impl World {
         )?;
         uuid(&self.commit["commit_id"])?;
         uuid(&self.commit["write_id"])?;
-        if let Some(t) = transition {
+        if let Some(selected) = operation {
+            ensure(
+                self.commit == selected.expected_commit,
+                "exact original-derived operation selection",
+            )?;
+        } else if let Some(t) = transition {
             ensure(
                 self.manifest == t.old.manifest
                     && self.commit["package_revision"]
@@ -1270,6 +1291,13 @@ pub(super) struct Proof {
     pub controls: u64,
 }
 fn selected_controls(w: &World, root: &Value) -> Result<(Value, Value, Value, u64)> {
+    selected_operation_controls(w, root, None)
+}
+fn selected_operation_controls(
+    w: &World,
+    root: &Value,
+    selection: Option<&OperationSelection>,
+) -> Result<(Value, Value, Value, u64)> {
     let envelope = w.loose(&root["placement"]["accounting"])?;
     schema(
         &envelope,
@@ -1296,7 +1324,20 @@ fn selected_controls(w: &World, root: &Value) -> Result<(Value, Value, Value, u6
         key(&root["placement"]["accounting"])?,
         key(&envelope["ledger"])?,
     ];
+    if let Some(selected) = selection {
+        controls = selected.controls.iter().map(key).collect::<Result<_>>()?;
+        ensure(
+            controls.contains(&key(&root["placement"]["accounting"])?)
+                && controls.contains(&key(&envelope["ledger"])?)
+                && controls.contains(&key(&envelope["holds"])?),
+            "operation mandatory selected controls",
+        )?;
+    }
     controls.sort();
+    ensure(
+        controls.windows(2).all(|p| p[0] < p[1]),
+        "unique selected controls",
+    )?;
     ensure(
         array(&overlay["controls"])?
             .iter()
@@ -1357,6 +1398,34 @@ pub(super) fn verify_transition(
         old,
         verified: verify(old)?,
         prepared_authored,
+        selection: None,
+    };
+    verify_inner(w, &AuthoredOnly, Some(&t))
+}
+/// Trusted compiled route proof, derived from parsed original bytes and its finite stage chain.
+/// It does not replace actual physical, ledger, locator or global-union validation.
+pub(super) struct OperationSelection {
+    pub expected_commit: Value,
+    pub controls: Vec<Value>,
+    pub packed_hold: Value,
+}
+pub(super) fn verify_selected_operation(
+    w: &World,
+    old: &World,
+    prepared_authored: &BTreeMap<Key, Value>,
+    selection: &OperationSelection,
+) -> Result<Proof> {
+    let original_envelope = old.loose(&old.commit["root_set"]["placement"]["accounting"])?;
+    ensure(
+        selection.packed_hold == original_envelope["holds"],
+        "selected operation original packed hold",
+    )?;
+    // The route must first prove exact O/P/F identity, finite phase fields and R/C.
+    let t = Transition {
+        old,
+        verified: verify(old)?,
+        prepared_authored,
+        selection: Some(selection),
     };
     verify_inner(w, &AuthoredOnly, Some(&t))
 }
@@ -1364,6 +1433,7 @@ struct Transition<'a> {
     old: &'a World,
     verified: Proof,
     prepared_authored: &'a BTreeMap<Key, Value>,
+    selection: Option<&'a OperationSelection>,
 }
 #[allow(
     clippy::too_many_lines,
@@ -1375,7 +1445,8 @@ fn verify_inner(
     transition: Option<&Transition<'_>>,
 ) -> Result<Proof> {
     let root = w.bootstrap_transition(policy.extra_features(), transition)?;
-    let (envelope, ledger, overlay, controls) = selected_controls(w, &root)?;
+    let operation = transition.and_then(|t| t.selection);
+    let (envelope, ledger, overlay, controls) = selected_operation_controls(w, &root, operation)?;
     let mut shared = BTreeSet::new();
     let placements = physical_tree(
         w,
@@ -1434,7 +1505,8 @@ fn verify_inner(
         "conversion exact original bootstrap",
     )?;
     let ev = evidence(w, &conversion)?;
-    let holds = active_res.get(&envelope["holds"], 2)?;
+    let hold_ref = operation.map_or(&envelope["holds"], |s| &s.packed_hold);
+    let holds = active_res.get(hold_ref, 2)?;
     let account = accounting::verify(&ledger, &holds, |r| active_res.any(r), &ev)?;
     ensure(
         account.allocations == w.allocations.keys().cloned().collect(),
@@ -1471,6 +1543,12 @@ fn verify_inner(
         )?;
     }
     let mut global = account.logical.clone();
+    if let Some(selected) = operation {
+        for r in &selected.controls {
+            w.loose(r)?;
+            global.insert(key(r)?);
+        }
+    }
     global.extend(account.implementation.clone());
     global.extend(pin_nodes.clone());
     global.extend(extra.clone());
@@ -1601,8 +1679,23 @@ pub(super) fn recovery(w: &World) -> Result<RoleProof> {
     reason = "Shared independent recovery closure with explicit policy limits"
 )]
 pub(super) fn recovery_with(w: &World, policy: &impl ResourcePolicy) -> Result<RoleProof> {
-    let root = w.bootstrap_with(policy.extra_features())?;
-    let (envelope, ledger, overlay, _) = selected_controls(w, &root)?;
+    recovery_inner(w, policy, None)
+}
+/// Read-only supplied recovery closure. The route must validate selected O/P/F metadata first.
+pub(super) fn recovery_operation(w: &World, selection: &OperationSelection) -> Result<RoleProof> {
+    recovery_inner(w, &AuthoredOnly, Some(selection))
+}
+#[allow(
+    clippy::too_many_lines,
+    reason = "One exact independent supplied recovery closure proof"
+)]
+fn recovery_inner(
+    w: &World,
+    policy: &impl ResourcePolicy,
+    operation: Option<&OperationSelection>,
+) -> Result<RoleProof> {
+    let root = w.bootstrap_context(policy.extra_features(), None, operation)?;
+    let (envelope, ledger, overlay, _) = selected_operation_controls(w, &root, operation)?;
     let mut shared = BTreeSet::new();
     let placements = physical_tree(
         w,
@@ -1627,7 +1720,8 @@ pub(super) fn recovery_with(w: &World, policy: &impl ResourcePolicy) -> Result<R
         .ok_or("recovery placement")?;
     let res = Resolver::new(w, &entry["locator"])?;
     let proof = role(policy, w, &res, &root["recovery"], entry, None)?;
-    let holds = res.get(&envelope["holds"], 2)?;
+    let hold_ref = operation.map_or(&envelope["holds"], |s| &s.packed_hold);
+    let holds = res.get(hold_ref, 2)?;
     let accounting = accounting::metadata(&ledger, &holds, |r| res.any(r))?;
     let conversion = res.get(&root["conversion_source"], 1)?;
     ensure(
@@ -1690,6 +1784,12 @@ pub(super) fn recovery_with(w: &World, policy: &impl ResourcePolicy) -> Result<R
         "recovery overlay count/disjointness",
     )?;
     let mut required = accounting.logical.clone();
+    if let Some(selected) = operation {
+        for r in &selected.controls {
+            w.loose(r)?;
+            required.insert(key(r)?);
+        }
+    }
     required.extend(accounting.implementation.clone());
     required.extend(pins.clone());
     required.extend(proof.semantic.clone());

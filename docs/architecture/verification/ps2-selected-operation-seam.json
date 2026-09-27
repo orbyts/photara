@@ -1,0 +1,76 @@
+{
+  "status": "verified-default-regression-with-selected-operation-hook",
+  "production": false,
+  "baseline_commit": "49a50d7f63cd52baf49ff16496ec14e82d349f8e",
+  "sources": [
+    {
+      "path": "crates/photara-store/tests/integrated_wire_candidate/wire.rs",
+      "bytes": 64047,
+      "sha256": "afc1e1810194fe1e91d360cbe46abf66047635e1042a7447eff18bd733f934e1"
+    },
+    {
+      "path": "docs/architecture/PS2_SELECTED_OPERATION_VALIDATION_SEAM.md",
+      "bytes": 2501,
+      "sha256": "f4fa03e17490c5a47482bf7b7f65b08561bde3457f606a1b9e74a6dc74e6db47"
+    }
+  ],
+  "dependencies": [
+    {
+      "path": "crates/photara-store/tests/integrated_wire_candidate.rs",
+      "bytes": 10576,
+      "sha256": "32f2e47b389f5b2a96ae34572c6c5c2a6dd6c85d0b0949d1819b688f854c8b43"
+    },
+    {
+      "path": "crates/photara-store/tests/integrated_wire_candidate/accounting.rs",
+      "bytes": 41898,
+      "sha256": "5b0c3361d3925310833fcc7055df537625e23c13d8a538d70c4135dfe5e71a75"
+    },
+    {
+      "path": "crates/photara-store/tests/integrated_wire_candidate/resources.rs",
+      "bytes": 8753,
+      "sha256": "3dbe309191575825106134dcdbf8ef6fa0c586ffe7ef0ed28e1f8815e677cd36"
+    },
+    {
+      "path": "crates/photara-store/tests/selected_origin_candidate.rs",
+      "bytes": 8951,
+      "sha256": "284461bedb55cb5411e3c915a75355993e40094e38bb9beab26981d8d1ab54e3"
+    },
+    {
+      "path": "crates/photara-store/tests/selected_origin_candidate/origins.rs",
+      "bytes": 17823,
+      "sha256": "a2e5810a78fab32eeaedd53070375761e63d8c6e6d630ca7cf0835e2f068177b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "docs/architecture/verification/ps2-selected-operation-seam-tests.log",
+      "bytes": 3461,
+      "sha256": "b90e286abfe5c960711f258d29be8da2f256b7cb37e7a70ae4514d20f0613c65"
+    },
+    {
+      "path": "docs/architecture/verification/ps2-selected-operation-seam-clippy.log",
+      "bytes": 256,
+      "sha256": "71e6689896b0feb1b211ff6cff3a3daf7f55ade6df4cad793b11e5e3e6a7f88f"
+    }
+  ],
+  "commands": [
+    {
+      "command": "cargo test -p photara-store --test integrated_wire_candidate --test selected_origin_candidate",
+      "result": "33 tests passed",
+      "settled_seconds": 15.68,
+      "origin_seconds": 27.11
+    },
+    {
+      "command": "cargo clippy -p photara-store --test integrated_wire_candidate --test selected_origin_candidate -- -D warnings",
+      "result": "passed",
+      "seconds": 3.79
+    }
+  ],
+  "limitations": [
+    "Trusted compiled caller must derive expected commit and validate exact O/P/F metadata and original reserve before using this seam",
+    "Default regression evidence only; final phase route and actual-prefix Core replay have separate source-bound evidence",
+    "Recovery proves its supplied closure, not absent active files, full accounting or write authority",
+    "No production reader change, permanent-format approval, native durability or Saved claim"
+  ],
+  "log_normalization": "Copied full logs; trailing blank lines normalized."
+}
