@@ -3,7 +3,7 @@
 #[allow(clippy::wildcard_imports, reason = "Actual typed fixture child")]
 use super::*;
 #[path = "recipe/accounting.rs"]
-mod accounting;
+pub(in super::super) mod accounting;
 const MAX_RECIPE: usize = 48 * 1024;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub(in super::super) struct Prefix {

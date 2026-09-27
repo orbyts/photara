@@ -1,0 +1,22 @@
+{
+  "scope": "disposable examples; same-tip joint Graph ownership and attributable ledger, not qualified storage",
+  "date": "2026-09-27",
+  "tests_command": "cargo test --release -p photara-store --example ps2_index_furnace --example ps2_graph_furnace",
+  "index_tests": 90,
+  "graph_tests": 7,
+  "failures": 0,
+  "clippy_command": "cargo clippy --release -p photara-store --example ps2_index_furnace --example ps2_graph_furnace --tests -- -D warnings",
+  "clippy_passed": true,
+  "rustfmt_checked": true,
+  "overlapped_other_work": true,
+  "checks": {
+    "tests": {
+      "log": "/private/tmp/ps2-joint-ledger-regression.log",
+      "sha256": "42d358abe8d91b6cdb7fbd13f4222fcbe7439eb0c4e2d544db70c875db296d9f"
+    },
+    "clippy": {
+      "log": "/private/tmp/ps2-joint-ledger-clippy.log",
+      "sha256": "beb6eaf5a371c23b026191e5667ac075c9c9e4bc108d1578d0ad3b71e8bb69de"
+    }
+  }
+}

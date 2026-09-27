@@ -46,7 +46,10 @@ pub(super) struct Settlement {
 // Derive both permitted selectors from the pre-effect selected state and the
 // exact original hold. This includes domains, pins, token sequencing and charges,
 // not merely the reachable roots or a matching token embedded in arbitrary JSON.
-fn selectors(exact: &Liability, base: &Selection) -> Result<(Selection, Selection)> {
+pub(in super::super::super) fn selectors_from_base(
+    exact: &Liability,
+    base: &Selection,
+) -> Result<(Selection, Selection)> {
     ensure(
         base.gate.holds.is_empty()
             && exact.origin == Continuation::from_selection(base)
@@ -71,12 +74,14 @@ fn selectors(exact: &Liability, base: &Selection) -> Result<(Selection, Selectio
     let len = serde_json::to_vec(&bounded).map_err(error)?.len() as u64;
     ensure(len <= GATE_MAX as u64, "accounting selector envelope cap")?;
     let control = 4 * round(len + 4096) + 8 * 4096 + 65536;
-    let d = old
-        .gate
-        .domains
-        .get_mut(&0)
-        .ok_or("accounting project domain")?;
-    d.charged = checked(d.charged, control)?;
+    if old.gate.ledger.is_none() {
+        let d = old
+            .gate
+            .domains
+            .get_mut(&0)
+            .ok_or("accounting project domain")?;
+        d.charged = checked(d.charged, control)?;
+    }
     old.epoch = checked(old.epoch, 1)?;
     let mut candidate = old.clone();
     candidate.epoch = checked(candidate.epoch, 1)?;
@@ -102,7 +107,7 @@ pub(super) fn controls_from_base(
     exact: &Liability,
     base: &Selection,
 ) -> Result<Vec<Control>> {
-    let (old, candidate) = selectors(exact, base)?;
+    let (old, candidate) = selectors_from_base(exact, base)?;
     let mut observations = vec![];
     for role in ["HEAD", "intent", "candidate", "HEAD.next"] {
         let path = f.dir.join(role);

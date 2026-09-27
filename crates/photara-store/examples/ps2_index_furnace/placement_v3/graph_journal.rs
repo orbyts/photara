@@ -1,6 +1,6 @@
 //! Genuine Core commands on the existing disposable actual-v3 physical path.
 //! Journal barriers are measured `sync_all` calls, never qualified acknowledgements.
-use super::typed_inventory::recipe;
+use super::typed_inventory::{graph as ownership_graph, recipe, retirement_ledger};
 #[allow(
     clippy::wildcard_imports,
     reason = "Companion shares the disposable packed fixture"
@@ -25,6 +25,20 @@ pub(super) struct Binding {
     source_tail_len: u64,
     data_base: recipe::Prefix,
     meta_base: recipe::Prefix,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ownership: Option<ownership_graph::Original>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) source_charge: Option<ownership_graph::SourceCharge>,
+}
+impl Binding {
+    pub(super) fn is_joint(&self) -> bool {
+        self.ownership.is_some() && self.source_charge.is_some()
+    }
+}
+struct PreparedGraph {
+    append: PreparedAppend,
+    continuation: Continuation,
+    ownership: Option<ownership_graph::Original>,
 }
 #[derive(Clone, Copy, PartialEq)]
 enum GraphCut {
@@ -46,6 +60,8 @@ enum GraphCut {
     JournalCleanupBarrier,
     CandidateUnlink,
     MarkerUnlink,
+    SettlementBeforeHead,
+    SettlementAfterHead,
 }
 fn authored_state(source: &mut Store, head: &Head) -> Result<State> {
     let selected = root(source, &head.active)?;
@@ -210,11 +226,17 @@ fn admit_pending(
         source_tail_len: tail.len() as u64,
         data_base: recipe::Prefix::capture(&f.data)?,
         meta_base: recipe::Prefix::capture(&f.meta)?,
+        source_charge: if prepared.ownership.is_some() {
+            Some(retirement_ledger::registered_source(f, source)?)
+        } else {
+            None
+        },
+        ownership: prepared.ownership.clone(),
     };
     f.c.recipe_prefix_read_bytes += checked(f.data.end, f.meta.end)?;
-    recipe::segments(&binding.data_base, &prepared.data, true)?;
-    recipe::segments(&binding.meta_base, &prepared.meta, false)?;
-    let physical = physical_bound(Some(&prepared.data), &prepared.meta)?;
+    recipe::segments(&binding.data_base, &prepared.append.data, true)?;
+    recipe::segments(&binding.meta_base, &prepared.append.meta, false)?;
+    let physical = physical_bound(Some(&prepared.append.data), &prepared.append.meta)?;
     // Finite fixture caps include both journal and source staging on the SAME modeled domain.
     // Full source allowance is deliberately conservative; it is not an OS reservation.
     let budget = checked(
@@ -223,14 +245,9 @@ fn admit_pending(
             .ok_or("Graph physical bound")?,
         16 * 1024 * 1024 + 4 * JOURNAL_MAX as u64 + f.control_bound(&f.head.gate)? * 5,
     )?;
-    let mut continuation = Continuation::append(&prepared);
-    continuation.inventory = Inventory {
-        active: f.head.inventory.active.clone(),
-        recovery: f.head.inventory.active.clone(),
-        next: f.head.inventory.next,
-    };
+    let continuation = prepared.continuation;
     f.reserve_with_graph(
-        prepared.semantic,
+        prepared.append.semantic,
         None,
         &[(0, budget)],
         Some(continuation),
@@ -280,11 +297,30 @@ fn prepare(
     f: &mut Fixture,
     group: &Group,
     hold: Option<&Liability>,
-) -> Result<(crate::graph_preview::Preview, PreparedAppend)> {
+) -> Result<(crate::graph_preview::Preview, PreparedGraph)> {
+    let ownership = if let Some(hold) = hold {
+        hold.graph
+            .as_ref()
+            .ok_or("original Graph binding")?
+            .ownership
+            .clone()
+    } else if f.head.gate.ledger.is_some() {
+        Some(ownership_graph::Original::capture(f)?)
+    } else {
+        None
+    };
     source.begin_graph_preview(group.old.clone(), group.old_end)?;
     let previous = f.head.clone();
     let ends = (f.data.pack, f.data.end, f.meta.pack, f.meta.end);
     if let Some(hold) = hold {
+        if ownership.is_some() {
+            f.head = hold
+                .graph
+                .as_ref()
+                .ok_or("joint original binding")?
+                .control_base
+                .clone();
+        }
         f.head.semantic = group.old.clone();
         f.head.active = hold.origin.active.clone();
         f.head.recovery = hold.origin.recovery.clone();
@@ -294,17 +330,37 @@ fn prepare(
         f.meta.pack = hold.origin.meta_pack;
         f.meta.end = hold.origin.meta_end;
     }
-    let result = (|| {
+    let result: Result<(PreparedAppend, Continuation)> = (|| {
         let candidate = build_candidate(source, group)?;
         source.publish(&candidate)?;
-        f.checkpoint_plan(source, group.old_end)
+        if let Some(original) = &ownership {
+            let joint = ownership_graph::plan(f, source, group.old_end, original)?;
+            Ok((joint.append, joint.continuation))
+        } else {
+            let append = f.checkpoint_plan(source, group.old_end)?;
+            let mut continuation = Continuation::append(&append);
+            continuation.inventory = Inventory {
+                active: f.head.inventory.active.clone(),
+                recovery: f.head.inventory.active.clone(),
+                next: f.head.inventory.next,
+            };
+            Ok((append, continuation))
+        }
     })();
     f.head = previous;
     (f.data.pack, f.data.end, f.meta.pack, f.meta.end) = ends;
     f.staged = None;
     f.cache.clear();
     let preview = source.take_graph_preview()?;
-    Ok((preview, result?))
+    let (append, continuation) = result?;
+    Ok((
+        preview,
+        PreparedGraph {
+            append,
+            continuation,
+            ownership,
+        },
+    ))
 }
 fn build_candidate(source: &mut Store, group: &Group) -> Result<Head> {
     let old = root(source, &group.old.active)?;
@@ -426,11 +482,100 @@ fn checkpoint_marker(candidate: &Head, state: &State) -> Result<serde_json::Valu
         json!({"semantic":candidate,"prefix":state.prefix,"through":state.count,"authored":state.coordinate()?,"qualified_accepted":false,"qualified_saved":false}),
     )
 }
+// Completion consumes the hold. Its interrupted selectors therefore require
+// separate exact reconstruction from the original hold in the old intent.
+fn reconcile_settlement(f: &mut Fixture, source: &mut Store, dir: &Path) -> Result<()> {
+    if !f.dir.join("intent").exists() {
+        return Ok(());
+    }
+    let old: Selection = Fixture::bounded_read(&f.dir.join("intent"))?;
+    let candidate: Selection = Fixture::bounded_read(&f.dir.join("candidate"))?;
+    if !candidate.gate.holds.is_empty() {
+        return Ok(());
+    }
+    let hold = old
+        .gate
+        .holds
+        .values()
+        .next()
+        .ok_or("settlement original hold")?
+        .clone();
+    let binding = hold
+        .graph
+        .as_ref()
+        .ok_or("settlement original Graph binding")?;
+    ensure(
+        binding.is_joint() && old.gate.holds.len() == 1,
+        "joint original settlement",
+    )?;
+    let (_, published) = recipe::accounting::selectors_from_base(&hold, &binding.control_base)?;
+    ensure(
+        old == published,
+        "settlement old selector differs from original publication",
+    )?;
+    let selected = f.head.clone();
+    f.head = old.clone();
+    let derive: Result<()> = (|| {
+        let gate = retirement_ledger::graph_completion_gate(f, &hold, source)?;
+        let mut completion = old.clone();
+        completion.gate = gate;
+        completion.epoch = checked(completion.epoch, 1)?;
+        ensure(candidate == completion, "unknown Graph completion selector")?;
+        if f.dir.join("HEAD.next").exists() {
+            let next: Selection = Fixture::bounded_read(&f.dir.join("HEAD.next"))?;
+            ensure(
+                next == completion,
+                "unknown staged Graph completion selector",
+            )?;
+        }
+        let disk: Selection = Fixture::bounded_read(&f.dir.join("HEAD"))?;
+        ensure(
+            disk == selected && (disk == old || disk == completion),
+            "unknown selected settlement",
+        )?;
+        ensure(
+            fs::read_dir(dir).map_err(error)?.next().is_none(),
+            "settlement before journal cleanup",
+        )?;
+        let group: Group = serde_json::from_str(&binding.group_json).map_err(error)?;
+        ensure(
+            canonical(&group)? == binding.group_json.as_bytes(),
+            "settlement original canonical group",
+        )?;
+        validate(source, &group)?;
+        let (preview, prepared) = prepare(source, f, &group, Some(&hold))?;
+        ensure(
+            hold.continuation.as_ref() == Some(&prepared.continuation)
+                && hash(&preview.tail()) == binding.source_tail_sha
+                && preview.tail().len() as u64 == binding.source_tail_len,
+            "settlement original plan changed",
+        )?;
+        verify_source(source, &hold.target, &group)?;
+        binding
+            .ownership
+            .as_ref()
+            .ok_or("joint ownership commitment")?
+            .verify_selected(f, &prepared.continuation)?;
+        ensure(
+            physical_state(f, &old.active, &old.semantic.active)? == group.after,
+            "settlement Graph state",
+        )?;
+        for record in &group.records {
+            original(f, record)?;
+        }
+        Ok(())
+    })();
+    f.head = selected;
+    derive?;
+    f.reconcile()?;
+    Ok(())
+}
 #[allow(
     clippy::too_many_lines,
     reason = "Keep original-token journal/recipe/selection/cleanup order visible together"
 )]
 fn finish(f: &mut Fixture, source: &mut Store, dir: &Path, cut: GraphCut) -> Result<()> {
+    reconcile_settlement(f, source, dir)?;
     let Some(hold) = f.head.gate.holds.values().next().cloned() else {
         ensure(
             !dir.join("group").exists(),
@@ -452,15 +597,10 @@ fn finish(f: &mut Fixture, source: &mut Store, dir: &Path, cut: GraphCut) -> Res
     ensure(
         hash(&tail) == binding.source_tail_sha
             && tail.len() as u64 == binding.source_tail_len
-            && prepared.semantic == hold.target,
+            && prepared.append.semantic == hold.target,
         "original Graph preview changed",
     )?;
-    let mut expected = Continuation::append(&prepared);
-    expected.inventory = Inventory {
-        active: hold.origin.inventory.active.clone(),
-        recovery: hold.origin.inventory.active.clone(),
-        next: hold.origin.inventory.next,
-    };
+    let expected = prepared.continuation;
     ensure(
         hold.continuation.as_ref() == Some(&expected),
         "Graph rebuilt placement differs from original continuation",
@@ -516,11 +656,23 @@ fn finish(f: &mut Fixture, source: &mut Store, dir: &Path, cut: GraphCut) -> Res
     } else {
         None
     };
-    recipe::replay(f, true, &binding.data_base, &prepared.data, &mut remaining)?;
+    recipe::replay(
+        f,
+        true,
+        &binding.data_base,
+        &prepared.append.data,
+        &mut remaining,
+    )?;
     if cut == GraphCut::PackedAfterData {
         return Err("cut after Graph data recipe".into());
     }
-    recipe::replay(f, false, &binding.meta_base, &prepared.meta, &mut remaining)?;
+    recipe::replay(
+        f,
+        false,
+        &binding.meta_base,
+        &prepared.append.meta,
+        &mut remaining,
+    )?;
     if f.dir.join("intent").exists() {
         f.reconcile()?;
     }
@@ -534,13 +686,16 @@ fn finish(f: &mut Fixture, source: &mut Store, dir: &Path, cut: GraphCut) -> Res
             _ => Cut::None,
         };
         f.publish(
-            expected.active,
-            expected.recovery,
+            expected.active.clone(),
+            expected.recovery.clone(),
             candidate.clone(),
             packed_cut,
         )?;
     }
     ensure(f.head.semantic == candidate, "Graph packed selection")?;
+    if let Some(ownership) = &binding.ownership {
+        ownership.verify_selected(f, &expected)?;
+    }
     let h = f.head.clone();
     ensure(
         physical_state(f, &h.active, &h.semantic.active)? == group.after,
@@ -587,7 +742,17 @@ fn finish(f: &mut Fixture, source: &mut Store, dir: &Path, cut: GraphCut) -> Res
             )
         })
         .collect::<Vec<_>>();
-    f.complete_liability(&hold, &used)
+    if binding.is_joint() {
+        let gate = retirement_ledger::graph_completion_gate(f, &hold, source)?;
+        let cut = match cut {
+            GraphCut::SettlementBeforeHead => Cut::BeforeHead,
+            GraphCut::SettlementAfterHead => Cut::AfterHead,
+            _ => Cut::None,
+        };
+        f.select_gate_cut(gate, cut)
+    } else {
+        f.complete_liability(&hold, &used)
+    }
 }
 
 fn sequence_records(
@@ -719,10 +884,58 @@ fn setup_graph(n: u64, kind: Kind) -> Result<(tempfile::TempDir, Store, Fixture,
     f.select_gate(gate)?;
     Ok((temp, source, f, journal))
 }
-fn run(n: u64, kind: Kind) -> Result<serde_json::Value> {
-    let (_temp, mut source, mut f, journal) = setup_graph(n, kind)?;
+fn setup_joint(n: u64, kind: Kind) -> Result<(tempfile::TempDir, Store, Fixture, PathBuf)> {
+    setup_joint_padded(n, kind, None)
+}
+fn setup_joint_padded(
+    n: u64,
+    kind: Kind,
+    pad: Option<bool>,
+) -> Result<(tempfile::TempDir, Store, Fixture, PathBuf)> {
+    let temp = tempfile::tempdir().map_err(error)?;
+    let mut source = Store::open(&temp.path().join("source"))?;
+    build_graph(&mut source, n, kind)?;
+    full_audit(&mut source)?;
+    let mut f = Fixture::create(&temp.path().join("physical"), &mut source)?;
+    if let Some(data) = pad {
+        // Bulk-bootstrap framed unreachable bytes force a near-full existing
+        // generation. Ownership enrollment below includes this allocation.
+        let arena = if data { &mut f.data } else { &mut f.meta };
+        let target = PACK - 16 * 1024;
+        let frame = if data { 12 } else { 4 };
+        while arena.end + frame < target {
+            let len = usize::try_from((target - arena.end - frame).min(4092)).map_err(error)?;
+            arena.append(
+                &vec![0; len],
+                if data { Some(u64::MAX - 1) } else { None },
+                &mut f.c,
+            )?;
+        }
+        let h = f.head.clone();
+        f.publish(h.active, h.recovery, h.semantic, Cut::None)?;
+    }
+    retirement_ledger::initialize(&mut f)?;
+    let journal = temp.path().join("journal");
+    fs::create_dir(&journal).map_err(error)?;
+    retirement_ledger::enroll_source(&mut f, &source)?;
+    Ok((temp, source, f, journal))
+}
+fn run(n: u64, kind: Kind, joint: bool) -> Result<serde_json::Value> {
+    let (_temp, mut source, mut f, journal) = if joint {
+        setup_joint(n, kind)?
+    } else {
+        setup_graph(n, kind)?
+    };
     let mut samples = Vec::new();
     for size in [1, 8, 32] {
+        let ledger_before = serde_json::to_value(&f.head.gate.ledger).map_err(error)?;
+        let charged_before = f
+            .head
+            .gate
+            .domains
+            .get(&0)
+            .ok_or("Graph capacity domain")?
+            .charged;
         source.stats = Stats::default();
         f.c = Counters::default();
         let t = Instant::now();
@@ -750,7 +963,7 @@ fn run(n: u64, kind: Kind) -> Result<serde_json::Value> {
             source.stats.object_write_bytes + source.stats.envelope_write_bytes;
         let packed_process_write_bytes =
             f.c.data_write_bytes + f.c.meta_write_bytes + f.c.envelope_write_bytes;
-        samples.push(json!({"group_size":size,"command_planning_us":command_planning_us,"admission_including_preview_reserve_journal_us":admission_journal_us,"checkpoint_cleanup_us":checkpoint_cleanup_us,"journal_group_bytes":journal_bytes,"journal_file_write_bytes":journal_file_write_bytes,"journal_sync_calls_clean_path":11,"source_process_write_bytes":source_process_write_bytes,"source_counters":source.stats,"packed_process_write_bytes":packed_process_write_bytes,"packed_counters_including_admission":f.c,"admission_packed_counters":admitted_controls,"total_successful_process_write_bytes":journal_file_write_bytes + source_process_write_bytes + packed_process_write_bytes,"conservative_original_hold_bytes":admitted.by_domain,"settlement":"full admitted high-water; no refund/OS guarantee"}));
+        samples.push(json!({"group_size":size,"command_planning_us":command_planning_us,"admission_including_preview_reserve_journal_us":admission_journal_us,"checkpoint_cleanup_us":checkpoint_cleanup_us,"journal_group_bytes":journal_bytes,"journal_file_write_bytes":journal_file_write_bytes,"journal_sync_calls_clean_path":11,"source_process_write_bytes":source_process_write_bytes,"source_counters":source.stats,"packed_process_write_bytes":packed_process_write_bytes,"packed_counters_including_admission":f.c,"admission_packed_counters":admitted_controls,"total_successful_process_write_bytes":journal_file_write_bytes + source_process_write_bytes + packed_process_write_bytes,"conservative_original_hold_bytes":admitted.by_domain,"ledger_before":ledger_before,"ledger_after":f.head.gate.ledger,"charged_increment":f.head.gate.domains.get(&0).ok_or("Graph capacity domain")?.charged - charged_before,"settlement":if joint { "observed source and tip highwater growth once; standing controls unchanged; no project or filesystem credit" } else { "full admitted high-water; no refund/OS guarantee" }}));
     }
     let mut reopened = Fixture::reopen_combined(&f.dir)?;
     reopened.structural_probe()?;
@@ -761,16 +974,18 @@ fn run(n: u64, kind: Kind) -> Result<serde_json::Value> {
     reopened.audit_combined()?;
     full_audit(&mut source)?;
     Ok(
-        json!({"kind":format!("{kind:?}"),"baseline":n,"samples":samples,"physical_replay_audit":replay,"oldest_original_retry":true,"qualified_accepted":false,"qualified_saved":false,"physical_snapshot":reopened.snapshot()?}),
+        json!({"kind":format!("{kind:?}"),"baseline":n,"joint_owned":joint,"samples":samples,"full_closure_audit":"independent after measured completion; completion checks regenerated exact plan, original receipts and both selected tip claims","physical_replay_audit":replay,"oldest_original_retry":true,"qualified_accepted":false,"qualified_saved":false,"physical_snapshot":reopened.snapshot()?}),
     )
 }
 pub(super) fn run_cli(args: &[String]) -> Result<()> {
+    let joint = args.first().is_some_and(|s| s == "joint");
+    let args = if joint { &args[1..] } else { args };
     println!(
         "{}",
-        json!({"fixture":"actual-v3-genuine-graph-journal","qualification":"disposable sync_all observations only","caveats":["baseline bulk-built, not individually durable acceptance","fixed16node position/noop/inverse/Batch workload","source/journal/packed capacity share one conservative modeled original hold","original hold commits canonical finite journal bytes before journal creation", "matching source/journal/data/meta partial-prefix recipe replay; conflicting bytes retain original hold","automatic ownership self-coverage remains a separate publication","controlled return cuts, not kill/power-loss/qualified storage","no permanent wire or production Accepted/Saved"]})
+        json!({"fixture":if joint {"actual-v3-joint-owned-graph-journal"} else {"actual-v3-genuine-graph-journal"},"qualification":"disposable sync_all observations only","caveats":["baseline bulk-built, not individually durable acceptance","fixed16node position/noop/inverse/Batch workload","original hold commits canonical finite journal bytes before journal creation","matching source/journal/data/meta partial-prefix recipe replay; conflicting bytes retain original hold",if joint {"Graph and both exact data/meta ownership closures share one original token; fresh-generation rollover refuses before effects"} else {"legacy Graph mode: automatic ownership self-coverage remains a separate publication"},if joint {"observed source/tip highwater settlement plus separate standing controls; no source retirement credit or OS reservation"} else {"legacy Graph mode: full conservative original hold charged"},"controlled return cuts, not kill/power-loss/qualified storage","no permanent wire or production Accepted/Saved"]})
     );
     let counts = if args.is_empty() {
-        vec![64]
+        vec![if joint { 8 } else { 64 }]
     } else {
         args.iter()
             .map(|s| s.parse().map_err(error))
@@ -778,7 +993,7 @@ pub(super) fn run_cli(args: &[String]) -> Result<()> {
     };
     for n in counts {
         for kind in [Kind::Radix, Kind::Btree] {
-            println!("{}", run(n, kind)?);
+            println!("{}", run(n, kind, joint)?);
         }
     }
     Ok(())
@@ -789,6 +1004,13 @@ mod tests {
     use super::*;
     #[test]
     fn original_graph_groups_recover_on_actual_v3_at_twenty_one_cuts() -> Result<()> {
+        recovery_matrix(false)
+    }
+    #[test]
+    fn joint_owned_graph_recovery_and_ledger_at_twenty_one_cuts() -> Result<()> {
+        recovery_matrix(true)
+    }
+    fn recovery_matrix(joint: bool) -> Result<()> {
         for kind in [Kind::Radix, Kind::Btree] {
             for cut in [
                 GraphCut::Hold,
@@ -813,7 +1035,11 @@ mod tests {
                 GraphCut::CandidateUnlink,
                 GraphCut::MarkerUnlink,
             ] {
-                let (_temp, mut source, mut f, journal) = setup_graph(8, kind)?;
+                let (_temp, mut source, mut f, journal) = if joint {
+                    setup_joint(8, kind)?
+                } else {
+                    setup_graph(8, kind)?
+                };
                 let group = plan(&mut source, 8)?;
                 let source_size = source.size();
                 let selection = f.head.clone();
@@ -842,7 +1068,7 @@ mod tests {
                                 .ok_or("original hold")?;
                             let (_, plan) = prepare(&mut source, &mut f, &group, Some(&hold))?;
                             GraphCut::PackedPartial(
-                                usize::try_from(plan.data.bytes).map_err(error)? + 1,
+                                usize::try_from(plan.append.data.bytes).map_err(error)? + 1,
                             )
                         } else {
                             cut
@@ -872,6 +1098,15 @@ mod tests {
                 assert!(group.records.iter().any(|r| r.fixture_inverse_of.is_some()));
                 assert!(f.head.gate.holds.is_empty());
                 assert!(!journal.join("group").exists());
+                if joint {
+                    let selected = f.head.clone();
+                    finish(&mut f, &mut source, &journal, GraphCut::None)?;
+                    assert_eq!(f.head, selected);
+                    assert!(f.head.gate.ledger.is_some());
+                    assert!(
+                        f.head.inventory.active.is_some() && f.head.inventory.recovery.is_some()
+                    );
+                }
                 audit_graph(&mut f)?;
                 f.audit_combined()?;
                 full_audit(&mut source)?;
@@ -945,13 +1180,29 @@ mod tests {
     }
     #[test]
     fn altered_graph_control_domain_with_same_token_retains_all_evidence() -> Result<()> {
-        let (_temp, mut source, mut f, journal) = setup_graph(8, Kind::Btree)?;
+        altered_control(false)
+    }
+    #[test]
+    fn joint_graph_altered_ledger_candidate_retains_original_hold_and_evidence() -> Result<()> {
+        altered_control(true)
+    }
+    fn altered_control(joint: bool) -> Result<()> {
+        let (_temp, mut source, mut f, journal) = if joint {
+            setup_joint(8, Kind::Btree)?
+        } else {
+            setup_graph(8, Kind::Btree)?
+        };
         let group = plan(&mut source, 8)?;
         persist_pending(&mut source, &mut f, &journal, &group)?;
         assert!(finish(&mut f, &mut source, &journal, GraphCut::PackedBeforeHead).is_err());
         let original = fs::read(f.dir.join("candidate")).map_err(error)?;
-        let mut candidate: Selection = serde_json::from_slice(&original).map_err(error)?;
-        candidate.gate.domains.get_mut(&0).ok_or("domain")?.limit += 1;
+        let mut candidate: serde_json::Value = serde_json::from_slice(&original).map_err(error)?;
+        let changed = if joint {
+            &mut candidate["gate"]["ledger"]["source"]["charged_high_water"]
+        } else {
+            &mut candidate["gate"]["domains"]["0"]["limit"]
+        };
+        *changed = json!(changed.as_u64().ok_or("candidate integer")? + 1);
         fs::write(
             f.dir.join("candidate"),
             serde_json::to_vec(&candidate).map_err(error)?,
@@ -995,6 +1246,137 @@ mod tests {
         assert_eq!(f.head.gate.holds.get(&hold.token), Some(&hold));
         assert!(journal.join("group").exists());
         assert_eq!(f.head.semantic, group.old);
+        Ok(())
+    }
+    #[test]
+    fn joint_graph_final_settlement_two_cuts_reopen_and_charge_once() -> Result<()> {
+        for kind in [Kind::Radix, Kind::Btree] {
+            for cut in [
+                GraphCut::SettlementBeforeHead,
+                GraphCut::SettlementAfterHead,
+            ] {
+                let (_temp, mut source, mut f, journal) = setup_joint(8, kind)?;
+                let group = plan(&mut source, 8)?;
+                persist_pending(&mut source, &mut f, &journal, &group)?;
+                let token = f.head.gate.last_token;
+                assert!(finish(&mut f, &mut source, &journal, cut).is_err());
+                assert!(f.dir.join("intent").exists());
+                let candidate_bytes = fs::read(f.dir.join("candidate")).map_err(error)?;
+                let mut changed: Selection =
+                    serde_json::from_slice(&candidate_bytes).map_err(error)?;
+                changed.gate.domains.get_mut(&0).ok_or("domain")?.charged += 1;
+                fs::write(
+                    f.dir.join("candidate"),
+                    serde_json::to_vec(&changed).map_err(error)?,
+                )
+                .map_err(error)?;
+                let interrupted = f.head.clone();
+                assert!(finish(&mut f, &mut source, &journal, GraphCut::None).is_err());
+                assert_eq!(f.head, interrupted);
+                assert!(f.dir.join("intent").exists());
+                fs::write(f.dir.join("candidate"), candidate_bytes).map_err(error)?;
+                let source_dir = source.dir.clone();
+                let physical_dir = f.dir.clone();
+                drop(source);
+                drop(f);
+                let mut source = Store::open(&source_dir)?;
+                let mut f = Fixture::reopen_combined(&physical_dir)?;
+                finish(&mut f, &mut source, &journal, GraphCut::None)?;
+                assert_eq!(f.head.gate.last_token, token);
+                assert!(f.head.gate.holds.is_empty() && !f.dir.join("intent").exists());
+                for record in &group.records {
+                    original(&mut f, record)?;
+                }
+                let settled = f.head.clone();
+                drop(source);
+                drop(f);
+                let mut source = Store::open(&source_dir)?;
+                let mut f = Fixture::reopen_combined(&physical_dir)?;
+                finish(&mut f, &mut source, &journal, GraphCut::None)?;
+                assert_eq!(f.head, settled);
+                audit_graph(&mut f)?;
+                f.audit_combined()?;
+            }
+        }
+        Ok(())
+    }
+    #[test]
+    fn joint_graph_rollover_refuses_before_original_hold_or_any_write() -> Result<()> {
+        for kind in [Kind::Radix, Kind::Btree] {
+            for data in [true, false] {
+                let (_temp, mut source, mut f, journal) = setup_joint_padded(8, kind, Some(data))?;
+                let group = plan(&mut source, 32)?;
+                let head = f.head.clone();
+                let snapshot = f.snapshot()?;
+                let size = source.size();
+                let refusal = persist_pending(&mut source, &mut f, &journal, &group).unwrap_err();
+                assert!(refusal.contains("rollover"), "{refusal}");
+                assert_eq!(f.head, head);
+                assert_eq!(f.snapshot()?, snapshot);
+                assert_eq!(source.size(), size);
+                assert!(f.staged.is_none() && source.preview.is_none());
+                assert_eq!(fs::read_dir(journal).map_err(error)?.count(), 0);
+            }
+        }
+        Ok(())
+    }
+    #[test]
+    fn joint_graph_cannot_bless_a_corrupt_old_owned_prefix() -> Result<()> {
+        let (_temp, mut source, mut f, journal) = setup_joint(8, Kind::Btree)?;
+        let group = plan(&mut source, 8)?;
+        let head = f.head.clone();
+        let size = source.size();
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(f.data.path(f.data.pack))
+            .map_err(error)?;
+        file.seek(SeekFrom::Start(0)).map_err(error)?;
+        let mut byte = [0];
+        file.read_exact(&mut byte).map_err(error)?;
+        file.seek(SeekFrom::Start(0)).map_err(error)?;
+        file.write_all(&[byte[0] ^ 1]).map_err(error)?;
+        assert!(persist_pending(&mut source, &mut f, &journal, &group).is_err());
+        assert_eq!(f.head, head);
+        assert_eq!(source.size(), size);
+        assert!(f.staged.is_none() && source.preview.is_none());
+        assert_eq!(fs::read_dir(journal).map_err(error)?.count(), 0);
+        Ok(())
+    }
+    #[test]
+    fn joint_graph_source_and_tip_growth_settle_once_without_refund() -> Result<()> {
+        let (_temp, mut source, mut f, journal) = setup_joint(1, Kind::Radix)?;
+        for size in [1, 8, 8] {
+            let before = f.head.gate.domains[&0].charged;
+            let ledger_before = serde_json::to_value(&f.head.gate.ledger).map_err(error)?;
+            let group = plan(&mut source, size)?;
+            persist_pending(&mut source, &mut f, &journal, &group)?;
+            finish(&mut f, &mut source, &journal, GraphCut::None)?;
+            let ledger_after = serde_json::to_value(&f.head.gate.ledger).map_err(error)?;
+            assert_eq!(ledger_before["control"], ledger_after["control"]);
+            assert_eq!(
+                ledger_before["source"]["standing_scratch"],
+                ledger_after["source"]["standing_scratch"]
+            );
+            let tips = |v: &serde_json::Value| {
+                v["tips"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|t| t["charged_high_water"].as_u64().unwrap())
+                    .sum::<u64>()
+            };
+            let source_charge =
+                |v: &serde_json::Value| v["source"]["charged_high_water"].as_u64().unwrap();
+            let growth = tips(&ledger_after) - tips(&ledger_before) + source_charge(&ledger_after)
+                - source_charge(&ledger_before);
+            assert_eq!(f.head.gate.domains[&0].charged, before + growth);
+            let head = f.head.clone();
+            finish(&mut f, &mut source, &journal, GraphCut::None)?;
+            assert_eq!(f.head, head);
+            audit_graph(&mut f)?;
+            f.audit_combined()?;
+        }
         Ok(())
     }
     #[test]

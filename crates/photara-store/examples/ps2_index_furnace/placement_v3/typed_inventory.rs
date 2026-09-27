@@ -5,8 +5,12 @@
 )]
 use super::*;
 use std::os::unix::fs::MetadataExt;
+#[path = "typed_inventory/graph.rs"]
+pub(super) mod graph;
 #[path = "typed_inventory/recipe.rs"]
 pub(super) mod recipe;
+#[path = "typed_inventory/retirement_ledger.rs"]
+pub(super) mod retirement_ledger;
 pub(super) const OWNER_KEY: u64 = 1 << 63;
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub(super) enum Membership {
@@ -35,6 +39,8 @@ struct Claim {
     // Pre-effect local charge at content_end capture, not the current charge
     // of the selected suffix and never filesystem availability credit.
     observed_charge: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    charge: Option<retirement_ledger::AllocationCharge>,
 }
 impl Claim {
     fn key(&self) -> Result<u64> {
@@ -52,6 +58,20 @@ impl Claim {
         )?;
         let bytes = fs::read(a.path(pack)).map_err(error)?;
         let sealed = pack < a.pack;
+        let charge = if sealed && f.head.gate.ledger.is_some() {
+            f.ownership_lookup(&f.head.active.clone(), pack * 2 + u64::from(data))?
+                .or(f.ownership_lookup(&f.head.recovery.clone(), pack * 2 + u64::from(data))?)
+                .and_then(|c| c.charge)
+                .or_else(|| {
+                    f.head
+                        .gate
+                        .ledger
+                        .as_ref()
+                        .and_then(|l| l.enrollment_charge(data, pack))
+                })
+        } else {
+            None
+        };
         f.c.recipe_prefix_read_bytes += bytes.len() as u64;
         Ok(Self {
             data,
@@ -62,6 +82,7 @@ impl Claim {
             content_end: m.len(),
             sha: hash(&bytes),
             sealed,
+            charge,
             observed_charge: m
                 .blocks()
                 .checked_mul(512)
@@ -414,7 +435,8 @@ impl Builder {
                             || (claim.sealed
                                 && claim.extent == old.extent
                                 && claim.content_end == old.content_end
-                                && claim.sha == old.sha)),
+                                && claim.sha == old.sha
+                                && claim.charge == old.charge)),
                     "conflicting ownership generation",
                 )?;
                 self.put(&OwnedNode::Leaf {
@@ -569,6 +591,9 @@ fn publish_claim(f: &mut Fixture, claim: &Claim, cut: Cut) -> Result<serde_json:
     Ok(json!({"preflight":bound,"original_hold":hold.by_domain,"used_model":used}))
 }
 pub(super) fn run_cli(args: &[String]) -> Result<()> {
+    if args.first().is_some_and(|s| s == "ledger") {
+        return retirement_ledger::run_cli(&args[1..]);
+    }
     if args.first().is_some_and(|s| s == "recipe") {
         return recipe::run_cli(&args[1..]);
     }

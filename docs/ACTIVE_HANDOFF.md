@@ -27,16 +27,17 @@ PS2 is active. LL1 contract/schema/security review is advanced parallel work,
 but it cannot bypass PS2, PS3 or PS4 and does not authorize LL2 production
 mutation.
 
-The immediate PS2 engineering step is to integrate, in disposable fixtures:
+The immediate PS2 engineering step remains disposable integration:
 
-1. automatically generated exact semantic and ownership closure for active
-   prefixes, locator metadata and control generations;
-2. original-token coverage, exact allocation charges and post-retirement
-   project-ledger credits without speculative free-space credit;
-3. genuine Core Graph commands, typed journal groups and original receipts;
-4. the actual-v3 packed placement, active/recovery/all-pin liveness and
-   qualified barrier path;
-5. the provisional packed B-tree lead against the radix comparator.
+1. enroll fresh pack generations under the original token before journal
+   acceptance, with exact inode witnesses and bounded charge-finalization space;
+2. extend the same-tip Graph/ownership path through rollover and packs created
+   and sealed within a single operation;
+3. compose live-object relocation with exact typed claim release and retirement,
+   retaining every active/recovery/all-pin obligation;
+4. measure sustained growth/turnover under fixed capacity for both the provisional
+   B-tree lead and radix comparator;
+5. complete qualified storage/barrier evidence and the permanent-wire review.
 
 Only consolidated evidence from that integration may support review/freeze of
 the permanent wire and implementation of the shared Rust reader, writer,
@@ -87,13 +88,17 @@ separate PS2 prerequisite.
   disposable real-file evidence.
 - The packed physical comparison provisionally favors B-tree plus ordinal
   sequence; radix remains the required comparator. Neither is frozen wire.
-- Genuine Graph commands, typed intents/receipts, no-op/inverse behavior and
-  historical lookup now run on the actual-v3 packed original-token path, with
-  21 interruption points per map across journal, staging, publication and cleanup.
-- Bounded automatic prefix batches and self-owned locator/data suffixes retain
-  exact independent semantic/ownership closures and original-token settlement.
-  Graph publication and ownership self-coverage are not yet composed together;
-  standing control accounting and refundable per-generation retirement remain open.
+- Genuine Graph commands, original receipts and exact ownership suffix coverage
+  now share a same-tip packed publication and original token. Independent
+  active/recovery closure checks and interrupted journal/source/packed/cleanup/
+  final-settlement replay run for both maps.
+- An [attributable ledger](architecture/PS2_ATTRIBUTABLE_RETIREMENT_LEDGER.md)
+  charges bounded standing controls once, records
+  source/pack growth without shrinking credit, and transfers a sealed allocation
+  charge through typed claim removal, original-token unlink authorization,
+  directory barrier and fresh absence before project-only credit. Current
+  retirement evidence uses already-dead metadata placements; fresh generation
+  enrollment and live relocation remain separate gates.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification
@@ -130,8 +135,9 @@ disposable proofs, not production deletion.
 
 - No permanent PS2 wire, production package reader/writer, live conversion,
   migration, production GC, Asset Store or production `Accepted`/`Saved` path.
-- No integrated ownership/refundable-capacity/Graph/journal/qualified-barrier
-  implementation. The current high-water model is safe but can over-refuse.
+- No qualified production barrier path. Same-tip disposable Graph/ownership
+  integration and project-charge settlement do not yet cover fresh rollover,
+  live owned-pack relocation or sustained large-project capacity turnover.
 - No shared Rust production session coordinator, writer queue or native
   autosave status/recovery path (PS3).
 - No safe real project browse/reopen/switch flow on that durability boundary

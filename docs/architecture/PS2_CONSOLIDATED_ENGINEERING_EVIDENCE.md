@@ -20,28 +20,41 @@ unsealing an immutable generation refuse. See [automatic prefix batches](PS2_AUT
 and [self-owned suffixes and settlement](PS2_SELF_OWNED_SUFFIX_FIXTURE.md).
 
 Original-token settlement checks finite exact control generations, original pack
-identity, final extent and planned suffix bytes. It consumes nonnegative observed
-pack growth plus conservative controls; shrinking does not create credit. Both
-maps pass the partial-record and independent closure checks. The 48 KiB recipe
-cap, bounded bootstrap and refusal of fresh-pack rollover remain explicit limits.
-Controls still accumulate conservatively per transition, and per-generation
-refundable attribution is not integrated.
+identity, final extent and planned suffix bytes. The new [opt-in attributable
+ledger](PS2_ATTRIBUTABLE_RETIREMENT_LEDGER.md) charges bounded standing controls once and keeps two current-tip
+high-water records. Sealed leaves retain exact registered allocation charges.
+A bounded selected bootstrap enrollment survives interruption until a self-covered
+recipe installs the exact typed roots. Shrinking or compression gives no credit.
 
-The [genuine Graph/journal integration](PS2_GRAPH_ORIGINAL_TOKEN_PACKED.md) now
-shares the original Core Graph command model with the packed actual-v3 path.
-Before journal effects, the original liability binds canonical group bytes,
-source staging, physical continuation and full allowed control selectors.
-Twenty-one interruption points per map cover journal, source, partial packed
-records, publication and cleanup; replay retains the original token and exact
-receipts. No-op/inverse behavior and historical receipt lookup remain intact.
-This Graph path still consumes its conservative full hold and does not yet
-compose its publications with ownership self-coverage or refundable retirement.
+Typed removal transfers a sealed allocation's charge into the original retirement
+ticket while retaining full charge. All additional pin classes refuse before
+admission. Selected unlink authorization precedes the namespace effect; directory
+barrier and fresh absence precede project credit. Missing files without that
+selected authorization, inode replacement and unknown controls refuse. The current
+retirement demonstration uses already-dead metadata placements, not live-object
+relocation. A one-page case returned 4 KiB but created 4 KiB of metadata: net zero
+project capacity. A 64-record case returned 20 KiB against 4 KiB growth,
+releasing 16 KiB of project charge. No project-ledger result establishes filesystem
+availability.
 
-The 64/128-operation Graph measurements remain negative overhead evidence:
-roughly 31.8–34.2 kB process writes per operation at group 32, 43–44 fixture syncs
-per group and a 19.37–19.91 MB hold. They include journal and source staging,
-but establish neither a final index winner nor production latency. B-tree remains
-the provisional packed lead; radix stays the required comparator.
+The [joint Graph/ownership fixture](PS2_GRAPH_JOINT_OWNERSHIP.md) now shares one
+actual-v3 publication and original token across genuine commands, exact receipts,
+semantic changes and self-owned suffixes. Recovery derives from the previous
+active Graph state and ownership tree together. Its bounded fixed point refuses
+fresh rollover before effects. Source staging retains its own attributable
+high-water record and standing scratch allowance; it is not refundable pack
+ownership. Original-token completion charges observed source/tip growth once,
+including reconciliation around final settlement selection.
+
+The earlier [Graph original-token measurements](PS2_GRAPH_ORIGINAL_TOKEN_PACKED.md)
+remain valid historical negative overhead evidence for the separate ownership,
+full-hold-consumption path. New same-tip results are recorded independently;
+neither small fixture selects permanent wire or establishes production latency.
+B-tree remains the provisional packed lead and radix the required comparator.
+
+The [complete regression](verification/ps2-joint-ledger-regression-20260927.json)
+passes 90 index/placement tests and seven original Graph tests, plus strict
+Clippy and formatting checks.
 
 The macOS syscall and split-process matrix has been rerun. Three explicitly
 authorized private APFS-image clean-remount cases cover successful publication
@@ -52,12 +65,13 @@ qualification. See [clean-remount evidence](PS2_MACOS_CLEAN_REMOUNT.md).
 
 The remaining engineering dependency is:
 
-1. integrate a bounded standing control allowance, attributable per-generation
-   charges and exact post-retirement project-ledger credit across all roots,
-   pins and original-token holds, with no speculative or filesystem-space credit;
-2. bind fresh pack generations and compose ownership self-coverage with every
-   genuine Graph publication, then compare both maps at meaningful scale;
-3. complete the qualified barrier/storage evidence and present the permanent
+1. enroll fresh generations under the original token before acceptance, then
+   compose Graph/ownership rollover and exact charge finalization for generations
+   created and sealed within one bounded operation;
+2. integrate live-object relocation with typed retirement, preserve all roots,
+   pins and unresolved obligations, and measure sustained fixed-budget turnover
+   at meaningful scale for both maps;
+3. complete qualified barrier/storage evidence and present the permanent
    recipe/wire for review before shared production reader/writer implementation.
 
 The earlier [active-prefix adapter](PS2_ACTIVE_PREFIX_OWNERSHIP_ADAPTER.md) and

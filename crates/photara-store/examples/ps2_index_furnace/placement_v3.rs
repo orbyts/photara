@@ -988,49 +988,22 @@ impl Fixture {
     }
     fn checkpoint_plan(&mut self, source: &mut Store, old_end: u64) -> Result<PreparedAppend> {
         let old = self.head.clone();
-        let semantic = source.head()?;
-        ensure(
-            semantic.recovery == old.semantic.active,
-            "logical selected prefix discontinuity",
-        )?;
-        let (added, removed) = changes(source, &old.semantic.active, &semantic.active, old_end)?;
-        let mut updates = BTreeMap::new();
-        let mut data = WritePlan::from(&self.data);
-        for r in &removed {
-            ensure(
-                self.lookup(&old.active, r.offset)?
-                    .is_some_and(|l| l.object == *r),
-                "removed object absent",
-            )?;
-            updates.insert(r.offset, None);
-        }
-        for r in &added {
-            let bytes = source.planned_bytes(r)?;
-            let loc = Location {
-                membership: Membership::Semantic,
-                object: r.clone(),
-                data: data.push(bytes, Some(r.offset))?,
-            };
-            updates.insert(r.offset, Some(loc));
-        }
+        let delta = typed_inventory::graph::semantic_delta(self, source, old_end)?;
         self.staged = Some(Vec::new());
         let root = self
-            .multi(
-                Some(old.active.clone()),
-                &updates.into_iter().collect::<Vec<_>>(),
-            )?
+            .multi(Some(old.active.clone()), &delta.updates)?
             .ok_or("empty current locator")?;
         let pages = self.staged.take().ok_or("missing append planning pages")?;
         let mut meta = WritePlan::from(&self.meta);
         let active = meta.staged(&root, &pages, &mut HashMap::new())?;
         Ok(PreparedAppend {
-            data,
+            data: delta.data,
             meta,
             active,
             recovery: old.active,
-            semantic,
-            added: added.len(),
-            removed: removed.len(),
+            semantic: delta.semantic,
+            added: delta.added,
+            removed: delta.removed,
         })
     }
     fn apply_append(&mut self, plan: PreparedAppend, cut: Cut) -> Result<serde_json::Value> {
@@ -1681,6 +1654,8 @@ struct CapacityDomain {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct Liability {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    retirement_ticket: Option<typed_inventory::retirement_ledger::RetirementTicket>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     graph: Option<graph_journal::Binding>,
     token: u64,
     epoch: u64,
@@ -1732,6 +1707,8 @@ impl Continuation {
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 struct GateState {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ledger: Option<typed_inventory::retirement_ledger::Ledger>,
     pins: BTreeMap<u64, Obligation>,
     holds: BTreeMap<u64, Liability>,
     domains: BTreeMap<u64, CapacityDomain>,
@@ -1747,6 +1724,9 @@ impl GateState {
         })
     }
     fn validate(&self) -> Result<()> {
+        if let Some(ledger) = &self.ledger {
+            ledger.validate(self)?;
+        }
         ensure(
             self.pins.len() <= MAX_PINS
                 && self.holds.len() <= MAX_HOLDS
@@ -1835,7 +1815,10 @@ impl Fixture {
         );
         self.select_gate(gate)
     }
-    fn select_gate(&mut self, mut gate: GateState) -> Result<()> {
+    fn select_gate(&mut self, gate: GateState) -> Result<()> {
+        self.select_gate_cut(gate, Cut::None)
+    }
+    fn select_gate_cut(&mut self, mut gate: GateState, cut: Cut) -> Result<()> {
         ensure(
             !self.imported_read_only,
             "imported inventory requires explicit full audit",
@@ -1847,13 +1830,15 @@ impl Fixture {
         // Bounded HEAD/intent/candidate staging and namespace allowance. These
         // are modeled caps, not a claim about exclusive OS/APFS reservation.
         let control = self.control_bound(&gate)?;
-        if let Some(domain) = gate.domains.get_mut(&0) {
+        if let Some(ledger) = &gate.ledger {
+            ledger.admit_control(&self.head, &gate)?;
+        } else if let Some(domain) = gate.domains.get_mut(&0) {
             domain.charged = checked(domain.charged, control)?;
         }
         gate.validate()?;
         self.desired_gate = Some(gate);
         let h = self.head.clone();
-        let result = self.publish(h.active, h.recovery, h.semantic, Cut::None);
+        let result = self.publish(h.active, h.recovery, h.semantic, cut);
         if result.is_err() {
             self.desired_gate = None;
         }
@@ -1927,6 +1912,37 @@ impl Fixture {
         continuation: Option<Continuation>,
         graph: Option<graph_journal::Binding>,
     ) -> Result<Liability> {
+        self.reserve_bound(target, retirement, requests, continuation, graph, None)
+    }
+    fn reserve_bound(
+        &mut self,
+        target: Head,
+        retirement: Option<(bool, u64)>,
+        requests: &[(u64, u64)],
+        continuation: Option<Continuation>,
+        graph: Option<graph_journal::Binding>,
+        retirement_ticket: Option<typed_inventory::retirement_ledger::RetirementTicket>,
+    ) -> Result<Liability> {
+        if self.head.gate.ledger.is_some() {
+            if let Some(binding) = &graph {
+                ensure(
+                    binding.is_joint()
+                        && binding.source_charge.as_ref()
+                            == Some(&typed_inventory::retirement_ledger::source_charge(self)?),
+                    "attributed Graph source differs from original admission",
+                )?;
+            }
+            ensure(
+                retirement.is_none() || retirement_ticket.is_some(),
+                "attributed retirement requires selected ticket",
+            )?;
+            if let Some(c) = &continuation {
+                ensure(
+                    c.data_pack == self.data.pack && c.meta_pack == self.meta.pack,
+                    "attributed fresh pack requires original-token enrollment",
+                )?;
+            }
+        }
         let mut gate = self.head.gate.clone();
         ensure(gate.holds.len() < MAX_HOLDS, "liability admission cap")?;
         let token = gate.token()?;
@@ -1947,6 +1963,7 @@ impl Fixture {
             checked(by_domain.get(&0).copied().unwrap_or(0), control)?,
         );
         let mut hold = Liability {
+            retirement_ticket,
             graph,
             token,
             epoch: self.head.epoch,
@@ -2008,6 +2025,13 @@ impl Fixture {
                 .exists(),
                 "old placement remains charged/pinned",
             )?;
+        }
+        if gate.ledger.is_some() {
+            ensure(
+                exact.retirement_ticket.is_none(),
+                "ticket completion requires barrier and exact project credit",
+            )?;
+            return typed_inventory::retirement_ledger::complete_growth(self, exact);
         }
         let mut totals = BTreeMap::<u64, u64>::new();
         for (id, bytes) in used {
@@ -2196,6 +2220,7 @@ impl Fixture {
                 "audit observed allocation exceeds charged+held model",
             )?;
         }
+        typed_inventory::retirement_ledger::audit_attribution(self)?;
         self.imported_read_only = false;
         Ok(count)
     }
