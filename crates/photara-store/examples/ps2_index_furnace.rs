@@ -24,6 +24,11 @@ mod placement_v2;
 #[path = "ps2_index_furnace/placement_v3.rs"]
 mod placement_v3;
 
+#[path = "ps2_graph_furnace/model.rs"]
+mod graph_model;
+#[path = "ps2_index_furnace/graph_preview.rs"]
+mod graph_preview;
+
 type Result<T> = std::result::Result<T, String>;
 const FAN: usize = 16;
 const MAX_NODE: u64 = 65_536;
@@ -90,6 +95,8 @@ enum Kind {
 #[serde(tag = "fixture_kind")]
 enum Node {
     Receipt {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        record: Option<Box<graph_model::Record>>,
         id: String,
         request: String,
         ordinal: u64,
@@ -114,6 +121,8 @@ enum Node {
         children: Vec<Ref>,
     },
     Authored {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        state: Option<Box<graph_model::State>>,
         value: String,
     },
     Manifest {
@@ -173,6 +182,7 @@ struct Store {
     changed: Option<Vec<Ref>>,
     packed: Option<packing::Backend>,
     staging: Option<packing::Staging>,
+    preview: Option<graph_preview::Preview>,
 }
 impl Store {
     fn open(dir: &Path) -> Result<Self> {
@@ -195,9 +205,13 @@ impl Store {
             changed: None,
             packed: None,
             staging: None,
+            preview: None,
         })
     }
     fn size(&self) -> u64 {
+        if let Some(preview) = &self.preview {
+            return preview.end;
+        }
         if let Some(packed) = &self.packed {
             return packed.logical_len();
         }
@@ -222,6 +236,9 @@ impl Store {
         }
         let bytes = serde_json::to_vec(node).map_err(|e| e.to_string())?;
         ensure(bytes.len() as u64 <= MAX_NODE, "oversized fixture node")?;
+        if let Some(preview) = &mut self.preview {
+            return preview.put(bytes);
+        }
         self.debit(bytes.len() as u64)?;
         let offset = if let Some(packed) = &mut self.packed {
             packed.append(&bytes, &mut self.stats)?
@@ -254,6 +271,13 @@ impl Store {
         Ok(reference)
     }
     fn get(&mut self, r: &Ref) -> Result<Node> {
+        if let Some(bytes) = self.preview.as_ref().and_then(|p| p.bytes(r)) {
+            ensure(
+                bytes.len() as u64 == r.len && hash(bytes) == r.sha,
+                "Graph preview reference",
+            )?;
+            return serde_json::from_slice(bytes).map_err(|e| e.to_string());
+        }
         if let Some(staging) = &self.staging
             && packing::is_staged(r)
         {
@@ -326,12 +350,19 @@ impl Store {
         Ok(())
     }
     fn publish(&mut self, head: &Head) -> Result<()> {
+        if let Some(preview) = &mut self.preview {
+            preview.head = head.clone();
+            return Ok(());
+        }
         self.sync()?;
         self.envelope("HEAD.next", head)?;
         fs::rename(self.dir.join("HEAD.next"), self.dir.join("HEAD")).map_err(|e| e.to_string())?;
         self.sync_dir()
     }
     fn head(&mut self) -> Result<Head> {
+        if let Some(preview) = &self.preview {
+            return Ok(preview.head.clone());
+        }
         let bytes = fs::read(self.dir.join("HEAD")).map_err(|e| e.to_string())?;
         self.stats.head_reads += 1;
         self.stats.head_read_bytes += bytes.len() as u64;
@@ -860,9 +891,16 @@ fn audit_seq(st: &mut Store, r: &Ref, start: u64) -> Result<Vec<Entry>> {
                 id,
                 request,
                 ordinal: o,
+                record,
             } = st.get(&child)?
             {
                 ensure(o == ordinal, "ordinal gap or duplicate")?;
+                if let Some(record) = record {
+                    ensure(
+                        record.id == id && record.request == request && record.ordinal == o,
+                        "typed receipt identity",
+                    )?;
+                }
                 out.push(Entry {
                     key: key(&id),
                     id,
@@ -888,7 +926,13 @@ fn audit_seq(st: &mut Store, r: &Ref, start: u64) -> Result<Vec<Entry>> {
 }
 fn audit_root(st: &mut Store, rr: &Ref) -> Result<()> {
     let r = root(st, rr)?;
-    authored(st, &r)?;
+    let authored_ref = authored(st, &r)?;
+    let Node::Authored {
+        state: graph_state, ..
+    } = st.get(&authored_ref)?
+    else {
+        return Err("audit authored state kind".into());
+    };
     let entries = audit_map(st, &r.map, r.kind, 0)?;
     let receipts = audit_seq(st, &r.sequence, 1)?;
     ensure(
@@ -902,12 +946,29 @@ fn audit_root(st: &mut Store, rr: &Ref) -> Result<()> {
             "duplicate OperationId",
         )?;
     }
+    let mut replay = graph_state
+        .as_ref()
+        .map(|s| graph_model::State::initial(s.graph.nodes.len()));
     for e in receipts {
+        if let Some(state) = &mut replay {
+            let Node::Receipt {
+                record: Some(record),
+                ..
+            } = st.get(&e.receipt)?
+            else {
+                return Err("typed authored root requires original Graph receipt".into());
+            };
+            graph_model::replay(state, &record)?;
+        }
         ensure(
             by_id.remove(&e.id).as_ref() == Some(&e),
             "map/sequence disagreement",
         )?;
     }
+    ensure(
+        replay.as_ref() == graph_state.as_deref(),
+        "authored Graph replay mismatch",
+    )?;
     ensure(by_id.is_empty(), "extra map entries")
 }
 fn full_audit(st: &mut Store) -> Result<()> {
@@ -924,6 +985,7 @@ fn build(st: &mut Store, n: u64, kind: Kind) -> Result<()> {
         let id = id(i);
         let req = request(&id);
         let receipt = st.put(&Node::Receipt {
+            record: None,
             id: id.clone(),
             request: req.clone(),
             ordinal: i,
@@ -944,6 +1006,7 @@ fn build(st: &mut Store, n: u64, kind: Kind) -> Result<()> {
         Kind::Btree => btree_build(st, &entries)?,
     };
     let authored = st.put(&Node::Authored {
+        state: None,
         value: "fixed tiny current state".to_owned(),
     })?;
     let root = make_root(st, kind, n, map, sequence, authored)?;
@@ -1012,6 +1075,7 @@ impl Session {
                     id: ri,
                     request: rq,
                     ordinal,
+                    ..
                 } => ensure(
                     ri == id && rq == req && ordinal == e.ordinal,
                     "retry receipt mismatch",
@@ -1053,6 +1117,7 @@ impl Session {
             .checked_add(1)
             .ok_or_else(|| "ordinal overflow".to_owned())?;
         let receipt = st.put(&Node::Receipt {
+            record: None,
             id: id.to_owned(),
             request: req.to_owned(),
             ordinal: n,
@@ -1129,6 +1194,7 @@ impl Session {
         let a = authored(st, &old)?;
         // A new authored/manifest/root object; both historical indexes are reused.
         let a = st.put(&Node::Authored {
+            state: None,
             value: format!("turnover-after-offset-{}-{}", a.offset, st.size()),
         })?;
         let active = make_root(st, old.kind, old.count, old.map, old.sequence, a)?;
@@ -1349,6 +1415,7 @@ fn fault_suite(kind: Kind) -> Result<Vec<String>> {
     )?;
     passed.push("missing_page".to_owned());
     let corrupt = st.put(&Node::Receipt {
+        record: None,
         id: id(99),
         request: request(&id(99)),
         ordinal: 99,
@@ -1367,6 +1434,7 @@ fn fault_suite(kind: Kind) -> Result<Vec<String>> {
     expect_failure(seq_node(&mut st, &malformed), "malformed node")?;
     passed.push("authenticated_malformed_node".to_owned());
     let gap = st.put(&Node::Receipt {
+        record: None,
         id: id(2),
         request: request(&id(2)),
         ordinal: 3,
@@ -1380,6 +1448,7 @@ fn fault_suite(kind: Kind) -> Result<Vec<String>> {
     expect_failure(audit_map(&mut st, &duplicate, kind, 0), "duplicate ID")?;
     passed.push("duplicate_id".to_owned());
     let wrong = st.put(&Node::Receipt {
+        record: None,
         id: id(1),
         request: "f".repeat(64),
         ordinal: 1,
@@ -1388,6 +1457,7 @@ fn fault_suite(kind: Kind) -> Result<Vec<String>> {
     expect_failure(prefix(&mut st, &wrongseq, &r.sequence), "prefix mismatch")?;
     passed.push("prefix_mismatch".to_owned());
     let duplicate_receipt = st.put(&Node::Receipt {
+        record: None,
         id: id(1),
         request: request(&id(1)),
         ordinal: 2,
@@ -1498,6 +1568,7 @@ mod tests {
             let mut entries = Vec::new();
             for (i, id) in ids.iter().enumerate() {
                 let receipt = st.put(&Node::Receipt {
+                    record: None,
                     id: id.clone(),
                     request: request(id),
                     ordinal: i as u64 + 1,
@@ -1554,6 +1625,7 @@ mod tests {
         st.sync_dir()?;
         st.reserve = Some(MAX_NODE);
         st.put(&Node::Receipt {
+            record: None,
             id: id(33),
             request: request(&id(33)),
             ordinal: 33,
@@ -1563,6 +1635,7 @@ mod tests {
         st.reserve = Some(0);
         expect_failure(
             st.put(&Node::Authored {
+                state: None,
                 value: "unpublished".to_owned(),
             }),
             "mid-staging reserve",
@@ -1587,6 +1660,7 @@ mod tests {
         let old = st.head()?;
         let r = root(&mut st, &old.active)?;
         let a = st.put(&Node::Authored {
+            state: None,
             value: "independently substituted state".to_owned(),
         })?;
         let replacement = make_root(&mut st, r.kind, r.count, r.map, r.sequence, a)?;

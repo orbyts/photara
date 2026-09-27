@@ -26,8 +26,15 @@ struct Claim {
     dev: u64,
     ino: u64,
     extent: u64,
+    // Content authentication and physical ownership are distinct edges.
+    // The original recipe authenticates bytes added after this prefix; typed
+    // locator closure continues to authenticate every selected object/page.
+    content_end: u64,
     sha: String,
     sealed: bool,
+    // Pre-effect local charge at content_end capture, not the current charge
+    // of the selected suffix and never filesystem availability credit.
+    observed_charge: u64,
 }
 impl Claim {
     fn key(&self) -> Result<u64> {
@@ -36,26 +43,41 @@ impl Claim {
             .and_then(|v| v.checked_add(u64::from(self.data)))
             .ok_or("allocation key overflow".into())
     }
-    fn capture(f: &Fixture, data: bool, pack: u64) -> Result<Self> {
+    fn capture(f: &mut Fixture, data: bool, pack: u64) -> Result<Self> {
         let a = if data { &f.data } else { &f.meta };
         let m = fs::symlink_metadata(a.path(pack)).map_err(error)?;
         ensure(
             m.is_file() && m.nlink() == 1 && m.len() <= PACK,
             "private bounded allocation",
         )?;
+        let bytes = fs::read(a.path(pack)).map_err(error)?;
+        let sealed = pack < a.pack;
+        f.c.recipe_prefix_read_bytes += bytes.len() as u64;
         Ok(Self {
             data,
             pack,
             dev: m.dev(),
             ino: m.ino(),
             extent: m.len(),
-            sha: hash(&fs::read(a.path(pack)).map_err(error)?),
-            sealed: pack < a.pack,
+            content_end: m.len(),
+            sha: hash(&bytes),
+            sealed,
+            observed_charge: m
+                .blocks()
+                .checked_mul(512)
+                .ok_or("allocation overflow")?
+                .max(m.len()),
         })
     }
-    fn verify(&self, f: &Fixture) -> Result<()> {
+    fn verify(&self, f: &mut Fixture) -> Result<()> {
+        self.verify_extent(f, false)
+    }
+    fn verify_extent(&self, f: &mut Fixture, planned: bool) -> Result<()> {
         ensure(
-            self.extent <= PACK && self.sha.len() == 64,
+            self.content_end <= self.extent
+                && self.extent <= PACK
+                && self.sha.len() == 64
+                && self.observed_charge >= self.content_end,
             "ownership claim shape",
         )?;
         let a = if self.data { &f.data } else { &f.meta };
@@ -65,15 +87,17 @@ impl Claim {
                 && m.nlink() == 1
                 && m.dev() == self.dev
                 && m.ino() == self.ino
-                && m.len() >= self.extent
+                && m.len() >= self.content_end
+                && (m.len() >= self.extent || (planned && !self.sealed && self.pack == a.pack))
                 && m.len() <= PACK
                 && (!self.sealed || m.len() == self.extent),
             "ownership generation/prefix mismatch",
         )?;
-        let mut bytes = vec![0; usize::try_from(self.extent).map_err(error)?];
+        let mut bytes = vec![0; usize::try_from(self.content_end).map_err(error)?];
         File::open(a.path(self.pack))
             .and_then(|mut f| f.read_exact(&mut bytes))
             .map_err(error)?;
+        f.c.recipe_prefix_read_bytes += self.content_end;
         ensure(hash(&bytes) == self.sha, "owned prefix corruption")
     }
 }
@@ -301,6 +325,17 @@ struct Builder {
     removed: Vec<Ref>,
 }
 impl Builder {
+    fn node(&self, f: &mut Fixture, locator: &PRef, at: &Ref) -> Result<OwnedNode> {
+        if let Some((_, _, bytes)) = self
+            .data
+            .writes
+            .iter()
+            .find(|(key, _, _)| *key == Some(at.offset))
+        {
+            return serde_json::from_slice(bytes).map_err(error);
+        }
+        f.owned_node(locator, at)
+    }
     fn put(&mut self, node: &OwnedNode) -> Result<Ref> {
         let bytes = serde_json::to_vec(node).map_err(error)?;
         ensure(bytes.len() <= 4092, "ownership node size")?;
@@ -331,13 +366,16 @@ impl Builder {
         at: Option<Ref>,
         claim: &Claim,
     ) -> Result<Ref> {
-        ensure(self.removed.len() < 65, "bounded ownership insertion path")?;
+        ensure(
+            self.removed.len() < 64 * 65,
+            "bounded ownership insertion path",
+        )?;
         let Some(at) = at else {
             return self.put(&OwnedNode::Leaf {
                 claim: claim.clone(),
             });
         };
-        let node = f.owned_node(locator, &at)?;
+        let node = self.node(f, locator, &at)?;
         let key = claim.key()?;
         let anchor = node.anchor()?;
         let branch = match node {
@@ -364,11 +402,19 @@ impl Builder {
         self.removed.push(at);
         match node {
             OwnedNode::Leaf { claim: old } => {
+                old.verify(f)?;
                 ensure(
                     old.key()? == key
                         && old.dev == claim.dev
                         && old.ino == claim.ino
-                        && claim.extent >= old.extent,
+                        && claim.extent >= old.extent
+                        && claim.content_end >= old.content_end
+                        && (claim.content_end != old.content_end || claim.sha == old.sha)
+                        && (!old.sealed
+                            || (claim.sealed
+                                && claim.extent == old.extent
+                                && claim.content_end == old.content_end
+                                && claim.sha == old.sha)),
                     "conflicting ownership generation",
                 )?;
                 self.put(&OwnedNode::Leaf {
@@ -397,7 +443,12 @@ impl Builder {
     }
     fn updates(&self) -> Vec<(u64, Option<Location>)> {
         let mut updates: BTreeMap<_, _> = self.removed.iter().map(|r| (r.offset, None)).collect();
-        updates.extend(self.added.iter().map(|(r, l)| (r.offset, Some(l.clone()))));
+        updates.extend(
+            self.added
+                .iter()
+                .filter(|(r, _)| !self.removed.contains(r))
+                .map(|(r, l)| (r.offset, Some(l.clone()))),
+        );
         updates.into_iter().collect()
     }
 }
@@ -407,11 +458,25 @@ struct TypedPlan {
     continuation: Continuation,
 }
 fn plan(f: &mut Fixture, claim: &Claim) -> Result<TypedPlan> {
+    plan_claims(f, std::slice::from_ref(claim))
+}
+fn plan_claims(f: &mut Fixture, claims: &[Claim]) -> Result<TypedPlan> {
+    plan_claim_extents(f, claims, false)
+}
+fn plan_claim_extents(f: &mut Fixture, claims: &[Claim], planned: bool) -> Result<TypedPlan> {
+    ensure(
+        !claims.is_empty() && claims.len() <= 64,
+        "bounded ownership batch",
+    )?;
+    let mut keys = HashSet::new();
+    for claim in claims {
+        ensure(keys.insert(claim.key()?), "duplicate batch allocation")?;
+        claim.verify_extent(f, planned)?;
+    }
     ensure(
         !f.imported_read_only,
         "imported inventory requires explicit full audit",
     )?;
-    claim.verify(f)?;
     ensure(f.head.gate.holds.is_empty(), "pending original operation")?;
     let h = f.head.clone();
     let mut a = Builder {
@@ -420,7 +485,11 @@ fn plan(f: &mut Fixture, claim: &Claim) -> Result<TypedPlan> {
         added: vec![],
         removed: vec![],
     };
-    let ar = a.insert(f, &h.active, h.inventory.active.clone(), claim)?;
+    let mut ar = h.inventory.active.clone();
+    for claim in claims {
+        ar = Some(a.insert(f, &h.active, ar, claim)?);
+    }
+    let ar = ar.ok_or("active ownership batch")?;
     let au = a.updates();
     let (data, next, br, bu) = if h.inventory.active == h.inventory.recovery {
         (a.data, a.next, ar.clone(), au.clone())
@@ -431,7 +500,11 @@ fn plan(f: &mut Fixture, claim: &Claim) -> Result<TypedPlan> {
             added: vec![],
             removed: vec![],
         };
-        let br = b.insert(f, &h.recovery, h.inventory.recovery.clone(), claim)?;
+        let mut br = h.inventory.recovery.clone();
+        for claim in claims {
+            br = Some(b.insert(f, &h.recovery, br, claim)?);
+        }
+        let br = br.ok_or("recovery ownership batch")?;
         let bu = b.updates();
         (b.data, b.next, br, bu)
     };
@@ -513,7 +586,7 @@ pub(super) fn run_cli(args: &[String]) -> Result<()> {
             let semantic = f.head.semantic.clone();
             let mut installs = vec![];
             for (data, pack) in [(true, 0), (false, 0)] {
-                let claim = Claim::capture(&f, data, pack)?;
+                let claim = Claim::capture(&mut f, data, pack)?;
                 let before = f.snapshot()?;
                 f.c = Counters::default();
                 let t = Instant::now();
@@ -558,10 +631,72 @@ pub(super) fn run_cli(args: &[String]) -> Result<()> {
 mod tests {
     use super::*;
     #[test]
+    fn ownership_replacement_cannot_weaken_prefix_or_unseal_generation() -> Result<()> {
+        for attack in 0..3 {
+            let (_temp, _source, mut f) = setup(512, Kind::Btree)?;
+            let old = Claim::capture(&mut f, false, 0)?;
+            ensure(old.sealed, "sealed fixture required")?;
+            publish_claim(&mut f, &old, Cut::None)?;
+            let mut replacement = old.clone();
+            match attack {
+                0 => {
+                    replacement.content_end -= 1;
+                    let bytes = fs::read(f.meta.path(old.pack)).map_err(error)?;
+                    replacement.sha = hash(&bytes[..replacement.content_end as usize]);
+                }
+                1 => replacement.sealed = false,
+                _ => {
+                    replacement.sealed = false;
+                    replacement.extent += 1;
+                }
+            }
+            let before = f.snapshot()?;
+            let head = fs::read(f.dir.join("HEAD")).map_err(error)?;
+            ensure(
+                plan_claim_extents(&mut f, &[replacement], true).is_err(),
+                "weakened ownership admitted",
+            )?;
+            ensure(
+                f.snapshot()? == before && fs::read(f.dir.join("HEAD")).map_err(error)? == head,
+                "replacement refusal effects",
+            )?;
+        }
+        Ok(())
+    }
+    #[test]
+    fn growing_prefix_cannot_recommit_previously_corrupted_bytes() -> Result<()> {
+        let (_temp, _source, mut f) = setup(64, Kind::Btree)?;
+        let old = Claim::capture(&mut f, true, 0)?;
+        publish_claim(&mut f, &old, Cut::None)?;
+        let mut file = OpenOptions::new()
+            .write(true)
+            .open(f.data.path(old.pack))
+            .map_err(error)?;
+        file.write_all(b"!").map_err(error)?;
+        let replacement = Claim::capture(&mut f, true, old.pack)?;
+        ensure(
+            replacement.content_end > old.content_end,
+            "grown prefix fixture",
+        )?;
+        let before = f.snapshot()?;
+        let head = fs::read(f.dir.join("HEAD")).map_err(error)?;
+        ensure(
+            plan(&mut f, &replacement)
+                .err()
+                .ok_or("expected rejection")?
+                .contains("owned prefix corruption"),
+            "corrupt prefix recommitted",
+        )?;
+        ensure(
+            f.snapshot()? == before && fs::read(f.dir.join("HEAD")).map_err(error)? == head,
+            "corrupt replacement effects",
+        )
+    }
+    #[test]
     fn typed_claim_survives_audit_checkpoint_and_structural_reopen() -> Result<()> {
         let (_temp, mut source, mut f) = setup(128, Kind::Radix)?;
         let semantic = f.head.semantic.clone();
-        let claim = Claim::capture(&f, true, 0)?;
+        let claim = Claim::capture(&mut f, true, 0)?;
         publish_claim(&mut f, &claim, Cut::None)?;
         ensure(
             f.head.semantic == semantic,
@@ -589,7 +724,7 @@ mod tests {
         for cut in [Cut::BeforeHead, Cut::AfterHead] {
             let (_temp, mut source, mut f) = setup(128, Kind::Btree)?;
             let semantic = f.head.semantic.clone();
-            let claim = Claim::capture(&f, true, 0)?;
+            let claim = Claim::capture(&mut f, true, 0)?;
             ensure(publish_claim(&mut f, &claim, cut).is_err(), "missing fault")?;
             let hold = f.head.gate.holds.values().next().unwrap().clone();
             f = Fixture::reopen_combined(&f.dir)?;
@@ -610,7 +745,7 @@ mod tests {
     fn forged_missing_and_duplicate_typed_locator_leaves_refuse() -> Result<()> {
         for attack in 0..3 {
             let (_temp, _source, mut f) = setup(64, Kind::Radix)?;
-            let claim = Claim::capture(&f, true, 0)?;
+            let claim = Claim::capture(&mut f, true, 0)?;
             publish_claim(&mut f, &claim, Cut::None)?;
             let root = f.head.active.clone();
             let r = f.head.inventory.active.clone().unwrap();
@@ -643,7 +778,7 @@ mod tests {
     #[test]
     fn corrupt_ownership_payload_blocks_original_continuation() -> Result<()> {
         let (_temp, mut source, mut f) = setup(128, Kind::Radix)?;
-        let claim = Claim::capture(&f, true, 0)?;
+        let claim = Claim::capture(&mut f, true, 0)?;
         ensure(
             publish_claim(&mut f, &claim, Cut::BeforeHead).is_err(),
             "cut",
@@ -683,13 +818,14 @@ mod tests {
     #[test]
     fn every_pin_keeps_its_inventory_and_unclaimed_metadata_can_relocate() -> Result<()> {
         let (_temp, _source, mut f) = setup(512, Kind::Radix)?;
-        let claim = Claim::capture(&f, true, 0)?;
+        let claim = Claim::capture(&mut f, true, 0)?;
         publish_claim(&mut f, &claim, Cut::None)?;
         let mut pins = vec![];
         for class in EXTRA_CLASSES {
             pins.push(f.acquire(class, class == PinClass::UnresolvedIntent)?);
         }
-        let another = Claim::capture(&f, true, f.data.pack)?;
+        let pack = f.data.pack;
+        let another = Claim::capture(&mut f, true, pack)?;
         publish_claim(&mut f, &another, Cut::None)?;
         f.audit_combined()?;
         ensure(
@@ -716,7 +852,7 @@ mod tests {
     #[test]
     fn explicit_import_is_read_only_until_full_typed_audit() -> Result<()> {
         let (_temp, _source, mut f) = setup(64, Kind::Btree)?;
-        let claim = Claim::capture(&f, true, 0)?;
+        let claim = Claim::capture(&mut f, true, 0)?;
         publish_claim(&mut f, &claim, Cut::None)?;
         f = Fixture::reopen_combined(&f.dir)?;
         f.imported_read_only = true;

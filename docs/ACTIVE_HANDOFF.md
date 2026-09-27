@@ -6,7 +6,7 @@ experiment reports are reference material only.
 ## Baseline
 
 - Authoritative branch: `main`.
-- Production-code baseline before this documentation-only consolidation:
+- Production-code baseline (subsequent work remains disposable fixtures/documentation):
   `f91f8de1546896267bac13adeac00c1659133232`.
 - The current `main` commit containing this file is the handoff publication;
   resolve it with `git rev-parse HEAD` and require it to match `origin/main`
@@ -87,13 +87,15 @@ separate PS2 prerequisite.
   disposable real-file evidence.
 - The packed physical comparison provisionally favors B-tree plus ordinal
   sequence; radix remains the required comparator. Neither is frozen wire.
-- Genuine Graph commands, typed intents/receipts, finite journal groups,
-  no-op/inverse behavior and old-operation lookup have separate fixture proof.
-- Exact semantic/ownership closures within one selected locator, bounded typed
-  recipe replay, active-prefix ownership and post-retirement project-charge
-  release have separate prerequisite fixtures.
-- The local macOS syscall/fault matrix and one explicitly authorized disposable
-  [APFS clean-remount trial](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
+- Genuine Graph commands, typed intents/receipts, no-op/inverse behavior and
+  historical lookup now run on the actual-v3 packed original-token path, with
+  21 interruption points per map across journal, staging, publication and cleanup.
+- Bounded automatic prefix batches and self-owned locator/data suffixes retain
+  exact independent semantic/ownership closures and original-token settlement.
+  Graph publication and ownership self-coverage are not yet composed together;
+  standing control accounting and refundable per-generation retirement remain open.
+- The local macOS syscall/fault matrix and three explicitly authorized disposable
+  [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification
   remain absent; clean detach may flush outstanding writes.
 

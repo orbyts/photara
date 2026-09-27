@@ -179,7 +179,7 @@ fn independent_group_original_receipts_survive_every_checkpoint_cut() -> Result<
             let digest = request(&operation);
             let original = reopened.retry(&operation, &digest)?;
             assert!(
-                matches!(source.get(&original)?, Node::Receipt { id: got, request: req, ordinal: ord } if got == operation && req == digest && ord == ordinal)
+                matches!(source.get(&original)?, Node::Receipt { id: got, request: req, ordinal: ord, .. } if got == operation && req == digest && ord == ordinal)
             );
             assert_eq!(original, reopened.retry(&operation, &digest)?);
             assert!(reopened.retry(&operation, "different-request").is_err());

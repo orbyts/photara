@@ -1,0 +1,9 @@
+{
+  "scope": "disposable examples only; no production or qualified durability",
+  "command": "cargo test --release -p photara-store --example ps2_index_furnace --example ps2_graph_furnace",
+  "graph_tests": 7,
+  "index_tests_including_combined_v3": 76,
+  "failures": 0,
+  "raw_log": "/private/tmp/ps2-integrated-regression.log",
+  "raw_sha256": "b7108693d562377114600f101bd1f71762d0523dfc69f4cb9506da3d027ad12b"
+}

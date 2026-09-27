@@ -12,6 +12,8 @@
 use super::*;
 use std::collections::{HashMap, VecDeque};
 
+#[path = "placement_v3/graph_journal.rs"]
+mod graph_journal;
 #[path = "placement_v3/ownership_probe.rs"]
 mod ownership_probe;
 #[path = "placement_v3/typed_inventory.rs"]
@@ -1003,13 +1005,7 @@ impl Fixture {
             updates.insert(r.offset, None);
         }
         for r in &added {
-            let mut bytes = vec![0; usize::try_from(r.len).map_err(error)?];
-            source
-                .file
-                .seek(SeekFrom::Start(r.offset))
-                .and_then(|_| source.file.read_exact(&mut bytes))
-                .map_err(error)?;
-            ensure(hash(&bytes) == r.sha, "planned source hash")?;
+            let bytes = source.planned_bytes(r)?;
             let loc = Location {
                 membership: Membership::Semantic,
                 object: r.clone(),
@@ -1205,7 +1201,7 @@ impl Fixture {
                         "operation digest conflict",
                     )?;
                     ensure(
-                        matches!(self.object(&h.active,&entry.receipt)?,Node::Receipt{id,request,ordinal} if id==operation&&request==digest&&ordinal==entry.ordinal),
+                        matches!(self.object(&h.active,&entry.receipt)?,Node::Receipt{id,request,ordinal, .. } if id==operation&&request==digest&&ordinal==entry.ordinal),
                         "original receipt mismatch",
                     )?;
                     return Ok(entry.receipt);
@@ -1604,6 +1600,7 @@ fn logical_group(source: &mut Store, size: u64) -> Result<Head> {
             "group duplicate operation",
         )?;
         let receipt = source.put(&Node::Receipt {
+            record: None,
             id: operation.clone(),
             request: request.clone(),
             ordinal,
@@ -1683,6 +1680,8 @@ struct CapacityDomain {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct Liability {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    graph: Option<graph_journal::Binding>,
     token: u64,
     epoch: u64,
     target: Head,
@@ -1918,6 +1917,16 @@ impl Fixture {
         requests: &[(u64, u64)],
         continuation: Option<Continuation>,
     ) -> Result<Liability> {
+        self.reserve_with_graph(target, retirement, requests, continuation, None)
+    }
+    fn reserve_with_graph(
+        &mut self,
+        target: Head,
+        retirement: Option<(bool, u64)>,
+        requests: &[(u64, u64)],
+        continuation: Option<Continuation>,
+        graph: Option<graph_journal::Binding>,
+    ) -> Result<Liability> {
         let mut gate = self.head.gate.clone();
         ensure(gate.holds.len() < MAX_HOLDS, "liability admission cap")?;
         let token = gate.token()?;
@@ -1938,6 +1947,7 @@ impl Fixture {
             checked(by_domain.get(&0).copied().unwrap_or(0), control)?,
         );
         let mut hold = Liability {
+            graph,
             token,
             epoch: self.head.epoch,
             target,
@@ -1957,10 +1967,11 @@ impl Fixture {
             },
         };
         gate.holds.insert(token, hold.clone());
-        if hold
-            .continuation
-            .as_ref()
-            .is_some_and(|c| c.recipe.is_some())
+        if hold.graph.is_some()
+            || hold
+                .continuation
+                .as_ref()
+                .is_some_and(|c| c.recipe.is_some())
         {
             let complete_control = checked(self.control_bound(&gate)?, 65536)?;
             let extra = complete_control.saturating_sub(hold.control);
@@ -2561,6 +2572,9 @@ fn combined_run(n: u64, kind: Kind) -> Result<serde_json::Value> {
     )
 }
 pub(super) fn run_cli(args: &[String]) -> Result<()> {
+    if args.first().is_some_and(|s| s == "graph-journal") {
+        return graph_journal::run_cli(&args[1..]);
+    }
     if args.first().is_some_and(|s| s == "typed-inventory") {
         return typed_inventory::run_cli(&args[1..]);
     }

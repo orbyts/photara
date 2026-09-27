@@ -1,0 +1,180 @@
+{
+  "abrupt_interruption_tested": false,
+  "arch": "arm64",
+  "binary_sha256": "c6fdb2ebc3b7940dd951cb7679dc5489cef1ec94990091e32fbee93c42aa13d5",
+  "cases": [
+    {
+      "binding_after": {
+        "generation": 2,
+        "image_association_asserted_by_controller": true,
+        "image_pin": [
+          16777229,
+          354207574
+        ],
+        "manifest_digest": "13806bb10069f9c7f8d00d8dceccfb5856e6fc2893d7fede39928e66f3e4fe8b",
+        "mount_pin": [
+          16777242,
+          2
+        ],
+        "mount_source": "/dev/disk7s1"
+      },
+      "binding_before": {
+        "generation": 1,
+        "image_association_asserted_by_controller": true,
+        "image_pin": [
+          16777229,
+          354207574
+        ],
+        "manifest_digest": "13806bb10069f9c7f8d00d8dceccfb5856e6fc2893d7fede39928e66f3e4fe8b",
+        "mount_pin": [
+          16777242,
+          2
+        ],
+        "mount_source": "/dev/disk7s1"
+      },
+      "controller_observed_clean_remount": true,
+      "cut": "publish HEAD.json",
+      "cut_after": false,
+      "exact_head_before": "2004c2ab8e6e2bf48cc99792767764e98486dc72b6444af26504976ae83626f6",
+      "exact_head_unchanged_across_remount": true,
+      "expected_publish_exit": 81,
+      "expected_selected": "old",
+      "final_clean_detach_exit": 0,
+      "final_image_absent_from_hdiutil_info": true,
+      "first_clean_detach_exit": 0,
+      "last_publish_trace": {
+        "event": "before",
+        "step": "publish HEAD.json"
+      },
+      "prepare_exit": 0,
+      "publish_exit": 81,
+      "raw_sha256": {
+        "binding-1.json": "9c0476b830bf65dcb7727a48c6fb934760630da92c3345d520eb5699f5e48ad3",
+        "binding-2.json": "576b335a605fc70d1affd8c7c1d26476a50e301432a33ed1f7721562bb27edc0",
+        "commands.json": "667b5b24f15c4f89cf707f8929d811a24e8697445e05eff8fad4c95bb6edaeaa",
+        "info-after-attach-2.plist": "7755bc17be82616ccf57aa4d499227641cd4133d95d1cb6fe1e3f44c3c12fea4",
+        "info-after-final-clean-detach.plist": "10316ec755a352ce2fbfb99553a3a6fc2dd9269b955e64cb055b8f5182f920f0",
+        "info-after-first-clean-detach.plist": "10316ec755a352ce2fbfb99553a3a6fc2dd9269b955e64cb055b8f5182f920f0",
+        "info-before-final-clean-detach.plist": "7755bc17be82616ccf57aa4d499227641cd4133d95d1cb6fe1e3f44c3c12fea4",
+        "info-before-first-clean-detach.plist": "edda147423bae3a3b781d96f06fba683b51ef8f6ea080ca3774b319c2294fbf2",
+        "manifest.json": "13806bb10069f9c7f8d00d8dceccfb5856e6fc2893d7fede39928e66f3e4fe8b",
+        "owner.json": "0c565913255a97db3fdca2497b5216fbe79bb8787de26cf5334afabb7e3ad0ae",
+        "prepare.trace.jsonl": "256e41dd04a78fc98f6dca802df07342fd37feb538bfe77ae2bb8b1ce22ccda0",
+        "publish.trace.jsonl": "7c23491468e28eb2a970cb77cf9551a2b3d535a4567a4317169e97a7a08f8d75",
+        "verification-2.json": "89012e31efab7f67e023f29f2a91548ee9bff847a5bcf8bb87beb42ac57bdb86"
+      },
+      "scratch": "/private/tmp/photara-ps2-remount-x98sheak",
+      "verification": {
+        "binding_generation": 2,
+        "closure_valid": true,
+        "head_digest": "2004c2ab8e6e2bf48cc99792767764e98486dc72b6444af26504976ae83626f6",
+        "intent_present": true,
+        "note": "mount experiment evidence must be recorded separately; reopening alone proves no remount",
+        "power_loss_tested": false,
+        "qualified": false,
+        "receipt_present": false,
+        "remount_tested": false,
+        "saved_claim": false,
+        "selected": "old"
+      },
+      "verify_exit": 0
+    },
+    {
+      "binding_after": {
+        "generation": 2,
+        "image_association_asserted_by_controller": true,
+        "image_pin": [
+          16777229,
+          354207635
+        ],
+        "manifest_digest": "ef6e6fda7aede403493f61cf84703644ec21fb7182f7b5edbea393d10913f31e",
+        "mount_pin": [
+          16777242,
+          2
+        ],
+        "mount_source": "/dev/disk7s1"
+      },
+      "binding_before": {
+        "generation": 1,
+        "image_association_asserted_by_controller": true,
+        "image_pin": [
+          16777229,
+          354207635
+        ],
+        "manifest_digest": "ef6e6fda7aede403493f61cf84703644ec21fb7182f7b5edbea393d10913f31e",
+        "mount_pin": [
+          16777242,
+          2
+        ],
+        "mount_source": "/dev/disk7s1"
+      },
+      "controller_observed_clean_remount": true,
+      "cut": "publish HEAD.json",
+      "cut_after": true,
+      "exact_head_before": "e5f3447a3d4b200a9c026aa40e2a96f2a8435994991418030cc76fd2dae6f895",
+      "exact_head_unchanged_across_remount": true,
+      "expected_publish_exit": 82,
+      "expected_selected": "candidate",
+      "final_clean_detach_exit": 0,
+      "final_image_absent_from_hdiutil_info": true,
+      "first_clean_detach_exit": 0,
+      "last_publish_trace": {
+        "errno": null,
+        "event": "after",
+        "step": "publish HEAD.json"
+      },
+      "prepare_exit": 0,
+      "publish_exit": 82,
+      "raw_sha256": {
+        "binding-1.json": "6533c740bac887a5f1d291309c12513abe68353bf5e66772d0c0e3500553af54",
+        "binding-2.json": "1a7709b23df88b940436053d3ba71da41ea2ac5dfeeab47e3a8be3ddbfbc7406",
+        "commands.json": "29f6e538b144daecde02285f77e1a76dd16e4d136108a142d70c08918a1c0b14",
+        "info-after-attach-2.plist": "6f353ad80b8b5856958de368aba8a9acfc2b7a1591d9a643f9793842ad908c07",
+        "info-after-final-clean-detach.plist": "10316ec755a352ce2fbfb99553a3a6fc2dd9269b955e64cb055b8f5182f920f0",
+        "info-after-first-clean-detach.plist": "10316ec755a352ce2fbfb99553a3a6fc2dd9269b955e64cb055b8f5182f920f0",
+        "info-before-final-clean-detach.plist": "6f353ad80b8b5856958de368aba8a9acfc2b7a1591d9a643f9793842ad908c07",
+        "info-before-first-clean-detach.plist": "8c9b4d4d0d990db40c70b9b0e3145786eb84a340cdec54aaf9db13068fed8f3e",
+        "manifest.json": "ef6e6fda7aede403493f61cf84703644ec21fb7182f7b5edbea393d10913f31e",
+        "owner.json": "440a502d0d74385c0405e99a74ebc0374d7d5c5564a31061e3a99d0568e06967",
+        "prepare.trace.jsonl": "256e41dd04a78fc98f6dca802df07342fd37feb538bfe77ae2bb8b1ce22ccda0",
+        "publish.trace.jsonl": "b88edd00a4a69e94888d5eabd4cc4f7623b4ae97341a3ce04d471af5c87ae08c",
+        "verification-2.json": "3184ae544d5a7be5e58e45ba44f31252c33d14dbdb7ec5138c62a0846cf0be0b"
+      },
+      "scratch": "/private/tmp/photara-ps2-remount-ig6wqv83",
+      "verification": {
+        "binding_generation": 2,
+        "closure_valid": true,
+        "head_digest": "e5f3447a3d4b200a9c026aa40e2a96f2a8435994991418030cc76fd2dae6f895",
+        "intent_present": true,
+        "note": "mount experiment evidence must be recorded separately; reopening alone proves no remount",
+        "power_loss_tested": false,
+        "qualified": false,
+        "receipt_present": false,
+        "remount_tested": false,
+        "saved_claim": false,
+        "selected": "candidate"
+      },
+      "verify_exit": 0
+    }
+  ],
+  "controller_path": "/private/tmp/photara-ps2-remount-cuts-controller.py",
+  "controller_sha256": "b55f2f7b903edd6dfbc2ba7ff79d91fa33b8da58b307dd50afacd3708b45dcc2",
+  "date": "2026-09-27",
+  "full_result_path": "/private/tmp/photara-ps2-remount-cuts-result.json",
+  "full_result_sha256": "3c5535929789016103d0b14f51805734100c346ebb6d0aed9172be42cc107f44",
+  "image_capacity_bytes_per_case": 134217728,
+  "limits": [
+    "Exactly two controlled process exits, immediately before and after HEAD rename.",
+    "Clean detach may flush outstanding writes, including after-HEAD directory metadata not explicitly flushed before process exit.",
+    "No power interruption, kernel failure, force eject, or existing volume modification.",
+    "Harness remount_tested remains false; separate controller supplies actual clean detach/attach observation.",
+    "No production qualification; private temporary images retained detached."
+  ],
+  "os_build": "26A428",
+  "os_version": "27.0",
+  "production_saved": false,
+  "qualified_storage_profile": false,
+  "source": "crates/photara-store/tests/package_planning/macos_remount_harness.rs",
+  "source_sha256": "af7b4265ebd6601ba8421f4540677618a8b0f1b61c972e1feea1f6c89526d24d",
+  "trial": "controlled-process-cuts-followed-by-clean-apfs-disk-image-remount"
+}

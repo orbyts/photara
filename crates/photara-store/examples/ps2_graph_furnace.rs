@@ -1,13 +1,16 @@
 //! Disposable genuine Graph/journal/checkpoint furnace, not a production codec.
 //! Every acknowledgement below is an unqualified model observation: `sync_all` is
 //! not an approved platform durability profile. No external media is accessed.
+use photara_core::canonical_json;
+#[cfg(test)]
 use photara_core::{
-    GraphCommand, GraphCommandEnvelope, GraphDocument, NodeDefinitionRegistry, ValueTypeRegistry,
-    apply_graph_command, canonical_json,
+    GraphCommand, GraphCommandEnvelope, NodeDefinitionRegistry, ValueTypeRegistry,
+    apply_graph_command,
 };
+#[cfg(test)]
 use photara_store::package::{
     self,
-    planning::{AuthoredCommand, AuthoredCoordinate, GraphCoordinate, MutationRequest},
+    planning::{AuthoredCommand, MutationRequest},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -22,15 +25,17 @@ use std::{
 };
 #[path = "ps2_graph_furnace/index.rs"]
 mod index;
-#[path = "ps2_graph_furnace/oracle.rs"]
-mod oracle;
+#[path = "ps2_graph_furnace/model.rs"]
+mod model;
 use index::{
     authored, btree_build, btree_insert, lookup, make_root, prefix, radix_build, radix_insert,
     root, seq_append, seq_build, seq_node,
 };
+use model::{Record, State, replay, workload};
+#[cfg(test)]
+use model::{TIME, execute, oracle, request};
 type Result<T> = std::result::Result<T, String>;
 const FAN: usize = 16;
-const TIME: &str = "2026-09-17T00:00:00.000Z";
 fn hash(b: &[u8]) -> String {
     format!("{:x}", Sha256::digest(b))
 }
@@ -59,6 +64,7 @@ fn ensure(ok: bool, msg: &str) -> Result<()> {
 fn encode<T: Serialize>(v: &T) -> Result<Vec<u8>> {
     canonical_json(&serde_json::to_value(v).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
 }
+#[cfg(test)]
 fn decode<T: serde::de::DeserializeOwned>(v: Value) -> T {
     serde_json::from_value(v).unwrap()
 }
@@ -277,185 +283,6 @@ impl Store {
         }
         Ok(n)
     }
-}
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-struct State {
-    graph: GraphDocument,
-    authored_revision: u64,
-    prefix: String,
-    count: u64,
-}
-impl State {
-    fn initial(nodes: usize) -> Self {
-        let mut graph = oracle::graph();
-        let template = graph.nodes[0].clone();
-        graph.nodes = (0..nodes)
-            .map(|n| {
-                let mut v = template.clone();
-                v.id = decode(json!(id(1_000_000 + n as u64)));
-                v
-            })
-            .collect();
-        Self {
-            graph,
-            authored_revision: 1,
-            prefix: hash(b"fixture-genesis"),
-            count: 0,
-        }
-    }
-    fn coordinate(&self) -> Result<AuthoredCoordinate> {
-        let digest = hash(&encode(&self.graph)?);
-        let parse = |s: &str| package::Sha256Hex::parse(s).map_err(|e| e.to_string());
-        let graph = GraphCoordinate {
-            revision: package::DecimalU64::parse(&self.graph.revision.get().to_string()).unwrap(),
-            semantic_digest: parse(&digest)?,
-            payload_digest: parse(&digest)?,
-            envelope_digest: parse(&hash(&encode(
-                &json!({"fixture_graph":self.graph,"updated_at":TIME}),
-            )?))?,
-        };
-        Ok(AuthoredCoordinate {
-            revision: package::DecimalU64::parse(&self.authored_revision.to_string()).unwrap(),
-            authored_digest: parse(&hash(&encode(
-                &json!({"fixture_graph":self.graph,"authored_revision":self.authored_revision}),
-            )?))?,
-            graphs: BTreeMap::from([(self.graph.id, graph)]),
-        })
-    }
-}
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-struct Record {
-    id: String,
-    request: String,
-    ordinal: u64,
-    intent: Value,
-    before: Value,
-    after: Value,
-    unchanged: bool,
-    fixture_inverse_of: Option<String>,
-    previous_prefix: String,
-}
-fn execute(
-    state: &mut State,
-    request: &MutationRequest,
-    inverse: Option<String>,
-) -> Result<Record> {
-    ensure(
-        request.expected == state.coordinate()?,
-        "stale expected coordinate",
-    )?;
-    let AuthoredCommand::Graph { envelope } = &request.command else {
-        return Err("fixture Graph commands only".into());
-    };
-    ensure(
-        envelope.command_id.to_string() == request.operation_id.to_string(),
-        "command identity",
-    )?;
-    let result = apply_graph_command(
-        &state.graph,
-        envelope,
-        &NodeDefinitionRegistry::default(),
-        &ValueTypeRegistry::default(),
-    )
-    .map_err(|e| e.to_string())?;
-    let mut normalized = result.graph.clone();
-    normalized.revision = state.graph.revision;
-    let unchanged = normalized == state.graph;
-    let before = serde_json::to_value(state.coordinate()?).unwrap();
-    if !unchanged {
-        state.graph = result.graph;
-        state.authored_revision += 1;
-    }
-    let record = Record {
-        id: request.operation_id.to_string(),
-        request: hash(&encode(request)?),
-        ordinal: state.count + 1,
-        intent: serde_json::to_value(request).unwrap(),
-        before,
-        after: serde_json::to_value(state.coordinate()?).unwrap(),
-        unchanged,
-        fixture_inverse_of: inverse,
-        previous_prefix: state.prefix.clone(),
-    };
-    state.count += 1;
-    state.prefix = hash(&encode(&record)?);
-    Ok(record)
-}
-fn request(state: &State, n: u64, command: GraphCommand) -> Result<MutationRequest> {
-    Ok(MutationRequest {
-        version: 1,
-        operation_id: decode(json!(id(n))),
-        expected: state.coordinate()?,
-        command: AuthoredCommand::Graph {
-            envelope: Box::new(GraphCommandEnvelope {
-                command_id: decode(json!(id(n))),
-                graph_id: state.graph.id,
-                expected_revision: state.graph.revision,
-                command,
-            }),
-        },
-        updated_at: TIME.into(),
-    })
-}
-fn workload(state: &mut State, n: u64) -> Result<Record> {
-    let signed = i64::try_from(n).map_err(|_| "operation bound")?;
-    let slot = ((n / 8) as usize) % state.graph.nodes.len();
-    let node = &state.graph.nodes[slot];
-    let pos = &node.extensions["photara.graph-position"];
-    let (x, y) = if n % 8 == 2 {
-        (pos["x"].as_i64().unwrap(), pos["y"].as_i64().unwrap())
-    } else if n % 8 == 3 {
-        (signed - 3, -(signed - 3))
-    } else {
-        (signed, -signed)
-    };
-    let cmd = GraphCommand::SetNodePosition {
-        node_id: node.id,
-        x,
-        y,
-    };
-    let command = if n % 8 == 4 {
-        GraphCommand::Batch {
-            commands: vec![
-                cmd,
-                GraphCommand::SetNodePosition {
-                    node_id: state.graph.nodes[(slot + 1) % state.graph.nodes.len()].id,
-                    x: x + 1,
-                    y,
-                },
-            ],
-        }
-    } else {
-        cmd
-    };
-    let req = request(state, n, command)?;
-    execute(state, &req, if n % 8 == 3 { Some(id(n - 2)) } else { None })
-}
-fn replay(state: &mut State, r: &Record) -> Result<()> {
-    ensure(
-        r.intent["expected"] == serde_json::to_value(state.coordinate()?).unwrap(),
-        "replay expected",
-    )?;
-    let envelope: GraphCommandEnvelope =
-        serde_json::from_value(r.intent["command"]["envelope"].clone())
-            .map_err(|e| e.to_string())?;
-    let req = MutationRequest {
-        version: 1,
-        operation_id: decode(r.intent["operation_id"].clone()),
-        expected: state.coordinate()?,
-        command: AuthoredCommand::Graph {
-            envelope: Box::new(envelope),
-        },
-        updated_at: r.intent["updated_at"].as_str().ok_or("intent time")?.into(),
-    };
-    ensure(
-        serde_json::to_value(&req).unwrap() == r.intent,
-        "canonical request preservation",
-    )?;
-    ensure(
-        execute(state, &req, r.fixture_inverse_of.clone())? == *r,
-        "original receipt replay",
-    )
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 struct Head {

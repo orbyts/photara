@@ -28,7 +28,7 @@ fn record(k: &str, version: u32, mut v: Value) -> Value {
     v["project_id"] = json!(id(20000));
     v
 }
-pub(super) fn add_node(o: &mut BTreeMap<String, Value>) {
+pub(crate) fn add_node(o: &mut BTreeMap<String, Value>) {
     let raw: Value = serde_json::from_str(include_str!(
         "../../../../docs/fixtures/generation-two/d19-contracts.json"
     ))
@@ -47,7 +47,7 @@ pub(super) fn add_node(o: &mut BTreeMap<String, Value>) {
         json!([{"node_id":node,"context":r("node-context")}]);
     o.insert("node-context".into(),record("photara.context.authored",1,json!({"scope":{"kind":"node","project_id":id(20000),"graph_id":id(20018),"node_id":node},"variables":[],"expressions":[],"captures":[],"metadata_selections":[],"node_contexts":[]})));
 }
-pub(super) fn graph() -> photara_core::GraphDocument {
+pub(crate) fn graph() -> photara_core::GraphDocument {
     let mut objects = fixture_objects();
     add_node(&mut objects);
     decode(objects["graph"]["graph"].clone())
@@ -275,7 +275,7 @@ impl Builder {
     }
 }
 #[cfg(test)]
-pub(super) fn build(
+pub(crate) fn build(
     mut edit: impl FnMut(&mut BTreeMap<String, Value>),
 ) -> BTreeMap<String, Vec<u8>> {
     let mut objects = fixture_objects();

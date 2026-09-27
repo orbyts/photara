@@ -7,61 +7,64 @@ and Retention contract and the separate `Accepted`/`Saved` acknowledgements
 remain unchanged. Large external managed media is not read or strongly hashed
 by ordinary open, autosave, root turnover or metadata validation.
 
-## Current PS2 synthesis and next gate — 2026-09-19
+## Current PS2 synthesis and next gate — 2026-09-27
 
-This section incorporates the later prerequisite fixtures so a fresh task does
-not need to reconstruct PS2 from every experiment report.
+The approved direction remains one authoritative `HEAD.json` selecting exact,
+independently verifiable active/recovery semantic and physical-ownership closure.
+The actual-v3 disposable path now automatically captures bounded original data
+and locator prefixes, retains the original-token batch, and plans the allocation
+extents of its own ownership/locator suffixes to a bounded fixed point. Selected
+content retains exact commitments; unreachable intermediate frames have only
+allocation ownership. Reduced prefix coverage, corrupted prefix recapture and
+unsealing an immutable generation refuse. See [automatic prefix batches](PS2_AUTOMATIC_PREFIX_BATCH.md)
+and [self-owned suffixes and settlement](PS2_SELF_OWNED_SUFFIX_FIXTURE.md).
 
-The approved direction remains one authoritative `HEAD.json` selecting both
-exact semantic and exact physical-ownership closure. The disposable actual-v3
-typed-inventory fixture proves that those closures can be independently checked
-inside the selected locator, but automatic all-pack ownership, locator/control
-self-coverage and refundable capacity are not integrated. The earlier attempt to
-add untyped ownership leaves to the semantic locator correctly failed as an
-extraneous closure; weakening that audit is rejected.
+Original-token settlement checks finite exact control generations, original pack
+identity, final extent and planned suffix bytes. It consumes nonnegative observed
+pack growth plus conservative controls; shrinking does not create credit. Both
+maps pass the partial-record and independent closure checks. The 48 KiB recipe
+cap, bounded bootstrap and refusal of fresh-pack rollover remain explicit limits.
+Controls still accumulate conservatively per transition, and per-generation
+refundable attribution is not integrated.
 
-The bounded typed-recipe fixture proves exact original-token replay of partial
-records without a routine lifetime scan; all 53 furnace tests pass. It preserves
-the original hold and does not duplicate payload bytes. Its roughly 50 KB of
-process writes, 28 syncs and roughly 3 MB conservative hold for a 4 KiB net
-allocation are negative practical evidence, not a final publication path.
+The [genuine Graph/journal integration](PS2_GRAPH_ORIGINAL_TOKEN_PACKED.md) now
+shares the original Core Graph command model with the packed actual-v3 path.
+Before journal effects, the original liability binds canonical group bytes,
+source staging, physical continuation and full allowed control selectors.
+Twenty-one interruption points per map cover journal, source, partial packed
+records, publication and cleanup; replay retains the original token and exact
+receipts. No-op/inverse behavior and historical receipt lookup remain intact.
+This Graph path still consumes its conservative full hold and does not yet
+compose its publications with ownership self-coverage or refundable retirement.
 
-The active-prefix adapter proves same-inode growth, retry, sealing and retirement
-across data/locator/control-like packs, but is a forked bounded model rather than
-actual-v3 integration. Its 24 syncs per group and 4.79–19.65× write amplification
-are also negative evidence. The allocation-credit prerequisite proves that an
-exact retired immutable pack can release its project-owned charge only after all
-pin/root/reader/unknown-outcome and physical-absence checks. That credit is not
-filesystem free space, and active-pack growth, metadata/control ownership and
-qualified availability remain open.
+The 64/128-operation Graph measurements remain negative overhead evidence:
+roughly 31.8–34.2 kB process writes per operation at group 32, 43–44 fixture syncs
+per group and a 19.37–19.91 MB hold. They include journal and source staging,
+but establish neither a final index winner nor production latency. B-tree remains
+the provisional packed lead; radix stays the required comparator.
 
-The separate Graph/journal furnace uses genuine Core Graph commands, typed PS1
-intents and original receipts. It retains every accepted operation, exercises
-no-op/inverse behavior and bounded old-ID lookup, and keeps both representations
-in comparison: radix wins its simple append workload while the combined packed
-physical fixture favors B-tree. Neither result selects permanent wire.
+The macOS syscall and split-process matrix has been rerun. Three explicitly
+authorized private APFS-image clean-remount cases cover successful publication
+and cuts immediately before/after HEAD replacement. Exact old/candidate closure
+survives remount, and every image was detached. Clean detach may flush writes:
+these cases do not prove abrupt-power, provider-path or integrated Graph
+qualification. See [clean-remount evidence](PS2_MACOS_CLEAN_REMOUNT.md).
 
-The immediate engineering dependency is therefore:
+The remaining engineering dependency is:
 
-1. use bounded recipe replay to generate complete ownership closure and
-   original-token coverage for active-prefix growth, metadata self-coverage and
-   control generations in the actual-v3 placement;
-2. reconcile exact measured allocation ownership and post-retirement project
-   credits across active/recovery/reader/all-pin/hold roots without double charge,
-   speculative deletion credit or an OS-space-reservation claim;
-3. integrate the genuine Graph/journal workload and canonical receipts with that
-   packed physical path and the qualified barrier model;
-4. compare B-tree and radix again on the integrated workload, then present the
-   permanent recipe/wire and macOS storage qualification for review.
+1. integrate a bounded standing control allowance, attributable per-generation
+   charges and exact post-retirement project-ledger credit across all roots,
+   pins and original-token holds, with no speculative or filesystem-space credit;
+2. bind fresh pack generations and compose ownership self-coverage with every
+   genuine Graph publication, then compare both maps at meaningful scale;
+3. complete the qualified barrier/storage evidence and present the permanent
+   recipe/wire for review before shared production reader/writer implementation.
 
-Until those steps pass, there is no production reader/writer, live package write,
-qualified `Accepted`/`Saved`, migration, project switching or latency claim. See
-[typed recipe recovery](PS2_TYPED_RECIPE_RECOVERY_PREREQUISITE.md),
-[actual-v3 ownership closure](PS2_V3_OWNERSHIP_CLOSURE_GATE.md),
-[active-prefix ownership](PS2_ACTIVE_PREFIX_OWNERSHIP_ADAPTER.md),
-[allocation credit](PS2_ALLOCATION_OWNERSHIP_CREDIT_PREREQUISITE.md) and
-[Graph/journal evidence](PS2_GRAPH_JOURNAL_CHECKPOINT_FURNACE.md) only when the
-focused implementation or exact measurement is needed.
+The earlier [active-prefix adapter](PS2_ACTIVE_PREFIX_OWNERSHIP_ADAPTER.md) and
+[allocation-credit prerequisite](PS2_ALLOCATION_OWNERSHIP_CREDIT_PREREQUISITE.md)
+remain focused design evidence, not substitutes for actual-v3 integration.
+There is no production reader/writer, live package write, qualified
+`Accepted`/`Saved`, migration or safe project-switching implementation.
 
 ## What changed after the negative tail-copy experiment
 

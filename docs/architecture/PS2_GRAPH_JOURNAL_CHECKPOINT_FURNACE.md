@@ -6,6 +6,11 @@ this report. This extends the index comparison to genuine authored Graph
 commands; it does **not** integrate the earlier combined physical-placement,
 liveness and reserve fixture.
 
+Later integration: [original-token Graph journal on actual-v3 packed placement](PS2_GRAPH_ORIGINAL_TOKEN_PACKED.md)
+connects the shared command model to packed liability admission and bounded
+partial-record replay. This report remains the historical separate-furnace
+measurement; its larger-count timings are not measurements of the integrated path.
+
 ## What was exercised
 
 The new `ps2_graph_furnace` example uses Core `apply_graph_command`, typed PS1

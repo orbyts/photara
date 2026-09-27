@@ -698,6 +698,7 @@ fn batch_inner(
                         id: actual,
                         request,
                         ordinal,
+                        ..
                     } => ensure(
                         actual == *id && request == *req && ordinal == entry.ordinal,
                         "original receipt mismatch",
@@ -766,6 +767,7 @@ fn batch_inner(
         )?;
         let ordinal = old.count + i as u64 + 1;
         let receipt = st.put(&Node::Receipt {
+            record: None,
             id: id.clone(),
             request: req.clone(),
             ordinal,
@@ -1028,6 +1030,7 @@ fn faults() -> Result<Vec<String>> {
         // Registered unselected fixture objects create one mostly dead sealed segment.
         for _ in 0..40 {
             st.put(&Node::Authored {
+                state: None,
                 value: "x".repeat(32768),
             })?;
         }

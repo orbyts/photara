@@ -41,3 +41,20 @@ This successful publication/remount case does not replace the separate
 seven-cut process matrix, exercise remount at every publication cut, qualify
 the actual-v3 backend or establish hardware power-loss durability. No permanent
 format or production reader/writer is enabled by this result.
+
+Two additional controlled process-exit cases passed on the same Mac using the
+unchanged harness and separate private 128 MiB APFS images. The
+[cut/remount evidence](verification/ps2-macos-clean-remount-cuts-20260927.json)
+records exit 81 immediately before `publish HEAD.json`, followed by a clean
+detach/attach and exact old HEAD with valid closure; exit 82 immediately after
+that rename likewise reopens the exact candidate HEAD with valid closure.
+Both generation-2 verifications found the original intent and no receipt.
+Both HEAD hashes were unchanged across remount. The controller checked each
+exact image/device association before detach; both final clean detaches passed,
+both images were absent from `hdiutil info`, and detached images and logs remain
+in `/private/tmp/photara-ps2-remount-x98sheak` and
+`/private/tmp/photara-ps2-remount-ig6wqv83`, respectively. These are exactly two
+process exits followed by **clean** remounts: the post-HEAD exit precedes the
+harness's directory barriers, and clean detach may flush that metadata. They
+add no abrupt-interruption, power-loss, complete-cut-matrix or production
+qualification claim.

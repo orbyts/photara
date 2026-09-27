@@ -1000,7 +1000,7 @@ impl Fixture {
                         "operation digest conflict",
                     )?;
                     ensure(
-                        matches!(self.object(&h.active,&entry.receipt)?,Node::Receipt{id,request,ordinal} if id==operation&&request==digest&&ordinal==entry.ordinal),
+                        matches!(self.object(&h.active,&entry.receipt)?,Node::Receipt{id,request,ordinal, .. } if id==operation&&request==digest&&ordinal==entry.ordinal),
                         "original receipt mismatch",
                     )?;
                     return Ok(entry.receipt);
@@ -1628,6 +1628,7 @@ fn logical_group(source: &mut Store, size: u64) -> Result<Head> {
             "group duplicate operation",
         )?;
         let receipt = source.put(&Node::Receipt {
+            record: None,
             id: operation.clone(),
             request: request.clone(),
             ordinal,
