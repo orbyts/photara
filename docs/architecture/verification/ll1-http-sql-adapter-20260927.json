@@ -1,0 +1,36 @@
+{
+  "date": "2026-09-27",
+  "command": "python3 scripts/test_ll1_http_sql_adapter.py",
+  "result": "pass",
+  "rust_tests": 1,
+  "rust_test_seconds": 0.52,
+  "default_clock_regression_cases": 46,
+  "production_changes": false,
+  "source_sha256": {
+    "crates/photara-service/src/http.rs": "3d540f1688cd625d263a23b42b55601ee140c5c787f19245039674fcb22a45c9",
+    "crates/photara-service/src/http_ll1_sql_tests.rs": "d5d4528a2c5c7060d0821e0de5e7493e18775b5122b3d3f11fc078cf7e5034e0",
+    "scripts/test_ll1_http_sql_adapter.py": "4a33a892be4f75beebb0de68cae58ac09ea82238ff28aaf1705a5fe4ef811fc4",
+    "scripts/test_ll1_fresh_device_receipt.py": "b27c58fac59f2a0ad01394ee4065eea46398f474b8848e06d31ca08967811542",
+    "scripts/test_ll1_protected_authorization.py": "2ba9352e8e6ea101c5493e5012504f47cb9517b677b3267b7b6e0694372baed4",
+    "scripts/test_ll1_protected_postgres_executor.py": "8e08fb49920828d9644e33d27c9d19cab168424f28c78b69fb95012b8f58d618",
+    "scripts/test_ll1_actual_postgres_baseline.py": "aab3a7bd623d7a2199dded404ae3653d0fb5606f7a4843bea9148edaa106c607",
+    "scripts/test_ll1_retirement_constraints.py": "0ba8c7e56f2989e3f8d770f99ff30739f0b68be0278022202fed2261682e51a1"
+  },
+  "outputs": {
+    "combined_private_proof": "   Compiling photara-service v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-service)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.03s\n     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-567c51d9f6f0fa06)\n\nrunning 1 test\ntest http::ll1_sql_tests::postgres_ll1_signed_sql_adapter ... LL1 combined adapter: signed execution/receipt, exact rollback, three role denials, credential revocation and three post-lock deadline gates passed\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.52s\n\n{\"baseline\": {\"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\", \"forced_rls_tables\": 45, \"foreign_keys\": 114, \"functions\": 52, \"policies\": 173, \"tables\": 59, \"triggers\": 122}, \"production_changes\": false, \"result\": \"pass\", \"scope\": \"signed HTTP and protected SQL, private fixture only\"}\n",
+    "default_clock_46_case_regression": "{\"case\": \"b_no_terminal_is_not_found\", \"result\": \"pass\"}\n{\"case\": \"b_cannot_execute_a_review\", \"result\": \"pass\"}\n{\"case\": \"a_expired_review_cannot_first_execute\", \"result\": \"pass\"}\n{\"case\": \"other_device_secret\", \"result\": \"pass\"}\n{\"case\": \"random_secret\", \"result\": \"pass\"}\n{\"case\": \"wrong_revision\", \"result\": \"pass\"}\n{\"case\": \"identity_substitution\", \"result\": \"pass\"}\n{\"case\": \"execution_changed_hash\", \"result\": \"pass\"}\n{\"case\": \"ll1_api_query_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_api_execute_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_api_receipt_read_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_api_receipt_write_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_query_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_execute_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_receipt_read_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_receipt_write_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_query_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_execute_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_receipt_read_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_receipt_write_denied\", \"result\": \"pass\"}\n{\"case\": \"service_raw_authorize_denied\", \"result\": \"pass\"}\n{\"case\": \"service_raw_execute_denied\", \"result\": \"pass\"}\n{\"case\": \"service_review_write_denied\", \"result\": \"pass\"}\n{\"case\": \"before_grant_consumption_exact_rollback\", \"result\": \"pass\"}\n{\"case\": \"after_grant_consumption_exact_rollback\", \"result\": \"pass\"}\n{\"case\": \"after_terminal_capture_exact_rollback\", \"result\": \"pass\"}\n{\"case\": \"explicit_rollback_after_terminal_capture\", \"result\": \"pass\"}\n{\"case\": \"a_commit_reply_discarded\", \"result\": \"pass\"}\n{\"case\": \"a_original_bytes\", \"result\": \"pass\"}\n{\"case\": \"revoked_a_receipt_denied\", \"result\": \"pass\"}\n{\"case\": \"revoked_a_retry_denied\", \"result\": \"pass\"}\n{\"case\": \"eligible_b_exact_original_without_grant\", \"result\": \"pass\"}\n{\"case\": \"eligible_b_current_identity_same_initiating_account\", \"result\": \"pass\"}\n{\"case\": \"eligible_b_retry_only_reads_terminal\", \"result\": \"pass\"}\n{\"case\": \"other_account_no_receipt_disclosure\", \"result\": \"pass\"}\n{\"case\": \"b_changed_hash_denied\", \"result\": \"pass\"}\n{\"case\": \"b_unknown_operation_not_found\", \"result\": \"pass\"}\n{\"case\": \"b_unexecuted_review_not_found\", \"result\": \"pass\"}\n{\"case\": \"b_unexecuted_review_cannot_execute\", \"result\": \"pass\"}\n{\"case\": \"b_receipt_after_review_expiry\", \"result\": \"pass\"}\n{\"case\": \"b_retry_after_review_expiry\", \"result\": \"pass\"}\n{\"case\": \"b_missing_terminal_after_expiry\", \"result\": \"pass\"}\n{\"case\": \"active_b_suspended_credential_denied\", \"result\": \"pass\"}\n{\"case\": \"b_exact_receipt_after_restart\", \"result\": \"pass\"}\n{\"case\": \"b_no_terminal_still_no_execution_after_restart\", \"result\": \"pass\"}\n{\"case\": \"revoked_a_still_denied_after_restart\", \"result\": \"pass\"}\n{\"cases\": 46, \"catalog\": {\"tables\": 59, \"foreign_keys\": 114, \"triggers\": 122, \"policies\": 173, \"functions\": 52, \"forced_rls_tables\": 45, \"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\"}, \"status\": \"disposable_fresh_device_receipt_proven\", \"limitations\": [\"synthetic trusted identity; no HTTP/OIDC integration\", \"fixture review/receipt/secret codecs; not production formats\", \"sparse aggregate; no complete lifecycle concurrency proof\", \"clean restart with fsync-disabled inherited harness; no power-loss qualification\", \"NotFound never establishes a conclusive rejection\"]}\n{\"temporary_cluster\": \"stopped and removed\"}\n",
+    "strict_service_clippy": "    Checking photara-service v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-service)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.70s\n"
+  },
+  "checks": [
+    "cargo clippy --offline -p photara-service --lib --tests -- -D warnings",
+    "rustfmt --edition 2024 --check crates/photara-service/src/http.rs crates/photara-service/src/http_ll1_sql_tests.rs",
+    "scoped git diff --check"
+  ],
+  "limits": [
+    "cfg(test) HTTP route and test-local authority connection only",
+    "synthetic signed JWKS, controlled clocks, fixture review and receipt encodings",
+    "candidate SQL guard overlay; no production schema or role provisioning",
+    "private inherited cluster disables fsync; no crash/power-loss qualification",
+    "no cancellation/disconnect or arbitrary raw unconsumed-grant commit proof"
+  ]
+}

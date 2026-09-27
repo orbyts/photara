@@ -128,8 +128,12 @@ The current synthesis and exact measurements are in
   granting the replacement device permission to execute the original request.
   A separate [Rust credential-seam fixture](architecture/verification/LL1_RUST_CREDENTIAL_SEAM.md)
   now exercises signed HTTP tokens, database credential/revision checks and two
-  synchronized expiry/revocation lock waits. Its receipt observer is in memory;
-  composing it with the isolated SQL authority transaction remains open.
+  synchronized expiry/revocation lock waits. The subsequent
+  [combined signed HTTP-to-SQL fixture](architecture/verification/LL1_HTTP_SQL_ADAPTER.md)
+  executes the protected SQL transaction and retrieves exact original receipts,
+  with fresh credential checks, three post-lock deadline gates, ordinary-role
+  denials and exact rollback snapshots. These remain test routers and disposable
+  overlays; production authority custody and lifecycle integration remain open.
 
 The current entry is
 [LL1 protected executor contract](architecture/verification/LL1_PROTECTED_EXECUTOR_CONTRACT.md),
@@ -149,8 +153,9 @@ disposable proofs, not production deletion.
   (PS4).
 - No production Library create/select/rename wiring or signed cross-Library
   acceptance (LL2a). Library removal is LL2b and remains later.
-- LL1 combined Rust/OIDC-to-SQL authority handoff, canonical evidence/replay codecs, remaining
-  lifecycle/concurrency states and production implementation remain absent.
+- LL1 production Rust/OIDC-to-SQL authority handoff, canonical evidence/replay
+  codecs, connection-loss/cancellation and remaining lifecycle/concurrency states
+  remain absent. The combined handoff now has disposable fixture evidence.
 - No production deletion, live-data migration, deployment or public launch.
 
 ## Dependency order and human acceptance

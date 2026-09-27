@@ -723,3 +723,7 @@ mod tests {
 #[cfg(test)]
 #[path = "http_ll1_credential_tests.rs"]
 mod ll1_credential_tests;
+
+#[cfg(test)]
+#[path = "http_ll1_sql_tests.rs"]
+mod ll1_sql_tests;

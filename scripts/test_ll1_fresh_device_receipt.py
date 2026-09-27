@@ -16,11 +16,12 @@ import test_ll1_protected_authorization as authority
 from test_ll1_protected_authorization import base, executor
 
 
-def overlay(pg):
-    base.require(pg, """SET ROLE photara_owner;
+def overlay(pg, now_ms=None):
+    clock_sql = "clock_timestamp()" if now_ms is None else f"to_timestamp({int(now_ms)}/1000.0)"
+    base.require(pg, f"""SET ROLE photara_owner;
 -- Synthetic clock/review, seeded only by the harness administrator. No token codec.
 CREATE TABLE ll1_probe.review_clock(singleton boolean PRIMARY KEY CHECK(singleton), instant timestamptz NOT NULL);
-INSERT INTO ll1_probe.review_clock VALUES(true,clock_timestamp());
+INSERT INTO ll1_probe.review_clock VALUES(true,{clock_sql});
 CREATE TABLE ll1_probe.device_review(
  actor uuid NOT NULL, operation uuid NOT NULL, identity uuid NOT NULL,
  device uuid NOT NULL, library uuid NOT NULL, revision bigint NOT NULL,

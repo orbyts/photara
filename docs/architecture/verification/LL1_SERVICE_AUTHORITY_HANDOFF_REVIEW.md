@@ -271,3 +271,20 @@ all baseline and overlay rows exactly. This proves rollback for those wrapper
 boundaries; it does not remove the original raw-authority fixture's deliberately
 committed orphan, test connection loss/cancellation, or complete the signed
 HTTP-to-SQL handoff. See [recorded rerun](ll1-fresh-device-rollback-20260927.json).
+
+### Combined signed HTTP-to-SQL fixture follow-up
+
+The [combined adapter proof](LL1_HTTP_SQL_ADAPTER.md) now connects real signed
+HTTP OIDC credentials to protected SQL fresh-device validation and actual
+terminal execution in one authority transaction. It covers exact original
+receipt recovery by B after A is revoked, ordinary-role denial, credential
+revocation and three synchronized post-lock deadline boundaries, including an
+actual deletion row lock. Internal error-origin assertions and complete
+baseline/overlay snapshots distinguish real boundary failures from generic
+HTTP denial. The original 46-case SQL suite still passes with the default clock.
+
+This is a cfg(test) router and private candidate overlay, not a production
+fourth pool or public route. The separate raw abandoned-grant case,
+connection-loss/cancellation behavior, production credential custody and
+permanent review/receipt encodings remain open. See the linked proof for
+executed source hashes and its synthetic-clock/JWKS and fsync-disabled limits.
