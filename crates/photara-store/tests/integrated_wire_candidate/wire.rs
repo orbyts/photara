@@ -711,7 +711,7 @@ fn provenance(v: &Value) -> Result<()> {
     digest(&v["policy_decision_sha256"])?;
     Ok(())
 }
-fn receipt(v: &Value, bootstrap: &str) -> Result<()> {
+pub(super) fn receipt(v: &Value, bootstrap: &str) -> Result<()> {
     schema(
         v,
         "photara.package.operation-receipt",
