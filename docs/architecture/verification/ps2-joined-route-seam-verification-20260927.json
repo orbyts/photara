@@ -1,0 +1,38 @@
+{
+  "base_commit": "c8c0cd7fb3cdc0c97f7ed79e217b176a87ff6915",
+  "date": "2026-09-27",
+  "limits": [
+    "Shared seam callers must validate selected bootstrap, admission/phase provenance, tickets and predecessor independently.",
+    "Original settled entry still requires empty tickets, null predecessors and original exact closure/accounting.",
+    "No HEAD-selected original-admission/phase/C transition is established by this refactor.",
+    "Fixed positive and negative canonical corpora unchanged."
+  ],
+  "source_sha256": {
+    "crates/photara-store/tests/scalable_joined_candidate.rs": "95839064913b16fb6b809d5f844ec2b4b37aa96908956b0a7a02e90f0fb4b59b",
+    "crates/photara-store/tests/scalable_joined_candidate/joined.rs": "bc2babfb301c799c8e4acf751c84eb172ac9c35d839af6e5af59dcc41978cdd5",
+    "docs/architecture/PS2_JOINED_SETTLED_BYTE_CANDIDATE.md": "25a4309deb6fe09e100c5b9c103150acfffba3913dc5cfcac13bebfec3a73817",
+    "docs/architecture/proposals/ps2/joined/joined-negatives.json": "012ac6b18eeaba864a8740a7122ec24f152529020988016343e29d627aefbfd6",
+    "docs/architecture/proposals/ps2/joined/linked-joined.json": "d5079e905db8181d6cd60a0b2548e4b1ddbd30e00bb1f9e1d34891e4b996f09e"
+  },
+  "status": "verified private test-reader refactor; no production or format approval",
+  "validation": {
+    "clippy": {
+      "command": "cargo clippy -p photara-store --test scalable_joined_candidate -- -D warnings",
+      "exit_code": 0,
+      "log": "/private/tmp/ps2-joined-route-seam-clippy.log",
+      "log_sha256": "4cf86278c1e6d659943a46a3d7e3da429ac15be90f0f17742e24ef85228e7d3e"
+    },
+    "format": {
+      "command": "rustfmt --edition 2024 --check crates/photara-store/tests/scalable_joined_candidate/joined.rs",
+      "exit_code": 0
+    },
+    "tests": {
+      "command": "cargo test -p photara-store --test scalable_joined_candidate",
+      "duration_seconds": 5.05,
+      "failed": 0,
+      "log": "/private/tmp/ps2-joined-route-seam-tests.log",
+      "log_sha256": "38d2376e87546de0cac6d9c1e1ae130dee07fd367f501d910536aea92bf4eaf6",
+      "passed": 12
+    }
+  }
+}

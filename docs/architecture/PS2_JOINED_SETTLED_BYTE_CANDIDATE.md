@@ -32,6 +32,15 @@ Twelve tests pass; strict scoped Clippy passes. The actual unchanged v1.1 reader
 rejects this outer commit with `UnsupportedFeature` before packed lookup, with no
 packed files supplied to that legacy reader.
 
+The subsequent route work extracts a private shared reader seam accepting
+already validated selected references and accounting. The original settled
+entry point still checks its original bootstrap, empty tickets, null
+predecessors and exact allocation/control sets. Its fixed byte corpora are
+unchanged. A separate [refactor verification](verification/ps2-joined-route-seam-verification-20260927.json)
+records the updated source hash, twelve passing regression tests, strict
+Clippy and targeted formatting; the original checkpoint evidence remains a
+record of its original sources. This extraction alone proves no transition.
+
 ## One selected bootstrap and typed closures
 
 The original operation corpus manifest bytes are unchanged. Both outer commit

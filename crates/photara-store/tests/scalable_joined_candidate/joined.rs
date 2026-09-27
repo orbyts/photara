@@ -281,7 +281,7 @@ impl World {
     pub(super) fn rehash_head(&mut self) {
         self.head["commit_sha256"] = json!(hash(&encode(&self.commit)));
     }
-    fn loose(&self, r: &Value) -> Result<Value> {
+    pub(super) fn loose(&self, r: &Value) -> Result<Value> {
         let k = key(r)?;
         let bytes = self.loose.get(&k.0).ok_or("missing direct accounting")?;
         ensure(
@@ -324,9 +324,9 @@ impl World {
         parse(&frame[16..])
     }
 }
-struct Resolver {
-    objects: BTreeMap<Key, (Value, u8)>,
-    used: BTreeSet<String>,
+pub(super) struct Resolver {
+    pub(super) objects: BTreeMap<Key, (Value, u8)>,
+    pub(super) used: BTreeSet<String>,
 }
 fn locator(
     w: &World,
@@ -381,7 +381,7 @@ fn locator(
     Ok(entries)
 }
 impl Resolver {
-    fn new(w: &World, r: &Value) -> Result<Self> {
+    pub(super) fn new(w: &World, r: &Value) -> Result<Self> {
         let mut used = BTreeSet::new();
         let entries = locator(w, r, &mut BTreeSet::new(), &mut used, 0)?;
         let mut objects = BTreeMap::new();
@@ -398,7 +398,7 @@ impl Resolver {
         }
         Ok(Self { objects, used })
     }
-    fn get(&self, r: &Value, tag: u8) -> Result<Value> {
+    pub(super) fn get(&self, r: &Value, tag: u8) -> Result<Value> {
         let (v, t) = self
             .objects
             .get(&key(r)?)
@@ -406,7 +406,7 @@ impl Resolver {
         ensure(*t == tag, "selected edge membership")?;
         Ok(v.clone())
     }
-    fn tree(&self, r: &Value, kind: Kind) -> Result<trees::Proof> {
+    pub(super) fn tree(&self, r: &Value, kind: Kind) -> Result<trees::Proof> {
         tree(
             &trees::Store {
                 selector: Value::Null,
@@ -529,18 +529,25 @@ fn owner(
         Ok(claims)
     }
 }
-struct Accounting {
-    global: BTreeSet<Key>,
-    charges: BTreeMap<String, Value>,
-    value: Value,
-    total: u64,
+pub(super) struct Accounting {
+    pub(super) global: BTreeSet<Key>,
+    pub(super) charges: BTreeMap<String, Value>,
+    pub(super) value: Value,
+    pub(super) total: u64,
 }
 #[allow(
     clippy::too_many_lines,
     reason = "Keep selected pack and retained-file accounting checks in exact authority order"
 )]
-fn accounting(w: &World, res: &Resolver, root: &Value, profile: &Value) -> Result<Accounting> {
-    let value = w.loose(&root["placement"]["accounting"])?;
+pub(super) fn accounting_at(
+    w: &World,
+    res: &Resolver,
+    root: &Value,
+    core_ref: &Value,
+    profile: &Value,
+    expected_tickets: &[Value],
+) -> Result<Accounting> {
+    let value = w.loose(core_ref)?;
     schema(
         &value,
         "accounting-tree",
@@ -559,7 +566,7 @@ fn accounting(w: &World, res: &Resolver, root: &Value, profile: &Value) -> Resul
     ensure(
         value["profile"] == PROFILE
             && value["incarnation"] == INCARNATION
-            && value["tickets"] == json!([]),
+            && value["tickets"] == json!(expected_tickets),
         "settled accounting scope",
     )?;
     let proof = res.tree(&value["sealed_charge_tree"], Kind::Charge)?;
@@ -730,6 +737,16 @@ fn accounting(w: &World, res: &Resolver, root: &Value, profile: &Value) -> Resul
         )?;
         total = add(total, number(&tip["registered_charge"])?)?;
     }
+    for ticket in expected_tickets {
+        fields(ticket, &["token", "allocation_id", "registered_charge"])?;
+        number(&ticket["token"])?;
+        let allocation = id(&ticket["allocation_id"])?;
+        ensure(
+            ids.insert(allocation.clone()) && !charges.contains_key(&allocation),
+            "disjoint ticket-accounted allocation",
+        )?;
+        total = add(total, number(&ticket["registered_charge"])?)?;
+    }
     ensure(
         total == number(&value["total_charge"])?,
         "exact once-only accounting total",
@@ -741,20 +758,64 @@ fn accounting(w: &World, res: &Resolver, root: &Value, profile: &Value) -> Resul
         total,
     })
 }
-#[allow(
-    clippy::too_many_lines,
-    reason = "One ordered pass ties semantic, physical and accounting roots"
-)]
+fn accounting(w: &World, res: &Resolver, root: &Value, profile: &Value) -> Result<Accounting> {
+    accounting_at(w, res, root, &root["placement"]["accounting"], profile, &[])
+}
+/// Already checked actual selected references; callers retain their own bootstrap
+/// and control-envelope authority checks. No synthetic HEAD or changed hash view.
+pub(super) struct SelectedLayout<'a> {
+    pub(super) root: &'a Value,
+    pub(super) resolver: &'a Resolver,
+    pub(super) accounting: &'a Accounting,
+    pub(super) original: &'a operations::Store,
+    pub(super) inventory_nodes: &'a BTreeSet<Key>,
+    pub(super) predecessor: &'a Value,
+}
 pub(super) fn verify_role(
     w: &World,
     ops: &Value,
     profile: &Value,
     role: &str,
 ) -> Result<RoleProof> {
-    ensure(matches!(role, "active" | "recovery"), "role")?;
     let root = w.bootstrap(ops)?;
+    let res = Resolver::new(w, &root["placement"][format!("{role}_locator")])?;
+    let account = accounting(w, &res, &root, profile)?;
+    let union = res.tree(&root["inventory"], Kind::Inventory)?;
+    let original = operations::Store::load(ops)?;
+    verify_selected_role(
+        w,
+        profile,
+        role,
+        &SelectedLayout {
+            root: &root,
+            resolver: &res,
+            accounting: &account,
+            original: &original,
+            inventory_nodes: &union.nodes,
+            predecessor: &Value::Null,
+        },
+    )
+}
+#[allow(
+    clippy::too_many_lines,
+    reason = "One ordered pass ties independently selected semantic, physical and accounting roots"
+)]
+pub(super) fn verify_selected_role(
+    w: &World,
+    profile: &Value,
+    role: &str,
+    selected_layout: &SelectedLayout<'_>,
+) -> Result<RoleProof> {
+    ensure(matches!(role, "active" | "recovery"), "role")?;
+    let SelectedLayout {
+        root,
+        resolver: res,
+        accounting,
+        original,
+        inventory_nodes,
+        predecessor,
+    } = selected_layout;
     let place = &root["placement"];
-    let res = Resolver::new(w, &place[format!("{role}_locator")])?;
     let selected = res.get(&root[role], 1)?;
     schema(
         &selected,
@@ -781,11 +842,10 @@ pub(super) fn verify_role(
         "StateRoot identity",
     )?;
     ensure(
-        selected["predecessor"].is_null(),
-        "settled fixture has no invented predecessor",
+        selected["predecessor"] == **predecessor,
+        "exact original predecessor commitment",
     )?;
-    let original = operations::Store::load(ops)?;
-    let original_proof = operations::verify_role(&original, role)?;
+    let original_proof = operations::verify_role(original, role)?;
     let mut semantic = original_proof.closure;
     let old = original.get(&original.roots[role]["operation_index"])?;
     let index = res.get(&selected["operation_index"], 1)?;
@@ -808,7 +868,7 @@ pub(super) fn verify_role(
     }
     ensure(normalized == old, "original operation root")?;
     semantic.insert(key(&selected["operation_index"])?);
-    for k in &operations::verify_role(&original, role)?.closure {
+    for k in &operations::verify_role(original, role)?.closure {
         if semantic.contains(k) {
             let r = json!({"kind":"json","sha256":k.0,"byte_length":k.1.to_string()});
             ensure(
@@ -828,7 +888,7 @@ pub(super) fn verify_role(
         selected["authored_revision"] == authored["authored_revision"],
         "selected authored revision",
     )?;
-    let resource_store = source_store(w, &res, &root, profile);
+    let resource_store = source_store(w, res, root, profile);
     let (resources, supported) = resource::verify_selected_state(
         &resource_store,
         &selected["resource_state"],
@@ -853,16 +913,14 @@ pub(super) fn verify_role(
     )?;
     semantic.extend(inventory.nodes);
     semantic.insert(key(&root[role])?);
-    let accounting = accounting(w, &res, &root, profile)?;
-    let union = res.tree(&root["inventory"], Kind::Inventory)?;
     let mut physical_objects = semantic.clone();
-    physical_objects.extend(accounting.global);
-    physical_objects.extend(union.nodes);
+    physical_objects.extend(accounting.global.iter().cloned());
+    physical_objects.extend(inventory_nodes.iter().cloned());
     let mut used = res.used.clone();
     let mut owner_nodes = BTreeSet::new();
     let claims = owner(
         w,
-        &res,
+        res,
         &place[format!("{role}_ownership")],
         &mut BTreeSet::new(),
         &mut owner_nodes,

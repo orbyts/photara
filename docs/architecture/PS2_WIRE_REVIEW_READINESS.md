@@ -31,6 +31,26 @@ The final review package must identify one concrete set of candidate schema IDs,
 field layouts, digest domains, frame tags and supported dispatch combinations.
 Separate specimens must not imply incompatible layouts are interchangeable.
 
+The final transition must begin at the exact joined settled HEAD and preserve
+its original receipt prefix, witnesses and charges. A selected admission must
+exist before its first packed effect. Any bounded direct-control overlay must
+have an exact, disjoint union with the packed inventory and fit the original
+standing-control allowance. Original admission and phase records must not
+transitively hash their own current selector. Publication and retirement must
+verify actual selected destination bytes, including after source removal,
+without consulting an unselected historical corpus as a reconstruction fallback.
+Pending retirement charges remain attributable until the original authorized
+absence/barrier evidence permits once-only project credit.
+
+The final coordinate proposal also needs a scalable observation registry or an
+exact trusted local-registry contract. Allocation witnesses are scoped to a
+local storage profile and incarnation; they do not turn native paths, device
+identity or watcher observations into portable resource authority. A copied or
+imported package cannot acquire writable admission merely by matching content
+hashes. No automatic rebinding policy is implied. Namespaced extension keys
+need the actual QualifiedName grammar and explicit value bounds, rather than
+the weaker predicates used by some experimental specimens.
+
 ## Separate prerequisites and decision boundaries
 
 [Storage qualification](PS2_MACOS_STORAGE_QUALIFICATION.md) remains independent.
