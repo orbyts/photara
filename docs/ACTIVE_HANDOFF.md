@@ -125,8 +125,11 @@ separate PS2 prerequisite.
   typed receipt indexes and independent recovery. The
   [multi-level tree specimen](architecture/PS2_SCALABLE_BRANCH_BYTE_CANDIDATE.md)
   adds nine tests for typed inventory/operation/charge branches and exact physical
-  bytes. Joint package selection, phase controls and conversion/resource
-  composition remain engineering work.
+  bytes. A [resource/conversion specimen](architecture/PS2_RESOURCE_CONVERSION_BYTE_CANDIDATE.md)
+  passes twelve tests across 26 linked scenarios, preserving all eighteen original
+  snapshot files and checking same-attempt copy registration. Joint package
+  selection and original phase controls remain engineering work, tracked in the
+  [wire readiness checklist](architecture/PS2_WIRE_REVIEW_READINESS.md).
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification

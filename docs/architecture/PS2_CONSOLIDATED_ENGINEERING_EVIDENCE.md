@@ -155,8 +155,14 @@ owned charge trees, with exact range/count/overflow/coverage checks. Its
 [evidence record](verification/ps2-scalable-branch-byte-candidate-20260927.json)
 records independent reproduction and validation. Synthetic sealed observations
 do not establish a complete package charge or sealed-content proof. Joint
-HEAD-selected closure, phase/admission controls and conversion/resource
-composition remain open.
+HEAD-selected closure and phase/admission controls remain open. The
+[resource/conversion candidate](PS2_RESOURCE_CONVERSION_BYTE_CANDIDATE.md) now
+passes twelve tests across 26 fixed scenarios, including exact eighteen-file
+snapshot preservation at nineteen copy cuts and original attempt registration.
+It distinguishes structural readability from synthetic retention support and
+performs no media access. Its [evidence](verification/ps2-resource-conversion-byte-candidate-20260927.json)
+remains a bounded projection; the [readiness checklist](PS2_WIRE_REVIEW_READINESS.md)
+tracks the required final composition and review boundary.
 
 The macOS syscall and split-process matrix has been rerun. Three explicitly
 authorized private APFS-image clean-remount cases cover successful publication

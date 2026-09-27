@@ -19,8 +19,12 @@ behavior; the proposed portable types below are not implemented by those tests.
 The subsequent [packed byte and independent closure specimen](PS2_SCALABLE_PACKED_BYTE_CANDIDATE.md)
 provides fourteen fully linked candidate scenarios and eight pure tests for
 bootstrap, placement and independent closure. It explicitly uses semantic probe
-leaves and an empty operation index. Real operation evidence, scalable inventory
-and owned charge trees, and publication/admission vectors remain separate work.
+leaves and an empty operation index. Subsequent
+[real-operation](PS2_SCALABLE_OPERATION_BYTE_CANDIDATE.md) and
+[multi-level branch](PS2_SCALABLE_BRANCH_BYTE_CANDIDATE.md) specimens add actual
+Core/PS1 semantics and packed inventory/operation/charge trees. These bounded
+projections still need one complete selected package and original phase controls;
+separate passing specimens are not a finished wire proposal.
 
 ## Proposed delta to the earlier appendix
 

@@ -1,0 +1,54 @@
+{
+  "status": "unfrozen-pure-memory-projection",
+  "date": "2026-09-27",
+  "tests": 12,
+  "scenarios": 26,
+  "original_internal_files": 15,
+  "snapshot_files": 18,
+  "copy_positions": 19,
+  "regeneration_exact": true,
+  "generator_output": "26 scenarios; 15 legacy files; no native package effects\n",
+  "sources": {
+    "crates/photara-store/tests/resource_conversion_candidate.rs": "de4a207a7ad8c0805fcff86d80cb08ca7041a16bca2f9ed78a66cf1834821867",
+    "crates/photara-store/tests/resource_conversion_candidate/wire.rs": "190634ed60afb58ec56a4ed21f08e36b585fc381e49c36cafb61329c1af63d63",
+    "docs/architecture/proposals/ps2/resource-conversion/generate.py": "301555165278b07b8547cbaa77de6d3bea7f507eb94cc8d2e1d3c45000d09da8",
+    "docs/architecture/proposals/ps2/resource-conversion/linked.json": "13d5d9b3f02178e8fa8a8c500e4813a6bafe9ad30aa540d905ee79be85cf1b64",
+    "docs/architecture/proposals/ps2/operations/linked-operations.json": "b18f3d5960bff213c35ea12d9f2e32791eb83cc904046d9f47ed21f93ada2421",
+    "docs/architecture/proposals/ps2/sealed-wire-golden.json": "d1467f6dc20ccd38750bf9a990cde89399583c5f304c292a9057e4945accbbf4",
+    "crates/photara-store/src/package/memory.rs": "8057ba72a9369d49c72f0f7f5a479e3ad84c50dd99baf749be34c9da85c17663",
+    "crates/photara-core/src/contracts/resource.rs": "847b0e50ba49b946998ca9075fbf520dfc78a256814bee7ca3423861a930656c"
+  },
+  "outputs": {
+    "tests": {
+      "path": "/private/tmp/ps2-resource-conversion-test.log",
+      "sha256": "d41161cb41ca87f66c6b39f764a0237e77f243baa8198a6c439825d5b0fe73ed",
+      "text": "   Compiling photara-store v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-store)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.37s\n     Running tests/resource_conversion_candidate.rs (/Users/suhail/.cache/cargo/targets/debug/deps/resource_conversion_candidate-ef8919da486366b2)\n\nrunning 12 tests\ntest captured_binding_does_not_enter_existing_context_value_codec ... ok\ntest independent_resource_closures_keep_versions_immutable_across_relocation ... ok\ntest every_selected_resource_dependency_is_required_and_canonical ... ok\ntest unrepresentable_original_components_refuse_without_rewriting ... ok\ntest conversion_manifest_semantics_are_checked_beyond_hashes ... ok\ntest byte_identical_snapshot_requires_original_attempt_registration ... ok\ntest extension_refs_are_opaque_and_missing_feature_precedes_lookup ... ok\ntest conversion_refuses_mismatch_occupancy_source_change_and_broad_exclusion_without_effects ... ok\ntest structurally_valid_unsatisfied_obligations_remain_readable ... ok\ntest linked_rehashed_negatives_reach_semantic_checks ... ok\ntest independent_canonical_bytes_hashes_and_lengths_are_exact ... ok\ntest conversion_preserves_actual_legacy_reader_and_unknown_bytes_at_every_copy_cut ... ok\n\ntest result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s\n\n"
+    },
+    "clippy": {
+      "path": "/private/tmp/ps2-resource-conversion-clippy.log",
+      "sha256": "3024735bf8007386fc9ee19dd2d373a01664e25aff7e9ac3a8533db085f42cdf",
+      "text": "    Checking photara-store v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-store)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.76s\n"
+    }
+  },
+  "limits": [
+    "No native writes/media IO/qualification",
+    "Legacy reader validates internal subset; complete manifest preserves unknown bytes",
+    "Synthetic single-copy support separate from structural validity",
+    "Projection only; joined selected package is a separate gate"
+  ],
+  "independent_parent_review": {
+    "tests": "12 passed, 0 failed, 0.25s",
+    "generator": "byte-identical, all source/output hashes verified",
+    "targeted_rustfmt": "pass",
+    "findings_resolved": [
+      "same-attempt partial registration explicit",
+      "existing portable component rules reused",
+      "structural readability distinct from retention support"
+    ],
+    "limits_confirmed": [
+      "legacy reader receives15internalfiles; complete18filecopy separately validated",
+      "no native package or media operations",
+      "joined selected package remains separate"
+    ]
+  }
+}
