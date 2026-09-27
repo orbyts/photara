@@ -1,0 +1,23 @@
+   Compiling photara-store v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-store)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.93s
+     Running tests/selected_origin_candidate.rs (/Users/suhail/.cache/cargo/targets/debug/deps/selected_origin_candidate-5297eb01f34ad988)
+
+running 16 tests
+test origins::tests::pending_is_not_a_synthetic_live_hold ... ok
+test origins::tests::evidence_tree_checks_selected_order_and_exact_child_summary ... ok
+test resources::tests::resolver_cannot_substitute_canonical_object ... ok
+test resources::tests::structural_support_is_not_retention_or_media_proof ... ok
+test accounting::tests::integrated_accounting_resolver_must_return_exact_original_canonical_bytes ... ok
+test accounting::tests::integrated_accounting_actual_settled_roots_and_breakdown ... ok
+test accounting::tests::integrated_accounting_tip_bodies_are_ordered_and_disjoint ... ok
+test accounting::tests::integrated_accounting_nonempty_transition_or_unknown_fields_fence ... ok
+test accounting::tests::integrated_accounting_metadata_is_exact_but_not_physical_evidence ... ok
+test resources::tests::actual_context_closure_and_wrong_root ... ok
+test unchanged_legacy_reader_refuses_before_new_storage_dependencies ... ok
+test canonical_records_preserve_original_receipts_and_source_bytes ... ok
+test accounting::tests::integrated_accounting_original_witness_and_charge_basis_cannot_rebind ... ok
+test independent_recovery_uses_own_subset_of_shared_policy_without_foreign_payloads ... ok
+test actual_head_selects_four_origins_and_retains_exact_receipts_and_snapshot ... ok
+test coherent_origin_metadata_cannot_substitute_selected_authority ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 26.58s

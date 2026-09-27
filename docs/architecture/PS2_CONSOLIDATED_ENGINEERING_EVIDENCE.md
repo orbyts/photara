@@ -208,6 +208,15 @@ The separate [whole-Blob component](PS2_WHOLE_BLOB_BYTE_CANDIDATE.md) proves
 unchanged existing managed/v2 records and structural-versus-strong audit behavior;
 it is not yet selected by this Graph project's HEAD.
 
+The [selected-origin candidate](PS2_SELECTED_ORIGIN_BYTE_CANDIDATE.md) adds two
+complete reconstructed snapshots with authored/history/recovery/explicit evidence
+and a shared eight-requirement policy. Recovery independently verifies its
+four-requirement subset after unrelated payloads are removed. Sixteen tests and
+nineteen exact coherent refusals pass, with original receipts, ConversionSource
+and all eighteen snapshot files preserved. A static retained-recovery variant
+proves context resolution, not rotation/release authority. Pending evidence and
+original-admission phase composition remain open.
+
 The macOS syscall and split-process matrix has been rerun. Three explicitly
 authorized private APFS-image clean-remount cases cover successful publication
 and cuts immediately before/after HEAD replacement. Exact old/candidate closure

@@ -184,6 +184,11 @@ separate PS2 prerequisite.
   A separate [prepared-successor seam](architecture/PS2_PREPARED_SUCCESSOR_VALIDATION_SEAM.md)
   authenticates original/candidate selectors and accepts only caller-supplied
   Core-prepared authored additions; admission and replay proofs remain separate.
+  The [selected-origin byte candidate](architecture/PS2_SELECTED_ORIGIN_BYTE_CANDIDATE.md)
+  now passes 16 tests with 19 exact coherent refusals. Four origins resolve
+  through actual selected evidence, including independent recovery with a
+  strict subset of a shared policy. Its recovery rotation is two static valid
+  states, not an authorized transition or release; pending remains unsupported.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification

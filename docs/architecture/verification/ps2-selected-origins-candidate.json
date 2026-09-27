@@ -1,0 +1,191 @@
+{
+  "baseline_commit": "32ccbc9a813b9cfbde80184fbfdeda7791f4a962",
+  "commands": [
+    {
+      "command": "cargo test -p photara-store --test selected_origin_candidate",
+      "composition": {
+        "inherited_resource_accounting": 9,
+        "new_whole_package": 5,
+        "origin_helper": 2
+      },
+      "result": "16 passed; 0 failed",
+      "seconds": 26.76
+    },
+    {
+      "command": "cargo clippy -p photara-store --test selected_origin_candidate -- -D warnings",
+      "result": "passed",
+      "seconds": 2.91
+    },
+    {
+      "command": "python3 -B docs/architecture/proposals/ps2/origins/generate.py",
+      "result": "both corpora byte-identical"
+    },
+    {
+      "command": "rustfmt --edition 2024 --check [two new Rust files]; git diff --check",
+      "result": "passed"
+    },
+    {
+      "command": "parent: cargo test -p photara-store --test selected_origin_candidate",
+      "result": "16 passed; 0 failed",
+      "seconds": 26.58
+    },
+    {
+      "command": "parent: regenerate both origin corpora and verify every source/dependency/output hash",
+      "result": "byte-identical corpora; all SHA-256 digests and lengths match"
+    }
+  ],
+  "dependencies": [
+    {
+      "bytes": 60502,
+      "path": "crates/photara-store/tests/integrated_wire_candidate/wire.rs",
+      "sha256": "88bb2c8736ee2fcacbefe4b7ca28d686edea53e60ff45855e822193325241dde"
+    },
+    {
+      "bytes": 41898,
+      "path": "crates/photara-store/tests/integrated_wire_candidate/accounting.rs",
+      "sha256": "5b0c3361d3925310833fcc7055df537625e23c13d8a538d70c4135dfe5e71a75"
+    },
+    {
+      "bytes": 8753,
+      "path": "crates/photara-store/tests/integrated_wire_candidate/resources.rs",
+      "sha256": "3dbe309191575825106134dcdbf8ef6fa0c586ffe7ef0ed28e1f8815e677cd36"
+    },
+    {
+      "bytes": 21687,
+      "path": "crates/photara-store/tests/resource_factored_candidate/wire.rs",
+      "sha256": "a0cdd305b51b413fdab6959257ae71e9b3048c6f43f386281c77358ca42204c7"
+    },
+    {
+      "bytes": 27119,
+      "path": "crates/photara-store/tests/resource_conversion_candidate/wire.rs",
+      "sha256": "190634ed60afb58ec56a4ed21f08e36b585fc381e49c36cafb61329c1af63d63"
+    },
+    {
+      "bytes": 21703,
+      "path": "docs/architecture/proposals/ps2/integrated/generate.py",
+      "sha256": "3ab11dd82e89c83420c72971c6be8830c50a5a64461489595dc19eb8b30ea572"
+    },
+    {
+      "bytes": 4353756,
+      "path": "docs/architecture/proposals/ps2/integrated/linked.json",
+      "sha256": "6de4a73749c539ad98f3dfa1b68e2687473cf70ded8328a95b1c3575c6d43e4a"
+    },
+    {
+      "bytes": 7477,
+      "path": "docs/architecture/proposals/ps2/resource-factored/generate.py",
+      "sha256": "88aeaa74bd2d54a072ad4323a3140d7aa3a9f57dea5acc82b2d33fcb76ff709b"
+    },
+    {
+      "bytes": 5364617,
+      "path": "docs/architecture/proposals/ps2/resource-factored/linked.json",
+      "sha256": "845b80d5af377492fac39baf24faea30b6e0bfd6ff37599302915b9126aae029"
+    },
+    {
+      "bytes": 1958520,
+      "path": "docs/architecture/proposals/ps2/resource-conversion/linked.json",
+      "sha256": "13d5d9b3f02178e8fa8a8c500e4813a6bafe9ad30aa540d905ee79be85cf1b64"
+    },
+    {
+      "bytes": 196219,
+      "path": "docs/architecture/proposals/ps2/operations/linked-operations.json",
+      "sha256": "b18f3d5960bff213c35ea12d9f2e32791eb83cc904046d9f47ed21f93ada2421"
+    },
+    {
+      "bytes": 6333,
+      "path": "crates/photara-store/src/package/json.rs",
+      "sha256": "3e27b65cd5afe7aa7e260d407bf2107ef0ca290f07573191d5bee98b3221a680"
+    }
+  ],
+  "limits": [
+    "standalone reconstructed snapshots; not append or migration successors",
+    "same synthetic coordinate labels do not authorize native adoption/rebinding",
+    "static recovery rotation proves consistency only; no release/removal authorization",
+    "pending requires future selected original/phase codec",
+    "recovery-only inspection does not validate absent foreign semantic closures or global physical accounting",
+    "synthetic support profile is not native qualification",
+    "original exact legacy authored specimen restriction and JSON-only placement remain",
+    "no permanent format freeze or production reader changes"
+  ],
+  "log_normalization": "Repository copies strip trailing blank lines and retain one final newline; original /private/tmp logs unchanged.",
+  "metrics": {
+    "allocations": 8,
+    "coherent_negative_variants": 19,
+    "evidence_keys": 4,
+    "external_media_reads": 0,
+    "global_members": 169,
+    "pending": "unsupported",
+    "policy_union": 8,
+    "positive_packages": 2,
+    "recovery_policy_subset": 4,
+    "requirements": 8,
+    "selected_control_charge": 28672,
+    "selected_origin_kinds": [
+      "authored",
+      "history",
+      "recovery",
+      "explicit"
+    ],
+    "semantic_counts": {
+      "active": 99,
+      "recovery": 95,
+      "retained": 90
+    },
+    "standing_control": 131072,
+    "total_charge": 2076672
+  },
+  "outputs": [
+    {
+      "bytes": 8788295,
+      "path": "docs/architecture/proposals/ps2/origins/linked.json",
+      "sha256": "9f170b0e3039aaa612069d999ea70633248a2e79727fe2693c0d02749dadf2f6"
+    },
+    {
+      "bytes": 29132161,
+      "path": "docs/architecture/proposals/ps2/origins/negatives.json",
+      "sha256": "92986095cc031612484e6fb3d82ba5185abadfa9dfc9a8bb7b950c976122ed30"
+    },
+    {
+      "bytes": 1810,
+      "path": "docs/architecture/verification/ps2-selected-origins-tests.log",
+      "sha256": "25b75b6a911c0028b14fa3b571e110d653cebc2ab26c483fe199c5851792de7d"
+    },
+    {
+      "bytes": 202,
+      "path": "docs/architecture/verification/ps2-selected-origins-clippy.log",
+      "sha256": "1458584db5ae6f9e2ef793d3395122cd42cd062367977e36bd7a2915dddd364b"
+    },
+    {
+      "bytes": 1404,
+      "path": "docs/architecture/verification/ps2-selected-origins-reproduction.log",
+      "sha256": "87222e52caf4f567f1dfff22aad26505364eb7dc37adaec47ca6f9f2875a35e2"
+    },
+    {
+      "bytes": 1810,
+      "path": "docs/architecture/verification/ps2-selected-origins-parent-tests.log",
+      "sha256": "fcd535c1201788af32df1679adf3015580627100319b279ae09148876220d7c6"
+    }
+  ],
+  "sources": [
+    {
+      "bytes": 8951,
+      "path": "crates/photara-store/tests/selected_origin_candidate.rs",
+      "sha256": "284461bedb55cb5411e3c915a75355993e40094e38bb9beab26981d8d1ab54e3"
+    },
+    {
+      "bytes": 17823,
+      "path": "crates/photara-store/tests/selected_origin_candidate/origins.rs",
+      "sha256": "a2e5810a78fab32eeaedd53070375761e63d8c6e6d630ca7cf0835e2f068177b"
+    },
+    {
+      "bytes": 8484,
+      "path": "docs/architecture/proposals/ps2/origins/generate.py",
+      "sha256": "f9b0f128b9f20fbed3a7fd5ed1f10ffcea45cf716b1f1e24f5f9e53946eea9b3"
+    },
+    {
+      "bytes": 9121,
+      "path": "docs/architecture/PS2_SELECTED_ORIGIN_BYTE_CANDIDATE.md",
+      "sha256": "4f22ccd4243cf7740e0dd5cbe6a3e7ac09501bef93bac546b114a440e091fb12"
+    }
+  ],
+  "status": "unfrozen disposable selected-origin candidate; no production or release authority"
+}

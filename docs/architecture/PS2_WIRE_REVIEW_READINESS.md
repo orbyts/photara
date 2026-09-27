@@ -70,6 +70,12 @@ The next concrete slices specify [all-origin fields](PS2_SELECTED_ORIGIN_FIELD_P
 and a [selected admission successor](PS2_SELECTED_TRANSITION_IMPLEMENTATION_PLAN.md).
 These retain the approved semantics and explicitly defer pending-origin authority
 until actual selected original/phase dispatch exists.
+The [selected-origin candidate](PS2_SELECTED_ORIGIN_BYTE_CANDIDATE.md) now proves
+authored/history/recovery/explicit evidence through whole HEADs, with 16 tests,
+19 coherent refusals and independent subset-aware recovery. Pending and actual
+origin/pin transition authority remain open; two internally valid static states
+do not establish permission to rotate or release them.
+
 The [selected Blob plan](PS2_SELECTED_BLOB_COMPOSITION_PLAN.md) preserves the
 actual legacy project and distinguishes a standalone HEAD proof from conversion.
 A Blob-containing ConversionSource still needs structural path/type/extent and
