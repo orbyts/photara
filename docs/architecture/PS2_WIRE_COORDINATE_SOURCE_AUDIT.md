@@ -139,3 +139,31 @@ unsupported-packed-Blob fence in a JSON-only prototype cannot silently narrow
 the existing permanent conversion contract.
 
 This audit records current source facts and remaining mapping work. It proposes no permanent magic, schema name, feature ID, pin policy, coordinate family or codec transition.
+
+## Verified scalable components after the route
+
+The [factored resource candidate](PS2_FACTORED_RESOURCE_BYTE_CANDIDATE.md) directly
+parses proposed `photara.resource.state` v2 and v1 selection-leaf/branch,
+retention-requirement and retention-source records. It keeps existing selected
+resource metadata and representation v3 bytes unchanged. Six typed roots replace
+state arrays. Immutable source-association identity binds exact origin and
+requirement-subset bytes; changing the origin requires a new association UUID.
+This component proves authored-origin resolution from supplied root contexts,
+not complete StateRoot/HEAD composition or all approved origin classes.
+
+The [accounting candidate](PS2_ACCOUNTING_SCALING_CANDIDATE.md) directly parses
+proposed v1 local-observation, observation trees, sealed-charge/charge trees and
+retained-file charge trees. Original ConversionSource bytes, sealed allocation
+bytes and witness identities remain bound to the joined fixture. New sealed
+charges carry an actual observation ObjectRef; they are not aliases for the old
+inline observation placeholder. Its three-node authenticated source path works
+without sibling records, original source files or a global record map. The
+selector covers only sealed allocations and retained files, not complete project
+accounting. Its profile/incarnation identity check never grants qualification.
+
+Nine resource and twelve accounting tests pass independently; both Python
+generators reproduce exact Rust-validated bytes. The [parent verification](verification/ps2-scalable-components-parent-verification.json)
+records those checks. Their fixture bounds and distinct subset selectors remain
+explicit in their documents. Final proposed-coordinate integration must compose
+these fields through the authoritative HEAD and preserve all current/pending
+liabilities rather than treating component totals as complete package totals.

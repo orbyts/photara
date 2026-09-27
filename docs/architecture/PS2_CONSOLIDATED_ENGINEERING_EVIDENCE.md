@@ -186,8 +186,16 @@ costs 520,192 bytes net; it is not profitable reclamation evidence. Its
 [evidence](verification/ps2-single-head-route-candidate.json) includes final
 source hashes and independent reproduction. Full tiny charge proofs, inline
 local observation/conversion rows and v1 resource-origin rewrites remain bounded
-specimens. Their scalable replacements, explicit newborn/replay coordinates
-and the exact proposed permanent-wire layer are still required.
+specimens. The [factored resource component](PS2_FACTORED_RESOURCE_BYTE_CANDIDATE.md)
+now passes nine tests: distinct root identities share immutable requirements,
+with only source-association paths changing. The [accounting component](PS2_ACCOUNTING_SCALING_CANDIDATE.md)
+passes twelve tests using typed observation/retained-file roots and a three-node
+original source-charge proof that works after source and unselected records are
+removed. Independent parent runs and exact generator reproduction pass for both
+([evidence](verification/ps2-scalable-components-parent-verification.json)).
+Their whole-HEAD composition, complete retention-origin dispatch, Blob
+compatibility, explicit newborn/replay coordinates and the exact proposed
+permanent-wire layer are still required.
 
 The macOS syscall and split-process matrix has been rerun. Three explicitly
 authorized private APFS-image clean-remount cases cover successful publication
@@ -198,8 +206,8 @@ qualification. See [clean-remount evidence](PS2_MACOS_CLEAN_REMOUNT.md).
 
 The remaining engineering dependency is:
 
-1. complete scalable resource-source factoring, local observation/retained-file
-   accounting, sparse original charge proofs and explicit newborn/replay fields;
+1. compose the verified scalable resource/accounting components with complete
+   origin dispatch, Blob compatibility and explicit newborn/replay fields;
 2. present the exact candidate wire, closure rules and measured limits for
    review before shared production reader/writer implementation;
 3. complete qualified barrier/storage evidence before production writable or

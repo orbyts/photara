@@ -152,7 +152,10 @@ separate PS2 prerequisite.
   pass nine tests, and [scalable accounting](architecture/PS2_ACCOUNTING_SCALING_CANDIDATE.md)
   passes twelve. Both canonical generators reproduce exact bytes; independent
   parent runs pass. These are component selectors, not completed whole-HEAD
-  composition or permanent-format approval.
+  composition or permanent-format approval. The integration checklists map
+  [retention-origin authority](architecture/PS2_RETENTION_ORIGIN_EVIDENCE_PROPOSAL.md)
+  and [newborn/original replay](architecture/PS2_NEWBORN_REPLAY_INTEGRATION_CHECKLIST.md)
+  without changing release policy or claiming completed wire dispatch.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification
