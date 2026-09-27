@@ -173,8 +173,11 @@ The current synthesis and exact measurements are in
 
 The current entry is
 [LL1 protected executor contract](architecture/verification/LL1_PROTECTED_EXECUTOR_CONTRACT.md),
-with focused authorization, coverage and service-handoff links. These are
-disposable proofs, not production deletion.
+with focused authorization, coverage and service-handoff links. The
+[current readiness audit](architecture/verification/LL1_READINESS_AUDIT_20260927.md)
+and [LL2a field/authority table](architecture/verification/LL2A_FIELD_AUTHORITY_REVIEW.md)
+separate create/select/rename and activation mapping from later LL2b removal.
+These are disposable proofs and review documents, not production deletion.
 
 ## Unimplemented or unproven
 
