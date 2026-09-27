@@ -66,6 +66,10 @@ spells out original generation-plan, marker, binding and measured-finalizer
 records. The settled coordinate subset now has actual integrated bytes and reader
 evidence; newborn and transition fields remain specifications awaiting their
 own selected bytes. Neither completes the rows above.
+The next concrete slices specify [all-origin fields](PS2_SELECTED_ORIGIN_FIELD_PROPOSAL.md)
+and a [selected admission successor](PS2_SELECTED_TRANSITION_IMPLEMENTATION_PLAN.md).
+These retain the approved semantics and explicitly defer pending-origin authority
+until actual selected original/phase dispatch exists.
 
 ## Separate prerequisites and decision boundaries
 

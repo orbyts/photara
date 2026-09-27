@@ -169,6 +169,10 @@ separate PS2 prerequisite.
   epoch while preserving original semantic/source bytes. All-origin evidence,
   Blob placement and original newborn/transition integration remain next;
   neither this settled checkpoint nor the drafts are format approval.
+  The next bounded code slices are [selected origin evidence](architecture/PS2_SELECTED_ORIGIN_FIELD_PROPOSAL.md)
+  and an [admission-only successor](architecture/PS2_SELECTED_TRANSITION_IMPLEMENTATION_PLAN.md)
+  preserving that new epoch. Pending-origin support depends on the actual
+  selected original/phase reader; payload/newborn/retirement follow admission.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification
