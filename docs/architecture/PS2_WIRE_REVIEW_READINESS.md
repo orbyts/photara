@@ -70,6 +70,11 @@ The next concrete slices specify [all-origin fields](PS2_SELECTED_ORIGIN_FIELD_P
 and a [selected admission successor](PS2_SELECTED_TRANSITION_IMPLEMENTATION_PLAN.md).
 These retain the approved semantics and explicitly defer pending-origin authority
 until actual selected original/phase dispatch exists.
+The [selected Blob plan](PS2_SELECTED_BLOB_COMPOSITION_PLAN.md) preserves the
+actual legacy project and distinguishes a standalone HEAD proof from conversion.
+A Blob-containing ConversionSource still needs structural path/type/extent and
+witness checks separated from explicit strong audit; the present accounting
+fixture hashes all retained files and cannot be reused as routine media open.
 
 ## Separate prerequisites and decision boundaries
 

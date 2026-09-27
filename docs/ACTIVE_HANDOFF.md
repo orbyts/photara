@@ -160,6 +160,11 @@ separate PS2 prerequisite.
   passes six tests with exact legacy managed/v2 bytes, explicit raw-allocation
   ownership and separate strong audit. It remains a separate project-scoped
   component; full HEAD composition and bounded shared parsing are open.
+  The [selected Blob composition plan](architecture/PS2_SELECTED_BLOB_COMPOSITION_PLAN.md)
+  keeps the legacy D19 project identity and bytes, with a standalone selected
+  layout first. Media-bearing ConversionSource composition also needs separate
+  structural-open and strong-audit paths; the current retained-file verifier
+  hashes every source file and cannot prove no-routine-media-hash behavior.
 - The [final-coordinate integration plan](architecture/PS2_FINAL_COORDINATE_INTEGRATION_PLAN.md)
   and [newborn/original field proposal](architecture/PS2_NEWBORN_ORIGINAL_FIELD_PROPOSAL.md)
   are concrete unfrozen drafts. The [integrated settled coordinate candidate](architecture/PS2_INTEGRATED_SETTLED_COORDINATE_CANDIDATE.md)
