@@ -1,0 +1,72 @@
+{
+  "date": "2026-09-27",
+  "status": "disposable-compact-retirement-and-fixed-budget-proof",
+  "parent_commit": "27d1163",
+  "production_changes": false,
+  "index_tests_covered": 132,
+  "graph_tests": 7,
+  "test_results": {
+    "broad": [
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.61s",
+      "test result: ok. 130 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 205.31s"
+    ],
+    "immediate": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 131 filtered out; finished in 535.35s"
+    ],
+    "aged8": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 131 filtered out; finished in 379.60s"
+    ],
+    "aged32": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 131 filtered out; finished in 186.67s"
+    ]
+  },
+  "commands": {
+    "broad": "cargo test --release -p photara-store --example ps2_index_furnace --example ps2_graph_furnace -- --skip turnover_fixed_capacity_original_groups_and_bounded_refusals --skip turnover_aged_runtime_generations_under_fixed_capacity",
+    "immediate": "cargo test --release -p photara-store --example ps2_index_furnace turnover_fixed_capacity_original_groups_and_bounded_refusals -- --nocapture",
+    "aged8": "cargo test --release -p photara-store --example ps2_index_furnace turnover_aged_runtime_generations_under_fixed_capacity -- --nocapture",
+    "aged32": "PHOTARA_PS2_TURNOVER_RECORDS=32 cargo test --release -p photara-store --example ps2_index_furnace turnover_aged_runtime_generations_under_fixed_capacity -- --nocapture",
+    "clippy": "cargo clippy --release -p photara-store --example ps2_index_furnace --example ps2_graph_furnace -- -D warnings",
+    "fmt": "rustfmt --edition 2024 --check crates/photara-store/examples/ps2_index_furnace.rs crates/photara-store/examples/ps2_graph_furnace.rs"
+  },
+  "source_sha256": {
+    "crates/photara-store/examples/ps2_graph_furnace.rs": "217f810bd3c42eae34a0dd4a88483ab0d246e91101a293974dba9138423de94d",
+    "crates/photara-store/examples/ps2_graph_furnace/index.rs": "264b41bff939a9952778c3ee501d6e55d9cc8fd8e537b2aec2379dc9658229c2",
+    "crates/photara-store/examples/ps2_graph_furnace/model.rs": "2e533667aac36ba8dc23ae51930ade8bfe3c80e9a471b838df095fb3a2de3cb1",
+    "crates/photara-store/examples/ps2_graph_furnace/oracle.rs": "50ddd9a400f94492c06e013b331a3cb8863b21cb33cb4f4c57f6eeaefdbe58d9",
+    "crates/photara-store/examples/ps2_index_furnace.rs": "e209b4ad8478c1b8fbda5784493be02c12bad03c495365f7937b8c3833bfbfd8",
+    "crates/photara-store/examples/ps2_index_furnace/graph_preview.rs": "ba193e4406550f7366b56937278555268b93c483b74820973638a2109ba21f46",
+    "crates/photara-store/examples/ps2_index_furnace/packing.rs": "07e6e5d08cd2f8c6e70a9f3312d6421cb79244ea8f7c77c6ea9ebe064509552a",
+    "crates/photara-store/examples/ps2_index_furnace/placement_gate.rs": "ede40dd0503cb70e70962ee8234dd7318edf0e463cf92fb9101a226e3ec1aadb",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v2.rs": "b91ce68a932f524ccae08f23376d46eddca741ff3171cac9560ac5507a4ef63a",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3.rs": "6f76e7e9a00a7359469a39c4d4c59052fe2e89e700d752c97829886a84bf9c2a",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3/graph_journal.rs": "c355bf9288db2dcbabbd2621168fefa1151df2fdc1cbe70486f2e04d99508f87",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3/graph_journal/rollover_dispatch.rs": "4fe667af5cab5db91938031eb2c92a8f2926639ad3f504ea0a1143848df8ba71",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3/graph_journal/rollover_dispatch/review_tests.rs": "d9b731f6f6338492393e58816450d038357a1c3beffe538ab41c081a265f4fe6",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3/graph_journal/rollover_dispatch/turnover.rs": "3257bf14518c3b6cfd92615775f94160c056e50edfa84ba134d5586d692ee6f3",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3/ownership_probe.rs": "f9edbdbd946fa8c6ade3295e5052ce2de84780a402590f7d4244df9ec651c48a",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3/typed_inventory.rs": "b26a58f749c959020d704c0a95c062333578e4893f903fb3832f1bf23c680a85",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3/typed_inventory/fresh_generation.rs": "34e872545e4965493ae5fd8c93ef0667b47365fe0711bd45c9a992ce4b815c8d",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3/typed_inventory/graph.rs": "8701bc7f72050be480ee0cda6a3eaadd7da6711ee5486a654804466eed9b3f5f",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3/typed_inventory/recipe.rs": "c080b02ffd0433c54b5793cd4b8eac9b5fda72cc49890bab28685a7d10526fc8",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3/typed_inventory/recipe/accounting.rs": "7a5e803a8c5b352a6911dacd0fdb011e9461cee516a815e683318573a2aae1b0",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3/typed_inventory/retirement_ledger.rs": "501f31d32e54f9e3d6a5344df89de80d69266f70560efc486296426e0391e8c6",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3/typed_inventory/retirement_ledger/commitment.rs": "c8af5df834caa9d01d9c206ce52b87aaf49de71ba3b35ab004d18b8bbed5173c",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3/typed_inventory/retirement_ledger/relocation.rs": "fcf1fd6cec4af075c092397d7535df56672afb53999dc8da5c3936a9963e1fbe",
+    "crates/photara-store/examples/ps2_index_furnace/placement_v3/typed_inventory/rollover.rs": "7f3402b21460e6a7974287434ccbb9ccb39fb50947f3540d8ecbaa0dbaf0b8c3"
+  },
+  "original_log_sha256": {
+    "broad": "f26c00f66370a8abeb71cbbdbb8b2546f9ac83622e9cff2f47d03d73184a6d09",
+    "immediate": "9cae83bbc08a98a193643ec5a2c4965dceb26c37613bd882c037374322033067",
+    "aged8": "f7edc6aefebd4281af7373c322a64382cb285c4df27c961b878f319a9f8d5403",
+    "aged32": "10c05a98e1a713703982ff3c2c3ca73a4e89908917bf16bfa521619f6037d367",
+    "clippy": "85c8dbac64ed6a362d668bf3988686e26e947620bb15cfdbe2e999a0ff8261b2"
+  },
+  "clippy_output": "    Finished `release` profile [optimized] target(s) in 0.11s\n",
+  "targeted_fmt_exit_code": 0,
+  "limits": [
+    "Same-tip live relocation only; permanent formats/local witnesses are not frozen.",
+    "Aged32 demonstrates two positive runtime retirements per map; aged8 and immediate runtime rows retain unfavorable economics.",
+    "All original Graph receipts remain retained; fixed-budget refusal remains and no lifetime plateau or OS-space credit is claimed.",
+    "Qualification, production writes, migration, deployment and production deletion remain absent."
+  ]
+}

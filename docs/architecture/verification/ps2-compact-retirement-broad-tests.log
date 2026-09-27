@@ -1,0 +1,158 @@
+    Finished `release` profile [optimized] target(s) in 0.06s
+     Running unittests examples/ps2_graph_furnace.rs (/Users/suhail/.cache/cargo/targets/release/examples/ps2_graph_furnace-806c938b4914df14)
+
+running 7 tests
+test tests::graph_noop_inverse_and_batch_are_real_commands ... ok
+test tests::ps1_planner_agrees_on_change_noop_inverse_and_batch ... ok
+test tests::malformed_group_refuses_before_any_journal_write ... ok
+test tests::valid_commands_cannot_reaccept_conflicting_or_group_duplicate_ids ... ok
+test tests::conflicting_digest_torn_journal_and_unknown_head_refuse ... ok
+test tests::older_checkpoint_is_not_current_after_new_journal_acceptance ... ok
+test tests::original_receipts_recover_at_each_cut ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.61s
+
+     Running unittests examples/ps2_index_furnace.rs (/Users/suhail/.cache/cargo/targets/release/examples/ps2_index_furnace-444af39d16023d28)
+
+running 130 tests
+test placement_gate::tests::unknown_selection_and_reserve_exhaustion_keep_both_copies ... ok
+test placement_v3::combined_tests::shared_domain_reserve_atomic_and_no_deletion_credit ... ok
+test placement_gate::tests::corrupt_metadata_and_forged_counts_refuse ... ok
+test placement_v3::graph_journal::rollover_dispatch::review_tests::review_rollover_current_source_selection_drift_refuses_before_birth ... ok
+test placement_v3::graph_journal::rollover_dispatch::review_tests::review_rollover_replaced_retained_source_refuses_before_any_growth ... ok
+test placement_v3::graph_journal::rollover_dispatch::review_tests::review_rollover_original_hold_fences_unrelated_gate_apis ... ok
+test placement_v3::combined_tests::enospc_original_group_reconciles_and_unknown_head_refuses ... ok
+test placement_v3::graph_journal::rollover_dispatch::review_tests::review_rollover_pending_binding_checks_inode_before_dispatch_cleanup ... ok
+test placement_v3::graph_journal::rollover_dispatch::review_tests::review_rollover_pending_binding_checks_source_suffix_before_dispatch_cleanup ... ok
+test placement_gate::tests::persistent_counts_cache_and_recovery_placement ... ok
+test placement_v3::graph_journal::rollover_dispatch::tests::real_graph_rollover_joint_birth_uses_original_graph_admission ... ok
+test placement_v3::graph_journal::rollover_dispatch::tests::real_graph_rollover_partial_unbound_birth_never_creates_journal ... ok
+test placement_v2::tests::controlled_density_admits_reclaim_and_defers_growth ... ok
+test placement_v3::graph_journal::tests::conflicting_partial_graph_payload_preserves_original_hold_and_journal ... ok
+test placement_v3::graph_journal::tests::altered_graph_control_domain_with_same_token_retains_all_evidence ... ok
+test placement_v3::graph_journal::rollover_dispatch::review_tests::review_rollover_changed_no_dispatch_selector_refuses_before_journal_repair ... ok
+test placement_v3::graph_journal::rollover_dispatch::tests::real_graph_rollover_changed_transfer_witness_and_unknown_controls_refuse ... ok
+test placement_v3::graph_journal::rollover_dispatch::review_tests::review_rollover_unknown_journal_controls_fence_all_effects ... ok
+test placement_v3::graph_journal::tests::graph_original_noop_advances_prefix_without_authored_revision ... ok
+test placement_v3::graph_journal::tests::joint_graph_cannot_bless_a_corrupt_old_owned_prefix ... ok
+test placement_v3::graph_journal::tests::joint_graph_altered_ledger_candidate_retains_original_hold_and_evidence ... ok
+test placement_v3::graph_journal::rollover_dispatch::tests::real_graph_rollover_pipeline_smoke_both_maps ... ok
+test placement_v2::tests::unknown_selector_and_missing_metadata_refuse ... ok
+test packing::tests::batch_and_placement_fault_matrix ... ok
+test placement_v3::graph_journal::tests::low_capacity_graph_admission_has_no_journal_source_or_pack_effect ... ok
+test placement_v3::graph_journal::tests::joint_graph_source_and_tip_growth_settle_once_without_refund ... ok
+test placement_v3::combined_tests::every_class_exact_release_and_reader_aba ... ok
+test placement_v3::graph_journal::tests::malformed_graph_group_refuses_before_journal_or_checkpoint_bytes ... ok
+test placement_v3::graph_journal::rollover_dispatch::tests::real_graph_rollover_staged_cleanup_and_low_capacity_keep_original_evidence ... ok
+test placement_v3::graph_journal::tests::pending_original_retry_conflict_and_torn_journal_preserve_evidence ... ok
+test placement_v3::independent_checks::independent_append_hold_cannot_authorize_compaction ... ok
+test placement_v3::independent_checks::independent_concurrent_holds_cannot_start_unbudgeted_work ... ok
+test placement_v2::tests::grouped_original_receipts_reconcile_without_new_ordinals ... ok
+test placement_v3::independent_checks::independent_current_append_pack_never_retires ... ok
+test placement_v3::independent_checks::independent_checkpoint_preflight_is_no_effect_and_binds_encoded_sizes ... ok
+test placement_v3::graph_journal::tests::joint_graph_rollover_refuses_before_original_hold_or_any_write ... ok
+test placement_v3::independent_checks::independent_planned_or_corrupt_continuation_is_not_barrier_evidence ... ok
+test placement_v3::independent_checks::independent_reopened_hold_requires_original_request ... ok
+test placement_v3::independent_checks::independent_reconcile_then_restart_keeps_original_continuation_extents ... ok
+test placement_v3::graph_journal::tests::joint_graph_final_settlement_two_cuts_reopen_and_charge_once ... ok
+test placement_v3::independent_checks::independent_shared_domain_sum_and_overflow_refuse_atomically ... ok
+test placement_v3::ownership_probe::tests::bounded_closure_covers_feedback_and_original_extent_without_writes ... ok
+test placement_v3::independent_checks::independent_stale_or_unknown_reader_release_cannot_undercount ... ok
+test placement_v3::independent_checks::independent_group_original_receipts_survive_every_checkpoint_cut ... ok
+test placement_v3::ownership_probe::tests::bounded_closure_exhaustion_refuses_without_effect ... ok
+test placement_v3::independent_checks::independent_all_pin_classes_outlive_native_recovery_turnover ... ok
+test placement_v3::ownership_probe::tests::descriptor_insertion_can_close_an_unaccounted_metadata_pack ... ok
+test placement_v3::ownership_probe::tests::descriptor_preview_is_no_effect_and_counts_real_locator_pages ... ok
+test placement_v3::independent_checks::independent_first_selection_and_unknown_selector_preserve_evidence ... ok
+test placement_v3::ownership_probe::tests::observed_prefix_charge_is_idempotent_but_not_durable_authority ... ok
+test placement_v3::independent_checks::independent_repeated_continuation_cuts_do_not_duplicate_pack_output ... ok
+test placement_v3::combined_tests::compaction_first_selection_retains_recovery_and_liability ... ok
+test placement_v3::independent_checks::independent_tight_checkpoint_capacity_boundary_is_pre_effect ... ok
+test placement_v3::typed_inventory::fresh_generation::tests::birth_capacity_and_unit_caps_refuse_before_namespace_effects ... ok
+test placement_v3::typed_inventory::fresh_generation::tests::birth_exact_staged_selector_cleanup_is_itself_recoverable ... ok
+test placement_v3::graph_journal::rollover_dispatch::tests::real_graph_rollover_data_metadata_simultaneous_and_created_sealed ... ok
+test placement_v3::typed_inventory::fresh_generation::tests::birth_eight_promoted_generations_retain_hold_and_fence_generic_paths ... ok
+test placement_v3::typed_inventory::recipe::accounting::tests::accounting_late_suffix_corruption_keeps_original_hold_and_charge ... ok
+test placement_v3::typed_inventory::fresh_generation::tests::birth_worst_phase_envelope_is_preflighted_before_admission ... ok
+test placement_v3::typed_inventory::recipe::accounting::tests::accounting_replaced_pack_generation_cannot_claim_original_delta ... ok
+test placement_v3::typed_inventory::fresh_generation::tests::birth_bound_same_bytes_replacement_and_unknown_destination_refuse ... ok
+test placement_v3::ownership_probe::tests::actual_v3_recovery_refuses_unmodeled_ownership_namespace_and_retains_hold ... ok
+test placement_v2::tests::coalesced_updates_and_no_write_defer has been running for over 60 seconds
+test placement_v2::tests::exact_reconciliation_and_bounded_pack_retirement has been running for over 60 seconds
+test placement_v2::tests::extra_reader_and_undo_pins_require_exact_release has been running for over 60 seconds
+test placement_v3::combined_tests::all_class_economic_compaction_refuses_growth_and_reclaims_garbage has been running for over 60 seconds
+test placement_v3::typed_inventory::fresh_generation::tests::birth_pending_bootstrap_symlink_and_hardlink_refuse ... ok
+test placement_v3::typed_inventory::recipe::tests::admission_and_recipe_cap_refuse_before_pack_effects ... ok
+test placement_v3::typed_inventory::fresh_generation::tests::birth_unbound_empty_partial_and_wrong_marker_fence_without_effects ... ok
+test placement_v3::typed_inventory::recipe::tests::automatic_metadata_prefix_corruption_preserves_original_batch_evidence ... ok
+test placement_v3::typed_inventory::recipe::tests::automatic_prefix_caps_duplicates_and_unknown_suffix_have_no_effects ... ok
+test placement_v3::typed_inventory::recipe::accounting::tests::accounting_unknown_candidate_gate_retains_evidence_without_effects ... ok
+test placement_v3::typed_inventory::recipe::tests::mismatched_partial_frame_refuses_without_deletion_or_fresh_hold ... ok
+test placement_v3::graph_journal::rollover_dispatch::tests::real_graph_rollover_journal_source_and_cleanup_cuts has been running for over 60 seconds
+test placement_v3::graph_journal::rollover_dispatch::tests::real_graph_rollover_original_token_all_physical_phase_cuts has been running for over 60 seconds
+test placement_v3::typed_inventory::recipe::tests::automatic_touched_prefix_growth_replaces_without_extraneous_locator_leaves ... ok
+test placement_v3::graph_journal::rollover_dispatch::turnover::turnover_runtime_born_sealed_relocation_preserves_original_graph_receipts ... ok
+test placement_v3::typed_inventory::recipe::tests::partial_new_metadata_pack_reopens_original_rollover_recipe ... ok
+test placement_v3::typed_inventory::recipe::tests::repeated_partial_and_pre_head_retries_never_duplicate_payload ... ok
+test placement_v3::typed_inventory::fresh_generation::tests::birth_reopened_hold_cannot_authenticate_its_own_changed_reservation ... ok
+test placement_v3::typed_inventory::fresh_generation::tests::birth_unknown_controls_and_changed_pin_or_charge_preserve_evidence ... ok
+test placement_v3::typed_inventory::recipe::tests::self_coverage_rejects_missing_extent_and_rollover_without_effects ... ok
+test placement_v3::typed_inventory::recipe::tests::unknown_head_keeps_original_recipe_and_both_selector_evidences ... ok
+test placement_v3::graph_journal::tests::joint_owned_graph_recovery_and_ledger_at_twenty_one_cuts has been running for over 60 seconds
+test placement_v3::typed_inventory::recipe::tests::self_covered_transient_frames_are_owned_allocations_not_content_edges ... ok
+test placement_v3::typed_inventory::recipe::tests::symlink_new_pack_refuses_without_writing_target ... ok
+test placement_v3::typed_inventory::recipe::tests::self_covered_prefix_and_selected_suffix_corruption_still_fail_audit ... ok
+test placement_v3::graph_journal::tests::original_graph_groups_recover_on_actual_v3_at_twenty_one_cuts has been running for over 60 seconds
+test placement_v3::typed_inventory::retirement_ledger::relocation::tests::compact_mixed_modes_refuse_and_full_serialization_is_preserved ... ok
+test placement_v3::typed_inventory::recipe::tests::automatic_multi_pack_batch_keeps_exact_locator_closure ... ok
+test placement_v3::typed_inventory::recipe::accounting::tests::accounting_original_token_cuts_settle_growth_once_and_keep_control_reserve ... ok
+test placement_v3::typed_inventory::recipe::tests::every_recipe_cut_reopens_and_completes_original_token ... ok
+test placement_v3::typed_inventory::retirement_ledger::relocation::tests::compact_destination_corruption_retains_staged_dispatch ... ok
+test placement_v3::independent_checks::independent_rollover_large_selector_hold_covers_fault_resume ... ok
+test placement_v3::typed_inventory::retirement_ledger::relocation::tests::compact_original_prefix_and_manifest_fields_cannot_be_recaptured ... ok
+test placement_v3::typed_inventory::retirement_ledger::relocation::tests::relocation_capacity_pending_work_and_candidate_corruption_refuse_without_unlink ... ok
+test placement_v3::typed_inventory::retirement_ledger::relocation::tests::compact_selected_source_changes_preserve_original_dispatch ... ok
+test placement_v3::typed_inventory::retirement_ledger::relocation::tests::relocation_ticket_text_codec_exact_legacy_and_corruption_bounds ... ok
+test placement_v3::typed_inventory::fresh_generation::tests::birth_bound_cuts_resume_same_token_and_keep_original_capacity has been running for over 60 seconds
+test placement_v3::typed_inventory::retirement_ledger::relocation::tests::relocation_real_large_live_recipe_cap_refuses_without_effects ... ok
+test placement_v3::typed_inventory::retirement_ledger::relocation::tests::compact_large_live_plan_passes_unchanged_ticket_cap ... ok
+test placement_v2::tests::extra_reader_and_undo_pins_require_exact_release ... ok
+test placement_v3::typed_inventory::retirement_ledger::relocation::tests::relocation_staged_cleanup_unknown_controls_and_all_pins_fence ... ok
+test placement_v3::typed_inventory::recipe::tests::automatic_prefix_batch_preserves_both_exact_closures_and_original_token ... ok
+test placement_v3::typed_inventory::retirement_ledger::relocation::tests::relocation_live_semantic_owned_and_locator_records_preserve_both_roots ... ok
+test placement_v3::typed_inventory::retirement_ledger::relocation::tests::relocation_overhead_counterexample_and_high_garbage_measurements ... ok
+test placement_v3::typed_inventory::retirement_ledger::tests::ledger_pending_enrollment_cannot_recapture_corrupted_original_prefix ... ok
+test placement_v3::typed_inventory::retirement_ledger::relocation::tests::relocation_credit_retry_occupants_and_typed_corruption_preserve_dispatch ... ok
+test placement_v3::typed_inventory::recipe::tests::automatic_real_large_batch_recipe_cap_refuses_without_effects ... ok
+test placement_v3::typed_inventory::retirement_ledger::tests::ledger_all_extra_pins_refuse_before_retirement_hold_or_effects ... ok
+test placement_v3::typed_inventory::retirement_ledger::tests::ledger_absence_without_selected_authorization_and_replaced_inode_keep_charge ... ok
+test placement_v3::typed_inventory::tests::corrupt_ownership_payload_blocks_original_continuation ... ok
+test placement_v3::typed_inventory::tests::explicit_import_is_read_only_until_full_typed_audit ... ok
+test placement_v3::typed_inventory::retirement_ledger::tests::ledger_unknown_control_and_other_hold_fence_retirement ... ok
+test placement_v3::typed_inventory::retirement_ledger::tests::ledger_credit_selector_cuts_are_exact_and_once_only ... ok
+test placement_v3::typed_inventory::recipe::tests::self_covered_suffix_survives_original_token_cuts_and_independent_audit ... ok
+test placement_v3::typed_inventory::tests::growing_prefix_cannot_recommit_previously_corrupted_bytes ... ok
+test tests::audited_session_refuses_substituted_head ... ok
+test tests::mid_staging_reserve_exhaustion_preserves_selected_root ... ok
+test placement_v3::typed_inventory::retirement_ledger::tests::ledger_bootstrap_recovers_original_self_covered_recipe ... ok
+test tests::recovery_audit_does_not_read_corrupt_active_root ... ok
+test tests::shared_hash_prefixes_preserve_map_routing ... ok
+test placement_v3::typed_inventory::tests::typed_claim_survives_audit_checkpoint_and_structural_reopen ... ok
+test placement_v3::typed_inventory::tests::original_typed_hold_survives_before_and_after_head_cuts ... ok
+test placement_v3::typed_inventory::tests::forged_missing_and_duplicate_typed_locator_leaves_refuse ... ok
+test placement_v2::tests::coalesced_updates_and_no_write_defer ... ok
+test placement_v3::typed_inventory::tests::every_pin_keeps_its_inventory_and_unclaimed_metadata_can_relocate ... ok
+test placement_v3::typed_inventory::retirement_ledger::relocation::tests::relocation_unlink_and_credit_cuts_keep_charge_until_exact_once_credit ... ok
+test placement_v3::graph_journal::tests::original_graph_groups_recover_on_actual_v3_at_twenty_one_cuts ... ok
+test placement_v3::typed_inventory::tests::ownership_replacement_cannot_weaken_prefix_or_unseal_generation ... ok
+test placement_v3::typed_inventory::retirement_ledger::tests::ledger_standing_control_turnover_never_accumulates_charge ... ok
+test placement_v3::typed_inventory::retirement_ledger::tests::ledger_original_release_and_unlink_cuts_credit_exactly_once ... ok
+test placement_v3::graph_journal::rollover_dispatch::tests::real_graph_rollover_journal_source_and_cleanup_cuts ... ok
+test placement_v3::graph_journal::tests::joint_owned_graph_recovery_and_ledger_at_twenty_one_cuts ... ok
+test placement_v3::typed_inventory::retirement_ledger::relocation::tests::relocation_original_recipe_cuts_reopen_without_duplicate_copy_or_credit ... ok
+test placement_v3::combined_tests::all_class_economic_compaction_refuses_growth_and_reclaims_garbage ... ok
+test placement_v3::typed_inventory::fresh_generation::tests::birth_bound_cuts_resume_same_token_and_keep_original_capacity ... ok
+test placement_v2::tests::exact_reconciliation_and_bounded_pack_retirement ... ok
+test placement_v3::graph_journal::rollover_dispatch::tests::real_graph_rollover_original_token_all_physical_phase_cuts ... ok
+
+test result: ok. 130 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 205.31s

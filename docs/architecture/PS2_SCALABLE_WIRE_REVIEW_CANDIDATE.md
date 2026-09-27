@@ -185,8 +185,11 @@ namespace absence alone nor a previously issued authorization creates credit.
 Recovery must recheck absence and selected closure before discarding dispatch
 evidence, including after a candidate HEAD was already selected.
 
-**Next disposable compact-manifest experiment: proposed, not implemented or
-tested by this document.** Keep the original ticket's source claim/charge, full
+**Portable compact-manifest proposal; exact candidate byte vectors remain open.**
+The separate [disposable compact fixture](PS2_COMPACT_RETIREMENT_COMMITMENTS.md)
+now verifies this approach, including source-independent original-plan checks
+after unlink. Its Rust/Serde representation is not this proposed permanent wire.
+Keep the original ticket's source claim/charge, full
 control base, original data/metadata prefixes, tip claims, candidate active and
 recovery locator/inventory roots, and token. Replace the two embedded full write
 plans with two committed suffix manifests:
@@ -256,11 +259,12 @@ post-barrier HEAD receipt for the current accepted authored state.
 
 ## Open review points and completion boundary
 
-The following are engineering work within approved semantics: complete wide and
-tight fixed-capacity runs for both maps; demonstrate useful repeated eligible
-reclamation or characterize the exact blocking bound; test the compact manifest;
-measure retained live/receipt growth separately from garbage and standing
-controls; finish the linked vectors and candidate byte layout. A safe capacity
+The remaining engineering work within approved semantics is to finish linked
+real-operation, scalable inventory/charge, publication/admission/retirement and
+compatibility vectors and the candidate byte layout. The compact fixture now
+demonstrates repeated useful runtime reclamation for both maps at 32-record
+groups; smaller groups retain negative economics. Required live/receipt growth
+remains distinct from garbage and standing controls. A safe capacity
 refusal is valid, but a run in which every maintenance attempt refuses is not
 evidence of sustained reclamation. No indefinite plateau is promised while
 required receipts/live content grow. No measured fixture limit becomes a product

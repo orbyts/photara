@@ -132,6 +132,27 @@ pub(super) mod plan_text {
     }
 }
 
+pub(super) mod optional_plan_text {
+    use super::{WritePlan, plan_text};
+    use serde::{Deserialize, Serialize};
+    #[derive(Serialize)]
+    struct Borrowed<'a>(#[serde(with = "plan_text")] &'a WritePlan);
+    #[derive(Deserialize)]
+    struct Owned(#[serde(with = "plan_text")] WritePlan);
+    #[allow(
+        clippy::ref_option,
+        reason = "Serde with adapter requires the field reference"
+    )]
+    pub fn serialize<S: serde::Serializer>(p: &Option<WritePlan>, s: S) -> Result<S::Ok, S::Error> {
+        p.as_ref().map(Borrowed).serialize(s)
+    }
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(
+        d: D,
+    ) -> Result<Option<WritePlan>, D::Error> {
+        Ok(Option::<Owned>::deserialize(d)?.map(|p| p.0))
+    }
+}
+
 fn plan(f: &mut Fixture, source: &Claim) -> Result<(TypedPlan, Vec<Claim>)> {
     let mut tips = [(true, f.data.pack), (false, f.meta.pack)]
         .into_iter()
@@ -302,6 +323,9 @@ fn plan_inputs(f: &mut Fixture, source: &Claim, tips: &[Claim]) -> Result<TypedP
 }
 
 fn prepare(f: &mut Fixture, source: &Claim) -> Result<Liability> {
+    prepare_mode(f, source, true)
+}
+fn prepare_mode(f: &mut Fixture, source: &Claim, compact: bool) -> Result<Liability> {
     ensure(
         f.head
             .gate
@@ -313,7 +337,16 @@ fn prepare(f: &mut Fixture, source: &Claim) -> Result<Liability> {
     ensure_unpinned(f, source)?;
     let (p, tips) = plan(f, source)?;
     let token = checked(f.head.gate.last_token, 1)?;
-    let ticket = RetirementTicket::from_plan(f, token, source, &p, tips)?;
+    let mut ticket = RetirementTicket::from_plan(f, token, source, &p, tips)?;
+    if compact {
+        let proof = commitment::Compact::capture(f, &ticket.data_base, &ticket.meta_base, &p)?;
+        let rebuilt = plan_inputs(f, source, &ticket.tip_claims)?;
+        proof.verify_rebuild(f, &ticket.data_base, &ticket.meta_base, &rebuilt)?;
+        ticket.data = None;
+        ticket.meta = None;
+        ticket.compact = Some(proof);
+    }
+    ticket.validate_mode(&p.continuation)?;
     ensure(
         serde_json::to_vec(&ticket).map_err(error)?.len() <= 48 * 1024,
         "live relocation recipe byte cap",
@@ -386,7 +419,7 @@ fn read_control(f: &Fixture, role: &str) -> Result<Selection> {
 /// Remove only the exact redundant selector while its original dispatch still
 /// exists. A cleanup cut retains intent/candidate, so retry remains decidable.
 fn staged_cleanup(f: &mut Fixture, exact: &Liability, fault: Fault) -> Result<()> {
-    if !f.dir.join("HEAD.next").try_exists().map_err(error)? {
+    if !control_present(f, "HEAD.next")? {
         return Ok(());
     }
     let ticket = exact
@@ -412,6 +445,10 @@ fn staged_cleanup(f: &mut Fixture, exact: &Liability, fault: Fault) -> Result<()
     )
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "Keep original-token proof ordering before replay and selector effects explicit"
+)]
 fn publish(f: &mut Fixture, exact: &Liability, fault: Fault) -> Result<()> {
     ensure(
         !f.imported_read_only
@@ -419,8 +456,6 @@ fn publish(f: &mut Fixture, exact: &Liability, fault: Fault) -> Result<()> {
             && f.head.gate.holds.get(&exact.token) == Some(exact),
         "original relocation hold",
     )?;
-    staged_cleanup(f, exact, fault)?;
-    validate_ticket_controls(f, exact)?;
     let ticket = exact
         .retirement_ticket
         .as_ref()
@@ -429,8 +464,35 @@ fn publish(f: &mut Fixture, exact: &Liability, fault: Fault) -> Result<()> {
         .continuation
         .as_ref()
         .ok_or("relocation continuation")?;
+    ticket.validate_mode(c)?;
     if f.head.active == c.active && f.head.recovery == c.recovery && f.head.inventory == c.inventory
     {
+        ticket.verify_completed_bytes(f, exact)?;
+        let source_path = if ticket.source.data {
+            f.data.path(ticket.source.pack)
+        } else {
+            f.meta.path(ticket.source.pack)
+        };
+        match fs::symlink_metadata(&source_path) {
+            Ok(_) => ticket.source.verify(f)?,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                ensure(
+                    f.head
+                        .gate
+                        .ledger
+                        .as_ref()
+                        .ok_or("retirement ledger")?
+                        .unlink_authorizations
+                        .get(&exact.token)
+                        == Some(&UnlinkAuthorization::for_ticket(f, ticket)?),
+                    "missing source before selected unlink authorization",
+                )?;
+            }
+            Err(e) => return Err(error(e)),
+        }
+        f.audit()?;
+        staged_cleanup(f, exact, fault)?;
+        validate_ticket_controls(f, exact)?;
         if f.dir.join("intent").exists() {
             f.reconcile()?;
         }
@@ -460,22 +522,43 @@ fn publish(f: &mut Fixture, exact: &Liability, fault: Fault) -> Result<()> {
     f.staged = None;
     let regenerated = regenerated?;
     ensure(
-        regenerated.continuation == *c
-            && regenerated.data == ticket.data
-            && regenerated.meta == ticket.meta,
+        regenerated.continuation == *c,
         "relocation differs from original typed plan",
     )?;
+    if let Some(proof) = &ticket.compact {
+        proof.verify_rebuild(f, &ticket.data_base, &ticket.meta_base, &regenerated)?;
+    } else {
+        let (data, meta) = ticket.full_plans()?;
+        ensure(
+            regenerated.data == *data && regenerated.meta == *meta,
+            "relocation full plans changed",
+        )?;
+    }
+    staged_cleanup(f, exact, fault)?;
+    validate_ticket_controls(f, exact)?;
     let mut remaining = if let Fault::Partial(n) = fault {
         Some(n)
     } else {
         None
     };
-    recipe::replay(f, true, &ticket.data_base, &ticket.data, &mut remaining)?;
+    recipe::replay(
+        f,
+        true,
+        &ticket.data_base,
+        &regenerated.data,
+        &mut remaining,
+    )?;
     ensure(
         !matches!(fault, Fault::AfterData),
         "cut after relocation data",
     )?;
-    recipe::replay(f, false, &ticket.meta_base, &ticket.meta, &mut remaining)?;
+    recipe::replay(
+        f,
+        false,
+        &ticket.meta_base,
+        &regenerated.meta,
+        &mut remaining,
+    )?;
     f.authorized_hold = Some(exact.token);
     if f.dir.join("intent").exists() {
         f.reconcile()?;
@@ -510,6 +593,7 @@ fn complete_cut(f: &mut Fixture, exact: &Liability, cut: Cut) -> Result<serde_js
         .retirement_ticket
         .as_ref()
         .ok_or("completion ticket")?;
+    ticket.verify_completed_bytes(f, exact)?;
     let path = if ticket.source.data {
         f.data.path(ticket.source.pack)
     } else {
@@ -547,7 +631,7 @@ fn complete_cut(f: &mut Fixture, exact: &Liability, cut: Cut) -> Result<serde_js
             ensure(
                 (f.head == authorized || f.head == expected)
                     && read_control(f, "HEAD")? == f.head
-                    && !f.dir.join("HEAD.next").try_exists().map_err(error)?,
+                    && !control_present(f, "HEAD.next")?,
                 "unknown relocation credit selection",
             )?;
             // Both legal credit-cut states follow barriered absence. Check all
@@ -822,7 +906,12 @@ pub(in super::super::super) fn relocate_owned(
     let started = Instant::now();
     let hold = prepare(f, &source)?;
     let ticket = hold.retirement_ticket.as_ref().unwrap();
-    let bytes = (ticket.data.bytes, ticket.meta.bytes);
+    let bytes = if let Some(proof) = &ticket.compact {
+        proof.bytes()
+    } else {
+        let (data, meta) = ticket.full_plans()?;
+        (data.bytes, meta.bytes)
+    };
     publish(f, &hold, Fault::None)?;
     let selected_charge = f.head.gate.domains[&0].charged;
     complete(f, &hold)?;
@@ -838,6 +927,7 @@ pub(in super::super::super) fn relocate_owned(
     ensure(f.head.semantic == semantic, "relocation semantics changed")?;
     f.audit_combined()?;
     Ok(json!({"fixture":"actual-v3-same-tip-live-owned-relocation",
+        "recipe_mode":"compact-framed-commitment",
         "source_data":data,"live_selected_memberships":memberships,"source":source,"original_token":hold.token,"original_hold":hold.by_domain,
         "initial_project_charge":initial,"after_both_root_release_charge":selected_charge,
         "final_project_charge":f.head.gate.domains[&0].charged,"credit_receipt":receipt,
@@ -957,8 +1047,17 @@ mod tests {
                     let charged = f.head.gate.domains[&0].charged;
                     let fault = if matches!(fault, Fault::Partial(usize::MAX)) {
                         Fault::Partial(
-                            usize::try_from(hold.retirement_ticket.as_ref().unwrap().data.bytes)
-                                .map_err(error)?
+                            usize::try_from(
+                                hold.retirement_ticket
+                                    .as_ref()
+                                    .unwrap()
+                                    .compact
+                                    .as_ref()
+                                    .unwrap()
+                                    .bytes()
+                                    .0,
+                            )
+                            .map_err(error)?
                                 + 7,
                         )
                     } else {
@@ -1116,10 +1215,10 @@ mod tests {
 
         let (_temp, mut f) = setup_mixed(Kind::Radix, 0)?;
         let source = source_claim(&mut f, true)?;
+        let original_plan = plan(&mut f, &source)?.0;
         let hold = prepare(&mut f, &source)?;
         publish(&mut f, &hold, Fault::None)?;
-        let ticket = hold.retirement_ticket.as_ref().unwrap();
-        let (_, physical, _) = ticket
+        let (_, physical, _) = original_plan
             .data
             .writes
             .iter()
@@ -1174,13 +1273,296 @@ mod tests {
     }
 
     #[test]
+    fn compact_large_live_plan_passes_unchanged_ticket_cap() -> Result<()> {
+        for kind in [Kind::Radix, Kind::Btree] {
+            let (_temp, mut f) = setup_mixed_records(kind, 0, true)?;
+            let source = source_claim(&mut f, true)?;
+            let before = f.snapshot()?;
+            ensure(
+                prepare_mode(&mut f, &source, false)
+                    .unwrap_err()
+                    .contains("recipe byte cap"),
+                "legacy full-body candidate should exceed cap",
+            )?;
+            ensure(
+                before == f.snapshot()? && f.head.gate.holds.is_empty(),
+                "full refusal effects",
+            )?;
+            let hold = prepare(&mut f, &source)?;
+            let ticket = hold.retirement_ticket.as_ref().unwrap();
+            ensure(
+                ticket.data.is_none()
+                    && ticket.meta.is_none()
+                    && serde_json::to_vec(ticket).map_err(error)?.len() <= 48 * 1024,
+                "compact bounded ticket",
+            )?;
+            publish(&mut f, &hold, Fault::None)?;
+            ensure(
+                retire(&mut f, &hold, RetireCut::AfterUnlink).is_err(),
+                "unlink cut",
+            )?;
+            f = Fixture::reopen_combined(&f.dir)?;
+            publish(&mut f, &hold, Fault::None)?;
+            complete(&mut f, &hold)?;
+            complete(&mut f, &hold)?;
+            f.audit_combined()?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn compact_original_prefix_and_manifest_fields_cannot_be_recaptured() -> Result<()> {
+        for replace in [false, true] {
+            let (_temp, mut f) = setup_mixed(Kind::Btree, 0)?;
+            let source = source_claim(&mut f, true)?;
+            let p = plan(&mut f, &source)?.0;
+            let data = recipe::Prefix::capture(&f.data)?;
+            let meta = recipe::Prefix::capture(&f.meta)?;
+            let path = f.data.path(data.pack);
+            if replace {
+                fs::rename(&path, path.with_extension("original")).map_err(error)?;
+                fs::copy(path.with_extension("original"), &path).map_err(error)?;
+            } else {
+                let mut file = OpenOptions::new().write(true).open(&path).map_err(error)?;
+                file.write_all(b"!").map_err(error)?;
+            }
+            ensure(
+                commitment::Compact::capture(&mut f, &data, &meta, &p).is_err(),
+                "old original prefix was recaptured or rebound",
+            )?;
+        }
+        let (_temp, mut f) = setup_mixed(Kind::Btree, 0)?;
+        let source = source_claim(&mut f, true)?;
+        let hold = prepare(&mut f, &source)?;
+        publish(&mut f, &hold, Fault::None)?;
+        for after_unlink in [false, true] {
+            if after_unlink {
+                ensure(
+                    retire(&mut f, &hold, RetireCut::AfterUnlink).is_err(),
+                    "unlink cut",
+                )?;
+            }
+            let ticket = hold.retirement_ticket.as_ref().unwrap();
+            let proof = ticket.compact.as_ref().unwrap();
+            for field in [
+                "ino",
+                "original_sha",
+                "frames",
+                "final_end",
+                "typed_plan_sha",
+            ] {
+                let mut value = serde_json::to_value(proof).map_err(error)?;
+                if field == "typed_plan_sha" {
+                    value[field] = json!("0".repeat(64));
+                } else if field == "original_sha" {
+                    value["data"][field] = json!("0".repeat(64));
+                } else {
+                    value["data"][field] = json!(value["data"][field].as_u64().unwrap() + 1);
+                }
+                let changed: commitment::Compact = serde_json::from_value(value).map_err(error)?;
+                let snapshot = f.snapshot()?;
+                ensure(
+                    changed
+                        .verify_complete(
+                            &mut f,
+                            &ticket.data_base,
+                            &ticket.meta_base,
+                            hold.continuation.as_ref().unwrap(),
+                        )
+                        .is_err(),
+                    "altered completed manifest accepted",
+                )?;
+                ensure(snapshot == f.snapshot()?, "manifest proof mutated files")?;
+            }
+        }
+        complete(&mut f, &hold)?;
+        Ok(())
+    }
+
+    #[test]
+    fn compact_mixed_modes_refuse_and_full_serialization_is_preserved() -> Result<()> {
+        let (_temp, mut f) = setup_mixed(Kind::Btree, 0)?;
+        let source = source_claim(&mut f, true)?;
+        let (p, tips) = plan(&mut f, &source)?;
+        let full = RetirementTicket::from_plan(&mut f, 1, &source, &p, tips)?;
+        let value = serde_json::to_value(&full).map_err(error)?;
+        #[derive(Serialize)]
+        struct Prior<'a>(#[serde(with = "plan_text")] &'a WritePlan);
+        ensure(
+            value["data"] == serde_json::to_value(Prior(&p.data)).map_err(error)?
+                && value.get("compact").is_none(),
+            "legacy Some plan serialization changed",
+        )?;
+        let proof = commitment::Compact::capture(&mut f, &full.data_base, &full.meta_base, &p)?;
+        for mode in 0..4 {
+            let mut changed = full.clone();
+            match mode {
+                0 => {
+                    changed.compact = Some(proof.clone());
+                }
+                1 => {
+                    changed.data = None;
+                }
+                2 => {
+                    changed.data = None;
+                    changed.meta = None;
+                }
+                _ => {
+                    changed.meta = None;
+                    changed.compact = Some(proof.clone());
+                }
+            }
+            ensure(
+                changed.validate_mode(&p.continuation).is_err(),
+                "ambiguous recipe mode accepted",
+            )?;
+            let before = f.snapshot()?;
+            let head = fs::read(f.dir.join("HEAD")).map_err(error)?;
+            ensure(
+                f.reserve_bound(
+                    f.head.semantic.clone(),
+                    Some((source.data, source.pack)),
+                    &[(0, 16 * 1024 * 1024)],
+                    Some(p.continuation.clone()),
+                    None,
+                    Some(changed),
+                )
+                .is_err(),
+                "generic admission accepted ambiguous ticket",
+            )?;
+            ensure(
+                before == f.snapshot()?
+                    && head == fs::read(f.dir.join("HEAD")).map_err(error)?
+                    && f.head.gate.holds.is_empty(),
+                "ambiguous ticket admission effects",
+            )?;
+        }
+        // The old full mode still executes the same original-token path.
+        let hold = prepare_mode(&mut f, &source, false)?;
+        publish(&mut f, &hold, Fault::None)?;
+        complete(&mut f, &hold)?;
+        Ok(())
+    }
+
+    #[test]
+    fn compact_selected_source_changes_preserve_original_dispatch() -> Result<()> {
+        for mode in 0..3 {
+            let (_temp, mut f) = setup_mixed(Kind::Btree, 0)?;
+            let source = source_claim(&mut f, true)?;
+            let hold = prepare(&mut f, &source)?;
+            ensure(
+                publish(&mut f, &hold, Fault::AfterHead).is_err(),
+                "selected cut",
+            )?;
+            let path = f.data.path(source.pack);
+            if mode == 0 {
+                fs::rename(&path, path.with_extension("original")).map_err(error)?;
+                fs::copy(path.with_extension("original"), &path).map_err(error)?;
+            } else if mode == 1 {
+                OpenOptions::new()
+                    .write(true)
+                    .open(&path)
+                    .map_err(error)?
+                    .write_all(b"!")
+                    .map_err(error)?;
+            } else {
+                fs::remove_file(&path).map_err(error)?;
+            }
+            let read = |f: &Fixture| {
+                ["HEAD", "intent", "candidate"]
+                    .into_iter()
+                    .map(|n| fs::read(f.dir.join(n)).map_err(error))
+                    .collect::<Result<Vec<_>>>()
+            };
+            let controls = read(&f)?;
+            let before = f.snapshot()?;
+            ensure(
+                publish(&mut f, &hold, Fault::None).is_err(),
+                "changed selected source accepted",
+            )?;
+            ensure(
+                controls == read(&f)? && before == f.snapshot()?,
+                "changed source lost original evidence",
+            )?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn compact_destination_corruption_retains_staged_dispatch() -> Result<()> {
+        for mode in 0..3 {
+            let (_temp, mut f) = setup_mixed(Kind::Btree, 0)?;
+            let source = source_claim(&mut f, true)?;
+            let p = plan(&mut f, &source)?.0;
+            let hold = prepare(&mut f, &source)?;
+            ensure(
+                publish(&mut f, &hold, Fault::StagedHead).is_err(),
+                "staged cut",
+            )?;
+            let path = f.data.path(p.data.pack);
+            if mode == 0 {
+                fs::rename(&path, path.with_extension("original")).map_err(error)?;
+                fs::copy(path.with_extension("original"), &path).map_err(error)?;
+            } else if mode == 1 {
+                OpenOptions::new()
+                    .append(true)
+                    .open(&path)
+                    .map_err(error)?
+                    .write_all(b"!")
+                    .map_err(error)?;
+            } else {
+                // Raw manifest covers even staged ownership frames omitted from
+                // the final exact locator closure.
+                let c = hold.continuation.as_ref().unwrap();
+                let old = f.head.clone();
+                f.head = read_control(&f, "candidate")?;
+                f.cache.clear();
+                let mut unselected = None;
+                for (key, r, _) in &p.data.writes {
+                    let key = key.unwrap();
+                    if f.lookup(&c.active, key)?.is_none_or(|v| v.data != *r)
+                        && f.lookup(&c.recovery, key)?.is_none_or(|v| v.data != *r)
+                    {
+                        unselected = Some(r);
+                        break;
+                    }
+                }
+                f.head = old;
+                f.cache.clear();
+                let r = unselected.ok_or("fixture needs intermediate unreachable frame")?;
+                let mut file = OpenOptions::new().write(true).open(&path).map_err(error)?;
+                file.seek(SeekFrom::Start(r.offset)).map_err(error)?;
+                file.write_all(b"!").map_err(error)?;
+            }
+            let controls = ["HEAD", "intent", "candidate", "HEAD.next"]
+                .into_iter()
+                .map(|n| fs::read(f.dir.join(n)).map_err(error))
+                .collect::<Result<Vec<_>>>()?;
+            let before = f.snapshot()?;
+            ensure(
+                publish(&mut f, &hold, Fault::None).is_err(),
+                "unknown destination accepted",
+            )?;
+            let after = ["HEAD", "intent", "candidate", "HEAD.next"]
+                .into_iter()
+                .map(|n| fs::read(f.dir.join(n)).map_err(error))
+                .collect::<Result<Vec<_>>>()?;
+            ensure(
+                controls == after && before == f.snapshot()?,
+                "proof failure discarded dispatch",
+            )?;
+        }
+        Ok(())
+    }
+
+    #[test]
     fn relocation_real_large_live_recipe_cap_refuses_without_effects() -> Result<()> {
         let (_temp, mut f) = setup_mixed_records(Kind::Btree, 0, true)?;
         let source = source_claim(&mut f, true)?;
         let before = f.snapshot()?;
         let head = fs::read(f.dir.join("HEAD")).map_err(error)?;
         ensure(
-            prepare(&mut f, &source)
+            prepare_mode(&mut f, &source, false)
                 .unwrap_err()
                 .contains("recipe byte cap"),
             "real live candidate should exceed bounded recipe",
@@ -1199,6 +1581,7 @@ mod tests {
             for mode in 0..3 {
                 let (_temp, mut f) = setup_mixed(Kind::Btree, 0)?;
                 let source = source_claim(&mut f, true)?;
+                let original_plan = plan(&mut f, &source)?.0;
                 let hold = prepare(&mut f, &source)?;
                 publish(&mut f, &hold, Fault::None)?;
                 ensure(complete_cut(&mut f, &hold, cut).is_err(), "credit cut")?;
@@ -1209,8 +1592,7 @@ mod tests {
                     std::os::unix::fs::symlink(f.dir.join("absent-target"), &path)
                         .map_err(error)?;
                 } else {
-                    let ticket = hold.retirement_ticket.as_ref().unwrap();
-                    let (_, reference, _) = ticket
+                    let (_, reference, _) = original_plan
                         .data
                         .writes
                         .iter()

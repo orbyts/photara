@@ -91,14 +91,11 @@ source returns 45,056 bytes against 12,288 bytes of growth; all-live examples
 remain net negative. Runtime Graph-born/sealed sources also relocate with their
 original receipts intact. No filesystem availability credit is inferred.
 
-The current full-plan retirement ticket still exceeds its unchanged 48 KiB cap
-for larger candidates. Fixed-capacity runs preserve original admission and
-refuse without effects, but every scheduled maintenance attempt hits that cap.
-They establish finite admission behavior, not sustained reclamation. The next
-authorized experiment replaces embedded replay bodies with exact bounded suffix
-commitments, preserving original reconstruction, complete suffix verification,
-all pins and the same control cap. Required live content and retained receipts
-may legitimately grow; an indefinite capacity plateau is not promised.
+The earlier full-plan retirement ticket exceeded its unchanged 48 KiB cap
+for larger candidates. Its fixed-capacity runs preserved original admission and
+refused without effects, but every scheduled maintenance attempt hit that cap.
+These historical measurements establish finite admission behavior, not sustained
+reclamation:
 
 | Fixed-budget genuine Graph run | Radix | B-tree |
 | --- | ---: | ---: |
@@ -111,11 +108,35 @@ and each next Graph admission refuses without effects. The detailed
 [samples and refusals](verification/ps2-fixed-capacity-turnover.jsonl) retain
 the actual reasons; no mid-run budget increase or speculative credit is used.
 
+The subsequent [compact retirement commitments](PS2_COMPACT_RETIREMENT_COMMITMENTS.md)
+resolve that serialization limit without raising the ticket cap. Exactly one
+full or compact mode is admitted. The compact mode regenerates original plans
+before effects; after publication or authorized unlink it reconstructs those
+plans from exact framed destination suffixes and rechecks the original typed
+commitment, prefix witnesses and target. Unknown source/destination bytes retain
+dispatch evidence. Legacy full-ticket serialization and once-only credit remain.
+
+With 32-record groups and a fixed 39,882,752-byte limit, radix completes 896
+authored records and B-tree 864 before no-effect capacity refusal. Each performs
+three retirements of genuinely runtime-born, subsequently sealed sources; two
+are net positive and one is net zero. Each reclaims 49,152 bytes in aggregate
+after replacement growth. No prepared garbage source contributes to these aged
+runs. At eight records per group, each map instead completes eight runtime
+retirements with net negative aggregate return. Group size and candidate age
+affect actual maintenance economics; successful unlink alone is not useful
+reclamation. Required live content and all original receipts remain retained,
+so no indefinite capacity plateau is promised. The linked experiment records
+the actual charges, append costs, source hashes and bounded fixture limits.
+The [final-source regression record](verification/ps2-compact-retirement-regression-20260927.json)
+covers all 132 index/placement tests and seven original Graph tests across the
+broad regression and separately measured long workloads; the 32-record aged
+configuration also passes. Strict example Clippy and targeted Rustfmt pass.
+
 The [scalable wire candidate](PS2_SCALABLE_WIRE_REVIEW_CANDIDATE.md) reconciles
 the earlier flat appendix with typed indexes, independent placement/ownership
 closure, original admission and physical accounting. It explicitly separates
-portable identities from local allocation evidence. Linked canonical vectors,
-the compact-manifest experiment and final readiness review remain engineering
+portable identities from local allocation evidence. Remaining linked canonical
+vectors and final readiness review remain engineering
 work; this draft does not freeze compatibility or authorize production code.
 The [first linked byte specimen](PS2_SCALABLE_PACKED_BYTE_CANDIDATE.md) now passes
 eight pure tests over fourteen linked scenarios and 112 fixed canonical records.
@@ -134,12 +155,12 @@ qualification. See [clean-remount evidence](PS2_MACOS_CLEAN_REMOUNT.md).
 
 The remaining engineering dependency is:
 
-1. remove the observed full-plan serialization bottleneck using exact compact
-   commitments and verify replay before and after source retirement;
-2. demonstrate useful repeated eligible reclamation under fixed budgets for
-   both maps, distinguishing unavoidable retained state from maintenance cost;
-3. complete qualified barrier/storage evidence and present the permanent
-   recipe/wire for review before shared production reader/writer implementation.
+1. complete real-operation, scalable inventory/charge, original-admission,
+   publication/retirement and compatibility byte vectors;
+2. present the exact candidate wire, closure rules and measured limits for
+   review before shared production reader/writer implementation;
+3. complete qualified barrier/storage evidence before production writable or
+   `Saved` support. Clean remount remains distinct from that qualification.
 
 The earlier [active-prefix adapter](PS2_ACTIVE_PREFIX_OWNERSHIP_ADAPTER.md) and
 [allocation-credit prerequisite](PS2_ALLOCATION_OWNERSHIP_CREDIT_PREREQUISITE.md)

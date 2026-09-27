@@ -27,15 +27,13 @@ PS2 is active. LL1 contract/schema/security review is advanced parallel work,
 but it cannot bypass PS2, PS3 or PS4 and does not authorize LL2 production
 mutation.
 
-The immediate PS2 engineering step remains disposable integration:
+The immediate PS2 engineering step is completing the reviewable wire candidate:
 
-1. remove the measured retirement-ticket serialization limit through a bounded
-   original-plan commitment experiment, retaining the 48 KiB control cap;
-2. demonstrate useful repeated reclamation under fixed capacity for both the
-   provisional B-tree lead and radix comparator, distinguishing required retained
-   receipts/live growth from garbage and maintenance overhead;
-3. complete the scalable wire candidate and linked canonical vectors for review;
-4. complete qualified storage/barrier evidence and the permanent-wire review.
+1. finish linked real-operation, scalable inventory/charge, original-admission,
+   publication/retirement and compatibility vectors within approved semantics;
+2. consolidate the exact byte/closure proposal, original replay commitments,
+   measured limits and negative economics for permanent-wire review;
+3. complete qualified storage/barrier evidence as its separate prerequisite.
 
 Only consolidated evidence from that integration may support review/freeze of
 the permanent wire and implementation of the shared Rust reader, writer,
@@ -110,9 +108,13 @@ separate PS2 prerequisite.
 - [Live-owned relocation](architecture/PS2_LIVE_OWNED_RELOCATION.md) moves both
   roots before exact selected unlink authorization and once-only project credit.
   Runtime Graph-born/sealed sources retain original receipts across relocation.
-  Fixed-budget runs still hit the 48 KiB full-plan ticket cap on every scheduled
-  maintenance attempt; sustained useful reclamation is unproven. Compact suffix
-  commitments are the next engineering experiment, not a permanent format.
+  The subsequent [compact retirement proof](architecture/PS2_COMPACT_RETIREMENT_COMMITMENTS.md)
+  removes full-plan serialization from the unchanged 48 KiB cap and independently
+  verifies complete destination bytes after authorized source unlink. Both maps
+  now demonstrate repeated net-positive runtime reclamation with 32-record groups
+  under a fixed budget. Eight-record runs remain net negative; retained state
+  eventually causes safe capacity refusal. This is bounded evidence, not a
+  lifetime plateau, general maintenance policy or permanent format.
 - A [scalable wire review candidate](architecture/PS2_SCALABLE_WIRE_REVIEW_CANDIDATE.md)
   describes typed closure, placement and accounting records and required linked
   vectors. Its [first linked byte specimen](architecture/PS2_SCALABLE_PACKED_BYTE_CANDIDATE.md)
@@ -170,8 +172,9 @@ disposable proofs, not production deletion.
 - No permanent PS2 wire, production package reader/writer, live conversion,
   migration, production GC, Asset Store or production `Accepted`/`Saved` path.
 - No qualified production barrier path. Disposable Graph rollover and live
-  relocation are integrated, but useful sustained fixed-budget reclamation and
-  large-project capacity turnover remain unproven.
+  relocation are integrated with bounded useful fixed-budget reclamation;
+  arbitrary-scale maintenance, qualified local binding and production admission
+  remain unproven.
 - No shared Rust production session coordinator, writer queue or native
   autosave status/recovery path (PS3).
 - No safe real project browse/reopen/switch flow on that durability boundary

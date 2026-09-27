@@ -87,16 +87,25 @@ fn turnover_runtime_born_sealed_relocation_preserves_original_graph_receipts() -
 }
 
 #[test]
+fn turnover_fixed_capacity_original_groups_and_bounded_refusals() -> Result<()> {
+    fixed_capacity(0)
+}
+
+#[test]
+fn turnover_aged_runtime_generations_under_fixed_capacity() -> Result<()> {
+    fixed_capacity(4)
+}
+
 #[allow(
     clippy::too_many_lines,
     reason = "Fixed-budget workload retains every original receipt across bounded groups"
 )]
-fn turnover_fixed_capacity_original_groups_and_bounded_refusals() -> Result<()> {
+fn fixed_capacity(candidate_age: usize) -> Result<()> {
     let group_cap = std::env::var("PHOTARA_PS2_TURNOVER_GROUPS")
         .ok()
         .map(|v| v.parse::<usize>().map_err(error))
         .transpose()?
-        .unwrap_or(128);
+        .unwrap_or(if candidate_age == 0 { 128 } else { 64 });
     let records_per_group = std::env::var("PHOTARA_PS2_TURNOVER_RECORDS")
         .ok()
         .map(|v| v.parse::<u64>().map_err(error))
@@ -106,7 +115,12 @@ fn turnover_fixed_capacity_original_groups_and_bounded_refusals() -> Result<()> 
         (64..=256).contains(&group_cap) && [8, 32].contains(&records_per_group),
         "bounded meaningful turnover configuration",
     )?;
-    for headroom in [256 * 1024, 16 * 1024 * 1024] {
+    let headrooms: &[u64] = if candidate_age == 0 {
+        &[256 * 1024, 16 * 1024 * 1024]
+    } else {
+        &[16 * 1024 * 1024]
+    };
+    for &headroom in headrooms {
         for kind in [Kind::Radix, Kind::Btree] {
             let (_temp, mut source, mut f, journal) = setup_fixture(kind, &[true])?;
             let first = plan(&mut source, records_per_group)?;
@@ -126,7 +140,7 @@ fn turnover_fixed_capacity_original_groups_and_bounded_refusals() -> Result<()> 
             f.select_gate(gate)?;
             let initial_charge = f.head.gate.domains[&0].charged;
             let mut history = vec![];
-            let mut samples = vec![];
+            let mut samples: Vec<serde_json::Value> = vec![];
             let mut refusals = vec![];
             for index in 0..group_cap {
                 let group = plan(&mut source, records_per_group)?;
@@ -154,14 +168,24 @@ fn turnover_fixed_capacity_original_groups_and_bounded_refusals() -> Result<()> 
                 // Measure the initial garbage-rich source and periodic runtime
                 // sealed tips. This experiment records both positive and negative
                 // net outcomes; it does not define an automatic retirement policy.
-                if index == 0 || index % 8 == 7 {
+                if (index == 0 && candidate_age == 0) || index % 8 == 7 {
                     let before = f.snapshot()?;
                     let head = fs::read(f.dir.join("HEAD")).map_err(error)?;
                     let candidate = if index == 0 {
                         0
-                    } else {
+                    } else if candidate_age == 0 {
                         original_hold.origin.data_pack
+                    } else {
+                        samples[index - candidate_age]["data_tip"]
+                            .as_u64()
+                            .ok_or("aged runtime tip")?
                     };
+                    if candidate_age > 0 {
+                        ensure(
+                            candidate > 0 && candidate < f.data.pack,
+                            "aged source must be runtime-born and sealed",
+                        )?;
+                    }
                     match retirement_ledger::relocation::relocate_owned(&mut f, true, candidate) {
                         Ok(row) => maintenance.push(row),
                         Err(e) => {
@@ -194,9 +218,29 @@ fn turnover_fixed_capacity_original_groups_and_bounded_refusals() -> Result<()> 
                 !samples.is_empty(),
                 "fixed-capacity workload made no original progress",
             )?;
+            let maintenance: Vec<_> = samples
+                .iter()
+                .flat_map(|s| s["maintenance"].as_array().unwrap())
+                .collect();
+            let positive = maintenance
+                .iter()
+                .filter(|m| m["net_project_credit"].as_i64().unwrap() > 0)
+                .count();
+            let credit: u64 = maintenance
+                .iter()
+                .map(|m| m["credit_receipt"]["project_credit"].as_u64().unwrap())
+                .sum();
+            let growth: u64 = maintenance
+                .iter()
+                .map(|m| m["credit_receipt"]["growth"].as_u64().unwrap())
+                .sum();
             println!(
                 "{}",
                 json!({"fixture":"runtime-graph-fixed-capacity-bounded-turnover",
+            "candidate_age_groups":candidate_age,"runtime_maintenance_only":candidate_age>0,
+            "successful_maintenance_count":maintenance.len(),"net_positive_maintenance_count":positive,
+            "maintenance_project_credit":credit,"maintenance_observed_growth":growth,
+            "recipe_mode":"compact-framed-commitment",
             "kind":format!("{kind:?}"),"fixed_project_limit":limit,"initial_charge":initial_charge,
             "first_original_reserve":first_reserve,"predetermined_extra_headroom":headroom,
             "completed_groups":samples.len(),"samples":samples,"refusals":refusals,

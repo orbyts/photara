@@ -242,6 +242,9 @@ fn bootstrap(f: &mut Fixture) -> Result<(Ledger, Vec<Claim>, u64)> {
     Ok((ledger, claims, charge))
 }
 
+#[path = "retirement_ledger/commitment.rs"]
+mod commitment;
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub(in super::super) struct RetirementTicket {
     token: u64,
@@ -254,10 +257,20 @@ pub(in super::super) struct RetirementTicket {
     // pin change during an uncertain unlink requires revalidation, not credit.
     data_base: recipe::Prefix,
     meta_base: recipe::Prefix,
-    #[serde(with = "relocation::plan_text")]
-    data: WritePlan,
-    #[serde(with = "relocation::plan_text")]
-    meta: WritePlan,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "relocation::optional_plan_text"
+    )]
+    data: Option<WritePlan>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "relocation::optional_plan_text"
+    )]
+    meta: Option<WritePlan>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    compact: Option<commitment::Compact>,
     tip_claims: Vec<Claim>,
     control_base: Selection,
 }
@@ -294,13 +307,61 @@ impl RetirementTicket {
             selected_inventory: next.inventory.clone(),
             data_base,
             meta_base,
-            data: plan.data.clone(),
-            meta: plan.meta.clone(),
+            data: Some(plan.data.clone()),
+            meta: Some(plan.meta.clone()),
+            compact: None,
             tip_claims,
             control_base: f.head.clone(),
         })
     }
+    pub(in super::super) fn validate_mode(&self, target: &Continuation) -> Result<()> {
+        match (&self.data, &self.meta, &self.compact) {
+            (Some(data), Some(meta), None) => {
+                recipe::segments(&self.data_base, data, true)?;
+                recipe::segments(&self.meta_base, meta, false)?;
+                ensure(
+                    data.pack == target.data_pack
+                        && data.end == target.data_end
+                        && meta.pack == target.meta_pack
+                        && meta.end == target.meta_end,
+                    "full retirement target coordinates",
+                )
+            }
+            (None, None, Some(proof)) => {
+                proof.validate(&self.data_base, &self.meta_base)?;
+                proof.validate_target(target)
+            }
+            _ => Err("retirement requires exactly one full or compact recipe mode".into()),
+        }
+    }
+    fn full_plans(&self) -> Result<(&WritePlan, &WritePlan)> {
+        ensure(
+            self.compact.is_none(),
+            "legacy release requires full recipe",
+        )?;
+        Ok((
+            self.data.as_ref().ok_or("full data plan absent")?,
+            self.meta.as_ref().ok_or("full metadata plan absent")?,
+        ))
+    }
+    fn verify_completed_bytes(&self, f: &mut Fixture, exact: &Liability) -> Result<()> {
+        let target = exact
+            .continuation
+            .as_ref()
+            .ok_or("retirement continuation")?;
+        self.validate_mode(target)?;
+        if let Some(proof) = &self.compact {
+            proof.verify_complete(f, &self.data_base, &self.meta_base, target)?;
+        }
+        Ok(())
+    }
     fn validate_selected(&self, f: &Fixture, exact: &Liability) -> Result<()> {
+        self.validate_mode(
+            exact
+                .continuation
+                .as_ref()
+                .ok_or("retirement continuation")?,
+        )?;
         ensure(
             !f.imported_read_only
                 && f.head.gate.holds.len() == 1
@@ -572,12 +633,17 @@ enum RetireCut {
 /// Only this original selected ticket permits the namespace effect. Authorization
 /// is separately selected after full candidate liveness/generation validation,
 /// before unlink. A missing file without that authorization always fences.
+#[allow(
+    clippy::too_many_lines,
+    reason = "Original selected authorization, exact unlink and absence barriers form one sequence"
+)]
 fn retire(f: &mut Fixture, exact: &Liability, cut: RetireCut) -> Result<u64> {
     let ticket = exact
         .retirement_ticket
         .as_ref()
         .ok_or("retirement ticket absent")?;
     ticket.validate_selected(f, exact)?;
+    ticket.verify_completed_bytes(f, exact)?;
     validate_ticket_controls(f, exact)?;
     ensure(
         !f.dir.join("intent").exists(),
@@ -739,6 +805,11 @@ fn complete_retirement_cut(
     exact: &Liability,
     cut: Cut,
 ) -> Result<serde_json::Value> {
+    exact
+        .retirement_ticket
+        .as_ref()
+        .ok_or("completion ticket")?
+        .verify_completed_bytes(f, exact)?;
     if !f.head.gate.holds.contains_key(&exact.token) {
         let (expected, receipt) = completion_selector(f, exact)?;
         let disk: Selection = Fixture::bounded_read(&f.dir.join("HEAD"))?;
@@ -1047,8 +1118,8 @@ fn publish_release(f: &mut Fixture, exact: &Liability, cut: ReleaseCut) -> Resul
     let regenerated = regenerated?;
     ensure(
         regenerated.continuation == *c
-            && regenerated.data == ticket.data
-            && regenerated.meta == ticket.meta,
+            && regenerated.data == *ticket.full_plans()?.0
+            && regenerated.meta == *ticket.full_plans()?.1,
         "release differs from original typed plan",
     )?;
     let mut remaining = if let ReleaseCut::Partial(n) = cut {
@@ -1056,8 +1127,20 @@ fn publish_release(f: &mut Fixture, exact: &Liability, cut: ReleaseCut) -> Resul
     } else {
         None
     };
-    recipe::replay(f, true, &ticket.data_base, &ticket.data, &mut remaining)?;
-    recipe::replay(f, false, &ticket.meta_base, &ticket.meta, &mut remaining)?;
+    recipe::replay(
+        f,
+        true,
+        &ticket.data_base,
+        ticket.full_plans()?.0,
+        &mut remaining,
+    )?;
+    recipe::replay(
+        f,
+        false,
+        &ticket.meta_base,
+        ticket.full_plans()?.1,
+        &mut remaining,
+    )?;
     f.authorized_hold = Some(exact.token);
     if f.dir.join("intent").exists() {
         f.reconcile()?;
@@ -1482,11 +1565,24 @@ pub(in super::super) fn registered_source(
     Ok(registered)
 }
 
+fn control_present(f: &Fixture, role: &str) -> Result<bool> {
+    match fs::symlink_metadata(f.dir.join(role)) {
+        Ok(_) => Ok(true),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(error(e)),
+    }
+}
 fn validate_ticket_controls(f: &Fixture, exact: &Liability) -> Result<()> {
     let ticket = exact
         .retirement_ticket
         .as_ref()
         .ok_or("ticket control identity")?;
+    ticket.validate_mode(
+        exact
+            .continuation
+            .as_ref()
+            .ok_or("retirement continuation")?,
+    )?;
     let (old, released) = recipe::accounting::selectors_from_base(exact, &ticket.control_base)?;
     let mut authorized = released.clone();
     authorized.epoch = checked(authorized.epoch, 1)?;
@@ -1512,7 +1608,7 @@ fn validate_ticket_controls(f: &Fixture, exact: &Liability) -> Result<()> {
         selected == f.head && known.iter().any(|h| **h == selected),
         "unknown retirement control selector",
     )?;
-    if f.dir.join("intent").exists() || f.dir.join("candidate").exists() {
+    if control_present(f, "intent")? || control_present(f, "candidate")? {
         let intent = read("intent")?;
         let candidate = read("candidate")?;
         ensure(
@@ -1523,7 +1619,7 @@ fn validate_ticket_controls(f: &Fixture, exact: &Liability) -> Result<()> {
         )?;
     }
     ensure(
-        !f.dir.join("HEAD.next").exists(),
+        !control_present(f, "HEAD.next")?,
         "unfinished retirement selector staging fences effects",
     )
 }

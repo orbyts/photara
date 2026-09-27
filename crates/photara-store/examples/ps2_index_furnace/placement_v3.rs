@@ -1992,6 +1992,13 @@ impl Fixture {
         graph: Option<graph_journal::Binding>,
         retirement_ticket: Option<typed_inventory::retirement_ledger::RetirementTicket>,
     ) -> Result<Liability> {
+        if let Some(ticket) = &retirement_ticket {
+            ticket.validate_mode(
+                continuation
+                    .as_ref()
+                    .ok_or("retirement continuation absent")?,
+            )?;
+        }
         self.admit_unrelated_gate_operation()?;
         if self.head.gate.ledger.is_some() {
             if let Some(binding) = &graph {
