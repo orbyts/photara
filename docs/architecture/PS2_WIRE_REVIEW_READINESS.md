@@ -30,6 +30,10 @@ bytes, focused positive/negative validation, and an honest statement of limits.
 The final review package must identify one concrete set of candidate schema IDs,
 field layouts, digest domains, frame tags and supported dispatch combinations.
 Separate specimens must not imply incompatible layouts are interchangeable.
+The [source-coordinate audit](PS2_WIRE_COORDINATE_SOURCE_AUDIT.md) enumerates
+actual historical schemas, field layouts, digest domains, frame tags, dispatch
+and parser/probe bounds. It identifies the incompatible forms and remaining
+scalability questions; it is not the final proposed coordinate mapping.
 
 The final transition must begin at the exact joined settled HEAD and preserve
 its original receipt prefix, witnesses and charges. A selected admission must
