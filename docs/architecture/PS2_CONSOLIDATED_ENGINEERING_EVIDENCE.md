@@ -168,7 +168,14 @@ tests, independently confirmed in the [parent check](verification/ps2-canonical-
 It binds actual supplied suffix bytes, exact original standing/ticket charges,
 control caps, birth witnesses and source-independent retry. Its external phase
 records still require HEAD-selected accounting integration; it is not the final
-single-authority proof.
+single-authority proof. The [joined settled snapshot](PS2_JOINED_SETTLED_BYTE_CANDIDATE.md)
+now passes twelve tests through actual HEAD/commit/RootSet/StateRoot traversal,
+169 fixed records, seven complete packs and eighteen retained conversion files.
+Its [evidence](verification/ps2-joined-settled-candidate.json) records exact
+761,856-byte synthetic accounting and independent recovery with active-only
+allocations removed. Original sealed/tip/conversion witnesses are checked. This
+remains a settled experimental layout; the original admission/phase/C route
+and exact proposed permanent-coordinate layer are still required.
 
 The macOS syscall and split-process matrix has been rerun. Three explicitly
 authorized private APFS-image clean-remount cases cover successful publication

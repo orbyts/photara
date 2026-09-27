@@ -1,0 +1,65 @@
+{
+  "checks": {
+    "generator_reproducible": true,
+    "strict_clippy": {
+      "log": "docs/architecture/verification/ps2-joined-settled-clippy.log",
+      "passed": true,
+      "seconds": 1.59
+    },
+    "tests": {
+      "log": "docs/architecture/verification/ps2-joined-settled-tests.log",
+      "passed": 12,
+      "seconds": 5.12
+    }
+  },
+  "dependency_corpus_hashes": {
+    "branches": "872093f479640079f95e3e97052469b8de910e07f26987e8126dbe32198c258a",
+    "operations": "b18f3d5960bff213c35ea12d9f2e32791eb83cc904046d9f47ed21f93ada2421",
+    "resource_conversion": "13d5d9b3f02178e8fa8a8c500e4813a6bafe9ad30aa540d905ee79be85cf1b64"
+  },
+  "fixed_records": 169,
+  "independent_parent_review": {
+    "generator": "positive and coherent-negative bytes reproduced exactly; all source hashes match",
+    "source_review": "full one-HEAD settled closure, resource membership, original bootstrap retention, sealed/tip/conversion witness equality and exact charge coverage",
+    "targeted_rustfmt": "pass",
+    "tests": "12 passed, 0 failed, 5.15s"
+  },
+  "limits": [
+    "Settled snapshot only; no selected original admission/phase/C route yet.",
+    "Experimental example.ps2 schemas are not proposed permanent spellings.",
+    "Synthetic local original witnesses and charges; no filesystem qualification.",
+    "Three inline sealed observations and one 18-file retained snapshot are bounded specimens, not lifetime scalable registry layouts.",
+    "No nonempty pin support in this vector; such selection refuses."
+  ],
+  "metrics": {
+    "control_bytes": 14233,
+    "conversion_directory_bytes": 7940,
+    "role_locator_counts": {
+      "active": 131,
+      "recovery": 124
+    },
+    "semantic_counts": {
+      "active": 33,
+      "recovery": 28
+    },
+    "total_charge": "761856"
+  },
+  "pack_count": 7,
+  "production_reader_changed": false,
+  "qualified_durability": false,
+  "retained_file_count": 18,
+  "single_head_transition_route": false,
+  "source_sha256": {
+    "crates/photara-store/tests/resource_conversion_candidate/wire.rs": "190634ed60afb58ec56a4ed21f08e36b585fc381e49c36cafb61329c1af63d63",
+    "crates/photara-store/tests/scalable_branch_candidate/trees.rs": "41961d5c659f595896d2e10cfa1ed2e357b20b36d57e3d8bf15d2cfb8a28f836",
+    "crates/photara-store/tests/scalable_joined_candidate.rs": "95839064913b16fb6b809d5f844ec2b4b37aa96908956b0a7a02e90f0fb4b59b",
+    "crates/photara-store/tests/scalable_joined_candidate/joined.rs": "2406255ddd3b607bd58c95e0ef8d7a78c090f3f803e8a8295cfd0952f6b8b20f",
+    "crates/photara-store/tests/scalable_operation_candidate/operations.rs": "ad1397dae8d65bd0011a9919d7f176373d2baaeccf84d100698b489c0173990f",
+    "crates/photara-store/tests/scalable_wire_candidate/wire.rs": "9c6f19d918dda37f28f17ebb1b67f41c430ab498209fb0f24c86243af2a28667",
+    "docs/architecture/PS2_JOINED_SETTLED_BYTE_CANDIDATE.md": "bee9a50c538c9a04ef55549be94b48f9702f0509c8522c3d90f1dbc9f0e24434",
+    "docs/architecture/proposals/ps2/joined/generate.py": "045019a52020f8d675c877703dbfa028bf6d2c3a89210b59e03136c5eff45d20",
+    "docs/architecture/proposals/ps2/joined/joined-negatives.json": "012ac6b18eeaba864a8740a7122ec24f152529020988016343e29d627aefbfd6",
+    "docs/architecture/proposals/ps2/joined/linked-joined.json": "d5079e905db8181d6cd60a0b2548e4b1ddbd30e00bb1f9e1d34891e4b996f09e"
+  },
+  "status": "disposable-unfrozen-settled-byte-candidate"
+}

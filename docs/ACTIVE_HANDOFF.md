@@ -131,8 +131,11 @@ separate PS2 prerequisite.
   [canonical phase subproof](architecture/PS2_CANONICAL_PHASE_SUBPROOF.md) adds
   thirteen tests for original reserves, birth witnesses, actual suffix integrity
   and once-only credit. Its external phase records are not yet selected
-  accounting authority. Joint package selection and original phase controls
-  remain engineering work, tracked in the
+  accounting authority. The [joined settled snapshot](architecture/PS2_JOINED_SETTLED_BYTE_CANDIDATE.md)
+  now passes twelve tests selecting real operation/resource/tree/conversion and
+  physical-accounting bytes through one HEAD. The final original-admission/phase/C
+  transition route and exact proposed permanent coordinates remain engineering
+  work, tracked in the
   [wire readiness checklist](architecture/PS2_WIRE_REVIEW_READINESS.md).
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide

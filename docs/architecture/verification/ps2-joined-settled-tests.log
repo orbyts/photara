@@ -1,0 +1,20 @@
+   Compiling photara-store v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-store)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.87s
+     Running tests/scalable_joined_candidate.rs (/Users/suhail/.cache/cargo/targets/debug/deps/scalable_joined_candidate-d48b06c3d662fcbd)
+
+running 12 tests
+test actual_unchanged_legacy_reader_refuses_joined_commit_before_packed_reads ... ok
+test unchanged_outer_commit_bootstrap_and_allocation_arena_are_checked ... ok
+test identical_conversion_file_replacement_retains_no_old_charge_authority ... ok
+test valid_alternate_legacy_snapshot_cannot_replace_original_selected_bootstrap ... ok
+test joined_recovery_reads_its_complete_state_without_active_only_allocations ... ok
+test coherently_selected_undercharge_and_conversion_refund_refuse_before_inventory_checks ... ok
+test coherently_reframed_resource_and_conversion_membership_refuse_semantic_edge_rule ... ok
+test joined_wrong_selector_capability_and_active_projection_refuse ... ok
+test joined_absent_sealed_bytes_same_inode_substitution_and_conversion_loss_refuse ... ok
+test joined_selected_bootstrap_resolves_all_typed_bytes_and_counts_each_allocation_once ... ok
+test sealed_and_growable_replacements_cannot_inherit_original_registered_charge ... ok
+test resource_metadata_remains_readable_when_qualification_is_unconfirmed ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.12s
+
