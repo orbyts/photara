@@ -92,8 +92,10 @@ separate PS2 prerequisite.
 - Exact semantic/ownership closures within one selected locator, bounded typed
   recipe replay, active-prefix ownership and post-retirement project-charge
   release have separate prerequisite fixtures.
-- The local macOS syscall/fault matrix provides useful evidence, but remount,
-  abrupt-power, provider-path and production `Saved` qualification are absent.
+- The local macOS syscall/fault matrix and one explicitly authorized disposable
+  [APFS clean-remount trial](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
+  evidence. Abrupt-power, provider-path and production `Saved` qualification
+  remain absent; clean detach may flush outstanding writes.
 
 The current synthesis and exact measurements are in
 [PS2 consolidated engineering evidence](architecture/PS2_CONSOLIDATED_ENGINEERING_EVIDENCE.md).
@@ -109,6 +111,10 @@ The current synthesis and exact measurements are in
 - PostgreSQL dense coverage includes all 48 reviewed owned tables. SQLite
   coverage populates all 79 source tables, retires 73 target tables, retains six
   designated tables and publishes detached evidence in the fixture.
+- A [42-case fresh-device receipt fixture](architecture/verification/LL1_FRESH_DEVICE_RECEIPT.md)
+  proves exact terminal retrieval after original-device revocation without
+  granting the replacement device permission to execute the original request.
+  It remains a disposable SQL proof; real Rust/OIDC handoff is still absent.
 
 The current entry is
 [LL1 protected executor contract](architecture/verification/LL1_PROTECTED_EXECUTOR_CONTRACT.md),

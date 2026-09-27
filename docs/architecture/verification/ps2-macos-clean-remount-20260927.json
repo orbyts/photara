@@ -1,0 +1,88 @@
+{
+  "abrupt_interruption_tested": false,
+  "arch": "arm64",
+  "baseline": "a062a6e1baaffa89c3dc8bf90b8d0aa45ad63ec9",
+  "binding_after": {
+    "generation": 2,
+    "image_association_asserted_by_controller": true,
+    "image_pin": [
+      16777229,
+      354198629
+    ],
+    "manifest_digest": "827775e8940a6ccf3145d1ac78cc5f3a52fe23c89a7ffe084c0a71da9453eb56",
+    "mount_pin": [
+      16777242,
+      2
+    ],
+    "mount_source": "/dev/disk7s1"
+  },
+  "binding_before": {
+    "generation": 1,
+    "image_association_asserted_by_controller": true,
+    "image_pin": [
+      16777229,
+      354198629
+    ],
+    "manifest_digest": "827775e8940a6ccf3145d1ac78cc5f3a52fe23c89a7ffe084c0a71da9453eb56",
+    "mount_pin": [
+      16777242,
+      2
+    ],
+    "mount_source": "/dev/disk7s1"
+  },
+  "controller_observed_clean_remount": true,
+  "date": "2026-09-27",
+  "exact_head_before": "e5f3447a3d4b200a9c026aa40e2a96f2a8435994991418030cc76fd2dae6f895",
+  "final_clean_detach_exit": 0,
+  "first_clean_detach_exit": 0,
+  "image_capacity_bytes": 134217728,
+  "limits": [
+    "Successful clean detach may flush outstanding writes.",
+    "No abrupt power or kernel fault occurred.",
+    "Harness remount_tested remains false: mount evidence is supplied separately by controller.",
+    "Image retained detached in private temporary scratch; no live package touched."
+  ],
+  "os_build": "26A428",
+  "os_version": "27.0",
+  "prepare_exit": 0,
+  "production_saved": false,
+  "publish_exit": 0,
+  "qualified_storage_profile": false,
+  "raw_sha256": {
+    "attach-1.plist": "b01425e1a8f32a17fb516aee04d24adea6a1ec587e3350d26285c58cd140cde6",
+    "attach-2.plist": "b01425e1a8f32a17fb516aee04d24adea6a1ec587e3350d26285c58cd140cde6",
+    "binding-1.json": "d2d603a521af8442ee695a242ff39c90ca4c3d6e606242ecf3cc6cacfcd1ae2e",
+    "binding-2.json": "bb8cb224e181a74bf03ea6e1834768a3b99ca41c621ed94f26c8912b1b86d7c3",
+    "info-before-detach.plist": "37de92dfe881503a1ec1d485bc5378e4c6c81529eb80b6e21cf2d86f4e3f9e56",
+    "info-before-final-detach.plist": "4247c412c79b16b317427abbbdb4275da3c996d473867571b9c94abf689a5118",
+    "manifest.json": "827775e8940a6ccf3145d1ac78cc5f3a52fe23c89a7ffe084c0a71da9453eb56",
+    "manifest.log": "30a24d7b020ab0b69df7935c0582f013dcb6cc09b5d96073568753a9c295ab05",
+    "owner.json": "b359779df1e36ee4af7a4d3551a63e7feba5d133efa180429496fcd7b916868a",
+    "prepare-1.log": "49ae2b0d651eeb0a907faa775c0b78c881c02e88f9e427a386d92860e0ef93c3",
+    "prepare.trace.jsonl": "256e41dd04a78fc98f6dca802df07342fd37feb538bfe77ae2bb8b1ce22ccda0",
+    "prepared.json": "92a5c60cfc400f5682f3a0d5e179e2ef43f37f894af738d7fac98c141a568ff6",
+    "publish-1.log": "bb6135664400846963af301ba655f3e32fba3b0e5ecdc4851ad75efbceac8aae",
+    "publish.trace.jsonl": "8d9b99937687b34de9c55ec3271908a36c56969b8a0434a6e80b1e7ffaf0cece",
+    "verification-2.json": "2570d8943f3b54bac5ccfbe2647b74c5a9190f33fcba81a7628d83be434c8c9b",
+    "verify-2.log": "1548a2e40c6d3ae9ee647b3eebc8ffc613c48232841f1397e1bf20a65a3ecb73"
+  },
+  "reattach_exit": 0,
+  "scratch": "/private/tmp/photara-ps2-remount-n755j3yr",
+  "source": "crates/photara-store/tests/package_planning/macos_remount_harness.rs",
+  "source_sha256": "af7b4265ebd6601ba8421f4540677618a8b0f1b61c972e1feea1f6c89526d24d",
+  "trial": "user-authorized-private-apfs-disk-image-clean-remount",
+  "verification": {
+    "binding_generation": 2,
+    "closure_valid": true,
+    "head_digest": "e5f3447a3d4b200a9c026aa40e2a96f2a8435994991418030cc76fd2dae6f895",
+    "intent_present": true,
+    "note": "mount experiment evidence must be recorded separately; reopening alone proves no remount",
+    "power_loss_tested": false,
+    "qualified": false,
+    "receipt_present": true,
+    "remount_tested": false,
+    "saved_claim": false,
+    "selected": "candidate"
+  },
+  "verify_exit": 0
+}

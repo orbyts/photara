@@ -256,7 +256,24 @@ kernel/storage/power cuts are unexecuted. Clean detach/remount may itself flush
 pending writes and cannot substitute for abrupt-power evidence. No production
 macOS storage profile or `Saved` authorization is qualified yet.
 
+On 2026-09-27, explicit user authorization permitted a new private 128 MiB
+APFS disk-image trial. The [clean-remount observation](PS2_MACOS_CLEAN_REMOUNT.md)
+passed prepare, publication, clean detach/reattach and independent exact
+candidate/closure/receipt verification. The image was then cleanly detached.
+This supersedes only the earlier absence of clean-remount evidence; abrupt
+interruption, provider exclusion and production qualification remain open.
+
 ## Remaining pre-permanent and storage-qualification gates
+
+The 2026-09-27 continuation revalidated the existing native fixtures on macOS
+27.0 build 26A428 (arm64): 13 ordinary macOS tests passed, with nine explicit
+experiments intentionally ignored by that command. Running the three disposable
+`split_` tests explicitly then passed all three, including seven independent
+prepare/publish/verify cases, changed-evidence refusal and synthetic path
+replacement. The [compact rerun evidence](verification/ps2-macos-revalidation-20260927.jsonl)
+records the command, source/raw-output hashes and each cut's exact selected
+state. No image creation, mount, remount or power interruption was performed;
+the storage qualification gate remains unchanged.
 
 The combined disposable fixture passed 34 release example tests, including
 15 independently authored actual-v3 adversarial tests; strict Clippy,
