@@ -1,0 +1,83 @@
+{
+  "status": "unfrozen-whole-blob-component",
+  "production": false,
+  "sources": [
+    {
+      "path": "crates/photara-store/tests/whole_blob_candidate.rs",
+      "bytes": 8781,
+      "sha256": "94420449c5f654e235aa97803babcb2f2a3f8fb83b287ecbf65e8c0d94518d43"
+    },
+    {
+      "path": "crates/photara-store/tests/whole_blob_candidate/wire.rs",
+      "bytes": 17362,
+      "sha256": "a52c5a2632696f5c8117919f2d4aadabe6a9a82bbd8547a0017ade0c1a7188e4"
+    },
+    {
+      "path": "docs/architecture/proposals/ps2/blob/generate.py",
+      "bytes": 4692,
+      "sha256": "4186aebf117dcb0771101d547f5194e6a4bc00acfe88092d584c43c552537231"
+    },
+    {
+      "path": "docs/architecture/proposals/ps2/blob/linked.json",
+      "bytes": 90451,
+      "sha256": "5a566601c7932793b7d2ab91f57c2b7a019570262e20199e661eb986f50719bb"
+    },
+    {
+      "path": "docs/architecture/PS2_WHOLE_BLOB_BYTE_CANDIDATE.md",
+      "bytes": 9363,
+      "sha256": "e97d7d4352c17ce21e1b7580c0e5f2ffb02429ab1a613d9cc3e6605bf301350c"
+    },
+    {
+      "path": "docs/fixtures/generation-two/d19-package-specimen.json",
+      "bytes": 43396,
+      "sha256": "be32df34ad90d00430dd4fb0e6e475dc2c5c0093d89b261ab8c6fb26a95113b7"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "docs/architecture/verification/ps2-whole-blob-tests.log",
+      "bytes": 929,
+      "sha256": "9a203f0b83fcb292ef6e9037372265db3a5d38ca760d7eb07679f80022f57f91"
+    },
+    {
+      "path": "docs/architecture/verification/ps2-whole-blob-clippy.log",
+      "bytes": 202,
+      "sha256": "d88afa831f072962edca217a063f9a55f5e8653818059c54d990342cb5217239"
+    },
+    {
+      "path": "docs/architecture/verification/ps2-whole-blob-parent-tests.log",
+      "bytes": 799,
+      "sha256": "86cae1dea964bb320df393991a03e76249f35a9fe2ed244069483ab50f5ebcff"
+    }
+  ],
+  "commands": [
+    {
+      "command": "cargo test -p photara-store --test whole_blob_candidate",
+      "result": "6 passed; 0 failed",
+      "agent_seconds": 0.04,
+      "parent_seconds": 0.03
+    },
+    {
+      "command": "cargo clippy -p photara-store --test whole_blob_candidate -- -D warnings",
+      "result": "passed",
+      "seconds": 1.22
+    },
+    {
+      "command": "rustfmt --edition 2024 --config skip_children=true --check crates/photara-store/tests/whole_blob_candidate.rs crates/photara-store/tests/whole_blob_candidate/wire.rs",
+      "result": "passed independently"
+    },
+    {
+      "command": "python3 docs/architecture/proposals/ps2/blob/generate.py",
+      "result": "independent regeneration byte-identical"
+    }
+  ],
+  "log_normalization": "Copied logs normalize trailing blank lines to one terminal newline; original temporary logs unchanged.",
+  "limitations": [
+    "Subset selector, not complete HEAD integration",
+    "Original D19 project differs from route project; no metadata ID rewrite claims byte preservation",
+    "Synthetic unqualified local observations and conservative namespace allowances",
+    "Explicit full audit hashes media; routine structural verifier does not",
+    "Fixture metadata loader has no separate input-size cap; no streaming large-file proof",
+    "No production codec, permanent format, writes, migration or qualification"
+  ]
+}

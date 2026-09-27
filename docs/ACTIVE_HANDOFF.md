@@ -156,6 +156,10 @@ separate PS2 prerequisite.
   [retention-origin authority](architecture/PS2_RETENTION_ORIGIN_EVIDENCE_PROPOSAL.md)
   and [newborn/original replay](architecture/PS2_NEWBORN_REPLAY_INTEGRATION_CHECKLIST.md)
   without changing release policy or claiming completed wire dispatch.
+- The [whole-Blob compatibility component](architecture/PS2_WHOLE_BLOB_BYTE_CANDIDATE.md)
+  passes six tests with exact legacy managed/v2 bytes, explicit raw-allocation
+  ownership and separate strong audit. It remains a separate project-scoped
+  component; full HEAD composition and bounded shared parsing are open.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification

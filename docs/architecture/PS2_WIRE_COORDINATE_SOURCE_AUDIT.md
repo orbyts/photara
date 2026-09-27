@@ -167,3 +167,14 @@ records those checks. Their fixture bounds and distinct subset selectors remain
 explicit in their documents. Final proposed-coordinate integration must compose
 these fields through the authoritative HEAD and preserve all current/pending
 liabilities rather than treating component totals as complete package totals.
+
+The separate [whole-Blob component](PS2_WHOLE_BLOB_BYTE_CANDIDATE.md) now tests
+existing D19 managed-resource v1/representation v2 bytes unchanged. It proposes
+`photara.whole-blob-storage.v1`, a tagged whole-allocation locator reference,
+explicit whole-blob allocation claims and a corresponding local-observation
+subject. Raw Blob digests remain unframed, and Blob-before-Json order remains
+unchanged. Six tests and exact independent byte regeneration pass. Empty Blob
+content has zero extent but retains namespace/control allowances. Its original
+project differs from the route project, so it is a separate compatibility proof,
+not already-composed HEAD evidence. Shared bounded parsing and combined layout
+dispatch remain final-reader work; no new binary Blob frame tag is introduced.

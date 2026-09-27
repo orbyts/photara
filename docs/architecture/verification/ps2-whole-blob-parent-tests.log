@@ -1,0 +1,12 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s
+     Running tests/whole_blob_candidate.rs (/Users/suhail/.cache/cargo/targets/debug/deps/whole_blob_candidate-5d0b3d7bec0f88e9)
+
+running 6 tests
+test blob_kind_order_and_u64_lengths_preserve_existing_object_ref_contract ... ok
+test whole_blob_and_empty_blob_have_exact_ownership_charge_and_explicit_audit ... ok
+test whole_blob_requires_its_capability_and_extensions_remain_nonedges ... ok
+test original_allocation_identity_and_nonfree_empty_namespace_are_enforced ... ok
+test framed_reference_layout_unknown_fields_and_missing_ownership_refuse ... ok
+test actual_legacy_managed_blob_and_representation_bytes_are_unchanged ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
