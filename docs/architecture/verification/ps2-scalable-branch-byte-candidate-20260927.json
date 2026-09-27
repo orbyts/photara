@@ -1,0 +1,37 @@
+{
+  "date": "2026-09-27",
+  "parent_commit": "57cd732",
+  "status": "unfrozen-pure-branch-byte-candidate",
+  "production_changes": false,
+  "tests": 9,
+  "packed_objects": 75,
+  "generator_byte_identical": true,
+  "source_sha256": {
+    "crates/photara-store/tests/scalable_branch_candidate.rs": "76f322b0a7316d72eec8b2f1c92924fc0059e16f16fa3f6b0587e3b04ff3df5c",
+    "crates/photara-store/tests/scalable_branch_candidate/trees.rs": "41961d5c659f595896d2e10cfa1ed2e357b20b36d57e3d8bf15d2cfb8a28f836",
+    "crates/photara-store/tests/scalable_operation_candidate/operations.rs": "ad1397dae8d65bd0011a9919d7f176373d2baaeccf84d100698b489c0173990f",
+    "crates/photara-store/tests/scalable_wire_candidate/wire.rs": "9c6f19d918dda37f28f17ebb1b67f41c430ab498209fb0f24c86243af2a28667",
+    "docs/architecture/proposals/ps2/branches/generate.py": "a41138361a835a4a6682dfb5ec829d294222c6a966780e31bf7e33917a931e57",
+    "docs/architecture/proposals/ps2/branches/linked-branches.json": "872093f479640079f95e3e97052469b8de910e07f26987e8126dbe32198c258a",
+    "docs/architecture/proposals/ps2/operations/linked-operations.json": "b18f3d5960bff213c35ea12d9f2e32791eb83cc904046d9f47ed21f93ada2421"
+  },
+  "outputs": {
+    "tests": "   Compiling photara-store v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-store)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.43s\n     Running tests/scalable_branch_candidate.rs (/Users/suhail/.cache/cargo/targets/debug/deps/scalable_branch_candidate-6c600fc73f84ddc0)\n\nrunning 9 tests\ntest distinct_charge_leaf_values_refuse_exact_addition_overflow ... ok\ntest fixed_canonical_tree_bytes_and_physical_frames_match_independent_generator ... ok\ntest aliases_duplicate_entries_and_impossible_content_addressed_cycles_refuse ... ok\ntest genuine_multi_level_trees_preserve_real_operations_and_independent_recovery ... ok\ntest structurally_valid_wrong_membership_and_reciprocal_receipt_refuse ... ok\ntest exact_locator_membership_and_owned_tree_storage_are_required ... ok\ntest charge_summaries_identity_and_once_only_accounting_are_exact ... ok\ntest exact_child_ranges_counts_and_coverage_reject_corruption ... ok\ntest compatibility_dispatch_is_explicit_and_extensions_are_nonedges ... ok\n\ntest result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.89s\n\n",
+    "clippy": "    Checking photara-store v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-store)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.34s\n"
+  },
+  "output_sha256": {
+    "tests": "9fe0c6bd3c827a75a54533ea514d1bc7ff6eb5e7fb2e3f21e70ba87fb66c9f87",
+    "clippy": "61334ec661fd35bcf40a23e7aafeb1464be257e5030e98ba4afd621fa407f6e3"
+  },
+  "independent_parent_review": {
+    "tests": "9 passed, 0 failed, 2.86s",
+    "targeted_rustfmt": "pass",
+    "source_review": "typed ranges/counts/coverage, exact overflow refusal, physical tagged bytes, reciprocal original receipts, independent recovery"
+  },
+  "limits": [
+    "Selector is fixture projection; joined HEAD/commit/RootSet/StateRoot remains separate",
+    "Synthetic sealed observations; six sealed-content allocations not supplied in this corpus",
+    "155648-byte allocation charge excludes fixture controls; not complete package reserve or storage qualification",
+    "Probe depth/fanout/count limits are not production defaults"
+  ]
+}

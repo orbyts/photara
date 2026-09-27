@@ -148,8 +148,15 @@ keep this a bounded closure specimen. The subsequent
 tests against actual Core/PS1 mutation, authored no-op and later original retry,
 with independent recovery and exact journal/receipt commitments. Its
 [evidence record](verification/ps2-scalable-operation-byte-candidate-20260927.json)
-binds the sources and independent generator reproduction. Scalable index branches,
-inventory/charge and joint ownership/admission/publication composition remain open.
+binds the sources and independent generator reproduction. The
+[multi-level branch specimen](PS2_SCALABLE_BRANCH_BYTE_CANDIDATE.md) adds nine
+tests and 75 packed objects for inventory, reciprocal operation indexes and
+owned charge trees, with exact range/count/overflow/coverage checks. Its
+[evidence record](verification/ps2-scalable-branch-byte-candidate-20260927.json)
+records independent reproduction and validation. Synthetic sealed observations
+do not establish a complete package charge or sealed-content proof. Joint
+HEAD-selected closure, phase/admission controls and conversion/resource
+composition remain open.
 
 The macOS syscall and split-process matrix has been rerun. Three explicitly
 authorized private APFS-image clean-remount cases cover successful publication
