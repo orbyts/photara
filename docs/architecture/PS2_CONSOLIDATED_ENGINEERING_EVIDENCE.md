@@ -143,8 +143,13 @@ eight pure tests over fourteen linked scenarios and 112 fixed canonical records.
 It verifies exact semantic, ownership and locator closure separately, including
 recovery with active-only allocations absent. Independent Python generation
 reproduces the literal bytes. Semantic probe leaves and an empty operation index
-keep this a bounded closure specimen; real operation, scalable index and
-publication/admission vectors remain open.
+keep this a bounded closure specimen. The subsequent
+[real-operation candidate](PS2_SCALABLE_OPERATION_BYTE_CANDIDATE.md) passes seven
+tests against actual Core/PS1 mutation, authored no-op and later original retry,
+with independent recovery and exact journal/receipt commitments. Its
+[evidence record](verification/ps2-scalable-operation-byte-candidate-20260927.json)
+binds the sources and independent generator reproduction. Scalable index branches,
+inventory/charge and joint ownership/admission/publication composition remain open.
 
 The macOS syscall and split-process matrix has been rerun. Three explicitly
 authorized private APFS-image clean-remount cases cover successful publication

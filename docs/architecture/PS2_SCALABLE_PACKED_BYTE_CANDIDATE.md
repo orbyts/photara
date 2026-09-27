@@ -48,7 +48,7 @@ through an uninitialized locator. RootSet active/recovery ObjectRefs are then
 resolved through their respective locator. The accounting reference, its one
 sealed-charge dependency, and RootSet's union inventory are directly
 bootstrapped canonical JSON objects, modeled as
-`objects/json/<sha256>.json`; their exact ObjectRefs remain commit-selected.
+`objects/json/sha256/<sha256>.json`; their exact ObjectRefs remain commit-selected.
 They never supply an alternative selected root.
 
 This bounded loose charge is a bootstrap specimen, **not** a lifetime one-file-

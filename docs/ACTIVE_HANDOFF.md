@@ -119,8 +119,11 @@ separate PS2 prerequisite.
   describes typed closure, placement and accounting records and required linked
   vectors. Its [first linked byte specimen](architecture/PS2_SCALABLE_PACKED_BYTE_CANDIDATE.md)
   passes eight tests across fourteen bootstrap/closure scenarios, with exact
-  independent canonical bytes and recovery closure. Real operation, scalable
-  index and publication/admission vectors and final readiness review remain.
+  independent canonical bytes and recovery closure. The subsequent
+  [real-operation specimen](architecture/PS2_SCALABLE_OPERATION_BYTE_CANDIDATE.md)
+  passes seven tests for actual Core/PS1 mutation, authored no-op, original retry,
+  typed receipt indexes and independent recovery. Scalable branches/inventory/
+  charge and composed publication/admission vectors remain.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification
