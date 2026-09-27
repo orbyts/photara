@@ -162,9 +162,13 @@ separate PS2 prerequisite.
   component; full HEAD composition and bounded shared parsing are open.
 - The [final-coordinate integration plan](architecture/PS2_FINAL_COORDINATE_INTEGRATION_PLAN.md)
   and [newborn/original field proposal](architecture/PS2_NEWBORN_ORIGINAL_FIELD_PROPOSAL.md)
-  are concrete unfrozen drafts. The next bounded implementation is a settled
-  new-coordinate HEAD with nonempty retained-root placement; newborn/transition
-  integration follows. These documents are not format approval.
+  are concrete unfrozen drafts. The [integrated settled coordinate candidate](architecture/PS2_INTEGRATED_SETTLED_COORDINATE_CANDIDATE.md)
+  now selects active, recovery and nonempty retained-history roots with exact
+  independent ownership, scalable resource/accounting trees and 2,076,672
+  synthetic registered bytes. This starts a new synthetic physical registration
+  epoch while preserving original semantic/source bytes. All-origin evidence,
+  Blob placement and original newborn/transition integration remain next;
+  neither this settled checkpoint nor the drafts are format approval.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification

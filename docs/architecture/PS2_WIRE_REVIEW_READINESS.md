@@ -11,12 +11,12 @@ conversion-source or managed-resource requirements.
 
 | Area | Verified evidence | Remaining engineering |
 | --- | --- | --- |
-| Bootstrap and physical closure | [Joined settled snapshot](PS2_JOINED_SETTLED_BYTE_CANDIDATE.md) and [single-HEAD route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md): exact semantic/physical/control closure and independent recovery | Compose final scalable replacements and explicit proposed permanent coordinates; [whole-Blob component](PS2_WHOLE_BLOB_BYTE_CANDIDATE.md) now proves existing managed Blob placement separately |
+| Bootstrap and physical closure | [Joined settled snapshot](PS2_JOINED_SETTLED_BYTE_CANDIDATE.md) and [single-HEAD route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md): exact semantic/physical/control closure and independent recovery | [Integrated settled coordinates](PS2_INTEGRATED_SETTLED_COORDINATE_CANDIDATE.md) now compose scalable replacements with three roots; final transitions remain. [Whole-Blob component](PS2_WHOLE_BLOB_BYTE_CANDIDATE.md) now proves existing managed Blob placement separately |
 | Actual authored operations | [Operation specimen](PS2_SCALABLE_OPERATION_BYTE_CANDIDATE.md) proves actual Core/PS1/no-op/original retry; [single-HEAD route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md) selects operation four and preserves all four receipts through source retirement | Final additive schema/capability dispatch and linked bytes |
 | Scalable inventory and charge | [Branch specimen](PS2_SCALABLE_BRANCH_BYTE_CANDIDATE.md) and [single-HEAD route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md) verify typed trees, supplied contents, original witnesses and exact once-only charges | [Accounting component](PS2_ACCOUNTING_SCALING_CANDIDATE.md) proves typed observation/retained-file roots and a three-node sparse source proof; compose it into the final selected route |
 | Original admission and publication | [Single-HEAD route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md) selects original admission/phase/C; complete preflight checks all phases and simultaneous controls before effects | Original-token newborn/rollover fields and final proposed coordinates; historical phase records remain separate evidence |
 | Retirement and compact replay | [Compact fixture](PS2_COMPACT_RETIREMENT_COMMITMENTS.md) supplies useful reclamation evidence; [single-HEAD route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md) verifies actual post-unlink bytes and terminal original retry | Sparse bounded original proof now passes independently in the accounting component; compose final replay coordinates. The small route has negative retirement economics |
-| Retained roots and operational holds | [Origin/evidence mapping](PS2_RETENTION_ORIGIN_EVIDENCE_PROPOSAL.md) distinguishes five portable origins from twelve operational blockers; furnace tests cover blockers | Current joined/route readers require empty pinned_roots. Final selected closure must resolve nonempty retained roots with independent locator/ownership evidence and a scalable pin representation; local reader holds remain separate authority |
+| Retained roots and operational holds | [Origin/evidence mapping](PS2_RETENTION_ORIGIN_EVIDENCE_PROPOSAL.md) distinguishes five portable origins from twelve operational blockers; furnace tests cover blockers | [Integrated settled reader](PS2_INTEGRATED_SETTLED_COORDINATE_CANDIDATE.md) now selects nonempty retained roots with independent locator/ownership and a typed pin tree. All origin classes and nonempty operational holds remain; local reader holds remain separate authority |
 | Codec evolution | Earlier fixture documents decode-only compatibility and possible original-ticket hash fencing | [Phase subproof](PS2_CANONICAL_PHASE_SUBPROOF.md) explicitly preserves codec-v1 bytes across two hypothetical reader generations and refuses reserialization/unsupported versions; final proposed permanent coordinate/dispatch set remains |
 | Conversion-source retention | [Resource/conversion specimen](PS2_RESOURCE_CONVERSION_BYTE_CANDIDATE.md) validates eighteen original files and nineteen copy cuts; [single-HEAD route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md) preserves exact original descriptor, files, charges and witnesses | Typed scalable per-file charge/observation roots pass twelve component tests; compose the route. Observations remain synthetic |
 | Managed resource records | [Resource/conversion specimen](PS2_RESOURCE_CONVERSION_BYTE_CANDIDATE.md) and [single-HEAD route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md) validate real selected resource bytes without external-media reads | [Factored resource component](PS2_FACTORED_RESOURCE_BYTE_CANDIDATE.md) passes nine tests with shared immutable requirements, typed selections and exact immutable source associations; complete other approved origin dispatch and whole-HEAD composition |
@@ -36,8 +36,11 @@ actual historical schemas, field layouts, digest domains, frame tags, dispatch
 and parser/probe bounds. It identifies the incompatible forms and remaining
 scalability questions; it is not the final proposed coordinate mapping.
 
-The final transition must begin at the exact joined settled HEAD and preserve
-its original receipt prefix, witnesses and charges. A selected admission must
+The final proposed-coordinate transition must begin at the exact new
+[integrated settled HEAD](PS2_INTEGRATED_SETTLED_COORDINATE_CANDIDATE.md) and preserve
+its original receipt prefix, witnesses and charges. The historical joined-to-route
+proof remains separate; this new settled package establishes a fresh synthetic
+registration epoch and does not perform an in-place upgrade or rebind. A selected admission must
 exist before its first packed effect. Any bounded direct-control overlay must
 have an exact, disjoint union with the packed inventory and fit the original
 standing-control allowance. Original admission and phase records must not
@@ -60,8 +63,9 @@ The [integration plan](PS2_FINAL_COORDINATE_INTEGRATION_PLAN.md) now spells out
 RootSet/StateRoot v2 selectors, a per-root physical placement tree and the bounded
 loose-control partition. The [newborn field proposal](PS2_NEWBORN_ORIGINAL_FIELD_PROPOSAL.md)
 spells out original generation-plan, marker, binding and measured-finalizer
-records. Both are unfrozen specifications awaiting actual integrated bytes and
-reader evidence; neither completes the rows above.
+records. The settled coordinate subset now has actual integrated bytes and reader
+evidence; newborn and transition fields remain specifications awaiting their
+own selected bytes. Neither completes the rows above.
 
 ## Separate prerequisites and decision boundaries
 

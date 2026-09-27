@@ -193,9 +193,20 @@ passes twelve tests using typed observation/retained-file roots and a three-node
 original source-charge proof that works after source and unselected records are
 removed. Independent parent runs and exact generator reproduction pass for both
 ([evidence](verification/ps2-scalable-components-parent-verification.json)).
-Their whole-HEAD composition, complete retention-origin dispatch, Blob
-compatibility, explicit newborn/replay coordinates and the exact proposed
-permanent-wire layer are still required.
+The [integrated settled coordinate candidate](PS2_INTEGRATED_SETTLED_COORDINATE_CANDIDATE.md)
+now composes scalable resource/accounting trees through one actual proposed
+RootSet v2 HEAD, with three independently owned active/recovery/retained-history
+roots. The synthetic registered total is 2,076,672 bytes; actual selected
+controls consume 28,672 of the standing 131,072 bytes. Its new synthetic physical
+registration epoch preserves original semantic/ConversionSource/file bytes,
+not historical allocation witnesses. Read-only recovery survives removal of
+active and retained private packs without claiming complete physical accounting.
+The exact schema table and parser limits distinguish this settled proposal from
+older coordinates. Complete origin dispatch, project-consistent Blob placement,
+original newborn/transition/replay and production legacy dispatch remain open.
+The separate [whole-Blob component](PS2_WHOLE_BLOB_BYTE_CANDIDATE.md) proves
+unchanged existing managed/v2 records and structural-versus-strong audit behavior;
+it is not yet selected by this Graph project's HEAD.
 
 The macOS syscall and split-process matrix has been rerun. Three explicitly
 authorized private APFS-image clean-remount cases cover successful publication

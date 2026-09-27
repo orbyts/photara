@@ -1,0 +1,6 @@
+python3 -B docs/architecture/proposals/ps2/integrated/generate.py
+Byte-identical regeneration passed for linked.json and negatives.json.
+6de4a73749c539ad98f3dfa1b68e2687473cf70ded8328a95b1c3575c6d43e4a linked.json
+3310a411a030b20ef42579c7b19742590f8bbb12f5776054cd2b4cda3958b0bb negatives.json
+rustfmt --edition 2024 --check: passed
+git diff --check: passed

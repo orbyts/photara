@@ -178,3 +178,23 @@ content has zero extent but retains namespace/control allowances. Its original
 project differs from the route project, so it is a separate compatibility proof,
 not already-composed HEAD evidence. Shared bounded parsing and combined layout
 dispatch remain final-reader work; no new binary Blob frame tag is introduced.
+
+
+## Integrated settled proposed coordinates
+
+The [settled coordinate specimen](PS2_INTEGRATED_SETTLED_COORDINATE_CANDIDATE.md)
+now dispatches actual proposed RootSet/StateRoot/operation-index v2 with a
+nonempty retained-root tree and directly authenticated per-root physical
+placements. Typed scalable resource and accounting records share its HEAD.
+The document records exact fields, capability union, frame choice, parser bounds
+and the changed global partition: inventory structural pages are traversed,
+located and owned but excluded from global member entries. Current-tip
+observation bodies are embedded in the bounded loose ledger to avoid physical
+self-hashing. The old production reader refuses the new capabilities.
+
+This is a standalone new synthetic registration epoch, not an in-place upgrade
+from the historical joined specimen. Original semantic/source bytes remain
+identical; historical physical witnesses are not rebound. Empty holds/tickets,
+authored-only associations and JSON-only placement are explicit supported
+subsets. Full original transitions, all origin evidence and whole-Blob dispatch
+remain engineering work before permanent-coordinate review.
