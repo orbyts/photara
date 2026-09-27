@@ -1,0 +1,51 @@
+{
+  "date": "2026-09-27",
+  "result": "pass",
+  "production_changes": false,
+  "commands": [
+    "python3 scripts/test_ll1_authority_commit_guard.py",
+    "python3 scripts/test_ll1_protected_authorization.py"
+  ],
+  "new_guard_cases": 27,
+  "unchanged_historical_raw_authority_cases": 46,
+  "baseline_catalog": {
+    "fingerprint": "7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638",
+    "forced_rls_tables": 45,
+    "foreign_keys": 114,
+    "functions": 52,
+    "policies": 173,
+    "tables": 59,
+    "triggers": 122
+  },
+  "catalog_scope": "Pristine baseline measured before inherited executor overlay; exact constraints/functions/ACLs/triggers compared after inherited overlay before and after new guard and tests. RESTRICT and migration files unchanged.",
+  "source_sha256": {
+    "scripts/test_ll1_authority_commit_guard.py": "a3e8cd3881d5c9b571e2fb45c295b7bcdab8e12a0e7aed698763d85e0192d98c",
+    "scripts/test_ll1_protected_authorization.py": "2ba9352e8e6ea101c5493e5012504f47cb9517b677b3267b7b6e0694372baed4",
+    "scripts/test_ll1_protected_postgres_executor.py": "8e08fb49920828d9644e33d27c9d19cab168424f28c78b69fb95012b8f58d618",
+    "scripts/test_ll1_fresh_device_receipt.py": "b27c58fac59f2a0ad01394ee4065eea46398f474b8848e06d31ca08967811542",
+    "scripts/test_ll1_actual_postgres_baseline.py": "aab3a7bd623d7a2199dded404ae3653d0fb5606f7a4843bea9148edaa106c607",
+    "scripts/test_ll1_retirement_constraints.py": "0ba8c7e56f2989e3f8d770f99ff30739f0b68be0278022202fed2261682e51a1",
+    "docs/architecture/verification/LL1_AUTHORITY_COMMIT_GUARD.md": "c9ba1f9fc322b5c08973836afa869157df12cefbaa0de375024ebefb5cce5684"
+  },
+  "output_sha256": {
+    "commit_guard": "189c2ae9645b1c0fefb493637c05321cbbf30294cfbb404a523ccee13bb80889",
+    "historical_raw_authority_regression": "7fa78c63993b898c430b6d1c9ef3b703f39dd4681c52dc024652fa3a4c093eee"
+  },
+  "outputs": {
+    "commit_guard": "{\"case\": \"mint_only_commit_rejected\", \"result\": \"pass\"}\n{\"case\": \"mint_then_explicit_rollback\", \"result\": \"pass\"}\n{\"case\": \"early_constraint_check_refuses_unconsumed_grant\", \"result\": \"pass\"}\n{\"case\": \"ll1_api_mint_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_api_consume_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_api_grant_write_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_api_permit_write_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_api_guard_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_mint_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_consume_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_grant_write_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_permit_write_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_guard_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_mint_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_consume_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_grant_write_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_permit_write_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_guard_denied\", \"result\": \"pass\"}\n{\"case\": \"authority_direct_guard_denied\", \"result\": \"pass\"}\n{\"case\": \"standalone_permit_commit_rejected\", \"result\": \"pass\"}\n{\"case\": \"null_transaction_permit_cannot_escape_commit_guard\", \"result\": \"pass\"}\n{\"case\": \"cancel_after_mint_exact_rollback_backend_and_locks_gone\", \"result\": \"pass\"}\n{\"case\": \"execution_failure_after_consumption_restores_all_rows\", \"result\": \"pass\"}\n{\"case\": \"consumed_grant_successful_commit\", \"result\": \"pass\"}\n{\"case\": \"same_original_retry_preserves_receipt_and_all_rows\", \"result\": \"pass\"}\n{\"case\": \"mint_only_retry_commit_rejected_preserves_original_receipt\", \"result\": \"pass\"}\n{\"case\": \"changed_original_digest_refuses\", \"result\": \"pass\"}\n{\"baseline\": {\"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\", \"forced_rls_tables\": 45, \"foreign_keys\": 114, \"functions\": 52, \"policies\": 173, \"tables\": 59, \"triggers\": 122}, \"baseline_catalog_unchanged_by_commit_guard\": true, \"baseline_measured_before_inherited_executor_overlay\": true, \"cases\": 27, \"historical_raw_fixture_changed\": false, \"production_changes\": false, \"result\": \"pass\", \"scope\": \"disposable deferred commit guard, raw authority surface only\"}\n{\"temporary_cluster\": \"stopped and removed\"}\n",
+    "historical_raw_authority_regression": "{\"case\": \"ll1_api_mint_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_api_execute_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_api_internal_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_api_grant_write_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_api_permit_write_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_api_role_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_mint_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_execute_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_internal_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_grant_write_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_permit_write_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_control_role_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_mint_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_execute_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_internal_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_grant_write_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_permit_write_denied\", \"result\": \"pass\"}\n{\"case\": \"ll1_auth_role_denied\", \"result\": \"pass\"}\n{\"case\": \"authority_cannot_invoke_internal\", \"result\": \"pass\"}\n{\"case\": \"missing_authorization\", \"result\": \"pass\"}\n{\"case\": \"identity_substitution\", \"result\": \"pass\"}\n{\"case\": \"wrong_library_ownership\", \"result\": \"pass\"}\n{\"case\": \"viewer_identity\", \"result\": \"pass\"}\n{\"case\": \"authorization_identity_substitution\", \"result\": \"pass\"}\n{\"case\": \"authorization_actor_substitution\", \"result\": \"pass\"}\n{\"case\": \"authorization_library_substitution\", \"result\": \"pass\"}\n{\"case\": \"authorization_revision_substitution\", \"result\": \"pass\"}\n{\"case\": \"authorization_operation_substitution\", \"result\": \"pass\"}\n{\"case\": \"authorization_digest_substitution\", \"result\": \"pass\"}\n{\"case\": \"guc_substitution_ignored\", \"result\": \"pass\"}\n{\"case\": \"single_use\", \"result\": \"pass\"}\n{\"case\": \"authorization_transaction_expired\", \"result\": \"pass\"}\n{\"case\": \"authorization_backend_expired\", \"result\": \"pass\"}\n{\"case\": \"backend_binding_independently_enforced\", \"result\": \"pass\"}\n{\"case\": \"authority_grant_update_denied\", \"result\": \"pass\"}\n{\"case\": \"expired_authorization\", \"result\": \"pass\"}\n{\"case\": \"stale_terminal\", \"result\": \"pass\"}\n{\"case\": \"stale_terminal_replay\", \"result\": \"pass\"}\n{\"case\": \"terminal_coordinate_conflict\", \"result\": \"pass\"}\n{\"case\": \"ordinary_delete_guard\", \"result\": \"pass\"}\n{\"case\": \"terminal_failure_rolls_back_authorized_delete\", \"result\": \"pass\"}\n{\"case\": \"legitimate_authorized_commit\", \"result\": \"pass\"}\n{\"case\": \"old_grant_replay_denied\", \"result\": \"pass\"}\n{\"case\": \"terminal_retry_fresh_authority\", \"result\": \"pass\"}\n{\"case\": \"terminal_changed_digest_denied\", \"result\": \"pass\"}\n{\"case\": \"terminal_wrong_identity_denied\", \"result\": \"pass\"}\n{\"cases\": 46, \"catalog\": {\"tables\": 59, \"foreign_keys\": 114, \"triggers\": 122, \"policies\": 173, \"functions\": 52, \"forced_rls_tables\": 45, \"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\"}, \"status\": \"authority_role_boundary_proven\", \"limitations\": [\"synthetic trusted-service identity input, no OIDC integration\", \"sparse full-schema row coverage inherited\", \"fixture grants and receipts are not production wire format\"]}\n"
+  },
+  "checks": [
+    "Python compile() syntax check without bytecode files",
+    "scoped git diff --check"
+  ],
+  "limits": [
+    "New opt-in ll1_probe overlay only; no production migration or chosen constraint implementation",
+    "Historical raw-authority runner is unchanged and still permits its documented committed unconsumed-grant counterexample",
+    "No retroactive orphan discovery/deletion; newly inserted/updated work is guarded in a fresh fixture",
+    "Synthetic trusted authority identity inputs, sparse executor seed; not signed HTTP guard composition",
+    "Original retained receipt is existing raw fixture row, not a permanent canonical byte encoding",
+    "Private inherited PostgreSQL cluster disables fsync; no crash/power-loss guarantee",
+    "No exact COMMIT-acknowledgement interruption or general ambiguity resolution"
+  ]
+}

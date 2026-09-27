@@ -156,6 +156,12 @@ denials, no filesystem/object capabilities and exact terminal publication.
 Production role provisioning, a fourth pool, public lifecycle routes, persistent
 schema/codec choices and deletion remain behind their existing review gates.
 
+The subsequent [separate commit-guard overlay](LL1_AUTHORITY_COMMIT_GUARD.md)
+passes 27 cases for this invariant, including mint-only commit rejection,
+cancellation and retained immutable receipts. It leaves the historical raw
+fixture unchanged and has not yet been composed with the signed HTTP adapter;
+it is not a production constraint choice or orphan-cleanup authorization.
+
 ## Fresh-device receipt fixture follow-up — 2026-09-27
 
 The [fresh-device receipt fixture](LL1_FRESH_DEVICE_RECEIPT.md) now passes 42

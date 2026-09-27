@@ -154,6 +154,11 @@ The current synthesis and exact measurements are in
   receipt lookup, and original receipt recovery after a known commit loses its
   in-process response. These remain test routers and disposable
   overlays; production authority custody and lifecycle integration remain open.
+- A separate [raw-authority commit guard](architecture/verification/LL1_AUTHORITY_COMMIT_GUARD.md)
+  passes 27 disposable cases, rejecting surviving grant/permit work at commit
+  without deleting immutable request/receipt evidence. The unchanged historical
+  raw fixture still demonstrates the original orphan limitation; composition
+  with the signed HTTP fixture remains open.
 
 The current entry is
 [LL1 protected executor contract](architecture/verification/LL1_PROTECTED_EXECUTOR_CONTRACT.md),
