@@ -489,7 +489,7 @@ mod tests {
     #![allow(clippy::too_many_lines)] // End-to-end wire scenario retains one readable lifecycle.
     use super::*;
     use tower::ServiceExt as _;
-    async fn call(
+    pub(super) async fn call(
         router: &Router,
         path: &str,
         method: &str,
@@ -719,3 +719,7 @@ mod tests {
         state.service.close().await;
     }
 }
+
+#[cfg(test)]
+#[path = "http_ll1_credential_tests.rs"]
+mod ll1_credential_tests;

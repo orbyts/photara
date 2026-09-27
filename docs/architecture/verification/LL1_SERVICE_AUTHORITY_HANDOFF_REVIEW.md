@@ -173,3 +173,91 @@ credential/review/receipt encodings. It does not execute the Rust/OIDC handoff,
 resolve credential/deadline lock races, fix the original abandoned-grant case,
 or prove crash/power-loss durability. Those integration requirements above
 remain open.
+
+## Existing Rust test seams — 2026-09-27
+
+At the time of this read-only source review, the proposed tests below had **not
+been executed**. The later credential-seam evidence is linked below. These
+distinctions define the next disposable proof, not a claim
+that an LL1 route exists or that an implemented LL1 authorization path is
+vulnerable.
+
+- [`postgres_http_signed_bootstrap_and_bounds`](../../../crates/photara-service/src/http.rs#L518)
+  uses real in-memory RSA signing and the real HTTP `OidcVerifier`. Its embedded
+  `Service`, however, comes from
+  [`pgtests::Fixture`](../../../crates/photara-service/src/pgtests.rs#L37), whose
+  verifier remains `FakeAuth0` with different issuer/audience coordinates.
+  Onboarding accepts the HTTP-verified claims directly. Thus this test proves
+  that HTTP credential seam, not real OIDC through `Service::authenticate`.
+  A test claiming the latter must construct `Service` with the same real
+  verifier and matching configured coordinates.
+- [`onboarding::device`](../../../crates/photara-service/src/onboarding.rs#L700)
+  locks device/credential rows and validates their state and the secret
+  commitment, but **returns** the credential revision. It does not accept or
+  compare an expected revision. The candidate LL1 command adapter must compare
+  its exact expected revision explicitly; passing this helper alone cannot
+  prove stale-revision refusal. Use `suspended: false` for the eligible-device
+  receipt path; the existing logout exception is not LL1 receipt authority.
+- [`principal_transaction`](../../../crates/photara-service/src/onboarding.rs#L222)
+  rechecks bearer expiry after its principal advisory-lock wait. The later
+  `identity`/`device` calls can themselves wait for row locks. The current
+  `operation` and `session` methods do not perform another expiry check after
+  those waits. This is an unexecuted source observation about existing
+  onboarding/session paths, not evidence that an LL1 candidate already meets
+  the required deadline check immediately before authority admission.
+
+The smallest next test is an ignored PostgreSQL test with a `cfg(test)`-only
+candidate router beside the existing HTTP tests. Reuse their request helper,
+real signed tokens, cached test JWKS and retained `Arc<FakeClock>`. Run it only
+through the generated private cluster of
+[`verify_service_postgres.py`](../../../scripts/verify_service_postgres.py);
+keep the production router, three-pool constructor, role template and
+migrations unchanged. The candidate request accepts device/operation/digest
+coordinates, never caller-selected Account or identity. Call the real HTTP
+credential parser, resolve identity and check the device in one transaction,
+compare the returned revision, then recheck expiry after all admission locks.
+A bounded test-only observer can first record the resulting authenticated
+facts and distinguish receipt lookup from execution admission without granting
+ordinary pools any lifecycle authority. This closes a Rust credential seam;
+it is not yet the combined SQL executor proof.
+
+Exercise wrong signature/issuer/audience, unlinked or revoked identity, revoked
+device, another device's secret, random correctly sized secret, suspended
+credential and stale revision. For deterministic races, hold the device or
+credential row on another connection, establish that the request is waiting,
+advance the fake clock or commit revocation, and then release the lock. Assert
+no observer admission on expiry/revocation; avoid sleeps as synchronization.
+Keep missing receipt distinct from permission to execute, and verify that an
+eligible B can query A's terminal result but cannot first-execute A's review.
+
+Connecting that observer to the existing LL1 SQL overlay is a subsequent
+test-only composition step. Its final authority transaction must re-resolve
+the verified principal and recheck credential/revision/deadline itself; a
+successful earlier control-pool transaction is not a transferable grant.
+The existing SQL authority role exposes protected functions, not the raw
+identity-table privileges required by the Rust locking helpers, so those
+helpers cannot simply be moved onto that connection without an explicit
+candidate adapter. Any overlay adapter and isolated fixture connection remain
+outside production `HttpService`/`Service`, with ordinary-role denials and exact
+baseline/overlay snapshots preserved. Do not report the combined handoff as
+proved until signed HTTP credentials actually reach those transaction-bound
+receipt/execution paths.
+
+### Disposable credential-seam follow-up
+
+The [Rust credential-seam test](LL1_RUST_CREDENTIAL_SEAM.md) now executes the
+test-only router/observer portion above: real signed HTTP OIDC verification,
+database identity/device/secret checks, explicit credential revision comparison,
+and post-row-lock expiry checking. A synchronized second connection proves both
+expiry and credential revocation while admission is blocked on a credential row.
+Neither case reaches the observer. Eligible B retrieves seeded original receipt
+bytes after A is revoked and the review expires; B cannot first-execute A's
+pending review. An alternate eligible identity on the same account also works.
+
+This proves the candidate credential seam, not actual terminal publication or
+SQL lifecycle authority. Receipt bytes and execution admission are an in-memory
+observer; no LL1 executor is called. The embedded `Service` still uses the
+fixture's `FakeAuth0`; only the HTTP credential path uses the real OIDC verifier.
+The candidate's post-lock deadline check does not change existing production
+session/onboarding methods. Same-transaction SQL authority handoff, review
+binding, role isolation and abandoned-grant work remain open.

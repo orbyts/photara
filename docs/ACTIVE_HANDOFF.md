@@ -116,7 +116,10 @@ The current synthesis and exact measurements are in
 - A [42-case fresh-device receipt fixture](architecture/verification/LL1_FRESH_DEVICE_RECEIPT.md)
   proves exact terminal retrieval after original-device revocation without
   granting the replacement device permission to execute the original request.
-  It remains a disposable SQL proof; real Rust/OIDC handoff is still absent.
+  A separate [Rust credential-seam fixture](architecture/verification/LL1_RUST_CREDENTIAL_SEAM.md)
+  now exercises signed HTTP tokens, database credential/revision checks and two
+  synchronized expiry/revocation lock waits. Its receipt observer is in memory;
+  composing it with the isolated SQL authority transaction remains open.
 
 The current entry is
 [LL1 protected executor contract](architecture/verification/LL1_PROTECTED_EXECUTOR_CONTRACT.md),
@@ -135,7 +138,7 @@ disposable proofs, not production deletion.
   (PS4).
 - No production Library create/select/rename wiring or signed cross-Library
   acceptance (LL2a). Library removal is LL2b and remains later.
-- LL1 Rust/OIDC authority handoff, canonical evidence/replay codecs, remaining
+- LL1 combined Rust/OIDC-to-SQL authority handoff, canonical evidence/replay codecs, remaining
   lifecycle/concurrency states and production implementation remain absent.
 - No production deletion, live-data migration, deployment or public launch.
 
