@@ -197,8 +197,14 @@ separate PS2 prerequisite.
   passes 16 tests for an actual control-only successor, exact original O/P hold,
   real Core preparation and independent complete append regeneration. Original
   R is 1,900,544; planned growth is 1,835,008; peak modeled controls are 118,784
-  within 131,072. Operation four remains unaccepted; actual phase publication,
-  prefix-only replay, newborn and retirement remain next.
+  within 131,072. That admission checkpoint leaves operation four unaccepted.
+  The subsequent [selected phase route](architecture/PS2_SELECTED_PHASE_BYTE_CANDIDATE.md)
+  passes 22 tests and an independent parent run through seven actual selected
+  stages, original-prefix Core replay, 18 selector cuts and once-only cleanup.
+  The same original R and control bounds hold; published accounting is checked
+  through the shared reader, while recovery verifies only its supplied closure.
+  Barrier flags remain modeled. Selected newborn/born-and-sealed rollover,
+  pending origins, retirement and full Blob composition remain engineering work.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification

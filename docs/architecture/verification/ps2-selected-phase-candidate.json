@@ -1,0 +1,193 @@
+{
+  "baseline_commit": "21b1505d7315a68334cba800d4f7cf36aaf5c584",
+  "commands": [
+    {
+      "command": "cargo test -p photara-store --release --test selected_phase_candidate",
+      "composition": {
+        "inherited_preparation": 1,
+        "inherited_resource_accounting": 9,
+        "new_replay_tests": 3,
+        "new_route_tests": 9
+      },
+      "result": "22 passed; 0 failed",
+      "seconds": 12.84
+    },
+    {
+      "command": "cargo clippy -p photara-store --test selected_phase_candidate -- -D warnings",
+      "result": "passed",
+      "seconds": 1.93
+    },
+    {
+      "command": "python3 -B docs/architecture/proposals/ps2/selected-phase/generate.py",
+      "result": "byte-identical corpus"
+    },
+    {
+      "command": "rustfmt --edition 2024 --config skip_children=true --check [three new phase Rust files]; git diff --check",
+      "result": "passed; dependency formatting belongs to separate in-flight Blob work"
+    },
+    {
+      "command": "parent isolated release selected_phase_parent_check with only module-path redirects to frozen candidate sources and 21b1505 wire",
+      "result": "22 passed; 0 failed",
+      "scope": "No candidate source changes; initial temporary fixture path harness error corrected before this successful run.",
+      "seconds": 13.55
+    },
+    {
+      "command": "parent import generator build() and compare canonical pretty-serialized corpus",
+      "result": "byte-identical 7,934,371 bytes; SHA-256 4459f9958b228af320ca81909d652ec022bcec07aa7f0b86cd9d1a33b57ee9e4"
+    }
+  ],
+  "dependencies": [
+    {
+      "bytes": 64058,
+      "path": "crates/photara-store/tests/integrated_wire_candidate/wire.rs",
+      "sha256": "bd8139fd535057117d9f885d515929c11b47cb02bf5e9bb57bf6e82e0fc336fa"
+    },
+    {
+      "bytes": 8753,
+      "path": "crates/photara-store/tests/integrated_wire_candidate/resources.rs",
+      "sha256": "3dbe309191575825106134dcdbf8ef6fa0c586ffe7ef0ed28e1f8815e677cd36"
+    },
+    {
+      "bytes": 41898,
+      "path": "crates/photara-store/tests/integrated_wire_candidate/accounting.rs",
+      "sha256": "5b0c3361d3925310833fcc7055df537625e23c13d8a538d70c4135dfe5e71a75"
+    },
+    {
+      "bytes": 23975,
+      "path": "crates/photara-store/tests/selected_admission_candidate/admission.rs",
+      "sha256": "144dcbe961902946fcca1da493fca940c5f3836dd1970eeb852a03d3c0b49051"
+    },
+    {
+      "bytes": 23072,
+      "path": "crates/photara-store/tests/selected_admission_candidate/decoder.rs",
+      "sha256": "a5a185e6ca089fad40375d1c8afe671b0821ca19d77e31afb9e737c8faca7741"
+    },
+    {
+      "bytes": 5988,
+      "path": "crates/photara-store/tests/selected_admission_candidate/prepare.rs",
+      "sha256": "45ef61a93a10f31ea41b2bca525df825768aa9af0860378186423b50e5f16626"
+    },
+    {
+      "bytes": 15411,
+      "path": "docs/architecture/proposals/ps2/admission/generate.py",
+      "sha256": "5f83eb3166d0e3abcd816fafde78eb5d97ad6e216561684b57e3870f68620d91"
+    },
+    {
+      "bytes": 7858251,
+      "path": "docs/architecture/proposals/ps2/admission/linked.json",
+      "sha256": "e0fee1729681047175a18e015712c7cfdb188ac8a21eed48281699df4341945c"
+    },
+    {
+      "bytes": 21703,
+      "path": "docs/architecture/proposals/ps2/integrated/generate.py",
+      "sha256": "3ab11dd82e89c83420c72971c6be8830c50a5a64461489595dc19eb8b30ea572"
+    },
+    {
+      "bytes": 4353756,
+      "path": "docs/architecture/proposals/ps2/integrated/linked.json",
+      "sha256": "6de4a73749c539ad98f3dfa1b68e2687473cf70ded8328a95b1c3575c6d43e4a"
+    },
+    {
+      "bytes": 240660,
+      "path": "docs/architecture/proposals/ps2/route/operation-four.json",
+      "sha256": "99ec1fd91371d01e78f3dd711317e5878db206c023488bc28266cb970c15c9c6"
+    },
+    {
+      "bytes": 21687,
+      "path": "crates/photara-store/tests/resource_factored_candidate/wire.rs",
+      "sha256": "a0cdd305b51b413fdab6959257ae71e9b3048c6f43f386281c77358ca42204c7"
+    },
+    {
+      "bytes": 27119,
+      "path": "crates/photara-store/tests/resource_conversion_candidate/wire.rs",
+      "sha256": "190634ed60afb58ec56a4ed21f08e36b585fc381e49c36cafb61329c1af63d63"
+    }
+  ],
+  "dependency_basis": "All dependency hashes are the exact 21b1505 committed snapshot used for final builds; later in-flight Blob modifications are not attributed to these runs.",
+  "limits": [
+    "pure selected bytes and modeled process cuts; no native file or durability proof",
+    "same-tip seven existing allocation corridors only; no newborn or retirement",
+    "current original codec supports this exact finite fixture; unknown codecs refuse",
+    "temporary PS1 view is computation input from actual authenticated prefixes, never selected authority",
+    "embedded finalizer receipt/StateRoot bodies are nonedge reconstruction evidence; actual full closure still required",
+    "readonly recovery validates own supplied closure/control commitments, not absent foreign physical or semantic data",
+    "terminal replay entry remains selected; subsequent new admission/archive not implemented",
+    "no pending-origin/Blob conversion/permanent wire approval"
+  ],
+  "log_normalization": "Repository log copies strip trailing blank lines and retain one final newline; original temporary logs unchanged.",
+  "metrics": {
+    "cleanup_remaining": 65536,
+    "consumed": 1835008,
+    "external_media_reads": 0,
+    "finalizer_control_bytes": 8075,
+    "finalizer_suffix_bytes": 1626195,
+    "matching_partial_append_cuts": 9,
+    "maximum_phase_bytes": 956,
+    "maximum_simultaneous_control_bytes": 118784,
+    "maximum_simultaneous_roles": 22,
+    "native_barriers": 0,
+    "old_ledger_total": 2076672,
+    "original_control_limit": 131072,
+    "original_control_role_limit": 24,
+    "payload_bytes": 208813,
+    "published_ledger_total": 3911680,
+    "reserve": 1900544,
+    "selector_cuts": 18,
+    "stages": 7
+  },
+  "outputs": [
+    {
+      "bytes": 7934371,
+      "path": "docs/architecture/proposals/ps2/selected-phase/linked.json",
+      "sha256": "4459f9958b228af320ca81909d652ec022bcec07aa7f0b86cd9d1a33b57ee9e4"
+    },
+    {
+      "bytes": 2342,
+      "path": "docs/architecture/verification/ps2-selected-phase-tests.log",
+      "sha256": "70c2282c9d97fa04720c5d9138cb31d5bdf03a343627c40cdcb59a30eec19eb7"
+    },
+    {
+      "bytes": 202,
+      "path": "docs/architecture/verification/ps2-selected-phase-clippy.log",
+      "sha256": "98aa729cefac5e229bb2fd6f2dc059ef6711816be3a335717a6cbd58821c0b11"
+    },
+    {
+      "bytes": 207,
+      "path": "docs/architecture/verification/ps2-selected-phase-reproduction.log",
+      "sha256": "ecc6710cf8f6360192a12ff104f0ffb072a0250161b25514af93f9302cb63f7b"
+    },
+    {
+      "bytes": 2348,
+      "path": "docs/architecture/verification/ps2-selected-phase-parent.log",
+      "sha256": "69ddb2a68ca9b3a9eef1a9308600e6f07ad9a1940969f78a32bd3f5ca90d0697"
+    }
+  ],
+  "sources": [
+    {
+      "bytes": 14527,
+      "path": "crates/photara-store/tests/selected_phase_candidate.rs",
+      "sha256": "481d9a01f64a5b190a134b4e44b9b3feef104e9993d80f45df44a284f43afdd7"
+    },
+    {
+      "bytes": 48242,
+      "path": "crates/photara-store/tests/selected_phase_candidate/phases.rs",
+      "sha256": "a0239270d1c7506d0d61c85f4ad44bba4331a7df408896c3873462ec977a168e"
+    },
+    {
+      "bytes": 19160,
+      "path": "crates/photara-store/tests/selected_phase_candidate/replay_prepare.rs",
+      "sha256": "c5443f058f82c9e8c10bac18079f29d4a6d8806d3c842b8140d6eb8aeb6ff457"
+    },
+    {
+      "bytes": 7406,
+      "path": "docs/architecture/proposals/ps2/selected-phase/generate.py",
+      "sha256": "0ef44934d5d9e937cf8f84abc4de67546d40f70c914b5d7e96610f6557ebb525"
+    },
+    {
+      "bytes": 13100,
+      "path": "docs/architecture/PS2_SELECTED_PHASE_BYTE_CANDIDATE.md",
+      "sha256": "6214b860a65d7b089cfd58b12eb30ce85404b9e811b7df4d43f2099472cd0c3d"
+    }
+  ],
+  "status": "unfrozen same-original selected phase byte/process-cut candidate; no native durability or permanent approval"
+}

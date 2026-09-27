@@ -9,6 +9,17 @@ by ordinary open, autosave, root turnover or metadata validation.
 
 ## Current PS2 synthesis and next gate — 2026-09-27
 
+The latest proposed-coordinate checkpoint is the
+[same-original selected phase route](PS2_SELECTED_PHASE_BYTE_CANDIDATE.md):
+22 release tests, an independent parent run and exact canonical regeneration
+cover seven selected stages, original-prefix Core replay, 18 selector cuts and
+once-only cleanup under unchanged original admission bounds. This composes the
+selected admission with actual published packed closure and accounting. Its
+read-only recovery proves only its supplied closure. Native barrier flags remain
+modeled. The [readiness checklist](PS2_WIRE_REVIEW_READINESS.md) tracks the still
+open newborn, pending-origin, retirement, whole-Blob and conversion composition
+work; earlier furnace results below are separate historical evidence.
+
 The approved direction remains one authoritative `HEAD.json` selecting exact,
 independently verifiable active/recovery semantic and physical-ownership closure.
 The actual-v3 disposable path now automatically captures bounded original data

@@ -1,0 +1,29 @@
+   Compiling photara-store v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-store)
+    Finished `release` profile [optimized] target(s) in 4.98s
+     Running tests/selected_phase_parent_check.rs (/Users/suhail/.cache/cargo/targets/release/deps/selected_phase_parent_check-666296073190385b)
+
+running 22 tests
+test resources::tests::resolver_cannot_substitute_canonical_object ... ok
+test accounting::tests::integrated_accounting_resolver_must_return_exact_original_canonical_bytes ... ok
+test accounting::tests::integrated_accounting_tip_bodies_are_ordered_and_disjoint ... ok
+test accounting::tests::integrated_accounting_actual_settled_roots_and_breakdown ... ok
+test accounting::tests::integrated_accounting_metadata_is_exact_but_not_physical_evidence ... ok
+test accounting::tests::integrated_accounting_nonempty_transition_or_unknown_fields_fence ... ok
+test resources::tests::actual_context_closure_and_wrong_root ... ok
+test resources::tests::structural_support_is_not_retention_or_media_proof ... ok
+test accounting::tests::integrated_accounting_original_witness_and_charge_basis_cannot_rebind ... ok
+test prepare::selected_admission_prepares_real_unaccepted_fourth_operation ... ok
+test recovery_checks_embedded_receipt_manifest_set_pin_set_and_individual_cap ... ok
+test recovery_reads_current_original_root_without_active_or_retained_payload ... ok
+test replay_prepare::tests::replay_preparation_needs_only_actual_original_semantics ... ok
+test replay_prepare::tests::replay_preparation_missing_or_corrupt_actual_semantics_refuses ... ok
+test coherent_recovery_original_metadata_refuses_without_foreign_payload_authority ... ok
+test replay_prepare::tests::replay_preparation_original_intent_and_result_cannot_substitute ... ok
+test selector_cleanup_cannot_invent_missing_journal_or_candidate_control_bytes ... ok
+test clean_retry_returns_original_receipt_without_second_charge_or_release ... ok
+test changed_original_phase_controls_unknown_suffix_and_no_effects_refuse ... ok
+test actual_selected_same_original_phase_route ... ok
+test fresh_handles_replay_matching_partial_payload_and_finalizer_only ... ok
+test each_selector_cut_reconciles_exact_original_and_preserves_unknown_controls ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.55s

@@ -105,8 +105,18 @@ The [selected admission proof](PS2_SELECTED_ADMISSION_CANDIDATE.md) now binds an
 actual O/P/nonempty-hold successor and independently regenerates its entire
 prospective append from old bytes and Core output. Sixteen tests pass; R, C's
 prospective growth and simultaneous controls are bounded before effects. The
-prospective empty-hold package is sizing input, not publication under O; original
-prefix-only replay and actual selected phase/finalizer/cleanup remain open.
+prospective empty-hold package is sizing input, not publication under O.
+
+The [selected phase route](PS2_SELECTED_PHASE_BYTE_CANDIDATE.md) now passes 22
+tests, strict Clippy and an independent parent run. Seven selected stages retain
+the exact original O/R, regenerate Core preparation from actual original prefixes,
+select F before finalizer bytes, publish actual packed roots/accounting, and
+release the cleanup remainder once. Eighteen selector cuts require supplied
+journal completion and exact candidate controls. Read-only recovery checks its
+own closure without claiming absent active bytes or write authority. The exact
+corpus regenerates byte-for-byte. This is same-tip modeled evidence; newborn,
+pending-origin, retirement, native durability and distinct codec transitions
+remain separate obligations.
 
 The [D19 Blob preparation](PS2_SELECTED_BLOB_PREPARATION.md) passes ten tests for
 trusted original semantic preservation, generic raw accounting and instrumented
