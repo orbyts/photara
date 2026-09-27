@@ -165,6 +165,10 @@ separate PS2 prerequisite.
   layout first. Media-bearing ConversionSource composition also needs separate
   structural-open and strong-audit paths; the current retained-file verifier
   hashes every source file and cannot prove no-routine-media-hash behavior.
+  [Blob preparation](architecture/PS2_SELECTED_BLOB_PREPARATION.md) now passes ten
+  adapter/accounting tests with unchanged D19 metadata and instrumented
+  structural/audit separation. Its linked corpus still lacks shared full-HEAD
+  verification and selects no ConversionSource.
 - The [final-coordinate integration plan](architecture/PS2_FINAL_COORDINATE_INTEGRATION_PLAN.md)
   and [newborn/original field proposal](architecture/PS2_NEWBORN_ORIGINAL_FIELD_PROPOSAL.md)
   are concrete unfrozen drafts. The [integrated settled coordinate candidate](architecture/PS2_INTEGRATED_SETTLED_COORDINATE_CANDIDATE.md)
@@ -189,6 +193,12 @@ separate PS2 prerequisite.
   through actual selected evidence, including independent recovery with a
   strict subset of a shared policy. Its recovery rotation is two static valid
   states, not an authorized transition or release; pending remains unsupported.
+  The [selected admission candidate](architecture/PS2_SELECTED_ADMISSION_CANDIDATE.md)
+  passes 16 tests for an actual control-only successor, exact original O/P hold,
+  real Core preparation and independent complete append regeneration. Original
+  R is 1,900,544; planned growth is 1,835,008; peak modeled controls are 118,784
+  within 131,072. Operation four remains unaccepted; actual phase publication,
+  prefix-only replay, newborn and retirement remain next.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification

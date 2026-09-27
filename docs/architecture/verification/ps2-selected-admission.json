@@ -1,0 +1,62 @@
+{
+  "baseline_commit": "32ccbc9a813b9cfbde80184fbfdeda7791f4a962",
+  "commands": [
+    "python3 docs/architecture/proposals/ps2/admission/generate.py",
+    "cargo test --release -p photara-store --test selected_admission_candidate -- --nocapture",
+    "cargo clippy --release -p photara-store --test selected_admission_candidate -- -D warnings"
+  ],
+  "limits": [
+    "Admission only; prospective empty-hold package is sizing, not publication under O.",
+    "Core preparation oracle still uses compiled PS1 corpus; after-write original-prefix-only preparation is not proven.",
+    "No native writes, barriers, qualification, Saved, Accepted or OS space credit."
+  ],
+  "log_normalization": "Trailing empty lines removed; original private tmp logs untouched.",
+  "log_sha256": {
+    "docs/architecture/verification/ps2-selected-admission-clippy.log": "d1fd4c3da748a180611255c0b8d66c577ab7f19c7180478c5e865404e1ad109e",
+    "docs/architecture/verification/ps2-selected-admission-parent-tests.log": "11c7c06956b9149ed41449a2164210c6ed55efd56dc13ecd225947eb12f677e7",
+    "docs/architecture/verification/ps2-selected-admission-tests.log": "bff97a83cad83dbf4156885dc2bc7db958b5116e0519c34cc6feef0855a6bfbc"
+  },
+  "measurements": {
+    "cleanup": 65536,
+    "control_peak": 118784,
+    "original_charge": 2076672,
+    "planned_growth": 1835008,
+    "project_limit": 3977216,
+    "reserve": 1900544,
+    "selected_accepted_operations": 3,
+    "selected_global_members": 169,
+    "standing_control": 131072
+  },
+  "parent_verification": {
+    "canonical_regeneration": "byte-identical",
+    "source_and_log_hashes": "all match; shared wire dependency verified at recorded baseline commit",
+    "supplemental_debug_run": {
+      "admission_result": "16 passed; 0 failed",
+      "admission_seconds": 55.39,
+      "command": "cargo test -p photara-store --test selected_admission_candidate --test selected_blob_candidate",
+      "scope": "Supplemental parent run during subsequent shared phase-seam development; original release evidence remains bound to baseline sources."
+    }
+  },
+  "qualification": false,
+  "source_sha256": {
+    "crates/photara-store/tests/integrated_wire_candidate/accounting.rs": "5b0c3361d3925310833fcc7055df537625e23c13d8a538d70c4135dfe5e71a75",
+    "crates/photara-store/tests/integrated_wire_candidate/resources.rs": "3dbe309191575825106134dcdbf8ef6fa0c586ffe7ef0ed28e1f8815e677cd36",
+    "crates/photara-store/tests/integrated_wire_candidate/wire.rs": "88bb2c8736ee2fcacbefe4b7ca28d686edea53e60ff45855e822193325241dde",
+    "crates/photara-store/tests/resource_factored_candidate/wire.rs": "a0cdd305b51b413fdab6959257ae71e9b3048c6f43f386281c77358ca42204c7",
+    "crates/photara-store/tests/selected_admission_candidate.rs": "52be7aba3debf0a7c0e2f614b33aa179e9cc8e6c84c100704b8445ede2187c4d",
+    "crates/photara-store/tests/selected_admission_candidate/admission.rs": "144dcbe961902946fcca1da493fca940c5f3836dd1970eeb852a03d3c0b49051",
+    "crates/photara-store/tests/selected_admission_candidate/decoder.rs": "a5a185e6ca089fad40375d1c8afe671b0821ca19d77e31afb9e737c8faca7741",
+    "crates/photara-store/tests/selected_admission_candidate/prepare.rs": "45ef61a93a10f31ea41b2bca525df825768aa9af0860378186423b50e5f16626",
+    "docs/architecture/proposals/ps2/admission/generate.py": "5f83eb3166d0e3abcd816fafde78eb5d97ad6e216561684b57e3870f68620d91",
+    "docs/architecture/proposals/ps2/admission/linked.json": "e0fee1729681047175a18e015712c7cfdb188ac8a21eed48281699df4341945c",
+    "docs/architecture/proposals/ps2/integrated/linked.json": "6de4a73749c539ad98f3dfa1b68e2687473cf70ded8328a95b1c3575c6d43e4a",
+    "docs/architecture/proposals/ps2/route/operation-four.json": "99ec1fd91371d01e78f3dd711317e5878db206c023488bc28266cb970c15c9c6"
+  },
+  "status": "unfrozen-admission-only-no-effects",
+  "tests": {
+    "imported": 9,
+    "new": 7,
+    "passed": 16,
+    "seconds": 4.56
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "commands": [
+    {
+      "command": "cargo test -p photara-store --test selected_blob_candidate -- --nocapture",
+      "result": "10 passed; 0 failed (4 new preparation cases, 6 inherited generic accounting cases)",
+      "seconds": 0.93
+    },
+    {
+      "command": "cargo clippy -p photara-store --test selected_blob_candidate -- -D warnings",
+      "result": "passed",
+      "seconds": 0.11
+    },
+    {
+      "command": "rustfmt --edition 2024 --check crates/photara-store/tests/selected_blob_candidate.rs crates/photara-store/tests/selected_blob_candidate/legacy.rs crates/photara-store/tests/selected_blob_candidate/media.rs",
+      "result": "passed"
+    },
+    {
+      "bytes": 657394,
+      "command": "Import selected-blob/generate.py; json.dumps(build(),sort_keys=True,indent=2)+newline comparison with linked.json",
+      "result": "exact reproduction"
+    },
+    {
+      "command": "parent: cargo test -p photara-store --test selected_admission_candidate --test selected_blob_candidate",
+      "result": "Blob preparation 10 passed; 0 failed",
+      "seconds": 0.92
+    },
+    {
+      "command": "parent: regenerate selected-blob corpus and verify source/output digests",
+      "result": "byte-identical; all byte lengths and SHA-256 hashes match"
+    }
+  ],
+  "limitations": [
+    "Shared whole-HEAD physical locator/ownership/global closure validation remains unimplemented for this corpus",
+    "Original D19 validation strongly hashes reference bytes during separate setup; fixture decoding is outside current-media instrumentation",
+    "Standalone sameproject settled specimen, not actual conversion or publication; no retained snapshot selected",
+    "Synthetic original physical registration and explicit finite directory allowance, no qualified storage or native durability proof",
+    "No Graph mutation, factored resource/v3 semantics, admission/rollover/retirement or Blob-containing ConversionSource proof"
+  ],
+  "log_normalization": "Copied versioned logs normalize trailing blank lines to one terminal newline; original temporary logs unchanged.",
+  "observations": {
+    "accounting_media_bytes_read": 0,
+    "accounting_media_hashes": 0,
+    "conversion_source": null,
+    "current_blob_bytes": 5,
+    "explicit_audit_media_bytes_read": 5,
+    "explicit_audit_media_hashes": 1,
+    "legacy_original_files": 38,
+    "legacy_verified_blobs_during_setup": 1,
+    "modeled_total_charge": "348160",
+    "namespace_directory_allowance": 16384,
+    "raw_charge": 4096,
+    "standing_control": 65536,
+    "structural_media_bytes_read": 0,
+    "structural_media_hashes": 0,
+    "tip_charge": 262144
+  },
+  "outputs": [
+    {
+      "bytes": 657394,
+      "path": "docs/architecture/proposals/ps2/selected-blob/linked.json",
+      "sha256": "7a02529a3531b1088b4e82dc64f7da3320f5c62a21909b5e8c461e44bf995e8e"
+    },
+    {
+      "bytes": 1401,
+      "path": "docs/architecture/verification/ps2-selected-blob-preparation-tests.txt",
+      "sha256": "bd8a4d8a90dd10137ea039fb954d0fa87c03a4992b5c7397e1bcc9be3d00fd0c"
+    },
+    {
+      "bytes": 72,
+      "path": "docs/architecture/verification/ps2-selected-blob-preparation-clippy.txt",
+      "sha256": "4cf86278c1e6d659943a46a3d7e3da429ac15be90f0f17742e24ef85228e7d3e"
+    },
+    {
+      "bytes": 1198,
+      "path": "docs/architecture/verification/ps2-selected-blob-preparation-parent-tests.log",
+      "sha256": "470b10059e55638272717118896b750fd32cc57aaaf8ed7d7ad6bbd1a116b840"
+    }
+  ],
+  "production": false,
+  "scope": "D19 actual legacy reference setup; supplied current framed semantic adapter; instrumented raw description/audit; generic accounting subproof. No complete shared HEAD verifier invoked.",
+  "sources": [
+    {
+      "bytes": 12847,
+      "path": "crates/photara-store/tests/selected_blob_candidate.rs",
+      "sha256": "dc8ac02d8ce89399994201871e901ad9a7320c44c7d9634da6ebe4d13632cd46"
+    },
+    {
+      "bytes": 6342,
+      "path": "crates/photara-store/tests/selected_blob_candidate/legacy.rs",
+      "sha256": "0832559e2f6ddacff6214035b2b20a243d526047db8b004adbc7d7670793ef1f"
+    },
+    {
+      "bytes": 4329,
+      "path": "crates/photara-store/tests/selected_blob_candidate/media.rs",
+      "sha256": "37c0b4b3fe7a8622c555061f99364894bdfa212309c196204fb23c50866d11fc"
+    },
+    {
+      "bytes": 11772,
+      "path": "docs/architecture/proposals/ps2/selected-blob/generate.py",
+      "sha256": "abe142d385b9d50e5db88448f8badb059cd94d9e9096ccc4c9d3cd04be8c4ced"
+    },
+    {
+      "bytes": 21703,
+      "path": "docs/architecture/proposals/ps2/integrated/generate.py",
+      "sha256": "3ab11dd82e89c83420c72971c6be8830c50a5a64461489595dc19eb8b30ea572"
+    },
+    {
+      "bytes": 41898,
+      "path": "crates/photara-store/tests/integrated_wire_candidate/accounting.rs",
+      "sha256": "5b0c3361d3925310833fcc7055df537625e23c13d8a538d70c4135dfe5e71a75"
+    },
+    {
+      "bytes": 43396,
+      "path": "docs/fixtures/generation-two/d19-package-specimen.json",
+      "sha256": "be32df34ad90d00430dd4fb0e6e475dc2c5c0093d89b261ab8c6fb26a95113b7"
+    },
+    {
+      "bytes": 6658,
+      "path": "docs/architecture/PS2_SELECTED_BLOB_PREPARATION.md",
+      "sha256": "70a1ca563817e602bdfa6e3d69b77839ca5a4d28479dac375c8f7a6bb009e5ce"
+    },
+    {
+      "bytes": 4353756,
+      "path": "docs/architecture/proposals/ps2/integrated/linked.json",
+      "sha256": "6de4a73749c539ad98f3dfa1b68e2687473cf70ded8328a95b1c3575c6d43e4a"
+    }
+  ],
+  "status": "unfrozen-preparatory-not-shared-head-verified"
+}

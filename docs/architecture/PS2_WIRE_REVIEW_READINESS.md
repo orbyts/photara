@@ -97,3 +97,19 @@ must not silently choose a retention release, historical-ID expiry, authorizatio
 Saved guarantee, numeric product threshold or visible backpressure policy.
 Production writes, conversion, migration, retirement and deployment remain later
 boundaries. PS3, PS4 and LL2a retain their existing dependency order.
+
+
+## Latest bounded increments
+
+The [selected admission proof](PS2_SELECTED_ADMISSION_CANDIDATE.md) now binds an
+actual O/P/nonempty-hold successor and independently regenerates its entire
+prospective append from old bytes and Core output. Sixteen tests pass; R, C's
+prospective growth and simultaneous controls are bounded before effects. The
+prospective empty-hold package is sizing input, not publication under O; original
+prefix-only replay and actual selected phase/finalizer/cleanup remain open.
+
+The [D19 Blob preparation](PS2_SELECTED_BLOB_PREPARATION.md) passes ten tests for
+trusted original semantic preservation, generic raw accounting and instrumented
+structural versus explicit audit. Its proposed HEAD has not passed the shared
+physical reader. Neither these adapters nor the no-ConversionSource corpus close
+full Blob composition or converted-source audit behavior.

@@ -1,0 +1,15 @@
+     Running tests/selected_blob_candidate.rs (/Users/suhail/.cache/cargo/targets/debug/deps/selected_blob_candidate-d783563ab3d2954e)
+
+running 10 tests
+test metadata_only_adapter_reads_no_current_media_and_explicit_audit_detects_corruption ... ok
+test preparatory_canonical_corpus_preserves_actual_d19_project_and_typed_legacy_closure ... ok
+test preparatory_generic_ledger_counts_raw_allocation_without_reading_its_bytes ... ok
+test preserved_snapshot_adapter_refuses_other_project_metadata_or_missing_selected_blob ... ok
+test accounting::tests::integrated_accounting_resolver_must_return_exact_original_canonical_bytes ... ok
+test accounting::tests::integrated_accounting_actual_settled_roots_and_breakdown ... ok
+test accounting::tests::integrated_accounting_tip_bodies_are_ordered_and_disjoint ... ok
+test accounting::tests::integrated_accounting_nonempty_transition_or_unknown_fields_fence ... ok
+test accounting::tests::integrated_accounting_metadata_is_exact_but_not_physical_evidence ... ok
+test accounting::tests::integrated_accounting_original_witness_and_charge_basis_cannot_rebind ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.92s
