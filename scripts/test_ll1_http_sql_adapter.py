@@ -15,6 +15,53 @@ from test_ll1_fresh_device_receipt import authority, base, executor
 NOW = 1800000000000
 
 
+def authority_privileges(pg):
+    rows = json.loads(pg.scalar("""SELECT jsonb_agg(jsonb_build_object(
+ 'role',r.name,'function',p.proname,'execute',has_function_privilege(r.name,p.oid,'EXECUTE'))
+ ORDER BY r.name,p.proname)
+ FROM (VALUES('ll1_api'),('ll1_control'),('ll1_auth'),('ll1_service'),('ll1_authority')) r(name)
+ CROSS JOIN pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='ll1_probe' AND p.proname IN
+ ('http_command','authorize','execute','query_receipt','execute_review')"""))
+    assert len(rows) == 25
+    for row in rows:
+        assert row['execute'] == (row['role'] in ('ll1_service', 'll1_authority')
+                                  and row['function'] == 'http_command'), row
+    return rows
+
+
+def commit_guard_state(pg, installed):
+    present = pg.scalar("SELECT to_regprocedure('ll1_probe.no_committed_work()') IS NOT NULL") == 't'
+    assert present == installed
+    if not installed:
+        return {'installed': False}
+    function = json.loads(pg.scalar("""SELECT jsonb_build_object(
+ 'owner',pg_get_userbyid(p.proowner),'definer',p.prosecdef,'config',p.proconfig)
+ FROM pg_proc p WHERE p.oid='ll1_probe.no_committed_work()'::regprocedure"""))
+    assert function == {'owner':'photara_owner','definer':True,
+                        'config':['search_path=pg_catalog, pg_temp']}
+    triggers = json.loads(pg.scalar("""SELECT jsonb_agg(jsonb_build_object(
+ 'name',t.tgname,'schema',n.nspname,'table',c.relname,'enabled',t.tgenabled,
+ 'deferrable',t.tgdeferrable,'initially_deferred',t.tginitdeferred)
+ ORDER BY t.tgname) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+ JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE t.tgfoid='ll1_probe.no_committed_work()'::regprocedure"""))
+    expected = [{'name':name,'schema':'ll1_probe','table':table,'enabled':'O',
+                 'deferrable':True,'initially_deferred':True}
+                for name,table in [('authorization_no_commit','authorization'),
+                                   ('permit_no_commit','permit')]]
+    assert triggers == expected, triggers
+    assert pg.scalar("""SELECT bool_and(NOT has_function_privilege(r.name,
+ 'll1_probe.no_committed_work()','EXECUTE'))
+ FROM (VALUES('ll1_api'),('ll1_control'),('ll1_auth'),('ll1_service'),('ll1_authority')) r(name)""") == 't'
+    assert pg.scalar("""SELECT NOT EXISTS(SELECT 1 FROM pg_proc p,
+ LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+ WHERE p.oid='ll1_probe.no_committed_work()'::regprocedure
+ AND a.grantee=0 AND a.privilege_type='EXECUTE')""") == 't'
+    return {'installed':True,'function':function,'triggers':triggers,
+            'public_and_runtime_execute_denied':True}
+
+
 def overlay(pg, owned):
     base.require(pg, f"""SET ROLE photara_owner;
 CREATE FUNCTION ll1_probe.http_deadline() RETURNS void
@@ -78,6 +125,8 @@ GRANT EXECUTE ON FUNCTION ll1_probe.http_command(text,text,bigint,uuid,bytea,big
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--commit-guard', action='store_true',
+                        help='compose the disposable deferred no-committed-work guard')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--lifecycle', action='store_true',
                       help='run private cancellation/connection-loss/lost-response cases')
@@ -97,6 +146,15 @@ def main():
             authority.boundary(pg)
             receipt.overlay(pg, now_ms=NOW)
             overlay(pg, owned)
+            import test_ll1_authority_commit_guard as guard
+            prior_catalog = guard.catalog(pg)
+            prior_privileges = authority_privileges(pg)
+            commit_guard_state(pg, False)
+            if args.commit_guard:
+                guard.overlay(pg)
+            selected_guard = commit_guard_state(pg, args.commit_guard)
+            assert guard.catalog(pg) == prior_catalog
+            assert authority_privileges(pg) == prior_privileges
             env = {k: v for k, v in os.environ.items()
                    if not k.startswith(('PG', 'PHOTARA_TEST_', 'PHOTARA_LL1_')) and k != 'DATABASE_URL'}
             env['CARGO_NET_OFFLINE'] = 'true'
@@ -122,13 +180,25 @@ def main():
             if relay:
                 print(json.dumps({'private_commit_relay':relay.proof(),
                                   'absolute_read_deadline_trickle_check':True}, sort_keys=True))
+            assert commit_guard_state(pg, args.commit_guard) == selected_guard
+            assert guard.catalog(pg) == prior_catalog
+            assert authority_privileges(pg) == prior_privileges
+            work = json.loads(pg.scalar("""SELECT jsonb_build_object(
+ 'authorization',(SELECT count(*) FROM ll1_probe.authorization),
+ 'permit',(SELECT count(*) FROM ll1_probe.permit),
+ 'original_receipt',(SELECT count(*) FROM ll1_probe.original_receipt))"""))
+            assert work == {'authorization':0,'permit':0,'original_receipt':1}, work
+            print(json.dumps({'commit_guard':selected_guard,'terminal_rows':work,
+                              'baseline_catalog_unchanged_after_inherited_overlays':True,
+                              'raw_entry_denials_preserved':True}, sort_keys=True))
             for name, digest in hashes.items():
                 import hashlib
                 assert hashlib.sha256((base.ROOT/'crates/photara-service/migrations/postgres'/name).read_bytes()).hexdigest() == digest
             print(json.dumps({'result':'pass','baseline':measured,'production_changes':False,
                               'scope':'signed HTTP and protected SQL, private fixture only',
                               'lifecycle':args.lifecycle,
-                              'commit_relay':args.commit_relay}, sort_keys=True))
+                              'commit_relay':args.commit_relay,
+                              'commit_guard':args.commit_guard}, sort_keys=True))
         finally:
             try:
                 if relay:

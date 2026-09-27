@@ -1,0 +1,393 @@
+{
+  "date": "2026-09-27",
+  "result": "pass",
+  "production_changes": false,
+  "composition_matrix": {
+    "guarded-adapter": {
+      "seconds": 0.54,
+      "summary": {
+        "baseline": {
+          "fingerprint": "7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638",
+          "forced_rls_tables": 45,
+          "foreign_keys": 114,
+          "functions": 52,
+          "policies": 173,
+          "tables": 59,
+          "triggers": 122
+        },
+        "commit_guard": true,
+        "commit_relay": false,
+        "lifecycle": false,
+        "production_changes": false,
+        "result": "pass",
+        "scope": "signed HTTP and protected SQL, private fixture only"
+      },
+      "checks": {
+        "baseline_catalog_unchanged_after_inherited_overlays": true,
+        "commit_guard": {
+          "function": {
+            "config": [
+              "search_path=pg_catalog, pg_temp"
+            ],
+            "definer": true,
+            "owner": "photara_owner"
+          },
+          "installed": true,
+          "public_and_runtime_execute_denied": true,
+          "triggers": [
+            {
+              "deferrable": true,
+              "enabled": "O",
+              "initially_deferred": true,
+              "name": "authorization_no_commit",
+              "schema": "ll1_probe",
+              "table": "authorization"
+            },
+            {
+              "deferrable": true,
+              "enabled": "O",
+              "initially_deferred": true,
+              "name": "permit_no_commit",
+              "schema": "ll1_probe",
+              "table": "permit"
+            }
+          ]
+        },
+        "raw_entry_denials_preserved": true,
+        "terminal_rows": {
+          "authorization": 0,
+          "original_receipt": 1,
+          "permit": 0
+        }
+      }
+    },
+    "guarded-lifecycle": {
+      "seconds": 0.57,
+      "summary": {
+        "baseline": {
+          "fingerprint": "7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638",
+          "forced_rls_tables": 45,
+          "foreign_keys": 114,
+          "functions": 52,
+          "policies": 173,
+          "tables": 59,
+          "triggers": 122
+        },
+        "commit_guard": true,
+        "commit_relay": false,
+        "lifecycle": true,
+        "production_changes": false,
+        "result": "pass",
+        "scope": "signed HTTP and protected SQL, private fixture only"
+      },
+      "checks": {
+        "baseline_catalog_unchanged_after_inherited_overlays": true,
+        "commit_guard": {
+          "function": {
+            "config": [
+              "search_path=pg_catalog, pg_temp"
+            ],
+            "definer": true,
+            "owner": "photara_owner"
+          },
+          "installed": true,
+          "public_and_runtime_execute_denied": true,
+          "triggers": [
+            {
+              "deferrable": true,
+              "enabled": "O",
+              "initially_deferred": true,
+              "name": "authorization_no_commit",
+              "schema": "ll1_probe",
+              "table": "authorization"
+            },
+            {
+              "deferrable": true,
+              "enabled": "O",
+              "initially_deferred": true,
+              "name": "permit_no_commit",
+              "schema": "ll1_probe",
+              "table": "permit"
+            }
+          ]
+        },
+        "raw_entry_denials_preserved": true,
+        "terminal_rows": {
+          "authorization": 0,
+          "original_receipt": 1,
+          "permit": 0
+        }
+      }
+    },
+    "guarded-relay": {
+      "seconds": 0.3,
+      "summary": {
+        "baseline": {
+          "fingerprint": "7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638",
+          "forced_rls_tables": 45,
+          "foreign_keys": 114,
+          "functions": 52,
+          "policies": 173,
+          "tables": 59,
+          "triggers": 122
+        },
+        "commit_guard": true,
+        "commit_relay": true,
+        "lifecycle": false,
+        "production_changes": false,
+        "result": "pass",
+        "scope": "signed HTTP and protected SQL, private fixture only"
+      },
+      "checks": {
+        "baseline_catalog_unchanged_after_inherited_overlays": true,
+        "commit_guard": {
+          "function": {
+            "config": [
+              "search_path=pg_catalog, pg_temp"
+            ],
+            "definer": true,
+            "owner": "photara_owner"
+          },
+          "installed": true,
+          "public_and_runtime_execute_denied": true,
+          "triggers": [
+            {
+              "deferrable": true,
+              "enabled": "O",
+              "initially_deferred": true,
+              "name": "authorization_no_commit",
+              "schema": "ll1_probe",
+              "table": "authorization"
+            },
+            {
+              "deferrable": true,
+              "enabled": "O",
+              "initially_deferred": true,
+              "name": "permit_no_commit",
+              "schema": "ll1_probe",
+              "table": "permit"
+            }
+          ]
+        },
+        "raw_entry_denials_preserved": true,
+        "terminal_rows": {
+          "authorization": 0,
+          "original_receipt": 1,
+          "permit": 0
+        }
+      },
+      "relay_proof": {
+        "absolute_read_deadline_trickle_check": true,
+        "private_commit_relay": [
+          {
+            "ack_bytes_forwarded": 0,
+            "commit_captured": true,
+            "commit_forwarded": false,
+            "complete_seen": false,
+            "idle_seen": false,
+            "mode": "before-forward",
+            "pid": 44463,
+            "state": "dropped-before-forward",
+            "withheld_frames": 0
+          },
+          {
+            "ack_bytes_forwarded": 0,
+            "commit_captured": true,
+            "commit_forwarded": true,
+            "complete_seen": true,
+            "idle_seen": true,
+            "mode": "after-commit",
+            "pid": 44468,
+            "state": "dropped-after-commit",
+            "withheld_frames": 2
+          }
+        ]
+      }
+    },
+    "default-adapter": {
+      "seconds": 0.61,
+      "summary": {
+        "baseline": {
+          "fingerprint": "7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638",
+          "forced_rls_tables": 45,
+          "foreign_keys": 114,
+          "functions": 52,
+          "policies": 173,
+          "tables": 59,
+          "triggers": 122
+        },
+        "commit_guard": false,
+        "commit_relay": false,
+        "lifecycle": false,
+        "production_changes": false,
+        "result": "pass",
+        "scope": "signed HTTP and protected SQL, private fixture only"
+      },
+      "checks": {
+        "baseline_catalog_unchanged_after_inherited_overlays": true,
+        "commit_guard": {
+          "installed": false
+        },
+        "raw_entry_denials_preserved": true,
+        "terminal_rows": {
+          "authorization": 0,
+          "original_receipt": 1,
+          "permit": 0
+        }
+      }
+    },
+    "default-lifecycle": {
+      "seconds": 0.55,
+      "summary": {
+        "baseline": {
+          "fingerprint": "7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638",
+          "forced_rls_tables": 45,
+          "foreign_keys": 114,
+          "functions": 52,
+          "policies": 173,
+          "tables": 59,
+          "triggers": 122
+        },
+        "commit_guard": false,
+        "commit_relay": false,
+        "lifecycle": true,
+        "production_changes": false,
+        "result": "pass",
+        "scope": "signed HTTP and protected SQL, private fixture only"
+      },
+      "checks": {
+        "baseline_catalog_unchanged_after_inherited_overlays": true,
+        "commit_guard": {
+          "installed": false
+        },
+        "raw_entry_denials_preserved": true,
+        "terminal_rows": {
+          "authorization": 0,
+          "original_receipt": 1,
+          "permit": 0
+        }
+      }
+    },
+    "default-relay": {
+      "seconds": 0.37,
+      "summary": {
+        "baseline": {
+          "fingerprint": "7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638",
+          "forced_rls_tables": 45,
+          "foreign_keys": 114,
+          "functions": 52,
+          "policies": 173,
+          "tables": 59,
+          "triggers": 122
+        },
+        "commit_guard": false,
+        "commit_relay": true,
+        "lifecycle": false,
+        "production_changes": false,
+        "result": "pass",
+        "scope": "signed HTTP and protected SQL, private fixture only"
+      },
+      "checks": {
+        "baseline_catalog_unchanged_after_inherited_overlays": true,
+        "commit_guard": {
+          "installed": false
+        },
+        "raw_entry_denials_preserved": true,
+        "terminal_rows": {
+          "authorization": 0,
+          "original_receipt": 1,
+          "permit": 0
+        }
+      },
+      "relay_proof": {
+        "absolute_read_deadline_trickle_check": true,
+        "private_commit_relay": [
+          {
+            "ack_bytes_forwarded": 0,
+            "commit_captured": true,
+            "commit_forwarded": false,
+            "complete_seen": false,
+            "idle_seen": false,
+            "mode": "before-forward",
+            "pid": 44306,
+            "state": "dropped-before-forward",
+            "withheld_frames": 0
+          },
+          {
+            "ack_bytes_forwarded": 0,
+            "commit_captured": true,
+            "commit_forwarded": true,
+            "complete_seen": true,
+            "idle_seen": true,
+            "mode": "after-commit",
+            "pid": 44329,
+            "state": "dropped-after-commit",
+            "withheld_frames": 2
+          }
+        ]
+      }
+    }
+  },
+  "commands": [
+    "python3 scripts/test_ll1_http_sql_adapter.py --commit-guard",
+    "python3 scripts/test_ll1_http_sql_adapter.py --commit-guard --lifecycle",
+    "python3 scripts/test_ll1_http_sql_adapter.py --commit-guard --commit-relay",
+    "python3 scripts/test_ll1_http_sql_adapter.py ",
+    "python3 scripts/test_ll1_http_sql_adapter.py --lifecycle",
+    "python3 scripts/test_ll1_http_sql_adapter.py --commit-relay"
+  ],
+  "source_sha256": {
+    "scripts/test_ll1_http_sql_adapter.py": "f84bfb687769e407446915fd4fb7ae329cdd654a85a9c93c3c570c2214b029f8",
+    "scripts/test_ll1_authority_commit_guard.py": "a3e8cd3881d5c9b571e2fb45c295b7bcdab8e12a0e7aed698763d85e0192d98c",
+    "scripts/ll1_commit_relay.py": "b24db59f0e5e9df874ee7ba4cc7e74e3705b734a0b9c51f409158135bdbddd8c",
+    "crates/photara-service/src/http_ll1_sql_tests.rs": "e9ae0f28cd1fc863e323bcac26cfae07c7088e49a1a28c03bed7c503b594cbcc",
+    "crates/photara-service/src/http.rs": "3d540f1688cd625d263a23b42b55601ee140c5c787f19245039674fcb22a45c9",
+    "scripts/test_ll1_fresh_device_receipt.py": "b27c58fac59f2a0ad01394ee4065eea46398f474b8848e06d31ca08967811542",
+    "scripts/test_ll1_protected_authorization.py": "2ba9352e8e6ea101c5493e5012504f47cb9517b677b3267b7b6e0694372baed4",
+    "scripts/test_ll1_protected_postgres_executor.py": "8e08fb49920828d9644e33d27c9d19cab168424f28c78b69fb95012b8f58d618",
+    "scripts/test_ll1_actual_postgres_baseline.py": "aab3a7bd623d7a2199dded404ae3653d0fb5606f7a4843bea9148edaa106c607",
+    "scripts/test_ll1_retirement_constraints.py": "0ba8c7e56f2989e3f8d770f99ff30739f0b68be0278022202fed2261682e51a1",
+    "docs/architecture/verification/LL1_HTTP_COMMIT_GUARD_COMPOSITION.md": "04507ca3c3ada827fa34e34ccbde1a291482ba54a2b11e56501aa573a569dec3"
+  },
+  "output_sha256": {
+    "guarded-adapter": "20caaa1c7522a087f3d726cb59b8ff69522a81e539499c2111a0d777ab7e073e",
+    "guarded-lifecycle": "257811a68840502a25232cbae78e604ac254e58b0f6bd486f94f844b7b596959",
+    "guarded-relay": "209a878981a73336e9f9cc75520c3988470c85b6fb5489c497f6afc4c591a0f0",
+    "default-adapter": "ea91785b09fe32541cde21d15c1a43fcc668112afcd73ae7c2b0d6c8251cc67d",
+    "default-lifecycle": "3daabea30079c409bb73a08fd483a891d422b2bb31f3cb38bbbc14dfc0c452b8",
+    "default-relay": "ea4d9d90c0d4d4cfa01543cae504b2df9c94e1c4f969b950b6b597ffed97a0ac"
+  },
+  "outputs": {
+    "guarded-adapter": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s\n     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-567c51d9f6f0fa06)\n\nrunning 1 test\ntest http::ll1_sql_tests::postgres_ll1_signed_sql_adapter ... LL1 combined adapter: signed execution/receipt, exact rollback, three role denials, credential revocation and three post-lock deadline gates passed\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.54s\n\n{\"baseline_catalog_unchanged_after_inherited_overlays\": true, \"commit_guard\": {\"function\": {\"config\": [\"search_path=pg_catalog, pg_temp\"], \"definer\": true, \"owner\": \"photara_owner\"}, \"installed\": true, \"public_and_runtime_execute_denied\": true, \"triggers\": [{\"deferrable\": true, \"enabled\": \"O\", \"initially_deferred\": true, \"name\": \"authorization_no_commit\", \"schema\": \"ll1_probe\", \"table\": \"authorization\"}, {\"deferrable\": true, \"enabled\": \"O\", \"initially_deferred\": true, \"name\": \"permit_no_commit\", \"schema\": \"ll1_probe\", \"table\": \"permit\"}]}, \"raw_entry_denials_preserved\": true, \"terminal_rows\": {\"authorization\": 0, \"original_receipt\": 1, \"permit\": 0}}\n{\"baseline\": {\"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\", \"forced_rls_tables\": 45, \"foreign_keys\": 114, \"functions\": 52, \"policies\": 173, \"tables\": 59, \"triggers\": 122}, \"commit_guard\": true, \"commit_relay\": false, \"lifecycle\": false, \"production_changes\": false, \"result\": \"pass\", \"scope\": \"signed HTTP and protected SQL, private fixture only\"}\n{\"temporary_cluster\": \"stopped and removed\"}\n",
+    "guarded-lifecycle": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s\n     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-567c51d9f6f0fa06)\n\nrunning 1 test\ntest http::ll1_sql_tests::postgres_ll1_signed_sql_lifecycle ... LL1 lifecycle: in-process future cancellation before commit restored every row after original transaction/locks ended\nLL1 lifecycle: SQL statement cancellation (57014) at proved terminal capture restored every row after original transaction/locks ended\nLL1 lifecycle: private backend termination (57P01) at proved terminal capture restored every row after original transaction/locks ended\nLL1 lifecycle: independent snapshot sees no committed receipt while A is active; eligible B's lookup provably waits on A's account lock\nLL1 lifecycle: known commit with lost in-process response retains exact original receipt; fresh eligible B recovers it without a grant after A revocation\nLL1 lifecycle: five cases passed; no TCP disconnect, arbitrary COMMIT ambiguity, crash or power-loss claim\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.57s\n\n{\"baseline_catalog_unchanged_after_inherited_overlays\": true, \"commit_guard\": {\"function\": {\"config\": [\"search_path=pg_catalog, pg_temp\"], \"definer\": true, \"owner\": \"photara_owner\"}, \"installed\": true, \"public_and_runtime_execute_denied\": true, \"triggers\": [{\"deferrable\": true, \"enabled\": \"O\", \"initially_deferred\": true, \"name\": \"authorization_no_commit\", \"schema\": \"ll1_probe\", \"table\": \"authorization\"}, {\"deferrable\": true, \"enabled\": \"O\", \"initially_deferred\": true, \"name\": \"permit_no_commit\", \"schema\": \"ll1_probe\", \"table\": \"permit\"}]}, \"raw_entry_denials_preserved\": true, \"terminal_rows\": {\"authorization\": 0, \"original_receipt\": 1, \"permit\": 0}}\n{\"baseline\": {\"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\", \"forced_rls_tables\": 45, \"foreign_keys\": 114, \"functions\": 52, \"policies\": 173, \"tables\": 59, \"triggers\": 122}, \"commit_guard\": true, \"commit_relay\": false, \"lifecycle\": true, \"production_changes\": false, \"result\": \"pass\", \"scope\": \"signed HTTP and protected SQL, private fixture only\"}\n{\"temporary_cluster\": \"stopped and removed\"}\n",
+    "guarded-relay": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s\n     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-567c51d9f6f0fa06)\n\nrunning 1 test\ntest http::ll1_sql_tests::postgres_ll1_signed_sql_commit_relay ... LL1 COMMIT relay: exact frontend COMMIT captured but not forwarded; SQLx commit failed, original backend/locks ended, every row restored\nLL1 COMMIT relay: server COMMIT completion and idle frames withheld; exact receipt independently visible before disconnect; SQLx commit failed but original result survived and fresh B recovered it without a grant\nLL1 COMMIT relay: two controlled Unix-socket outcomes; generic commit errors remain ambiguous; no TCP, server-crash or power-loss claim\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.30s\n\n{\"absolute_read_deadline_trickle_check\": true, \"private_commit_relay\": [{\"ack_bytes_forwarded\": 0, \"commit_captured\": true, \"commit_forwarded\": false, \"complete_seen\": false, \"idle_seen\": false, \"mode\": \"before-forward\", \"pid\": 44463, \"state\": \"dropped-before-forward\", \"withheld_frames\": 0}, {\"ack_bytes_forwarded\": 0, \"commit_captured\": true, \"commit_forwarded\": true, \"complete_seen\": true, \"idle_seen\": true, \"mode\": \"after-commit\", \"pid\": 44468, \"state\": \"dropped-after-commit\", \"withheld_frames\": 2}]}\n{\"baseline_catalog_unchanged_after_inherited_overlays\": true, \"commit_guard\": {\"function\": {\"config\": [\"search_path=pg_catalog, pg_temp\"], \"definer\": true, \"owner\": \"photara_owner\"}, \"installed\": true, \"public_and_runtime_execute_denied\": true, \"triggers\": [{\"deferrable\": true, \"enabled\": \"O\", \"initially_deferred\": true, \"name\": \"authorization_no_commit\", \"schema\": \"ll1_probe\", \"table\": \"authorization\"}, {\"deferrable\": true, \"enabled\": \"O\", \"initially_deferred\": true, \"name\": \"permit_no_commit\", \"schema\": \"ll1_probe\", \"table\": \"permit\"}]}, \"raw_entry_denials_preserved\": true, \"terminal_rows\": {\"authorization\": 0, \"original_receipt\": 1, \"permit\": 0}}\n{\"baseline\": {\"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\", \"forced_rls_tables\": 45, \"foreign_keys\": 114, \"functions\": 52, \"policies\": 173, \"tables\": 59, \"triggers\": 122}, \"commit_guard\": true, \"commit_relay\": true, \"lifecycle\": false, \"production_changes\": false, \"result\": \"pass\", \"scope\": \"signed HTTP and protected SQL, private fixture only\"}\n{\"temporary_cluster\": \"stopped and removed\"}\n",
+    "default-adapter": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.24s\n     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-567c51d9f6f0fa06)\n\nrunning 1 test\ntest http::ll1_sql_tests::postgres_ll1_signed_sql_adapter ... LL1 combined adapter: signed execution/receipt, exact rollback, three role denials, credential revocation and three post-lock deadline gates passed\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.61s\n\n{\"baseline_catalog_unchanged_after_inherited_overlays\": true, \"commit_guard\": {\"installed\": false}, \"raw_entry_denials_preserved\": true, \"terminal_rows\": {\"authorization\": 0, \"original_receipt\": 1, \"permit\": 0}}\n{\"baseline\": {\"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\", \"forced_rls_tables\": 45, \"foreign_keys\": 114, \"functions\": 52, \"policies\": 173, \"tables\": 59, \"triggers\": 122}, \"commit_guard\": false, \"commit_relay\": false, \"lifecycle\": false, \"production_changes\": false, \"result\": \"pass\", \"scope\": \"signed HTTP and protected SQL, private fixture only\"}\n{\"temporary_cluster\": \"stopped and removed\"}\n",
+    "default-lifecycle": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s\n     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-567c51d9f6f0fa06)\n\nrunning 1 test\ntest http::ll1_sql_tests::postgres_ll1_signed_sql_lifecycle ... LL1 lifecycle: in-process future cancellation before commit restored every row after original transaction/locks ended\nLL1 lifecycle: SQL statement cancellation (57014) at proved terminal capture restored every row after original transaction/locks ended\nLL1 lifecycle: private backend termination (57P01) at proved terminal capture restored every row after original transaction/locks ended\nLL1 lifecycle: independent snapshot sees no committed receipt while A is active; eligible B's lookup provably waits on A's account lock\nLL1 lifecycle: known commit with lost in-process response retains exact original receipt; fresh eligible B recovers it without a grant after A revocation\nLL1 lifecycle: five cases passed; no TCP disconnect, arbitrary COMMIT ambiguity, crash or power-loss claim\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.55s\n\n{\"baseline_catalog_unchanged_after_inherited_overlays\": true, \"commit_guard\": {\"installed\": false}, \"raw_entry_denials_preserved\": true, \"terminal_rows\": {\"authorization\": 0, \"original_receipt\": 1, \"permit\": 0}}\n{\"baseline\": {\"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\", \"forced_rls_tables\": 45, \"foreign_keys\": 114, \"functions\": 52, \"policies\": 173, \"tables\": 59, \"triggers\": 122}, \"commit_guard\": false, \"commit_relay\": false, \"lifecycle\": true, \"production_changes\": false, \"result\": \"pass\", \"scope\": \"signed HTTP and protected SQL, private fixture only\"}\n{\"temporary_cluster\": \"stopped and removed\"}\n",
+    "default-relay": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s\n     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-567c51d9f6f0fa06)\n\nrunning 1 test\ntest http::ll1_sql_tests::postgres_ll1_signed_sql_commit_relay ... LL1 COMMIT relay: exact frontend COMMIT captured but not forwarded; SQLx commit failed, original backend/locks ended, every row restored\nLL1 COMMIT relay: server COMMIT completion and idle frames withheld; exact receipt independently visible before disconnect; SQLx commit failed but original result survived and fresh B recovered it without a grant\nLL1 COMMIT relay: two controlled Unix-socket outcomes; generic commit errors remain ambiguous; no TCP, server-crash or power-loss claim\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.37s\n\n{\"absolute_read_deadline_trickle_check\": true, \"private_commit_relay\": [{\"ack_bytes_forwarded\": 0, \"commit_captured\": true, \"commit_forwarded\": false, \"complete_seen\": false, \"idle_seen\": false, \"mode\": \"before-forward\", \"pid\": 44306, \"state\": \"dropped-before-forward\", \"withheld_frames\": 0}, {\"ack_bytes_forwarded\": 0, \"commit_captured\": true, \"commit_forwarded\": true, \"complete_seen\": true, \"idle_seen\": true, \"mode\": \"after-commit\", \"pid\": 44329, \"state\": \"dropped-after-commit\", \"withheld_frames\": 2}]}\n{\"baseline_catalog_unchanged_after_inherited_overlays\": true, \"commit_guard\": {\"installed\": false}, \"raw_entry_denials_preserved\": true, \"terminal_rows\": {\"authorization\": 0, \"original_receipt\": 1, \"permit\": 0}}\n{\"baseline\": {\"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\", \"forced_rls_tables\": 45, \"foreign_keys\": 114, \"functions\": 52, \"policies\": 173, \"tables\": 59, \"triggers\": 122}, \"commit_guard\": false, \"commit_relay\": true, \"lifecycle\": false, \"production_changes\": false, \"result\": \"pass\", \"scope\": \"signed HTTP and protected SQL, private fixture only\"}\n{\"temporary_cluster\": \"stopped and removed\"}\n"
+  },
+  "unchanged_from_checkpoint": {
+    "checkpoint": "4170142",
+    "files": [
+      "scripts/ll1_commit_relay.py",
+      "crates/photara-service/src/http_ll1_sql_tests.rs",
+      "scripts/test_ll1_authority_commit_guard.py",
+      "scripts/test_ll1_protected_authorization.py"
+    ]
+  },
+  "checks": [
+    "Python compile() syntax check without bytecode",
+    "scoped git diff --check",
+    "unchanged Rust/relay/standalone guard/historical raw source bytes versus4170142"
+  ],
+  "catalog_scope": "Pristine measurement before inherited overlays; exact actual baseline constraints/functions/ACLs/triggers after inherited overlays compared before/after optional guard and after Rust execution; guard objects only ll1_probe.",
+  "privilege_scope": "25role/function combinations; HTTP command is sole service/authority entry; raw authorize/execute/query/execute_review denied; guard direct EXECUTE denied to PUBLIC and all five runtime roles.",
+  "limits": [
+    "Opt-in disposable composition only, no production route/pool/migration/constraint choice",
+    "No automatic historical orphan cleanup; raw-authority counterexample remains historical and unchanged",
+    "Existing27 standalone guard and46 historical raw tests not rerun or relabelled in this matrix",
+    "Synthetic JWT/JWKS/clocks/sparse seed/candidate SQL and receipt encodings",
+    "Unix-socket controlled COMMIT cuts do not classify arbitrary errors or TCP disconnects",
+    "fsync-disabled private PostgreSQL; no server-crash or power-loss qualification",
+    "No new strict Clippy execution claimed: Rust adapter and relay source unchanged from4170142"
+  ]
+}
