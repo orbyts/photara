@@ -16,6 +16,7 @@ conversion-source or managed-resource requirements.
 | Scalable inventory and charge | [Branch specimen](PS2_SCALABLE_BRANCH_BYTE_CANDIDATE.md) and [single-HEAD route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md) verify typed trees, supplied contents, original witnesses and exact once-only charges | [Accounting component](PS2_ACCOUNTING_SCALING_CANDIDATE.md) proves typed observation/retained-file roots and a three-node sparse source proof; compose it into the final selected route |
 | Original admission and publication | [Single-HEAD route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md) selects original admission/phase/C; complete preflight checks all phases and simultaneous controls before effects | Original-token newborn/rollover fields and final proposed coordinates; historical phase records remain separate evidence |
 | Retirement and compact replay | [Compact fixture](PS2_COMPACT_RETIREMENT_COMMITMENTS.md) supplies useful reclamation evidence; [single-HEAD route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md) verifies actual post-unlink bytes and terminal original retry | Sparse bounded original proof now passes independently in the accounting component; compose final replay coordinates. The small route has negative retirement economics |
+| Retained roots and operational holds | [Origin/evidence mapping](PS2_RETENTION_ORIGIN_EVIDENCE_PROPOSAL.md) distinguishes five portable origins from twelve operational blockers; furnace tests cover blockers | Current joined/route readers require empty pinned_roots. Final selected closure must resolve nonempty retained roots with independent locator/ownership evidence and a scalable pin representation; local reader holds remain separate authority |
 | Codec evolution | Earlier fixture documents decode-only compatibility and possible original-ticket hash fencing | [Phase subproof](PS2_CANONICAL_PHASE_SUBPROOF.md) explicitly preserves codec-v1 bytes across two hypothetical reader generations and refuses reserialization/unsupported versions; final proposed permanent coordinate/dispatch set remains |
 | Conversion-source retention | [Resource/conversion specimen](PS2_RESOURCE_CONVERSION_BYTE_CANDIDATE.md) validates eighteen original files and nineteen copy cuts; [single-HEAD route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md) preserves exact original descriptor, files, charges and witnesses | Typed scalable per-file charge/observation roots pass twelve component tests; compose the route. Observations remain synthetic |
 | Managed resource records | [Resource/conversion specimen](PS2_RESOURCE_CONVERSION_BYTE_CANDIDATE.md) and [single-HEAD route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md) validate real selected resource bytes without external-media reads | [Factored resource component](PS2_FACTORED_RESOURCE_BYTE_CANDIDATE.md) passes nine tests with shared immutable requirements, typed selections and exact immutable source associations; complete other approved origin dispatch and whole-HEAD composition |
@@ -54,6 +55,13 @@ imported package cannot acquire writable admission merely by matching content
 hashes. No automatic rebinding policy is implied. Namespaced extension keys
 need the actual QualifiedName grammar and explicit value bounds, rather than
 the weaker predicates used by some experimental specimens.
+
+The [integration plan](PS2_FINAL_COORDINATE_INTEGRATION_PLAN.md) now spells out
+RootSet/StateRoot v2 selectors, a per-root physical placement tree and the bounded
+loose-control partition. The [newborn field proposal](PS2_NEWBORN_ORIGINAL_FIELD_PROPOSAL.md)
+spells out original generation-plan, marker, binding and measured-finalizer
+records. Both are unfrozen specifications awaiting actual integrated bytes and
+reader evidence; neither completes the rows above.
 
 ## Separate prerequisites and decision boundaries
 

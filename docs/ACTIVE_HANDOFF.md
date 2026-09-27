@@ -160,6 +160,11 @@ separate PS2 prerequisite.
   passes six tests with exact legacy managed/v2 bytes, explicit raw-allocation
   ownership and separate strong audit. It remains a separate project-scoped
   component; full HEAD composition and bounded shared parsing are open.
+- The [final-coordinate integration plan](architecture/PS2_FINAL_COORDINATE_INTEGRATION_PLAN.md)
+  and [newborn/original field proposal](architecture/PS2_NEWBORN_ORIGINAL_FIELD_PROPOSAL.md)
+  are concrete unfrozen drafts. The next bounded implementation is a settled
+  new-coordinate HEAD with nonempty retained-root placement; newborn/transition
+  integration follows. These documents are not format approval.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification
