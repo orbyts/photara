@@ -1,6 +1,6 @@
 # PS2 wire-coordinate source audit
 
-This is an engineering inventory of implemented disposable candidates, not a final coordinate proposal, approval request, permanent format decision or provider qualification. It records incompatible historical shapes rather than renaming them. The original-token route is under construction; its helper contract is implemented, but its selected envelope/overlay and physical caller must be reviewed together before claiming an authoritative route.
+This is an engineering inventory of implemented disposable candidates, not a final coordinate proposal, approval request, permanent format decision or provider qualification. It records incompatible historical shapes rather than renaming them. The [original-token route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md) now has nineteen verified tests tying its selected envelope/overlay, physical caller and complete preflight together. Its bounded inline evidence still needs scalable replacements.
 
 ## Source boundary
 
@@ -14,13 +14,13 @@ The relevant generators and corresponding readers are:
 | Portable resource/conversion closure | [resource-conversion/generate.py](proposals/ps2/resource-conversion/generate.py), [resource-conversion/linked.json](proposals/ps2/resource-conversion/linked.json) | [resource_conversion_candidate/wire.rs](../../crates/photara-store/tests/resource_conversion_candidate/wire.rs) |
 | External phase subproof | [phases/generate.py](proposals/ps2/phases/generate.py), [phases/linked-phases.json](proposals/ps2/phases/linked-phases.json) | [scalable_phase_candidate/phases.rs](../../crates/photara-store/tests/scalable_phase_candidate/phases.rs) |
 | Joined settled snapshot | [joined/generate.py](proposals/ps2/joined/generate.py), [joined/linked-joined.json](proposals/ps2/joined/linked-joined.json) | [scalable_joined_candidate/joined.rs](../../crates/photara-store/tests/scalable_joined_candidate/joined.rs) |
-| New original-token route | [route/operation.py](proposals/ps2/route/operation.py), [route/operation-four.json](proposals/ps2/route/operation-four.json); further builder in progress | [single_head_route_candidate.rs](../../crates/photara-store/tests/single_head_route_candidate.rs), [single_head_route_candidate/contract.rs](../../crates/photara-store/tests/single_head_route_candidate/contract.rs); physical route in progress |
+| Original-token route | [route/generate.py](proposals/ps2/route/generate.py), [route/linked-route.json](proposals/ps2/route/linked-route.json), [route/operation.py](proposals/ps2/route/operation.py) | [single_head_route_candidate.rs](../../crates/photara-store/tests/single_head_route_candidate.rs), [selected reader](../../crates/photara-store/tests/single_head_route_candidate/route.rs), [contract](../../crates/photara-store/tests/single_head_route_candidate/contract.rs), [control model](../../crates/photara-store/tests/single_head_route_candidate/control.rs) |
 
 The checked-in canonical corpora and their source hash manifests establish the individual proof epochs. The audit does not turn historical bytes into a common reader. The native `ps2_index_furnace` remains a different disposable encoding and operational proof, not the byte-candidate decoder.
 
 ## Reference and framing coordinates
 
-ObjectRef is `{kind:"json",sha256,byte_length}`: SHA-256 covers exact canonical JSON body bytes and the length is a canonical decimal string. PhysicalRef is `{allocation_id,arena,offset,byte_length,record_sha256}`: the digest covers the complete selected frame, the arena is `data` or `metadata`, and offset/length identify an exact frame boundary. A physical allocation UUID is not a resource ID, content digest or portable device identifier.
+The packed specimens exercise the JSON ObjectRef subset `{kind:"json",sha256,byte_length}`: SHA-256 covers exact canonical JSON body bytes and the length is a canonical decimal string. The existing permanent ObjectRef contract also supports Blob and orders Blob before Json; its digest domain is unchanged. These JSON-only packed vectors do not establish Blob placement or conversion compatibility. PhysicalRef is `{allocation_id,arena,offset,byte_length,record_sha256}`: the digest covers the complete selected frame, the arena is `data` or `metadata`, and offset/length identify an exact frame boundary. A physical allocation UUID is not a resource ID, content digest or portable device identifier.
 
 Candidate frames use eight magic bytes `PS2PKD01`, a one-byte tag, three zero reserved bytes, little-endian u32 body length, then body bytes. Header length is 16 bytes. Tag 0 is zero-filled padding; tag 1 is semantic JSON; tag 2 is ownership/accounting implementation JSON; tag 3 is locator JSON in the metadata arena. Readers reject unsupported tags, wrong membership, malformed boundaries and nonzero reserved/padding content. Tag assignment is not inferred from an arbitrary ObjectRef-shaped extension. The earlier native furnace uses other frame layouts and does not share this magic/header contract.
 
@@ -119,5 +119,23 @@ Package canonical parsing uses `JsonLimits::default()` from [package/json.rs](..
 6. Final authority must traverse one actual HEAD→commit→RootSet→accounting-envelope→original/phase route and exact overlay/base inventory. Control aliases already in the base inventory must not be duplicated, and equal aggregate charge cannot authorize swapping original sealed allocation identities. Actual destination suffixes, including unreachable records, must be verified after authorized source unlink; detached corpus copies cannot substitute.
 
 The audit does not supply a final newborn-generation or codec-transition field specification; that explicit proposed coordinate layer still follows the integrated route review.
+
+The completed route adds full old active/recovery StateRoot bodies to `old.states`
+and exact source `charge` plus `charge_path` records to the retirement recipe.
+The latter is the entire three-charge fixture tree, not a sparse proof. Its
+`example.ps2.route-selector-intent` v1 binds token, original ObjectRef and exact
+current/next HEAD hashes in 447 canonical bytes. Complete admission checks the
+entire same-original phase sequence and simultaneous control allocation before
+effects; current full and recovery readers also enforce the selected control
+pool. Peak simultaneous allocation is exactly 131072 bytes across nineteen
+roles under the original twenty-four-role cap. These are bounded model results,
+not filesystem qualification or final permanent coordinates.
+
+Existing managed-resource Blob edges are implemented in
+[v1.1 closure traversal](../../crates/photara-store/src/package/v1_1/closure.rs)
+and required by the original [ObjectRef contract](PS2_PRODUCTION_WIRE_APPENDIX.md).
+Final placement/ownership/accounting needs compatible Blob byte evidence; an
+unsupported-packed-Blob fence in a JSON-only prototype cannot silently narrow
+the existing permanent conversion contract.
 
 This audit records current source facts and remaining mapping work. It proposes no permanent magic, schema name, feature ID, pin policy, coordinate family or codec transition.

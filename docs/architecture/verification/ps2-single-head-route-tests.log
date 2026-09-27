@@ -1,0 +1,28 @@
+   Compiling photara-store v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-store)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.05s
+     Running tests/single_head_route_candidate.rs (/Users/suhail/.cache/cargo/targets/debug/deps/single_head_route_candidate-9a4a39754f8db3a0)
+
+running 19 tests
+test control::tests::control_exact_rounded_bound_and_shared_immutable_roles ... ok
+test contract::tests::route_contract_embedded_old_controls_are_exact_reconstruction ... ok
+test contract::tests::route_contract_undercharge_witness_extent_and_phase_forgery_refuse ... ok
+test contract::tests::route_contract_control_bound_cleanup_and_retirement_skip_refuse ... ok
+test control::tests::control_unknown_large_role_and_forged_address_refuse ... ok
+test contract::tests::route_contract_original_phase_and_exact_once_settlement ... ok
+test fourth_real_core_operation_continues_exact_settled_authored_coordinate ... ok
+test route::selected_and_independent_recovery_refuse_oversized_current_controls ... ok
+test route::admission_requires_all_same_original_phases_and_exact_small_intent_bytes ... ok
+test route::actual_source_witness_and_original_charge_proof_refuse_substitution ... ok
+test route::independent_recovery_requires_the_actual_selected_control_closure ... ok
+test route::coherent_retirement_state_and_surviving_charge_changes_refuse ... ok
+test route::selected_controls_reject_coherent_underreserve_unknown_refs_and_missing_capabilities ... ok
+test route::postunlink_proof_uses_actual_destination_and_canonical_duplicate_controls ... ok
+test route::new_route_recovery_is_independent_of_absent_active_allocations ... ok
+test route::selected_route_resolves_actual_frames_and_original_tokens ... ok
+test route::actual_old_head_admission_publication_release_and_credit_form_one_authority_chain ... ok
+test route::complete_future_control_and_payload_plan_is_admitted_before_any_effect has been running for over 60 seconds
+test route::terminal_original_retry_and_receipt_provenance_survive_source_removal has been running for over 60 seconds
+test route::complete_future_control_and_payload_plan_is_admitted_before_any_effect ... ok
+test route::terminal_original_retry_and_receipt_provenance_survive_source_removal ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 74.03s

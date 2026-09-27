@@ -29,8 +29,9 @@ mutation.
 
 The immediate PS2 engineering step is completing the reviewable wire candidate:
 
-1. finish linked real-operation, scalable inventory/charge, original-admission,
-   publication/retirement and compatibility vectors within approved semantics;
+1. finish scalable resource-source factoring, local observation/retained-file
+   accounting and sparse original-charge evidence, then compose the exact
+   proposed permanent coordinates and newborn/replay fields;
 2. consolidate the exact byte/closure proposal, original replay commitments,
    measured limits and negative economics for permanent-wire review;
 3. complete qualified storage/barrier evidence as its separate prerequisite.
@@ -130,12 +131,18 @@ separate PS2 prerequisite.
   snapshot files and checking same-attempt copy registration. The
   [canonical phase subproof](architecture/PS2_CANONICAL_PHASE_SUBPROOF.md) adds
   thirteen tests for original reserves, birth witnesses, actual suffix integrity
-  and once-only credit. Its external phase records are not yet selected
-  accounting authority. The [joined settled snapshot](architecture/PS2_JOINED_SETTLED_BYTE_CANDIDATE.md)
+  and once-only credit. Its external phase records remain component evidence.
+  The [joined settled snapshot](architecture/PS2_JOINED_SETTLED_BYTE_CANDIDATE.md)
   now passes twelve tests selecting real operation/resource/tree/conversion and
-  physical-accounting bytes through one HEAD. The final original-admission/phase/C
-  transition route and exact proposed permanent coordinates remain engineering
-  work, tracked in the
+  physical-accounting bytes through one HEAD. The subsequent
+  [single-HEAD transition route](architecture/PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md)
+  passes nineteen tests for selected original admission/phase/C, actual Graph
+  operation four, retirement, independent recovery and original retry. Its
+  simultaneous controls exactly fill the original 131,072-byte pool; the small
+  retirement has a 520,192-byte net charge increase. Inline original witnesses,
+  full tiny charge proofs and v1 resource-origin rewrites remain bounded
+  specimens. Scalable replacements and exact proposed permanent coordinates
+  remain engineering work, tracked in the
   [wire readiness checklist](architecture/PS2_WIRE_REVIEW_READINESS.md).
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide

@@ -154,8 +154,8 @@ tests and 75 packed objects for inventory, reciprocal operation indexes and
 owned charge trees, with exact range/count/overflow/coverage checks. Its
 [evidence record](verification/ps2-scalable-branch-byte-candidate-20260927.json)
 records independent reproduction and validation. Synthetic sealed observations
-do not establish a complete package charge or sealed-content proof. Joint
-HEAD-selected closure and phase/admission controls remain open. The
+do not establish a complete package charge or sealed-content proof on their own;
+the subsequent joined and transition specimens below supply that composition. The
 [resource/conversion candidate](PS2_RESOURCE_CONVERSION_BYTE_CANDIDATE.md) now
 passes twelve tests across 26 fixed scenarios, including exact eighteen-file
 snapshot preservation at nineteen copy cuts and original attempt registration.
@@ -167,15 +167,27 @@ tracks the required final composition and review boundary. The subsequent
 tests, independently confirmed in the [parent check](verification/ps2-canonical-phase-parent-verification-20260927.json).
 It binds actual supplied suffix bytes, exact original standing/ticket charges,
 control caps, birth witnesses and source-independent retry. Its external phase
-records still require HEAD-selected accounting integration; it is not the final
-single-authority proof. The [joined settled snapshot](PS2_JOINED_SETTLED_BYTE_CANDIDATE.md)
+records remain a separate component, not selected authority for the later route.
+The [joined settled snapshot](PS2_JOINED_SETTLED_BYTE_CANDIDATE.md)
 now passes twelve tests through actual HEAD/commit/RootSet/StateRoot traversal,
 169 fixed records, seven complete packs and eighteen retained conversion files.
 Its [evidence](verification/ps2-joined-settled-candidate.json) records exact
 761,856-byte synthetic accounting and independent recovery with active-only
 allocations removed. Original sealed/tip/conversion witnesses are checked. This
-remains a settled experimental layout; the original admission/phase/C route
-and exact proposed permanent-coordinate layer are still required.
+remains a settled experimental layout. The subsequent
+[single-HEAD route](PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md) passes nineteen tests
+for actual original admission, Graph operation four, selected phase/C and
+retirement through current HEAD bytes. Independent recovery works without
+active-only packs; original receipts and once-only cleanup retry survive source
+removal. Complete preflight checks every planned phase, original identity,
+selector intent and simultaneous rounded controls. Peak controls are exactly
+131,072 bytes across nineteen roles, with no headroom. The small retirement
+costs 520,192 bytes net; it is not profitable reclamation evidence. Its
+[evidence](verification/ps2-single-head-route-candidate.json) includes final
+source hashes and independent reproduction. Full tiny charge proofs, inline
+local observation/conversion rows and v1 resource-origin rewrites remain bounded
+specimens. Their scalable replacements, explicit newborn/replay coordinates
+and the exact proposed permanent-wire layer are still required.
 
 The macOS syscall and split-process matrix has been rerun. Three explicitly
 authorized private APFS-image clean-remount cases cover successful publication
@@ -186,8 +198,8 @@ qualification. See [clean-remount evidence](PS2_MACOS_CLEAN_REMOUNT.md).
 
 The remaining engineering dependency is:
 
-1. complete real-operation, scalable inventory/charge, original-admission,
-   publication/retirement and compatibility byte vectors;
+1. complete scalable resource-source factoring, local observation/retained-file
+   accounting, sparse original charge proofs and explicit newborn/replay fields;
 2. present the exact candidate wire, closure rules and measured limits for
    review before shared production reader/writer implementation;
 3. complete qualified barrier/storage evidence before production writable or

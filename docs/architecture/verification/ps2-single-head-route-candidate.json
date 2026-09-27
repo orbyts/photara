@@ -1,0 +1,238 @@
+{
+  "baseline_commit": "75033370ab747eb2c29c56e25e8fb513b02db2bb",
+  "cleanup_reserve": 65536,
+  "commands": [
+    "python3 docs/architecture/proposals/ps2/route/operation.py",
+    "python3 docs/architecture/proposals/ps2/route/generate.py",
+    "cargo test -p photara-store --test single_head_route_candidate -- --nocapture",
+    "cargo test -p photara-store --test single_head_route_candidate admission_requires_all_same_original_phases_and_exact_small_intent_bytes -- --nocapture",
+    "cargo clippy -p photara-store --test single_head_route_candidate -- -D warnings"
+  ],
+  "dependencies": {
+    "crates/photara-store/tests/resource_conversion_candidate/wire.rs": {
+      "bytes": 27119,
+      "sha256": "190634ed60afb58ec56a4ed21f08e36b585fc381e49c36cafb61329c1af63d63"
+    },
+    "crates/photara-store/tests/scalable_branch_candidate/trees.rs": {
+      "bytes": 14533,
+      "sha256": "41961d5c659f595896d2e10cfa1ed2e357b20b36d57e3d8bf15d2cfb8a28f836"
+    },
+    "crates/photara-store/tests/scalable_joined_candidate/joined.rs": {
+      "bytes": 36382,
+      "sha256": "bc2babfb301c799c8e4acf751c84eb172ac9c35d839af6e5af59dcc41978cdd5"
+    },
+    "crates/photara-store/tests/scalable_operation_candidate/operations.rs": {
+      "bytes": 22696,
+      "sha256": "ad1397dae8d65bd0011a9919d7f176373d2baaeccf84d100698b489c0173990f"
+    },
+    "crates/photara-store/tests/scalable_wire_candidate/wire.rs": {
+      "bytes": 34149,
+      "sha256": "9c6f19d918dda37f28f17ebb1b67f41c430ab498209fb0f24c86243af2a28667"
+    },
+    "docs/architecture/proposals/ps2/joined/generate.py": {
+      "bytes": 15332,
+      "sha256": "045019a52020f8d675c877703dbfa028bf6d2c3a89210b59e03136c5eff45d20"
+    },
+    "docs/architecture/proposals/ps2/joined/linked-joined.json": {
+      "bytes": 1755698,
+      "sha256": "d5079e905db8181d6cd60a0b2548e4b1ddbd30e00bb1f9e1d34891e4b996f09e"
+    },
+    "docs/architecture/proposals/ps2/operations/linked-operations.json": {
+      "bytes": 196219,
+      "sha256": "b18f3d5960bff213c35ea12d9f2e32791eb83cc904046d9f47ed21f93ada2421"
+    },
+    "docs/architecture/proposals/ps2/resource-conversion/linked.json": {
+      "bytes": 1958520,
+      "sha256": "13d5d9b3f02178e8fa8a8c500e4813a6bafe9ad30aa540d905ee79be85cf1b64"
+    }
+  },
+  "fixed_project_limit": 2621440,
+  "limitations": [
+    "Pure canonical byte and selected-state proof; no production I/O reader/writer or provider qualification.",
+    "Same-tip route; newborn/rollover and replay codec permanent fields still separate work.",
+    "Full tiny source charge proof and inline observation/conversion rows are bounded specimen data, not final scalable lifetime wire.",
+    "ResourceState v1 authored origin rewrites bounded obligations; additive factored resource candidate required for scalable mutation.",
+    "Exact simultaneous pool is full at131072 bytes; any additions require readmission proof, not budget growth.",
+    "Synthetic local witnesses are profile/incarnation admission evidence, not portable resource facts; no automatic copy/import rebinding."
+  ],
+  "log_normalization": "Versioned logs retain one final newline; original /private/tmp logs remain unchanged.",
+  "logs": {
+    "clippy": {
+      "bytes": 202,
+      "path": "docs/architecture/verification/ps2-single-head-route-clippy.log",
+      "sha256": "f4ced538289c7a34d81bbf9814c131e85f8ccdd16a082444ba06570b865ba238"
+    },
+    "final_intents": {
+      "bytes": 550,
+      "path": "docs/architecture/verification/ps2-single-head-route-intents.log",
+      "sha256": "e376353b88fcd9b9b28646463af97222ad2adb2aa1c3bafdbdfa735cdcac1515"
+    },
+    "tests": {
+      "bytes": 2380,
+      "path": "docs/architecture/verification/ps2-single-head-route-tests.log",
+      "sha256": "b7c83fa29cc8f5b4c1e608eb188780dc7ab0a27de78b96ed1299d328e3c88067"
+    }
+  },
+  "max_control_roles": 24,
+  "original_reserve": 1048576,
+  "os_free_space_credit": 0,
+  "parent_verification": {
+    "complete_seconds": 74.04,
+    "complete_tests": 19,
+    "diff_check": true,
+    "exact_regeneration": [
+      "operation-four.json",
+      "linked-route.json",
+      "route-negatives.json"
+    ],
+    "failed": 0,
+    "log": "docs/architecture/verification/ps2-single-head-route-parent-tests.log",
+    "log_normalization": "Trailing empty lines removed; original /private/tmp log retained.",
+    "log_sha256": "bf13a80e8ca372f7055f729e19769fd943777f43fb95b7c830afbe5a9db28521",
+    "rustfmt": true,
+    "source_review": "HEAD dispatch, immutable original-target and predecessor rules, exact control closure, preflight and original retry reviewed; independent reviewer covered source charge/accounting and source-independent suffix proof."
+  },
+  "phases": {
+    "graph-admitted": {
+      "control_bytes": 39839,
+      "stage": "admitted",
+      "token": "101",
+      "total_charge": "761856"
+    },
+    "graph-clean": {
+      "control_bytes": 41138,
+      "stage": "clean",
+      "token": "101",
+      "total_charge": "1286144"
+    },
+    "graph-published": {
+      "control_bytes": 41081,
+      "stage": "published",
+      "token": "101",
+      "total_charge": "1286144"
+    },
+    "retire-admitted": {
+      "control_bytes": 43418,
+      "stage": "admitted",
+      "token": "202",
+      "total_charge": "1286144"
+    },
+    "retire-clean": {
+      "control_bytes": 44458,
+      "stage": "clean",
+      "token": "202",
+      "total_charge": "1806336"
+    },
+    "retire-released": {
+      "control_bytes": 44494,
+      "stage": "released",
+      "token": "202",
+      "total_charge": "1810432"
+    },
+    "retire-unlinked": {
+      "control_bytes": 44494,
+      "stage": "unlinked",
+      "token": "202",
+      "total_charge": "1810432"
+    }
+  },
+  "production_reader_changed": false,
+  "qualified_filesystem_saved": false,
+  "retirement_net_charge_increase": 520192,
+  "retirement_new_tip_charge": 524288,
+  "retirement_source_credit": 4096,
+  "selector_intent_lengths": {
+    "graph-admitted": 447,
+    "graph-clean": 447,
+    "graph-published": 447,
+    "retire-admitted": 447,
+    "retire-clean": 447,
+    "retire-released": 447,
+    "retire-unlinked": 447
+  },
+  "simultaneous_control_peaks": {
+    "graph-admitted": {
+      "roles": 15,
+      "rounded_bytes": 90112
+    },
+    "graph-clean": {
+      "roles": 18,
+      "rounded_bytes": 102400
+    },
+    "graph-published": {
+      "roles": 19,
+      "rounded_bytes": 114688
+    },
+    "retire-admitted": {
+      "roles": 19,
+      "rounded_bytes": 131072
+    },
+    "retire-clean": {
+      "roles": 17,
+      "rounded_bytes": 110592
+    },
+    "retire-released": {
+      "roles": 17,
+      "rounded_bytes": 110592
+    },
+    "retire-unlinked": {
+      "roles": 16,
+      "rounded_bytes": 98304
+    }
+  },
+  "sources": {
+    "crates/photara-store/tests/single_head_route_candidate.rs": {
+      "bytes": 5858,
+      "sha256": "0b244d174db212983ebda0b2be5596d1b8bf90cc86c4a5ce2c14bd823d9a4d13"
+    },
+    "crates/photara-store/tests/single_head_route_candidate/contract.rs": {
+      "bytes": 29919,
+      "sha256": "600a286437d7a8a4911481892b4f375faf6575de30ebfa89fb2d4fc9dceb182f"
+    },
+    "crates/photara-store/tests/single_head_route_candidate/control.rs": {
+      "bytes": 6832,
+      "sha256": "cadc5b3a7e1feb30f42a8c2b7572a37c368f24c2ad317836fb3d60155699343f"
+    },
+    "crates/photara-store/tests/single_head_route_candidate/route.rs": {
+      "bytes": 48365,
+      "sha256": "38d4d01f93eb4812c6926c077b9750b2fe9e7b0541623d3e1e4d81e9c6d935d4"
+    },
+    "docs/architecture/PS2_SINGLE_HEAD_ROUTE_BYTE_CANDIDATE.md": {
+      "bytes": 14381,
+      "sha256": "5644a46239399ef7237c45f97c4f687908d3e05536e85f5923d837c61f6a703f"
+    },
+    "docs/architecture/proposals/ps2/route/generate.py": {
+      "bytes": 17896,
+      "sha256": "8040a540e1886016a1a1c41dcb277c011780616dd83fb4886c669e4fd94931d5"
+    },
+    "docs/architecture/proposals/ps2/route/linked-route.json": {
+      "bytes": 6941794,
+      "sha256": "df86490059b7d6da077585b146845ff339df522a88c7d72f605131f91303045e"
+    },
+    "docs/architecture/proposals/ps2/route/operation-four.json": {
+      "bytes": 240660,
+      "sha256": "99ec1fd91371d01e78f3dd711317e5878db206c023488bc28266cb970c15c9c6"
+    },
+    "docs/architecture/proposals/ps2/route/operation.py": {
+      "bytes": 5139,
+      "sha256": "e45ec19004b907dbb6ff9d26ee417946ed097eab8536e9d99a0cb886901288d7"
+    },
+    "docs/architecture/proposals/ps2/route/route-negatives.json": {
+      "bytes": 6460048,
+      "sha256": "c2e41da2c5f9766f496251a12a52393476b3d360028112a38cfcec49a93810bf"
+    }
+  },
+  "standing_control": 131072,
+  "status": "unfrozen-disposable-single-head-route-candidate",
+  "verification": {
+    "complete_seconds": 74.03,
+    "complete_tests": 19,
+    "diff_check": true,
+    "exact_regeneration": true,
+    "last_fixed_intent_and_peak_test_seconds": 2.37,
+    "note": "Complete run precedes the final metadata-only addition comparing all seven fixed intent bytes and control peaks; the focused final test and strict lint run use the final sources. Parent independent complete run is recorded separately.",
+    "rustfmt": true,
+    "strict_clippy_seconds": 2.55
+  },
+  "wire_frozen": false
+}
