@@ -1,0 +1,96 @@
+{
+  "status": "verified-default-regression-with-prospective-successor-hook",
+  "production": false,
+  "baseline_commit": "627a3c3",
+  "sources": [
+    {
+      "path": "crates/photara-store/tests/integrated_wire_candidate/wire.rs",
+      "bytes": 60502,
+      "sha256": "88bb2c8736ee2fcacbefe4b7ca28d686edea53e60ff45855e822193325241dde"
+    },
+    {
+      "path": "docs/architecture/PS2_PREPARED_SUCCESSOR_VALIDATION_SEAM.md",
+      "bytes": 2216,
+      "sha256": "e2afb9eadd2193d2129a70b731057acdf57778f4f3c24b632111f9d5ed8d4f45"
+    }
+  ],
+  "dependencies": [
+    {
+      "path": "crates/photara-store/tests/integrated_wire_candidate.rs",
+      "bytes": 10576,
+      "sha256": "32f2e47b389f5b2a96ae34572c6c5c2a6dd6c85d0b0949d1819b688f854c8b43"
+    },
+    {
+      "path": "crates/photara-store/tests/integrated_wire_candidate/accounting.rs",
+      "bytes": 41898,
+      "sha256": "5b0c3361d3925310833fcc7055df537625e23c13d8a538d70c4135dfe5e71a75"
+    },
+    {
+      "path": "crates/photara-store/tests/integrated_wire_candidate/resources.rs",
+      "bytes": 8753,
+      "sha256": "3dbe309191575825106134dcdbf8ef6fa0c586ffe7ef0ed28e1f8815e677cd36"
+    },
+    {
+      "path": "crates/photara-store/tests/resource_factored_candidate.rs",
+      "bytes": 7699,
+      "sha256": "246d9b39abf54aa46c55c714fc7801b36650074090fdc25a3151ea84e15ed52f"
+    },
+    {
+      "path": "crates/photara-store/tests/resource_factored_candidate/wire.rs",
+      "bytes": 21687,
+      "sha256": "a0cdd305b51b413fdab6959257ae71e9b3048c6f43f386281c77358ca42204c7"
+    },
+    {
+      "path": "docs/architecture/proposals/ps2/integrated/linked.json",
+      "bytes": 4353756,
+      "sha256": "6de4a73749c539ad98f3dfa1b68e2687473cf70ded8328a95b1c3575c6d43e4a"
+    },
+    {
+      "path": "docs/architecture/proposals/ps2/integrated/negatives.json",
+      "bytes": 13963747,
+      "sha256": "3310a411a030b20ef42579c7b19742590f8bbb12f5776054cd2b4cda3958b0bb"
+    },
+    {
+      "path": "docs/architecture/proposals/ps2/resource-factored/linked.json",
+      "bytes": 5364617,
+      "sha256": "845b80d5af377492fac39baf24faea30b6e0bfd6ff37599302915b9126aae029"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "docs/architecture/verification/ps2-prepared-successor-seam-tests.log",
+      "bytes": 2759,
+      "sha256": "1686e3053d638376cc4d322b10512d50650e2e83b3fd11b2e1836db85f418b6c"
+    },
+    {
+      "path": "docs/architecture/verification/ps2-prepared-successor-seam-clippy.log",
+      "bytes": 202,
+      "sha256": "3584a7658b03b8e84913c5a342e81a5e656de07830cc7d511263f94e6101b3d1"
+    }
+  ],
+  "commands": [
+    {
+      "command": "cargo test -p photara-store --test integrated_wire_candidate --test resource_factored_candidate --test selected_origin_candidate",
+      "claimed_result": "Default targets: 17 settled tests and 9 factored tests pass",
+      "settled_seconds": 15.53,
+      "factored_seconds": 0.71,
+      "note": "Log retains default-target sections only. The in-progress origin target was also run; its final source-bound evidence belongs to its separate checkpoint."
+    },
+    {
+      "command": "cargo clippy -p photara-store --test integrated_wire_candidate --test resource_factored_candidate -- -D warnings",
+      "result": "passed after scoped too_many_lines annotation",
+      "seconds": 1.64
+    },
+    {
+      "command": "rustfmt --edition 2024 --config skip_children=true --check crates/photara-store/tests/integrated_wire_candidate/wire.rs",
+      "result": "passed"
+    }
+  ],
+  "log_normalization": "Default test sections extracted from the combined temporary log; trailing blank lines normalized. Original temporary logs unchanged.",
+  "limitations": [
+    "Caller must provide actual Core/PS1-prepared authored bytes; this private test helper is not a production validation authority",
+    "Original package is fully verified and actual candidate selector/closure checked",
+    "Default regression is frozen here; complete new admission/origin proofs and deterministic decoder evidence remain their own checkpoints",
+    "No accepted journal, packed effect, qualified barrier or Saved claim"
+  ]
+}

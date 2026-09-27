@@ -159,6 +159,23 @@ impl World {
             v["status"] == "unfrozen-proposed-settled-integrated" && v["qualification"] == false,
             "fixture dispatch",
         )?;
+        Self::load_fields(v)
+    }
+    /// New test-only transition harness; semantic dispatch still occurs in verification.
+    pub(super) fn load_transition(v: &Value) -> Result<Self> {
+        ensure(
+            matches!(
+                v["status"].as_str(),
+                Some(
+                    "unfrozen-admission-only-no-packed-effects"
+                        | "unfrozen-prospective-sizing-only-not-selected"
+                )
+            ) && v["qualification"] == false,
+            "transition fixture dispatch",
+        )?;
+        Self::load_fields(v)
+    }
+    fn load_fields(v: &Value) -> Result<Self> {
         let entries = v["allocations"].as_object().ok_or("allocations")?;
         ensure(entries.len() <= 16, "allocation count bound")?;
         let mut total = 0;
@@ -236,6 +253,17 @@ impl World {
         self.bootstrap_with(&[])
     }
     fn bootstrap_with(&self, extra_features: &[&str]) -> Result<Value> {
+        self.bootstrap_transition(extra_features, None)
+    }
+    #[allow(
+        clippy::too_many_lines,
+        reason = "Keep exact original/successor bootstrap validation in one pass"
+    )]
+    fn bootstrap_transition(
+        &self,
+        extra_features: &[&str],
+        transition: Option<&Transition<'_>>,
+    ) -> Result<Value> {
         fields(
             &self.head,
             &["schema", "project_id", "commit_id", "commit_sha256"],
@@ -283,10 +311,30 @@ impl World {
         )?;
         uuid(&self.commit["commit_id"])?;
         uuid(&self.commit["write_id"])?;
-        ensure(
-            self.commit["parent"].is_null() && self.commit["package_revision"] == "1",
-            "settled bootstrap provenance",
-        )?;
+        if let Some(t) = transition {
+            ensure(
+                self.manifest == t.old.manifest
+                    && self.commit["package_revision"]
+                        == json!(
+                            number(&t.old.commit["package_revision"])?
+                                .checked_add(1)
+                                .ok_or("successor revision overflow")?
+                                .to_string()
+                        )
+                    && self.commit["parent"]
+                        == json!({"commit_id":t.old.commit["commit_id"],"commit_sha256":hash(&encode(&t.old.commit))})
+                    && self.commit["commit_id"] != t.old.commit["commit_id"]
+                    && self.commit["write_id"] != t.old.commit["write_id"]
+                    && self.commit["required_features"] == t.old.commit["required_features"]
+                    && self.commit["minimum_reader"] == t.old.commit["minimum_reader"],
+                "exact authenticated successor provenance",
+            )?;
+        } else {
+            ensure(
+                self.commit["parent"].is_null() && self.commit["package_revision"] == "1",
+                "settled bootstrap provenance",
+            )?;
+        }
         photara_core::context::value::Timestamp::try_from(
             text(&self.commit["created_at"])?.to_owned(),
         )
@@ -699,9 +747,14 @@ fn original_conversion() -> Value {
     let c = &c["scenarios"]["valid"];
     c["records"][text(&c["conversion"]["sha256"]).unwrap()]["input"].clone()
 }
-fn authored_closure(store: &Resolver, r: &Value, seen: &mut BTreeSet<Key>) -> Result<()> {
+fn authored_closure(
+    store: &Resolver,
+    r: &Value,
+    seen: &mut BTreeSet<Key>,
+    transition: Option<&Transition<'_>>,
+) -> Result<()> {
     let k = key(r)?;
-    if !seen.insert(k) {
+    if !seen.insert(k.clone()) {
         return Ok(());
     }
     let v = store.get(r, 1)?;
@@ -711,7 +764,8 @@ fn authored_closure(store: &Resolver, r: &Value, seen: &mut BTreeSet<Key>) -> Re
             .as_object()
             .unwrap()
             .values()
-            .any(|row| row["input"] == v),
+            .any(|row| row["input"] == v)
+            || transition.is_some_and(|t| t.prepared_authored.get(&k) == Some(&v)),
         "unchanged supported original authored record",
     )?;
     ensure(v["project_id"] == PROJECT, "authored project")?;
@@ -795,7 +849,7 @@ fn authored_closure(store: &Resolver, r: &Value, seen: &mut BTreeSet<Key>) -> Re
         _ => return Err("unsupported authored specimen schema"),
     }
     for edge in edges {
-        authored_closure(store, &edge, seen)?;
+        authored_closure(store, &edge, seen, transition)?;
     }
     Ok(())
 }
@@ -808,6 +862,7 @@ fn operations(
     res: &Resolver,
     state: &Value,
     seen: &mut BTreeSet<Key>,
+    transition: Option<&Transition<'_>>,
 ) -> Result<Vec<Value>> {
     let r = &state["operation_index"];
     seen.insert(key(r)?);
@@ -885,8 +940,8 @@ fn operations(
         index["accepted"]["prefix_sha256"] == prefix,
         "accepted prefix recomputed",
     )?;
-    authored_closure(res, &state["authored"], seen)?;
-    authored_closure(res, &state["history"], seen)?;
+    authored_closure(res, &state["authored"], seen, transition)?;
+    authored_closure(res, &state["history"], seen, transition)?;
     let last = records.last().ok_or("receipt")?;
     let authored = res.get(&state["authored"], 1)?;
     ensure(
@@ -993,6 +1048,7 @@ fn role(
     res: &Resolver,
     r: &Value,
     entry: &Value,
+    transition: Option<&Transition<'_>>,
 ) -> Result<RoleProof> {
     let state = res.get(r, 1)?;
     schema(
@@ -1017,10 +1073,26 @@ fn role(
     ensure(
         state["library_id"] == LIBRARY
             && state["bootstrap_sha256"] == w.commit["bootstrap_sha256"]
-            && state["root_id"] == entry["root_id"]
-            && state["predecessor"].is_null(),
+            && state["root_id"] == entry["root_id"],
         "StateRoot identity/provenance",
     )?;
+    if let Some(t) = transition {
+        if !t.verified.roles.values().any(|p| p.state == state) {
+            let old_active = &t.verified.roles["active"].state;
+            ensure(
+                *r == w.commit["root_set"]["active"]
+                    && state["predecessor"]
+                        == json!({"root_sha256":reference(old_active)["sha256"],"authored_revision":old_active["authored_revision"]})
+                    && state["root_id"] != old_active["root_id"],
+                "exact old active StateRoot predecessor",
+            )?;
+        }
+    } else {
+        ensure(
+            state["predecessor"].is_null(),
+            "StateRoot identity/provenance",
+        )?;
+    }
     uuid(&state["root_id"])?;
     ensure(
         res.get(&state["authored"], 1)?["schema"]
@@ -1030,7 +1102,7 @@ fn role(
         "StateRoot authored/history typed edges",
     )?;
     let mut semantic = BTreeSet::new();
-    let receipts = operations(w, res, &state, &mut semantic)?;
+    let receipts = operations(w, res, &state, &mut semantic, transition)?;
     let resources = policy.resources(&state, res)?;
     semantic.extend(resources.closure);
     let mut inventory_nodes = BTreeSet::new();
@@ -1272,7 +1344,37 @@ pub(super) fn verify(w: &World) -> Result<Proof> {
     reason = "Shared full selected closure proof with explicit resource policy"
 )]
 pub(super) fn verify_with(w: &World, policy: &impl ResourcePolicy) -> Result<Proof> {
-    let root = w.bootstrap_with(policy.extra_features())?;
+    verify_inner(w, policy, None)
+}
+/// Test-only prepared transition. The original package is independently verified here;
+/// the caller supplies only canonical authored bytes produced by its actual Core/PS1 oracle.
+pub(super) fn verify_transition(
+    w: &World,
+    old: &World,
+    prepared_authored: &BTreeMap<Key, Value>,
+) -> Result<Proof> {
+    let t = Transition {
+        old,
+        verified: verify(old)?,
+        prepared_authored,
+    };
+    verify_inner(w, &AuthoredOnly, Some(&t))
+}
+struct Transition<'a> {
+    old: &'a World,
+    verified: Proof,
+    prepared_authored: &'a BTreeMap<Key, Value>,
+}
+#[allow(
+    clippy::too_many_lines,
+    reason = "One exact shared selected closure traversal"
+)]
+fn verify_inner(
+    w: &World,
+    policy: &impl ResourcePolicy,
+    transition: Option<&Transition<'_>>,
+) -> Result<Proof> {
+    let root = w.bootstrap_transition(policy.extra_features(), transition)?;
     let (envelope, ledger, overlay, controls) = selected_controls(w, &root)?;
     let mut shared = BTreeSet::new();
     let placements = physical_tree(
@@ -1344,7 +1446,7 @@ pub(super) fn verify_with(w: &World, policy: &impl ResourcePolicy) -> Result<Pro
     for (label, r) in &selected {
         let entry = byroot.get(&key(r)?).ok_or("selected placement")?;
         let res = Resolver::new(w, &entry["locator"])?;
-        let proof = role(policy, w, &res, r, entry)?;
+        let proof = role(policy, w, &res, r, entry, transition)?;
         selected_states.insert(key(r)?, proof.state.clone());
         selected_roles.insert(label.clone(), proof.clone());
         prepared.insert(label.clone(), (res, proof));
@@ -1524,7 +1626,7 @@ pub(super) fn recovery_with(w: &World, policy: &impl ResourcePolicy) -> Result<R
         .get(&key(&root["recovery"])?)
         .ok_or("recovery placement")?;
     let res = Resolver::new(w, &entry["locator"])?;
-    let proof = role(policy, w, &res, &root["recovery"], entry)?;
+    let proof = role(policy, w, &res, &root["recovery"], entry, None)?;
     let holds = res.get(&envelope["holds"], 2)?;
     let accounting = accounting::metadata(&ledger, &holds, |r| res.any(r))?;
     let conversion = res.get(&root["conversion_source"], 1)?;

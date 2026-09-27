@@ -181,6 +181,9 @@ separate PS2 prerequisite.
   The [shared evidence-validation seam](architecture/PS2_SELECTED_EVIDENCE_VALIDATION_SEAM.md)
   preserves all 17 settled and nine factored tests and every original vector;
   new selected-origin and admission targets remain in progress.
+  A separate [prepared-successor seam](architecture/PS2_PREPARED_SUCCESSOR_VALIDATION_SEAM.md)
+  authenticates original/candidate selectors and accepts only caller-supplied
+  Core-prepared authored additions; admission and replay proofs remain separate.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification
