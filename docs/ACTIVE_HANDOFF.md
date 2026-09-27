@@ -9,8 +9,11 @@ experiment reports are reference material only.
 - Production-code baseline (subsequent work remains disposable fixtures/documentation):
   `f91f8de1546896267bac13adeac00c1659133232`.
 - The current `main` commit containing this file is the handoff publication;
-  resolve it with `git rev-parse HEAD` and require it to match `origin/main`
-  before continuing.
+  resolve it with `git rev-parse HEAD`. Remote synchronization is currently
+  unavailable: normal pushes and a read-only remote probe failed; the last
+  observed `origin/main` is `365acc03b8cd28702b9ca637c2306a83d0044ebf`.
+  Preserve the verified local descendant commits and resume a normal
+  fast-forward push when access returns; do not reset them to the remote.
 - The working tree must be clean. Do not modify the unrelated dirty
   `codex/promote-graph-lab` worktree.
 - Preserve stash `ce39772a4008c886265ac9a25485b2970d0f8332` until the post-LL2a
@@ -29,9 +32,10 @@ mutation.
 
 The immediate PS2 engineering step is completing the reviewable wire candidate:
 
-1. finish scalable resource-source factoring, local observation/retained-file
-   accounting and sparse original-charge evidence, then compose the exact
-   proposed permanent coordinates and newborn/replay fields;
+1. compose the independently verified scalable resource-source factoring,
+   local observation/retained-file accounting and sparse original-charge
+   components with Blob compatibility, exact proposed permanent coordinates
+   and newborn/replay fields;
 2. consolidate the exact byte/closure proposal, original replay commitments,
    measured limits and negative economics for permanent-wire review;
 3. complete qualified storage/barrier evidence as its separate prerequisite.
@@ -144,6 +148,11 @@ separate PS2 prerequisite.
   specimens. Scalable replacements and exact proposed permanent coordinates
   remain engineering work, tracked in the
   [wire readiness checklist](architecture/PS2_WIRE_REVIEW_READINESS.md).
+- New component evidence: [factored resource selections](architecture/PS2_FACTORED_RESOURCE_BYTE_CANDIDATE.md)
+  pass nine tests, and [scalable accounting](architecture/PS2_ACCOUNTING_SCALING_CANDIDATE.md)
+  passes twelve. Both canonical generators reproduce exact bytes; independent
+  parent runs pass. These are component selectors, not completed whole-HEAD
+  composition or permanent-format approval.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification

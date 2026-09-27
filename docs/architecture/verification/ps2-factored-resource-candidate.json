@@ -1,0 +1,114 @@
+{
+  "commands": [
+    {
+      "command": "cargo test --release -p photara-store --test resource_factored_candidate -- --nocapture",
+      "result": "9 passed; 0 failed",
+      "seconds": 0.11
+    },
+    {
+      "command": "cargo clippy --release -p photara-store --test resource_factored_candidate -- -D warnings",
+      "result": "passed",
+      "seconds": 0.46
+    },
+    {
+      "command": "rustfmt --edition 2024 --config skip_children=true --check crates/photara-store/tests/resource_factored_candidate.rs crates/photara-store/tests/resource_factored_candidate/wire.rs",
+      "result": "passed"
+    },
+    {
+      "command": "python3 docs/architecture/proposals/ps2/resource-factored/generate.py",
+      "result": "regenerated corpus byte-identical"
+    }
+  ],
+  "limitations": [
+    "Pure canonical metadata and supplied StateRoot identity/resource-state contexts; not full StateRoot inventories or one-HEAD package composition",
+    "No external media interface or media IO; synthetic one-copy qualification support only",
+    "Fixture cap256entries per selection kind includes source associations and is not a product/lifetime pin ceiling; other approved origin classes/evidence dispatch remain open",
+    "No production schema dispatch, format freeze, migration policy, physical publication/charge/lease proof, or global alias renaming",
+    "Full validation traverses selected metadata; changed resource bytes are independent of resource count for a fixed number of changed origin associations, not constant in growing origins or wholepackage physical writes"
+  ],
+  "log_normalization": "Copied versioned logs normalize trailing blank lines to one terminal newline; original temporary logs are unchanged.",
+  "outputs": [
+    {
+      "bytes": 1345,
+      "path": "docs/architecture/verification/ps2-factored-resource-tests.log",
+      "sha256": "13c69cbcd1d9234879d4cbb528109a3468405db42f36171da836a6a5c8b84aa5"
+    },
+    {
+      "bytes": 192,
+      "path": "docs/architecture/verification/ps2-factored-resource-clippy.log",
+      "sha256": "87f6cfd25ea972e3b223c744a5ce30d4231e8ef7667035fbd34d568e7eb94b64"
+    }
+  ],
+  "production": false,
+  "scales": [
+    {
+      "changed_bytes": 1843,
+      "changed_records": 3,
+      "resources": 1,
+      "shared_records": 12
+    },
+    {
+      "changed_bytes": 2411,
+      "changed_records": 4,
+      "resources": 16,
+      "shared_records": 143
+    },
+    {
+      "changed_bytes": 2411,
+      "changed_records": 4,
+      "resources": 64,
+      "shared_records": 575
+    }
+  ],
+  "scenarios": {
+    "structurally_readable_unsupported": 2,
+    "total": 20,
+    "typed_refusals": 17,
+    "valid": 1
+  },
+  "source_scale": {
+    "changed_bytes": 11974,
+    "changed_records": 22,
+    "resources": 16,
+    "source_associations": 16
+  },
+  "sources": [
+    {
+      "bytes": 7699,
+      "path": "crates/photara-store/tests/resource_factored_candidate.rs",
+      "sha256": "246d9b39abf54aa46c55c714fc7801b36650074090fdc25a3151ea84e15ed52f"
+    },
+    {
+      "bytes": 21283,
+      "path": "crates/photara-store/tests/resource_factored_candidate/wire.rs",
+      "sha256": "495de4a0bbc2de276d84ea59cf106b94f723a7566dddc8f11fb6afb416b19c40"
+    },
+    {
+      "bytes": 7477,
+      "path": "docs/architecture/proposals/ps2/resource-factored/generate.py",
+      "sha256": "88aeaa74bd2d54a072ad4323a3140d7aa3a9f57dea5acc82b2d33fcb76ff709b"
+    },
+    {
+      "bytes": 5364617,
+      "path": "docs/architecture/proposals/ps2/resource-factored/linked.json",
+      "sha256": "845b80d5af377492fac39baf24faea30b6e0bfd6ff37599302915b9126aae029"
+    },
+    {
+      "bytes": 9287,
+      "path": "docs/architecture/PS2_FACTORED_RESOURCE_BYTE_CANDIDATE.md",
+      "sha256": "a1dca08366fd344860c1651802896fb7b61dc9ce6585f2f9ea7c1774ba61af01"
+    },
+    {
+      "bytes": 27119,
+      "path": "crates/photara-store/tests/resource_conversion_candidate/wire.rs",
+      "sha256": "190634ed60afb58ec56a4ed21f08e36b585fc381e49c36cafb61329c1af63d63"
+    },
+    {
+      "bytes": 1958520,
+      "path": "docs/architecture/proposals/ps2/resource-conversion/linked.json",
+      "sha256": "13d5d9b3f02178e8fa8a8c500e4813a6bafe9ad30aa540d905ee79be85cf1b64"
+    }
+  ],
+  "status": "unfrozen-proposed-additive-resource-factoring",
+  "unchanged_selected_records": 7
+}

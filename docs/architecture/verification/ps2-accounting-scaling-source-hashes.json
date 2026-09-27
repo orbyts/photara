@@ -1,0 +1,11 @@
+{
+  "crates/photara-store/tests/accounting_scaling_candidate.rs": "c4fe072d28485a8312045cd3ff48d08478a3cbf84f13017f591ebe32ac68ba1e",
+  "crates/photara-store/tests/accounting_scaling_candidate/accounting.rs": "cdaff6510c1290bd063b694956e77a7605448581ac45a412a291dea1f1afaa72",
+  "docs/architecture/proposals/ps2/accounting/generate.py": "298a6be295408d2a72142c21087d335f626dcaf3603b131d743107b665c413eb",
+  "docs/architecture/proposals/ps2/accounting/linked-accounting.json": "0d649b830591275e08699c152ce356c552eb9c9f7f819a7c921ebcf3e8dd1244",
+  "docs/architecture/PS2_ACCOUNTING_SCALING_CANDIDATE.md": "2f5d84b04eb3f64270285240bcd5c415bfae42f1dfec3d6fd1479d45195c8768",
+  "docs/architecture/proposals/ps2/joined/linked-joined.json": "d5079e905db8181d6cd60a0b2548e4b1ddbd30e00bb1f9e1d34891e4b996f09e",
+  "crates/photara-store/tests/scalable_wire_candidate/wire.rs": "9c6f19d918dda37f28f17ebb1b67f41c430ab498209fb0f24c86243af2a28667",
+  "crates/photara-core/src/contracts/resource.rs": "847b0e50ba49b946998ca9075fbf520dfc78a256814bee7ca3423861a930656c",
+  "crates/photara-core/src/contracts/schema.rs": "93ef37ddf7a001b88d0c54790a925f8dd1f7e870484773bfa2366ab3c4824e2d"
+}

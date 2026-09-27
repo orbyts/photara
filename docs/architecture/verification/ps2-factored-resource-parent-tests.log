@@ -1,0 +1,16 @@
+   Compiling photara-store v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-store)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.90s
+     Running tests/resource_factored_candidate.rs (/Users/suhail/.cache/cargo/targets/debug/deps/resource_factored_candidate-49cef871f096ac9d)
+
+running 9 tests
+test capability_and_v3_dispatch_are_explicit ... ok
+test existing_selected_v1_metadata_and_v3_binding_bytes_are_unchanged ... ok
+test representation_v3_remains_explicit_and_opaque_extensions_stay_nonedges ... ok
+test unsatisfied_requirements_remain_structurally_readable ... ok
+test changed_root_origin_requires_a_new_immutable_association_identity ... ok
+test source_association_selection_uses_real_branches_beyond_former_array_bound ... ok
+test rehashed_factored_negatives_reach_typed_invariants ... ok
+test independent_factored_canonical_bytes_are_exact ... ok
+test distinct_roots_share_all_requirements_and_only_bounded_local_bytes_change ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.78s
