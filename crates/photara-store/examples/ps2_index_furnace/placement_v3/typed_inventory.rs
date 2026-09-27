@@ -5,6 +5,8 @@
 )]
 use super::*;
 use std::os::unix::fs::MetadataExt;
+#[path = "typed_inventory/fresh_generation.rs"]
+pub(super) mod fresh_generation;
 #[path = "typed_inventory/graph.rs"]
 pub(super) mod graph;
 #[path = "typed_inventory/recipe.rs"]

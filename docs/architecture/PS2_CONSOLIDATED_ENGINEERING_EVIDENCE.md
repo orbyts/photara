@@ -56,6 +56,15 @@ The [complete regression](verification/ps2-joint-ledger-regression-20260927.json
 passes 90 index/placement tests and seven original Graph tests, plus strict
 Clippy and formatting checks.
 
+The [fresh-generation enrollment prerequisite](PS2_FRESH_GENERATION_ENROLLMENT.md)
+now selects capacity before creation, binds exact inodes and promotes up to eight
+empty packs while retaining the original hold. Its ten focused tests cover both
+maps, phase interruptions, staged-selector reconciliation, altered recovered
+liabilities and no-effect capacity/envelope refusal. Unbound empty/partial stages
+remain fenced. The subsequent full regression passes 100 index tests and seven
+Graph tests; strict Clippy and formatting pass. This prerequisite accepts no
+Graph journal and does not yet execute payload rollover or charge finalization.
+
 The macOS syscall and split-process matrix has been rerun. Three explicitly
 authorized private APFS-image clean-remount cases cover successful publication
 and cuts immediately before/after HEAD replacement. Exact old/candidate closure
@@ -65,8 +74,8 @@ qualification. See [clean-remount evidence](PS2_MACOS_CLEAN_REMOUNT.md).
 
 The remaining engineering dependency is:
 
-1. enroll fresh generations under the original token before acceptance, then
-   compose Graph/ownership rollover and exact charge finalization for generations
+1. compose the verified fresh-generation prerequisite under the original Graph
+   token before acceptance, with rollover and exact charge finalization for generations
    created and sealed within one bounded operation;
 2. integrate live-object relocation with typed retirement, preserve all roots,
    pins and unresolved obligations, and measure sustained fixed-budget turnover

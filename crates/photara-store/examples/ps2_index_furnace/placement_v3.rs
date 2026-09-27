@@ -215,6 +215,7 @@ struct Counters {
 enum Cut {
     None,
     BeforeHead,
+    StagedHead,
     AfterHead,
 }
 struct Arena {
@@ -834,6 +835,9 @@ impl Fixture {
             ensure(observed == self.head, "HEAD substituted")?;
         }
         self.envelope("HEAD.next", &next)?;
+        if cut == Cut::StagedHead {
+            return Err("injected after staged HEAD before rename".into());
+        }
         fs::rename(self.dir.join("HEAD.next"), self.dir.join("HEAD")).map_err(error)?;
         self.head = next;
         self.desired_gate = None;
@@ -1654,6 +1658,8 @@ struct CapacityDomain {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct Liability {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    birth: Option<typed_inventory::fresh_generation::Birth>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     retirement_ticket: Option<typed_inventory::retirement_ledger::RetirementTicket>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     graph: Option<graph_journal::Binding>,
@@ -1819,6 +1825,7 @@ impl Fixture {
         self.select_gate_cut(gate, Cut::None)
     }
     fn select_gate_cut(&mut self, mut gate: GateState, cut: Cut) -> Result<()> {
+        typed_inventory::fresh_generation::admit_gate_change(&self.head, &gate)?;
         ensure(
             !self.imported_read_only,
             "imported inventory requires explicit full audit",
@@ -1963,6 +1970,7 @@ impl Fixture {
             checked(by_domain.get(&0).copied().unwrap_or(0), control)?,
         );
         let mut hold = Liability {
+            birth: None,
             retirement_ticket,
             graph,
             token,
@@ -2002,6 +2010,10 @@ impl Fixture {
         Ok(hold)
     }
     fn complete_liability(&mut self, exact: &Liability, used: &[(u64, u64)]) -> Result<()> {
+        ensure(
+            exact.birth.is_none(),
+            "birth enrollment retains original hold until payload integration",
+        )?;
         ensure(
             !self.dir.join("intent").exists(),
             "unknown outcome retains original liability",
@@ -2327,6 +2339,10 @@ impl Fixture {
         old_end: u64,
         exact: &Liability,
     ) -> Result<()> {
+        ensure(
+            exact.birth.is_none(),
+            "birth enrollment is not an admitted Graph payload recipe",
+        )?;
         if exact
             .continuation
             .as_ref()

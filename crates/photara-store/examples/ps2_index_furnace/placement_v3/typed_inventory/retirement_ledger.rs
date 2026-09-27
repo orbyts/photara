@@ -819,7 +819,8 @@ pub(in super::super) fn complete_growth(f: &mut Fixture, exact: &Liability) -> R
         f.head.gate.holds.len() == 1
             && f.head.gate.holds.get(&exact.token) == Some(exact)
             && exact.retirement.is_none()
-            && exact.graph.is_none(),
+            && exact.graph.is_none()
+            && exact.birth.is_none(),
         "original growth hold",
     )?;
     let (mut ledger, growth) = f
@@ -1380,6 +1381,9 @@ mod tests {
 }
 
 impl Ledger {
+    pub(in super::super) fn enrollment_complete(&self) -> bool {
+        self.pending_enrollment.is_empty()
+    }
     pub(super) fn enrollment_charge(&self, data: bool, pack: u64) -> Option<AllocationCharge> {
         self.pending_enrollment
             .iter()

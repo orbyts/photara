@@ -29,8 +29,8 @@ mutation.
 
 The immediate PS2 engineering step remains disposable integration:
 
-1. enroll fresh pack generations under the original token before journal
-   acceptance, with exact inode witnesses and bounded charge-finalization space;
+1. compose the verified fresh-generation enrollment prerequisite with the
+   original Graph token before journal acceptance and bound charge-finalization space;
 2. extend the same-tip Graph/ownership path through rollover and packs created
    and sealed within a single operation;
 3. compose live-object relocation with exact typed claim release and retirement,
@@ -97,8 +97,13 @@ separate PS2 prerequisite.
   source/pack growth without shrinking credit, and transfers a sealed allocation
   charge through typed claim removal, original-token unlink authorization,
   directory barrier and fresh absence before project-only credit. Current
-  retirement evidence uses already-dead metadata placements; fresh generation
-  enrollment and live relocation remain separate gates.
+  retirement evidence uses already-dead metadata placements; live relocation
+  remains a separate gate.
+- [Fresh-generation enrollment](architecture/PS2_FRESH_GENERATION_ENROLLMENT.md)
+  selects the original hold before creation and promotes at most eight witnessed
+  empty packs under that token. Ten focused tests and the 100-index/seven-Graph
+  regression pass. Empty/partial unbound stages fence; Graph payload, rollover
+  and charge-finalization integration remain open.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification
