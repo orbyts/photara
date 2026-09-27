@@ -41,6 +41,7 @@ struct Candidate {
     waiting: Mutex<Option<tokio::sync::oneshot::Sender<i32>>>,
     errors: Mutex<Vec<String>>,
     error_codes: Mutex<Vec<String>>,
+    commit_failures: Mutex<u64>,
     pauses: Mutex<BTreeMap<CommitPoint, CommitPause>>,
 }
 impl Candidate {
@@ -156,7 +157,10 @@ async fn admit(
     state
         .pause(CommitPoint::Before, pid, &command, response.as_deref())
         .await;
-    tx.commit().await?;
+    if let Err(error) = tx.commit().await {
+        *state.commit_failures.lock().unwrap() += 1;
+        return Err(error.into());
+    }
     state
         .pause(CommitPoint::After, pid, &command, response.as_deref())
         .await;
@@ -188,6 +192,16 @@ impl Harness {
         );
         assert_eq!(path.canonicalize().unwrap(), path);
         assert!(path.join(".s.PGSQL.55439").exists());
+        let authority_socket = std::env::var("PHOTARA_LL1_RELAY_SOCKET").map_or_else(
+            |_| socket.clone(),
+            |relay| {
+                let relay_path = std::path::Path::new(&relay);
+                assert_eq!(relay_path, path.parent().unwrap().join("relay"));
+                assert_eq!(relay_path.canonicalize().unwrap(), relay_path);
+                assert!(relay_path.join(".s.PGSQL.55439").exists());
+                relay
+            },
+        );
         let admin = storexa::Database::connect(Self::config(&socket, "ll1_fixture"))
             .await
             .unwrap();
@@ -238,12 +252,13 @@ impl Harness {
         });
         let state = Arc::new(Candidate {
             http: http.clone(),
-            authority: storexa::Database::connect(Self::config(&socket, "ll1_service"))
+            authority: storexa::Database::connect(Self::config(&authority_socket, "ll1_service"))
                 .await
                 .unwrap(),
             waiting: Mutex::new(None),
             errors: Mutex::new(vec![]),
             error_codes: Mutex::new(vec![]),
+            commit_failures: Mutex::new(0),
             pauses: Mutex::new(BTreeMap::new()),
         });
         let router = Router::new()
@@ -398,6 +413,44 @@ impl Harness {
             active,
             "captured private authority transaction must be active"
         );
+    }
+    fn relay(&self, action: &str, pid: i32, mode: Option<&str>) -> Value {
+        use std::io::{Read as _, Write as _};
+        let path = std::path::Path::new(&self.socket)
+            .parent()
+            .unwrap()
+            .join("relay-control.sock");
+        let mut control = std::os::unix::net::UnixStream::connect(path).unwrap();
+        control
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        control
+            .set_write_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        let mut request =
+            serde_json::to_vec(&json!({"action":action,"pid":pid,"mode":mode})).unwrap();
+        request.push(b'\n');
+        control.write_all(&request).unwrap();
+        let mut bytes = vec![];
+        control.take(4097).read_to_end(&mut bytes).unwrap();
+        assert!(bytes.len() <= 4096);
+        let response: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(response["pid"], pid);
+        assert_eq!(response["errors"], json!([]));
+        response
+    }
+    async fn relay_state(&self, pid: i32, expected: &str) -> Value {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let state = self.relay("status", pid, None);
+                if state["state"] == expected {
+                    return state;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("private relay must reach exact framed COMMIT boundary")
     }
     async fn backend_clear(&self, pid: i32, terminated: bool) {
         // An observer cannot see another transaction's uncommitted writes.
@@ -868,6 +921,132 @@ async fn postgres_ll1_signed_sql_lifecycle() {
     );
     println!(
         "LL1 lifecycle: five cases passed; no TCP disconnect, arbitrary COMMIT ambiguity, crash or power-loss claim"
+    );
+    h.state.authority.close().await;
+    h.state.http.service.close().await;
+    h.admin.close().await;
+}
+
+#[tokio::test]
+#[ignore = "requires explicit private Unix-socket COMMIT relay runner"]
+async fn postgres_ll1_signed_sql_commit_relay() {
+    assert!(std::env::var("PHOTARA_LL1_RELAY_SOCKET").is_ok());
+    let h = Harness::new().await;
+    let a = Harness::command(210, true);
+    let before = h.snapshot().await;
+    for (index, mode) in ["before-forward", "after-commit"].into_iter().enumerate() {
+        let (receive, resume) = h.pause(CommitPoint::Before);
+        let request = h.spawn(0xaa, &a);
+        let original = Harness::observation(receive).await;
+        h.backend_active(original.pid).await;
+        let armed = h.relay("arm", original.pid, Some(mode));
+        assert_eq!(armed["state"], "armed");
+        assert_eq!(armed["commit_captured"], false);
+        assert_eq!(*h.state.commit_failures.lock().unwrap(), index as u64);
+        resume.send(()).unwrap();
+        if mode == "before-forward" {
+            let state = h.relay_state(original.pid, "dropped-before-forward").await;
+            assert_eq!(state["commit_captured"], true);
+            assert_eq!(state["commit_forwarded"], false);
+            assert_eq!(state["withheld_frames"], 0);
+        } else {
+            let state = h.relay_state(original.pid, "committed-ack-withheld").await;
+            assert_eq!(state["commit_forwarded"], true);
+            assert_eq!(state["complete_seen"], true);
+            assert_eq!(state["idle_seen"], true);
+            assert_eq!(state["withheld_frames"], 2);
+            assert_eq!(state["ack_bytes_forwarded"], 0);
+            // This connection bypasses the relay. The actual stored receipt is
+            // already independently visible while SQLx still awaits COMMIT.
+            let stored: Vec<u8> = sqlx::query_scalar("SELECT body FROM ll1_probe.original_receipt")
+                .fetch_one(h.admin.pool())
+                .await
+                .unwrap();
+            assert_eq!(Some(stored), original.response);
+            assert!(!request.is_finished());
+            assert_eq!(*h.state.commit_failures.lock().unwrap(), index as u64);
+            h.backend_clear(original.pid, false).await;
+            assert_eq!(
+                h.relay("drop", original.pid, None)["state"],
+                "dropped-after-commit"
+            );
+        }
+        let response = tokio::time::timeout(Duration::from_secs(5), request)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(!response.0.is_success());
+        assert_eq!(*h.state.commit_failures.lock().unwrap(), index as u64 + 1);
+        h.backend_clear(original.pid, true).await;
+        if mode == "before-forward" {
+            assert_eq!(h.snapshot().await, before);
+            let b = Harness::command(211, false);
+            assert_eq!(
+                h.call("owner", 0xbb, &b).await,
+                (StatusCode::OK, br#"{"fixture":"not-found"}"#.to_vec())
+            );
+            assert_eq!(h.snapshot().await, before);
+            println!(
+                "LL1 COMMIT relay: exact frontend COMMIT captured but not forwarded; SQLx commit failed, original backend/locks ended, every row restored"
+            );
+        } else {
+            let after = h.snapshot().await;
+            for (table, rows) in &before {
+                if table.starts_with("ll1_probe.") {
+                    continue;
+                }
+                let expected = Value::Array(
+                    rows.as_array()
+                        .unwrap()
+                        .iter()
+                        .filter(|row| {
+                            row["library_id"] != id(1).to_string()
+                                && row["claimed_library_id"] != id(1).to_string()
+                        })
+                        .cloned()
+                        .collect(),
+                );
+                assert_eq!(
+                    after[table], expected,
+                    "unexpected committed change: {table}"
+                );
+            }
+            for table in ["authorization", "permit"] {
+                assert_eq!(after[&format!("ll1_probe.{table}")], json!([]));
+            }
+            assert_eq!(
+                after["ll1_probe.original_receipt"]
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                1
+            );
+            let original: Vec<u8> =
+                sqlx::query_scalar("SELECT body FROM ll1_probe.original_receipt")
+                    .fetch_one(h.admin.pool())
+                    .await
+                    .unwrap();
+            h.sql(&format!("UPDATE photara_identity.devices SET state='revoked' WHERE device_id='{}'; UPDATE photara_identity.device_credentials SET state='suspended',revision=revision+1,updated_at=clock_timestamp() WHERE device_id='{}'; CREATE FUNCTION ll1_probe.http_no_grant() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'receipt_must_not_mint_grant'; END $$; CREATE TRIGGER no_grant BEFORE INSERT ON ll1_probe.authorization FOR EACH ROW EXECUTE FUNCTION ll1_probe.http_no_grant();",id(210),id(210))).await;
+            h.denied("owner", 0xaa, &a, StatusCode::FORBIDDEN).await;
+            let terminal = h.snapshot().await;
+            let mut b = Harness::command(211, false);
+            for execute in [false, true] {
+                b.execute = execute;
+                assert_eq!(
+                    h.call("owner", 0xbb, &b).await,
+                    (StatusCode::OK, original.clone())
+                );
+                assert_eq!(h.snapshot().await, terminal);
+            }
+            b.digest = onboarding::hex(&crate::hash(b"changed-original-request"));
+            h.denied("owner", 0xbb, &b, StatusCode::CONFLICT).await;
+            println!(
+                "LL1 COMMIT relay: server COMMIT completion and idle frames withheld; exact receipt independently visible before disconnect; SQLx commit failed but original result survived and fresh B recovered it without a grant"
+            );
+        }
+    }
+    println!(
+        "LL1 COMMIT relay: two controlled Unix-socket outcomes; generic commit errors remain ambiguous; no TCP, server-crash or power-loss claim"
     );
     h.state.authority.close().await;
     h.state.http.service.close().await;

@@ -154,7 +154,11 @@ The current synthesis and exact measurements are in
   proves three private cancellation/connection-loss rollback cases after the
   original transaction and locks end, account-lock serialization of a concurrent
   receipt lookup, and original receipt recovery after a known commit loses its
-  in-process response. These remain test routers and disposable
+  in-process response. A subsequent
+  [private COMMIT relay](architecture/verification/LL1_COMMIT_ACK_RELAY.md)
+  proves both rollback before COMMIT is forwarded and a committed original
+  receipt after the server acknowledgement is withheld. A generic client commit
+  error remains ambiguous. These remain test routers and disposable
   overlays; production authority custody and lifecycle integration remain open.
 - A separate [raw-authority commit guard](architecture/verification/LL1_AUTHORITY_COMMIT_GUARD.md)
   passes 27 disposable cases, rejecting surviving grant/permit work at commit
@@ -182,9 +186,10 @@ disposable proofs, not production deletion.
 - No production Library create/select/rename wiring or signed cross-Library
   acceptance (LL2a). Library removal is LL2b and remains later.
 - LL1 production Rust/OIDC-to-SQL authority handoff, canonical evidence/replay
-  codecs, real transport-disconnect handling, interruption during COMMIT and
-  remaining lifecycle/concurrency states remain absent. The combined handoff
-  and selected cancellation/connection-loss paths have disposable fixture evidence.
+  codecs, real TCP-disconnect handling, public unknown-outcome policy and
+  remaining lifecycle/concurrency states remain absent. The combined handoff,
+  selected cancellation/connection-loss paths and two exact COMMIT cuts have
+  disposable fixture evidence.
 - No production deletion, live-data migration, deployment or public launch.
 
 ## Dependency order and human acceptance

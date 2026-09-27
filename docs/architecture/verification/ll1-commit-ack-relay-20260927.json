@@ -1,0 +1,110 @@
+{
+  "date": "2026-09-27",
+  "result": "pass",
+  "production_changes": false,
+  "commands": [
+    "python3 scripts/test_ll1_http_sql_adapter.py --commit-relay",
+    "python3 scripts/test_ll1_http_sql_adapter.py --lifecycle",
+    "python3 scripts/test_ll1_http_sql_adapter.py",
+    "cargo clippy --offline -p photara-service --lib --tests -- -D warnings"
+  ],
+  "rust_tests_per_private_runner": 1,
+  "relay_cases": 2,
+  "prior_lifecycle_cases": 5,
+  "test_seconds": {
+    "commit_relay": 0.35,
+    "prior_lifecycle_regression": 0.48,
+    "original_adapter_regression": 0.51
+  },
+  "baseline_catalog": {
+    "fingerprint": "7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638",
+    "forced_rls_tables": 45,
+    "foreign_keys": 114,
+    "functions": 52,
+    "policies": 173,
+    "tables": 59,
+    "triggers": 122
+  },
+  "protocol": {
+    "sqlx_version": "0.9.0",
+    "frontend_commit_hex": "510000000b434f4d4d495400",
+    "backend_command_complete_hex": "430000000b434f4d4d495400",
+    "backend_idle_hex": "5a0000000549",
+    "armed_backend_binding": "BackendKeyData PID equals pg_backend_pid queried inside original transaction",
+    "no_protocol_payload_logging": true
+  },
+  "relay_proof": {
+    "absolute_read_deadline_trickle_check": true,
+    "private_commit_relay": [
+      {
+        "ack_bytes_forwarded": 0,
+        "commit_captured": true,
+        "commit_forwarded": false,
+        "complete_seen": false,
+        "idle_seen": false,
+        "mode": "before-forward",
+        "pid": 41426,
+        "state": "dropped-before-forward",
+        "withheld_frames": 0
+      },
+      {
+        "ack_bytes_forwarded": 0,
+        "commit_captured": true,
+        "commit_forwarded": true,
+        "complete_seen": true,
+        "idle_seen": true,
+        "mode": "after-commit",
+        "pid": 41427,
+        "state": "dropped-after-commit",
+        "withheld_frames": 2
+      }
+    ]
+  },
+  "bounds": {
+    "startup_frame_bytes": 65536,
+    "normal_frame_bytes": 1048576,
+    "absolute_frame_startup_control_read_seconds": 5,
+    "connection_loop_seconds": 90,
+    "connection_workers": 16,
+    "control_workers": 256,
+    "commit_response_frames": 8,
+    "rust_subprocess_seconds": 180
+  },
+  "source_sha256": {
+    "crates/photara-service/src/http.rs": "3d540f1688cd625d263a23b42b55601ee140c5c787f19245039674fcb22a45c9",
+    "crates/photara-service/src/http_ll1_sql_tests.rs": "e9ae0f28cd1fc863e323bcac26cfae07c7088e49a1a28c03bed7c503b594cbcc",
+    "scripts/test_ll1_http_sql_adapter.py": "e48563e28d6ed94fd30a19e48a22cb23b022e2cbd3d06b3b1eb78a33e94accc1",
+    "scripts/ll1_commit_relay.py": "b24db59f0e5e9df874ee7ba4cc7e74e3705b734a0b9c51f409158135bdbddd8c",
+    "scripts/test_ll1_fresh_device_receipt.py": "b27c58fac59f2a0ad01394ee4065eea46398f474b8848e06d31ca08967811542",
+    "scripts/test_ll1_protected_authorization.py": "2ba9352e8e6ea101c5493e5012504f47cb9517b677b3267b7b6e0694372baed4",
+    "scripts/test_ll1_protected_postgres_executor.py": "8e08fb49920828d9644e33d27c9d19cab168424f28c78b69fb95012b8f58d618",
+    "scripts/test_ll1_actual_postgres_baseline.py": "aab3a7bd623d7a2199dded404ae3653d0fb5606f7a4843bea9148edaa106c607",
+    "scripts/test_ll1_retirement_constraints.py": "0ba8c7e56f2989e3f8d770f99ff30739f0b68be0278022202fed2261682e51a1",
+    "docs/architecture/verification/LL1_COMMIT_ACK_RELAY.md": "e74968b4d7e09127c6d5e270cc8853250192ed2bfc8a334244f24c3c04f862b1"
+  },
+  "output_sha256": {
+    "commit_relay": "3f06521e7455c341852a115dee4a1e74b57ad3ad8b290a5076004accf9a24e98",
+    "prior_lifecycle_regression": "ab5c85114975fd6241b944fd0e80cdff8314e876bd01288ea4f325035f1bdd93",
+    "original_adapter_regression": "936a4ad210cf13e987fe3afeb2ce00ed60ac2137bdc526d14d66762b075277f4",
+    "strict_service_clippy": "3f4b8fa1a5938c6b7324e4b16ccabc73bfdf9e587577020341e658c08ba2210c"
+  },
+  "outputs": {
+    "commit_relay": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s\n     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-567c51d9f6f0fa06)\n\nrunning 1 test\ntest http::ll1_sql_tests::postgres_ll1_signed_sql_commit_relay ... LL1 COMMIT relay: exact frontend COMMIT captured but not forwarded; SQLx commit failed, original backend/locks ended, every row restored\nLL1 COMMIT relay: server COMMIT completion and idle frames withheld; exact receipt independently visible before disconnect; SQLx commit failed but original result survived and fresh B recovered it without a grant\nLL1 COMMIT relay: two controlled Unix-socket outcomes; generic commit errors remain ambiguous; no TCP, server-crash or power-loss claim\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.35s\n\n{\"absolute_read_deadline_trickle_check\": true, \"private_commit_relay\": [{\"ack_bytes_forwarded\": 0, \"commit_captured\": true, \"commit_forwarded\": false, \"complete_seen\": false, \"idle_seen\": false, \"mode\": \"before-forward\", \"pid\": 41426, \"state\": \"dropped-before-forward\", \"withheld_frames\": 0}, {\"ack_bytes_forwarded\": 0, \"commit_captured\": true, \"commit_forwarded\": true, \"complete_seen\": true, \"idle_seen\": true, \"mode\": \"after-commit\", \"pid\": 41427, \"state\": \"dropped-after-commit\", \"withheld_frames\": 2}]}\n{\"baseline\": {\"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\", \"forced_rls_tables\": 45, \"foreign_keys\": 114, \"functions\": 52, \"policies\": 173, \"tables\": 59, \"triggers\": 122}, \"commit_relay\": true, \"lifecycle\": false, \"production_changes\": false, \"result\": \"pass\", \"scope\": \"signed HTTP and protected SQL, private fixture only\"}\n{\"temporary_cluster\": \"stopped and removed\"}\n",
+    "prior_lifecycle_regression": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s\n     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-567c51d9f6f0fa06)\n\nrunning 1 test\ntest http::ll1_sql_tests::postgres_ll1_signed_sql_lifecycle ... LL1 lifecycle: in-process future cancellation before commit restored every row after original transaction/locks ended\nLL1 lifecycle: SQL statement cancellation (57014) at proved terminal capture restored every row after original transaction/locks ended\nLL1 lifecycle: private backend termination (57P01) at proved terminal capture restored every row after original transaction/locks ended\nLL1 lifecycle: independent snapshot sees no committed receipt while A is active; eligible B's lookup provably waits on A's account lock\nLL1 lifecycle: known commit with lost in-process response retains exact original receipt; fresh eligible B recovers it without a grant after A revocation\nLL1 lifecycle: five cases passed; no TCP disconnect, arbitrary COMMIT ambiguity, crash or power-loss claim\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.48s\n\n{\"baseline\": {\"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\", \"forced_rls_tables\": 45, \"foreign_keys\": 114, \"functions\": 52, \"policies\": 173, \"tables\": 59, \"triggers\": 122}, \"commit_relay\": false, \"lifecycle\": true, \"production_changes\": false, \"result\": \"pass\", \"scope\": \"signed HTTP and protected SQL, private fixture only\"}\n{\"temporary_cluster\": \"stopped and removed\"}\n",
+    "original_adapter_regression": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s\n     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-567c51d9f6f0fa06)\n\nrunning 1 test\ntest http::ll1_sql_tests::postgres_ll1_signed_sql_adapter ... LL1 combined adapter: signed execution/receipt, exact rollback, three role denials, credential revocation and three post-lock deadline gates passed\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.51s\n\n{\"baseline\": {\"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\", \"forced_rls_tables\": 45, \"foreign_keys\": 114, \"functions\": 52, \"policies\": 173, \"tables\": 59, \"triggers\": 122}, \"commit_relay\": false, \"lifecycle\": false, \"production_changes\": false, \"result\": \"pass\", \"scope\": \"signed HTTP and protected SQL, private fixture only\"}\n{\"temporary_cluster\": \"stopped and removed\"}\n",
+    "strict_service_clippy": "    Checking photara-service v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-service)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.46s\n"
+  },
+  "checks": [
+    "Python compile() syntax checks without bytecode files",
+    "rustfmt --edition 2024 --check crates/photara-service/src/http_ll1_sql_tests.rs",
+    "scoped git diff --check"
+  ],
+  "limits": [
+    "Generated private Unix-socket relay, only test authority connection proxied; direct admin and ordinary Service pools unchanged",
+    "Two controlled interruption cuts, not a generic commit-error classifier or new operation-ID retry authorization",
+    "No production route/pool/format/security policy",
+    "No TCP client-disconnect, server crash, or power-loss qualification; inherited private cluster disables fsync",
+    "Synthetic signed JWKS, controlled clocks, sparse seed and candidate SQL/receipt encoding",
+    "New authorization commit-guard overlay remains separate from this relay fixture"
+  ]
+}

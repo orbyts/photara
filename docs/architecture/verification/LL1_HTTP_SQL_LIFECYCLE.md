@@ -105,6 +105,11 @@ can leave an unresolved outcome; these tests do not convert that error into
 proof of rollback or authorize a new operation ID. General commit ambiguity,
 real transport-disconnect handling and lifecycle scheduling remain open.
 
+The subsequent [private COMMIT relay](LL1_COMMIT_ACK_RELAY.md) adds two exact
+Unix-socket cuts: COMMIT not forwarded, and a server-committed result whose
+acknowledgement is withheld. Those controlled outcomes preserve the rule that
+a generic client commit error remains ambiguous.
+
 The separate raw-authority fixture's deliberately committed unconsumed grant
 also remains outside this proof. Production authority credential custody,
 permanent encodings and lifecycle/security approval are unchanged.

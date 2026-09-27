@@ -78,13 +78,17 @@ GRANT EXECUTE ON FUNCTION ll1_probe.http_command(text,text,bigint,uuid,bytea,big
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--lifecycle', action='store_true',
-                        help='run private cancellation/connection-loss/lost-response cases')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--lifecycle', action='store_true',
+                      help='run private cancellation/connection-loss/lost-response cases')
+    mode.add_argument('--commit-relay', action='store_true',
+                      help='run bounded private Unix-socket COMMIT acknowledgement cases')
     args = parser.parse_args()
     if not __debug__:
         raise RuntimeError('Assertions required')
     with tempfile.TemporaryDirectory(prefix='photara-ll1-constraints-', dir='/private/tmp') as root:
         pg = base.Postgres(root)
+        relay = None
         try:
             hashes = base.install(pg)
             measured = base.measure(pg)
@@ -97,24 +101,40 @@ def main():
                    if not k.startswith(('PG', 'PHOTARA_TEST_', 'PHOTARA_LL1_')) and k != 'DATABASE_URL'}
             env['CARGO_NET_OFFLINE'] = 'true'
             env['PHOTARA_LL1_ADAPTER_SOCKET'] = str(pg.socket)
-            test = ('postgres_ll1_signed_sql_lifecycle' if args.lifecycle
-                    else 'postgres_ll1_signed_sql_adapter')
+            if args.commit_relay:
+                from ll1_commit_relay import CommitRelay, verify_absolute_read_deadline
+                verify_absolute_read_deadline()
+                relay = CommitRelay(pg.root, pg.socket)
+                env['PHOTARA_LL1_RELAY_SOCKET'] = str(relay.socket)
+                test = 'postgres_ll1_signed_sql_commit_relay'
+            else:
+                test = ('postgres_ll1_signed_sql_lifecycle' if args.lifecycle
+                        else 'postgres_ll1_signed_sql_adapter')
             command = ['cargo','test','--offline','-p','photara-service','--lib',
                        f'http::ll1_sql_tests::{test}','--',
                        '--ignored','--exact','--nocapture','--test-threads=1']
             result = subprocess.run(command, cwd=base.ROOT, env=env, text=True,
-                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                    timeout=180 if args.commit_relay else None)
             print(result.stdout, end='')
             if result.returncode:
                 raise RuntimeError(f'disposable adapter test failed: {result.returncode}')
+            if relay:
+                print(json.dumps({'private_commit_relay':relay.proof(),
+                                  'absolute_read_deadline_trickle_check':True}, sort_keys=True))
             for name, digest in hashes.items():
                 import hashlib
                 assert hashlib.sha256((base.ROOT/'crates/photara-service/migrations/postgres'/name).read_bytes()).hexdigest() == digest
             print(json.dumps({'result':'pass','baseline':measured,'production_changes':False,
                               'scope':'signed HTTP and protected SQL, private fixture only',
-                              'lifecycle':args.lifecycle}, sort_keys=True))
+                              'lifecycle':args.lifecycle,
+                              'commit_relay':args.commit_relay}, sort_keys=True))
         finally:
-            pg.close()
+            try:
+                if relay:
+                    relay.close()
+            finally:
+                pg.close()
     print(json.dumps({'temporary_cluster':'stopped and removed'}))
 
 
