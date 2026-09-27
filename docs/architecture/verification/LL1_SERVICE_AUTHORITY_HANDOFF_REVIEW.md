@@ -261,3 +261,13 @@ fixture's `FakeAuth0`; only the HTTP credential path uses the real OIDC verifier
 The candidate's post-lock deadline check does not change existing production
 session/onboarding methods. Same-transaction SQL authority handoff, review
 binding, role isolation and abandoned-grant work remain open.
+
+### Wrapper rollback follow-up
+
+The fresh-device fixture now passes 46 cases, including injected errors before
+and after one-use grant consumption, an error after original terminal receipt
+capture, and explicit rollback after the complete wrapper call. Each compares
+all baseline and overlay rows exactly. This proves rollback for those wrapper
+boundaries; it does not remove the original raw-authority fixture's deliberately
+committed orphan, test connection loss/cancellation, or complete the signed
+HTTP-to-SQL handoff. See [recorded rerun](ll1-fresh-device-rollback-20260927.json).

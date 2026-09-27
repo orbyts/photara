@@ -123,7 +123,7 @@ The current synthesis and exact measurements are in
 - PostgreSQL dense coverage includes all 48 reviewed owned tables. SQLite
   coverage populates all 79 source tables, retires 73 target tables, retains six
   designated tables and publishes detached evidence in the fixture.
-- A [42-case fresh-device receipt fixture](architecture/verification/LL1_FRESH_DEVICE_RECEIPT.md)
+- A [46-case fresh-device receipt fixture](architecture/verification/LL1_FRESH_DEVICE_RECEIPT.md)
   proves exact terminal retrieval after original-device revocation without
   granting the replacement device permission to execute the original request.
   A separate [Rust credential-seam fixture](architecture/verification/LL1_RUST_CREDENTIAL_SEAM.md)

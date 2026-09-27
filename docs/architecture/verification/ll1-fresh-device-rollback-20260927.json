@@ -1,0 +1,221 @@
+{
+  "date": "2026-09-27",
+  "command": "python3 scripts/test_ll1_fresh_device_receipt.py",
+  "passed": 46,
+  "production_changes": false,
+  "source_sha256": {
+    "scripts/test_ll1_fresh_device_receipt.py": "152a699475bb2c7b94b90bad3419bbb2a6e68d0987e770349183b9c889b5a61f",
+    "scripts/test_ll1_protected_authorization.py": "2ba9352e8e6ea101c5493e5012504f47cb9517b677b3267b7b6e0694372baed4",
+    "scripts/test_ll1_protected_postgres_executor.py": "8e08fb49920828d9644e33d27c9d19cab168424f28c78b69fb95012b8f58d618",
+    "scripts/test_ll1_actual_postgres_baseline.py": "aab3a7bd623d7a2199dded404ae3653d0fb5606f7a4843bea9148edaa106c607"
+  },
+  "output": [
+    {
+      "case": "b_no_terminal_is_not_found",
+      "result": "pass"
+    },
+    {
+      "case": "b_cannot_execute_a_review",
+      "result": "pass"
+    },
+    {
+      "case": "a_expired_review_cannot_first_execute",
+      "result": "pass"
+    },
+    {
+      "case": "other_device_secret",
+      "result": "pass"
+    },
+    {
+      "case": "random_secret",
+      "result": "pass"
+    },
+    {
+      "case": "wrong_revision",
+      "result": "pass"
+    },
+    {
+      "case": "identity_substitution",
+      "result": "pass"
+    },
+    {
+      "case": "execution_changed_hash",
+      "result": "pass"
+    },
+    {
+      "case": "ll1_api_query_denied",
+      "result": "pass"
+    },
+    {
+      "case": "ll1_api_execute_denied",
+      "result": "pass"
+    },
+    {
+      "case": "ll1_api_receipt_read_denied",
+      "result": "pass"
+    },
+    {
+      "case": "ll1_api_receipt_write_denied",
+      "result": "pass"
+    },
+    {
+      "case": "ll1_control_query_denied",
+      "result": "pass"
+    },
+    {
+      "case": "ll1_control_execute_denied",
+      "result": "pass"
+    },
+    {
+      "case": "ll1_control_receipt_read_denied",
+      "result": "pass"
+    },
+    {
+      "case": "ll1_control_receipt_write_denied",
+      "result": "pass"
+    },
+    {
+      "case": "ll1_auth_query_denied",
+      "result": "pass"
+    },
+    {
+      "case": "ll1_auth_execute_denied",
+      "result": "pass"
+    },
+    {
+      "case": "ll1_auth_receipt_read_denied",
+      "result": "pass"
+    },
+    {
+      "case": "ll1_auth_receipt_write_denied",
+      "result": "pass"
+    },
+    {
+      "case": "service_raw_authorize_denied",
+      "result": "pass"
+    },
+    {
+      "case": "service_raw_execute_denied",
+      "result": "pass"
+    },
+    {
+      "case": "service_review_write_denied",
+      "result": "pass"
+    },
+    {
+      "case": "before_grant_consumption_exact_rollback",
+      "result": "pass"
+    },
+    {
+      "case": "after_grant_consumption_exact_rollback",
+      "result": "pass"
+    },
+    {
+      "case": "after_terminal_capture_exact_rollback",
+      "result": "pass"
+    },
+    {
+      "case": "explicit_rollback_after_terminal_capture",
+      "result": "pass"
+    },
+    {
+      "case": "a_commit_reply_discarded",
+      "result": "pass"
+    },
+    {
+      "case": "a_original_bytes",
+      "result": "pass"
+    },
+    {
+      "case": "revoked_a_receipt_denied",
+      "result": "pass"
+    },
+    {
+      "case": "revoked_a_retry_denied",
+      "result": "pass"
+    },
+    {
+      "case": "eligible_b_exact_original_without_grant",
+      "result": "pass"
+    },
+    {
+      "case": "eligible_b_current_identity_same_initiating_account",
+      "result": "pass"
+    },
+    {
+      "case": "eligible_b_retry_only_reads_terminal",
+      "result": "pass"
+    },
+    {
+      "case": "other_account_no_receipt_disclosure",
+      "result": "pass"
+    },
+    {
+      "case": "b_changed_hash_denied",
+      "result": "pass"
+    },
+    {
+      "case": "b_unknown_operation_not_found",
+      "result": "pass"
+    },
+    {
+      "case": "b_unexecuted_review_not_found",
+      "result": "pass"
+    },
+    {
+      "case": "b_unexecuted_review_cannot_execute",
+      "result": "pass"
+    },
+    {
+      "case": "b_receipt_after_review_expiry",
+      "result": "pass"
+    },
+    {
+      "case": "b_retry_after_review_expiry",
+      "result": "pass"
+    },
+    {
+      "case": "b_missing_terminal_after_expiry",
+      "result": "pass"
+    },
+    {
+      "case": "active_b_suspended_credential_denied",
+      "result": "pass"
+    },
+    {
+      "case": "b_exact_receipt_after_restart",
+      "result": "pass"
+    },
+    {
+      "case": "b_no_terminal_still_no_execution_after_restart",
+      "result": "pass"
+    },
+    {
+      "case": "revoked_a_still_denied_after_restart",
+      "result": "pass"
+    },
+    {
+      "cases": 46,
+      "catalog": {
+        "tables": 59,
+        "foreign_keys": 114,
+        "triggers": 122,
+        "policies": 173,
+        "functions": 52,
+        "forced_rls_tables": 45,
+        "fingerprint": "7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638"
+      },
+      "status": "disposable_fresh_device_receipt_proven",
+      "limitations": [
+        "synthetic trusted identity; no HTTP/OIDC integration",
+        "fixture review/receipt/secret codecs; not production formats",
+        "sparse aggregate; no complete lifecycle concurrency proof",
+        "clean restart with fsync-disabled inherited harness; no power-loss qualification",
+        "NotFound never establishes a conclusive rejection"
+      ]
+    },
+    {
+      "temporary_cluster": "stopped and removed"
+    }
+  ]
+}

@@ -197,6 +197,32 @@ def main():
                                ('review_write', 'INSERT INTO ll1_probe.device_review DEFAULT VALUES;')]:
                 check('service_' + label + '_denied', sql, error='permission denied')
 
+            # Administrator-only faults at exact grant/terminal boundaries.
+            # Each failed wrapper transaction must restore every baseline AND
+            # overlay row, including request binding, grant and receipt work.
+            for label, timing, table, count, extra in [
+                ('before_grant_consumption', 'BEFORE DELETE', 'authorization', 1, ''),
+                ('after_grant_consumption', 'AFTER DELETE', 'authorization', 0, ''),
+                ('after_terminal_capture', 'AFTER INSERT', 'receipts', 0,
+                 "IF (SELECT count(*) FROM ll1_probe.original_receipt)<>1 "
+                 "THEN RAISE EXCEPTION 'fault_boundary_not_reached'; END IF;"),
+            ]:
+                base.require(pg, f"""SET ROLE photara_owner;
+CREATE FUNCTION ll1_probe.inject_boundary_failure() RETURNS trigger
+LANGUAGE plpgsql AS $$ BEGIN
+ IF (SELECT count(*) FROM ll1_probe.authorization)<>{count}
+ THEN RAISE EXCEPTION 'fault_boundary_not_reached'; END IF;
+ {extra}
+ RAISE EXCEPTION 'injected_{label}';
+END $$;
+CREATE TRIGGER zz_boundary_failure {timing} ON ll1_probe.{table}
+ FOR EACH ROW EXECUTE FUNCTION ll1_probe.inject_boundary_failure();
+""")
+                check(label + '_exact_rollback', 'BEGIN;' + execute() + 'COMMIT;',
+                      error='injected_' + label)
+                base.require(pg, f"SET ROLE photara_owner; DROP TRIGGER zz_boundary_failure ON ll1_probe.{table}; DROP FUNCTION ll1_probe.inject_boundary_failure();")
+            check('explicit_rollback_after_terminal_capture', 'BEGIN;' + execute() + 'ROLLBACK;')
+
             # Valid A executes, but the simulated client loses the entire reply.
             # Server evidence is read independently; no response is used for recovery.
             check('a_commit_reply_discarded', 'BEGIN;' + execute() + 'COMMIT;', preserve=False)

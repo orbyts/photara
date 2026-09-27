@@ -49,7 +49,7 @@ permission to dispatch changed bytes.
 
 ## Executed evidence
 
-The final run passes **42 cases**:
+The final run passes **46 cases**:
 
 - A commits the deletion while the simulated client discards the entire reply.
   The harness independently reads the captured terminal bytes. After revoking A
@@ -67,6 +67,10 @@ The final run passes **42 cases**:
 - Ordinary API/control/auth logins with forged owner context cannot query,
   execute, read or write the private receipt table. The service role cannot
   invoke the raw grant/executor or write reviews.
+- Injected failures immediately before and after grant consumption and after
+  original receipt capture restore the exact baseline and every overlay table.
+  The triggers assert that the intended boundary was reached. Explicit rollback
+  after a successful terminal capture also preserves the complete original state.
 - A trigger deliberately makes **any new grant insertion fail** after the
   committed deletion. B's receipt query and terminal retry still succeed after
   review expiry and, for the query, after a clean PostgreSQL restart.
@@ -76,6 +80,11 @@ The final run passes **42 cases**:
   receipt, original-byte record, marker, inventory event and request binding;
   authorization and permit relations are empty. The deletion changes only the
   expected seeded target rows, retaining account/device/unrelated rows.
+
+The [46-case rerun](ll1-fresh-device-rollback-20260927.json) records the full
+output and executed source hashes. These new cases cover returned SQL errors
+and explicit rollback, not connection loss, cancellation or arbitrary commit
+of an unconsumed grant.
 
 The private cluster required sandbox escalation because `initdb` could not
 create its local shared-memory segment under the sandbox. The authorized rerun
