@@ -1,0 +1,67 @@
+{
+  "date": "2026-09-27",
+  "result": "pass",
+  "production_changes": false,
+  "commands": [
+    "python3 scripts/test_ll1_http_sql_adapter.py --lifecycle",
+    "python3 scripts/test_ll1_http_sql_adapter.py",
+    "cargo clippy --offline -p photara-service --lib --tests -- -D warnings"
+  ],
+  "lifecycle_cases": 5,
+  "rust_tests_per_private_runner": 1,
+  "test_seconds": {
+    "lifecycle": 0.49,
+    "original_adapter_regression": 0.52
+  },
+  "baseline_catalog": {
+    "fingerprint": "7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638",
+    "forced_rls_tables": 45,
+    "foreign_keys": 114,
+    "functions": 52,
+    "policies": 173,
+    "tables": 59,
+    "triggers": 122
+  },
+  "source_sha256": {
+    "crates/photara-service/src/http.rs": "3d540f1688cd625d263a23b42b55601ee140c5c787f19245039674fcb22a45c9",
+    "crates/photara-service/src/http_ll1_sql_tests.rs": "07ddf7802056e841a563c81c44d095239e2942a50c5190e0477bfa0a49d7d3a1",
+    "scripts/test_ll1_http_sql_adapter.py": "d21d7c0a52bc822478502e130c3ea8cf096ae79088b66332936370407603f103",
+    "scripts/test_ll1_fresh_device_receipt.py": "b27c58fac59f2a0ad01394ee4065eea46398f474b8848e06d31ca08967811542",
+    "scripts/test_ll1_protected_authorization.py": "2ba9352e8e6ea101c5493e5012504f47cb9517b677b3267b7b6e0694372baed4",
+    "scripts/test_ll1_protected_postgres_executor.py": "8e08fb49920828d9644e33d27c9d19cab168424f28c78b69fb95012b8f58d618",
+    "scripts/test_ll1_actual_postgres_baseline.py": "aab3a7bd623d7a2199dded404ae3653d0fb5606f7a4843bea9148edaa106c607",
+    "scripts/test_ll1_retirement_constraints.py": "0ba8c7e56f2989e3f8d770f99ff30739f0b68be0278022202fed2261682e51a1",
+    "docs/architecture/verification/LL1_HTTP_SQL_LIFECYCLE.md": "061643178702de6dc169d2d1669ed59357adfc5857dde07e81a809d5dbb3f87e"
+  },
+  "output_sha256": {
+    "lifecycle": "91b51514171e7514edf8eb4e6e0f21574d493b443852aefbd8de786e1fde5b7d",
+    "original_adapter_regression": "4cbc085976243a921af9a43b9d25fb5a422da7d052510a3d55321163c59093dd",
+    "strict_service_clippy": "a7ddbbf777c1f8a6038b48a903e016101c324dffc703cf78030b148a8030fe69"
+  },
+  "outputs": {
+    "lifecycle": "    Blocking waiting for file lock on artifact directory\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.63s\n     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-567c51d9f6f0fa06)\n\nrunning 1 test\ntest http::ll1_sql_tests::postgres_ll1_signed_sql_lifecycle ... LL1 lifecycle: in-process future cancellation before commit restored every row after original transaction/locks ended\nLL1 lifecycle: SQL statement cancellation (57014) at proved terminal capture restored every row after original transaction/locks ended\nLL1 lifecycle: private backend termination (57P01) at proved terminal capture restored every row after original transaction/locks ended\nLL1 lifecycle: independent snapshot sees no committed receipt while A is active; eligible B's lookup provably waits on A's account lock\nLL1 lifecycle: known commit with lost in-process response retains exact original receipt; fresh eligible B recovers it without a grant after A revocation\nLL1 lifecycle: five cases passed; no TCP disconnect, arbitrary COMMIT ambiguity, crash or power-loss claim\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.49s\n\n{\"baseline\": {\"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\", \"forced_rls_tables\": 45, \"foreign_keys\": 114, \"functions\": 52, \"policies\": 173, \"tables\": 59, \"triggers\": 122}, \"lifecycle\": true, \"production_changes\": false, \"result\": \"pass\", \"scope\": \"signed HTTP and protected SQL, private fixture only\"}\n{\"temporary_cluster\": \"stopped and removed\"}\n",
+    "original_adapter_regression": "   Compiling photara-service v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-service)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.56s\n     Running unittests src/lib.rs (/Users/suhail/.cache/cargo/targets/debug/deps/photara_service-567c51d9f6f0fa06)\n\nrunning 1 test\ntest http::ll1_sql_tests::postgres_ll1_signed_sql_adapter ... LL1 combined adapter: signed execution/receipt, exact rollback, three role denials, credential revocation and three post-lock deadline gates passed\nok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.52s\n\n{\"baseline\": {\"fingerprint\": \"7228575621958f4f5063e40bbb80ec5102d00b232bf21d3fb95bad4779c9c638\", \"forced_rls_tables\": 45, \"foreign_keys\": 114, \"functions\": 52, \"policies\": 173, \"tables\": 59, \"triggers\": 122}, \"lifecycle\": false, \"production_changes\": false, \"result\": \"pass\", \"scope\": \"signed HTTP and protected SQL, private fixture only\"}\n{\"temporary_cluster\": \"stopped and removed\"}\n",
+    "strict_service_clippy": "    Checking photara-service v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-service)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.99s\n"
+  },
+  "cases": [
+    "in-process request future cancellation before commit: original transaction and all locks ended before full snapshot equality",
+    "SQL cancellation after internally proved terminal capture: exact SQLSTATE57014 and full rollback",
+    "private authority backend termination after internally proved terminal capture: exact SQLSTATE57P01, backend absent, locks gone and full rollback",
+    "independent MVCC snapshot has no committed receipt while A active; fresh B lookup proven blocked on A then exact receipt after commit",
+    "known successful commit, suppressed in-process response; exact original receipt and target deletion retained, fresh B query/retry unchanged after A revocation, grant creation poisoned, changed digest conflict"
+  ],
+  "source_finding": "Executor locks initiating account FOR UPDATE; fresh receipt authentication takes FOR SHARE. Final test preserves that serialization; it does not claim B returns NotFound while A holds the terminal transaction. Initial NotFound is before A starts.",
+  "checks": [
+    "rustfmt --edition 2024 --check crates/photara-service/src/http_ll1_sql_tests.rs",
+    "scoped git diff --check"
+  ],
+  "limits": [
+    "cfg(test) route/commit observers and private candidate SQL overlay only",
+    "in-process Router::oneshot cancellation is not TCP disconnect behavior",
+    "known commit with suppressed response is not exact interruption of COMMIT acknowledgement",
+    "no general commit-ambiguity resolution or new operation-ID retry permission",
+    "fsync-disabled private PostgreSQL cluster; no crash/power-loss durability",
+    "synthetic signed JWKS/clocks/review/receipt encodings and sparse seed",
+    "raw fixture deliberately committed unconsumed grant remains open; no production credential custody or format approval"
+  ]
+}

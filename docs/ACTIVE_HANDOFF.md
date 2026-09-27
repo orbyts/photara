@@ -144,7 +144,12 @@ The current synthesis and exact measurements are in
   [combined signed HTTP-to-SQL fixture](architecture/verification/LL1_HTTP_SQL_ADAPTER.md)
   executes the protected SQL transaction and retrieves exact original receipts,
   with fresh credential checks, three post-lock deadline gates, ordinary-role
-  denials and exact rollback snapshots. These remain test routers and disposable
+  denials and exact rollback snapshots. Its
+  [lifecycle extension](architecture/verification/LL1_HTTP_SQL_LIFECYCLE.md)
+  proves three private cancellation/connection-loss rollback cases after the
+  original transaction and locks end, account-lock serialization of a concurrent
+  receipt lookup, and original receipt recovery after a known commit loses its
+  in-process response. These remain test routers and disposable
   overlays; production authority custody and lifecycle integration remain open.
 
 The current entry is
@@ -166,8 +171,9 @@ disposable proofs, not production deletion.
 - No production Library create/select/rename wiring or signed cross-Library
   acceptance (LL2a). Library removal is LL2b and remains later.
 - LL1 production Rust/OIDC-to-SQL authority handoff, canonical evidence/replay
-  codecs, connection-loss/cancellation and remaining lifecycle/concurrency states
-  remain absent. The combined handoff now has disposable fixture evidence.
+  codecs, real transport-disconnect handling, interruption during COMMIT and
+  remaining lifecycle/concurrency states remain absent. The combined handoff
+  and selected cancellation/connection-loss paths have disposable fixture evidence.
 - No production deletion, live-data migration, deployment or public launch.
 
 ## Dependency order and human acceptance
