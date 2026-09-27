@@ -173,6 +173,9 @@ separate PS2 prerequisite.
   and an [admission-only successor](architecture/PS2_SELECTED_TRANSITION_IMPLEMENTATION_PLAN.md)
   preserving that new epoch. Pending-origin support depends on the actual
   selected original/phase reader; payload/newborn/retirement follow admission.
+  The [shared evidence-validation seam](architecture/PS2_SELECTED_EVIDENCE_VALIDATION_SEAM.md)
+  preserves all 17 settled and nine factored tests and every original vector;
+  new selected-origin and admission targets remain in progress.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification

@@ -68,7 +68,22 @@ fn edges(value: &Value) -> Result<Vec<Value>> {
 pub(super) fn verify(
     state_ref: &Value,
     root_id: &str,
+    resolve: impl FnMut(&Value) -> Result<Value>,
+) -> Result<Proof> {
+    verify_with_origin(state_ref, root_id, resolve, |source, context| {
+        legacy::ensure(
+            source["origin"] == json!({"kind":"authored","source_id":context["root_id"]}),
+            "resolved selected source association",
+        )
+    })
+}
+/// The selected package policy must resolve non-authored authority before returning
+/// a package proof. Collection, schema, subset and retention checks are unchanged.
+pub(super) fn verify_with_origin(
+    state_ref: &Value,
+    root_id: &str,
     mut resolve: impl FnMut(&Value) -> Result<Value>,
+    origin: impl FnMut(&Value, &Value) -> Result<()>,
 ) -> Result<Proof> {
     let mut records = BTreeMap::new();
     let mut seen = BTreeSet::new();
@@ -114,7 +129,7 @@ pub(super) fn verify(
         }),
         representation: Value::Null,
     };
-    let proof = factored::verify(&store, "selected")?;
+    let proof = factored::verify_with_origin(&store, "selected", origin)?;
     legacy::ensure(proof.closure == seen, "resource exact collected closure")?;
     Ok(Proof {
         closure: proof.closure,

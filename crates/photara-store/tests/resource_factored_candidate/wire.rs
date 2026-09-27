@@ -265,6 +265,20 @@ pub(super) struct Proof {
     pub associations: BTreeMap<String, Value>,
 }
 pub(super) fn verify(s: &Store, role: &str) -> Result<Proof> {
+    verify_with_origin(s, role, |source, context| {
+        ensure(
+            source["origin"] == json!({"kind":"authored","source_id":context["root_id"]}),
+            "resolved selected source association",
+        )
+    })
+}
+/// Caller must subsequently establish non-authored authority through its selected
+/// typed evidence. This hook changes no record schema, subset, or retention check.
+pub(super) fn verify_with_origin(
+    s: &Store,
+    role: &str,
+    mut origin: impl FnMut(&Value, &Value) -> Result<()>,
+) -> Result<Proof> {
     let context = &s.roots[role];
     fields(context, &["root_id", "resource_state", "required_features"])?;
     id(&context["root_id"])?;
@@ -325,10 +339,7 @@ pub(super) fn verify(s: &Store, role: &str) -> Result<Proof> {
         id(&source["association_id"])?;
         fields(&source["origin"], &["kind", "source_id"])?;
         id(&source["origin"]["source_id"])?;
-        ensure(
-            source["origin"] == json!({"kind":"authored","source_id":context["root_id"]}),
-            "resolved selected source association",
-        )?;
+        origin(source, context)?;
         let subset = selection(s, &source["requirements"], "requirements", &mut closure)?;
         ensure(!subset.is_empty(), "nonempty source subset")?;
         for (id, v) in subset {

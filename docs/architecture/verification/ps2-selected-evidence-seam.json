@@ -1,0 +1,108 @@
+{
+  "status": "verified-disposable-reader-refactor",
+  "production": false,
+  "baseline_commit": "4100eca",
+  "sources": [
+    {
+      "path": "crates/photara-store/tests/integrated_wire_candidate/wire.rs",
+      "bytes": 56649,
+      "sha256": "10c4ba93aac8379abb49f61c94ef27f5056afec95ea408cefb894a3357ae3965"
+    },
+    {
+      "path": "crates/photara-store/tests/integrated_wire_candidate/resources.rs",
+      "bytes": 8753,
+      "sha256": "3dbe309191575825106134dcdbf8ef6fa0c586ffe7ef0ed28e1f8815e677cd36"
+    },
+    {
+      "path": "crates/photara-store/tests/resource_factored_candidate/wire.rs",
+      "bytes": 21687,
+      "sha256": "a0cdd305b51b413fdab6959257ae71e9b3048c6f43f386281c77358ca42204c7"
+    },
+    {
+      "path": "docs/architecture/proposals/ps2/integrated/generate.py",
+      "bytes": 21703,
+      "sha256": "3ab11dd82e89c83420c72971c6be8830c50a5a64461489595dc19eb8b30ea572"
+    },
+    {
+      "path": "docs/architecture/PS2_SELECTED_EVIDENCE_VALIDATION_SEAM.md",
+      "bytes": 2626,
+      "sha256": "023905b538e12f857907fa46f539b95381520927fee5d548307d8507a1b79fb2"
+    }
+  ],
+  "dependencies": [
+    {
+      "path": "crates/photara-store/tests/integrated_wire_candidate.rs",
+      "bytes": 10576,
+      "sha256": "32f2e47b389f5b2a96ae34572c6c5c2a6dd6c85d0b0949d1819b688f854c8b43"
+    },
+    {
+      "path": "crates/photara-store/tests/integrated_wire_candidate/accounting.rs",
+      "bytes": 41898,
+      "sha256": "5b0c3361d3925310833fcc7055df537625e23c13d8a538d70c4135dfe5e71a75"
+    },
+    {
+      "path": "crates/photara-store/tests/resource_factored_candidate.rs",
+      "bytes": 7699,
+      "sha256": "246d9b39abf54aa46c55c714fc7801b36650074090fdc25a3151ea84e15ed52f"
+    },
+    {
+      "path": "docs/architecture/proposals/ps2/integrated/linked.json",
+      "bytes": 4353756,
+      "sha256": "6de4a73749c539ad98f3dfa1b68e2687473cf70ded8328a95b1c3575c6d43e4a"
+    },
+    {
+      "path": "docs/architecture/proposals/ps2/integrated/negatives.json",
+      "bytes": 13963747,
+      "sha256": "3310a411a030b20ef42579c7b19742590f8bbb12f5776054cd2b4cda3958b0bb"
+    },
+    {
+      "path": "docs/architecture/proposals/ps2/resource-factored/linked.json",
+      "bytes": 5364617,
+      "sha256": "845b80d5af377492fac39baf24faea30b6e0bfd6ff37599302915b9126aae029"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "docs/architecture/verification/ps2-selected-evidence-seam-tests.log",
+      "bytes": 2816,
+      "sha256": "4397c7fea73a5db704f46b7f023e8a607e1f1ff6e8770351500c732095ba0237"
+    },
+    {
+      "path": "docs/architecture/verification/ps2-selected-evidence-seam-clippy.log",
+      "bytes": 521,
+      "sha256": "875a2c5ac1c9b0d54595b63eb50481b34189cfe5f18afd5fe93aef9d12f4c2df"
+    }
+  ],
+  "commands": [
+    {
+      "command": "cargo test -p photara-store --test integrated_wire_candidate --test resource_factored_candidate",
+      "result": "17 settled and 9 factored passed; 0 failed",
+      "settled_seconds": 17.03,
+      "factored_seconds": 0.81
+    },
+    {
+      "command": "cargo clippy -p photara-store --test integrated_wire_candidate --test resource_factored_candidate -- -D warnings",
+      "result": "passed",
+      "seconds": 23.31
+    },
+    {
+      "command": "rustfmt --edition 2024 --config skip_children=true --check (three changed Rust modules)",
+      "result": "passed"
+    },
+    {
+      "command": "python3 docs/architecture/proposals/ps2/integrated/generate.py; python3 docs/architecture/proposals/ps2/resource-factored/generate.py",
+      "result": "all three listed canonical corpora independently reproduced byte-identically"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "log_normalization": "Copies normalize trailing blank lines to one terminal newline; original temporary logs unchanged.",
+  "limitations": [
+    "Default supported schema and authored-origin behavior unchanged",
+    "New origin decoder and transition hooks not validated by this checkpoint",
+    "Policy is compiled disposable test code, not serialized permission",
+    "No production code or permanent wire approval"
+  ]
+}

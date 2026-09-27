@@ -233,6 +233,9 @@ impl World {
         self.head["commit_sha256"] = json!(hash(&encode(&self.commit)));
     }
     pub(super) fn bootstrap(&self) -> Result<Value> {
+        self.bootstrap_with(&[])
+    }
+    fn bootstrap_with(&self, extra_features: &[&str]) -> Result<Value> {
         fields(
             &self.head,
             &["schema", "project_id", "commit_id", "commit_sha256"],
@@ -267,6 +270,9 @@ impl World {
             .iter()
             .map(std::string::ToString::to_string)
             .collect::<BTreeSet<_>>();
+        for f in extra_features {
+            features.insert((*f).to_owned());
+        }
         for f in array(&self.manifest["required_features"])? {
             features.insert(text(f)?.into());
         }
@@ -479,12 +485,12 @@ impl Resolver {
         }
         Ok(Self { objects, used })
     }
-    fn get(&self, r: &Value, tag: u8) -> Result<Value> {
+    pub(super) fn get(&self, r: &Value, tag: u8) -> Result<Value> {
         let (v, t) = self.objects.get(&key(r)?).ok_or("missing located object")?;
         ensure(*t == tag, "typed membership")?;
         Ok(v.clone())
     }
-    fn any(&self, r: &Value) -> Result<Value> {
+    pub(super) fn any(&self, r: &Value) -> Result<Value> {
         let (v, t) = self
             .objects
             .get(&key(r)?)
@@ -935,7 +941,59 @@ pub(super) struct RoleProof {
     pub supported: bool,
     pub associations: BTreeMap<String, Value>,
 }
-fn role(w: &World, res: &Resolver, r: &Value, entry: &Value) -> Result<RoleProof> {
+pub(super) struct Contribution {
+    pub logical: BTreeSet<Key>,
+    pub implementation: BTreeSet<Key>,
+}
+impl Contribution {
+    fn all(&self) -> BTreeSet<Key> {
+        self.logical.union(&self.implementation).cloned().collect()
+    }
+}
+pub(super) struct EvidenceContext<'a> {
+    pub root: &'a Value,
+    pub pins: &'a [Value],
+    pub placements: &'a BTreeMap<Key, Value>,
+    pub states: &'a BTreeMap<Key, Value>,
+    pub roles: &'a BTreeMap<String, RoleProof>,
+    pub recovery_only: bool,
+}
+pub(super) trait ResourcePolicy {
+    fn extra_features(&self) -> &'static [&'static str] {
+        &[]
+    }
+    fn resources(&self, state: &Value, res: &Resolver) -> Result<resources::Proof> {
+        resources::verify(&state["resource_state"], text(&state["root_id"])?, |r| {
+            res.get(r, 1)
+        })
+    }
+    fn evidence(&self, ctx: &EvidenceContext<'_>, res: &Resolver) -> Result<Contribution> {
+        let retention = res.get(&ctx.root["retention_evidence"], 1)?;
+        schema(
+            &retention,
+            "photara.resource.retention-evidence-leaf",
+            1,
+            &["count", "entries"],
+        )?;
+        ensure(
+            retention["count"] == "0" && array(&retention["entries"])?.is_empty(),
+            "empty portable evidence supported subset",
+        )?;
+        Ok(Contribution {
+            logical: BTreeSet::from([key(&ctx.root["retention_evidence"])?]),
+            implementation: BTreeSet::new(),
+        })
+    }
+}
+struct AuthoredOnly;
+impl ResourcePolicy for AuthoredOnly {}
+fn role(
+    policy: &impl ResourcePolicy,
+    w: &World,
+    res: &Resolver,
+    r: &Value,
+    entry: &Value,
+) -> Result<RoleProof> {
     let state = res.get(r, 1)?;
     schema(
         &state,
@@ -973,9 +1031,7 @@ fn role(w: &World, res: &Resolver, r: &Value, entry: &Value) -> Result<RoleProof
     )?;
     let mut semantic = BTreeSet::new();
     let receipts = operations(w, res, &state, &mut semantic)?;
-    let resources = resources::verify(&state["resource_state"], text(&state["root_id"])?, |r| {
-        res.get(r, 1)
-    })?;
+    let resources = policy.resources(&state, res)?;
     semantic.extend(resources.closure);
     let mut inventory_nodes = BTreeSet::new();
     let expected = walk(
@@ -1209,7 +1265,14 @@ fn selected_controls(w: &World, root: &Value) -> Result<(Value, Value, Value, u6
     reason = "Keep the bounded schema and exact closure proof in one auditable pass"
 )]
 pub(super) fn verify(w: &World) -> Result<Proof> {
-    let root = w.bootstrap()?;
+    verify_with(w, &AuthoredOnly)
+}
+#[allow(
+    clippy::too_many_lines,
+    reason = "Shared full selected closure proof with explicit resource policy"
+)]
+pub(super) fn verify_with(w: &World, policy: &impl ResourcePolicy) -> Result<Proof> {
+    let root = w.bootstrap_with(policy.extra_features())?;
     let (envelope, ledger, overlay, controls) = selected_controls(w, &root)?;
     let mut shared = BTreeSet::new();
     let placements = physical_tree(
@@ -1275,21 +1338,40 @@ pub(super) fn verify(w: &World) -> Result<Proof> {
         account.allocations == w.allocations.keys().cloned().collect(),
         "exact all physical allocation charges",
     )?;
-    let retention = active_res.get(&root["retention_evidence"], 1)?;
-    schema(
-        &retention,
-        "photara.resource.retention-evidence-leaf",
-        1,
-        &["count", "entries"],
-    )?;
-    ensure(
-        retention["count"] == "0" && array(&retention["entries"])?.is_empty(),
-        "empty portable evidence supported subset",
-    )?;
+    let mut prepared = BTreeMap::new();
+    let mut selected_states = BTreeMap::new();
+    let mut selected_roles = BTreeMap::new();
+    for (label, r) in &selected {
+        let entry = byroot.get(&key(r)?).ok_or("selected placement")?;
+        let res = Resolver::new(w, &entry["locator"])?;
+        let proof = role(policy, w, &res, r, entry)?;
+        selected_states.insert(key(r)?, proof.state.clone());
+        selected_roles.insert(label.clone(), proof.clone());
+        prepared.insert(label.clone(), (res, proof));
+    }
+    let extra = policy
+        .evidence(
+            &EvidenceContext {
+                root: &root,
+                pins: &pins,
+                placements: &byroot,
+                states: &selected_states,
+                roles: &selected_roles,
+                recovery_only: false,
+            },
+            &active_res,
+        )?
+        .all();
+    for k in &extra {
+        active_res.get(
+            &json!({"kind":"json","sha256":k.0,"byte_length":k.1.to_string()}),
+            1,
+        )?;
+    }
     let mut global = account.logical.clone();
     global.extend(account.implementation.clone());
     global.extend(pin_nodes.clone());
-    global.insert(key(&root["retention_evidence"])?);
+    global.extend(extra.clone());
     global.insert(key(&root["placement"]["accounting"])?);
     let mut global_nodes = BTreeSet::new();
     let base = walk(
@@ -1306,8 +1388,7 @@ pub(super) fn verify(w: &World) -> Result<Proof> {
     let mut used = shared.clone();
     for (label, r) in selected {
         let entry = byroot.get(&key(&r)?).ok_or("selected placement")?;
-        let res = Resolver::new(w, &entry["locator"])?;
-        let proof = role(w, &res, &r, entry)?;
+        let (res, proof) = prepared.remove(&label).ok_or("prepared selected role")?;
         if label == "active" {
             ensure(
                 ["authored", "history", "inventory"]
@@ -1337,7 +1418,7 @@ pub(super) fn verify(w: &World) -> Result<Proof> {
         );
         expected.extend(account.implementation.clone());
         expected.extend(pin_nodes.clone());
-        expected.insert(key(&root["retention_evidence"])?);
+        expected.extend(extra.clone());
         expected.extend(global_nodes.clone());
         expected.extend(owner);
         ensure(
@@ -1351,6 +1432,7 @@ pub(super) fn verify(w: &World) -> Result<Proof> {
             .chain(&account.implementation)
             .chain(&pin_nodes)
             .chain(&global_nodes)
+            .chain(&extra)
         {
             if *k != key(&envelope["ledger"])? {
                 ensure(
@@ -1410,7 +1492,14 @@ pub(super) fn receipt_for(proof: &Proof, id: &str, request: &str) -> Result<Valu
     reason = "Keep the bounded schema and exact closure proof in one auditable pass"
 )]
 pub(super) fn recovery(w: &World) -> Result<RoleProof> {
-    let root = w.bootstrap()?;
+    recovery_with(w, &AuthoredOnly)
+}
+#[allow(
+    clippy::too_many_lines,
+    reason = "Shared independent recovery closure with explicit policy limits"
+)]
+pub(super) fn recovery_with(w: &World, policy: &impl ResourcePolicy) -> Result<RoleProof> {
+    let root = w.bootstrap_with(policy.extra_features())?;
     let (envelope, ledger, overlay, _) = selected_controls(w, &root)?;
     let mut shared = BTreeSet::new();
     let placements = physical_tree(
@@ -1435,7 +1524,7 @@ pub(super) fn recovery(w: &World) -> Result<RoleProof> {
         .get(&key(&root["recovery"])?)
         .ok_or("recovery placement")?;
     let res = Resolver::new(w, &entry["locator"])?;
-    let proof = role(w, &res, &root["recovery"], entry)?;
+    let proof = role(policy, w, &res, &root["recovery"], entry)?;
     let holds = res.get(&envelope["holds"], 2)?;
     let accounting = accounting::metadata(&ledger, &holds, |r| res.any(r))?;
     let conversion = res.get(&root["conversion_source"], 1)?;
@@ -1450,8 +1539,8 @@ pub(super) fn recovery(w: &World) -> Result<RoleProof> {
     let mut pins = BTreeSet::new();
     let entries = walk(&res, &root["pinned_roots"], Kind::Pin, &mut pins)?;
     let mut selected = BTreeSet::from([key(&root["active"])?, key(&root["recovery"])?]);
-    for p in entries {
-        fields(&p, &["pin_id", "reason", "root"])?;
+    for p in &entries {
+        fields(p, &["pin_id", "reason", "root"])?;
         ensure(
             ["explicit-history", "unresolved-recovery", "undo"].contains(&text(&p["reason"])?),
             "existing retained pin reason",
@@ -1462,17 +1551,27 @@ pub(super) fn recovery(w: &World) -> Result<RoleProof> {
         selected == byroot.keys().cloned().collect(),
         "exact selected root placements",
     )?;
-    let retention = res.get(&root["retention_evidence"], 1)?;
-    schema(
-        &retention,
-        "photara.resource.retention-evidence-leaf",
-        1,
-        &["count", "entries"],
-    )?;
-    ensure(
-        retention["count"] == "0" && array(&retention["entries"])?.is_empty(),
-        "empty portable evidence supported subset",
-    )?;
+    let selected_states = BTreeMap::from([(key(&root["recovery"])?, proof.state.clone())]);
+    let selected_roles = BTreeMap::from([("recovery".to_owned(), proof.clone())]);
+    let extra = policy
+        .evidence(
+            &EvidenceContext {
+                root: &root,
+                pins: &entries,
+                placements: &byroot,
+                states: &selected_states,
+                roles: &selected_roles,
+                recovery_only: true,
+            },
+            &res,
+        )?
+        .all();
+    for k in &extra {
+        res.get(
+            &json!({"kind":"json","sha256":k.0,"byte_length":k.1.to_string()}),
+            1,
+        )?;
+    }
     let mut global_nodes = BTreeSet::new();
     let base = walk(&res, &overlay["base"], Kind::Inventory, &mut global_nodes)?
         .iter()
@@ -1493,7 +1592,7 @@ pub(super) fn recovery(w: &World) -> Result<RoleProof> {
     required.extend(pins.clone());
     required.extend(proof.semantic.clone());
     required.extend(selected);
-    required.insert(key(&root["retention_evidence"])?);
+    required.extend(extra.clone());
     required.insert(key(&root["placement"]["accounting"])?);
     ensure(
         required.is_subset(&base.union(&controls).cloned().collect()),
@@ -1511,7 +1610,7 @@ pub(super) fn recovery(w: &World) -> Result<RoleProof> {
     );
     exact.extend(accounting.implementation);
     exact.extend(pins);
-    exact.insert(key(&root["retention_evidence"])?);
+    exact.extend(extra);
     exact.extend(global_nodes);
     exact.extend(owner);
     ensure(

@@ -61,7 +61,7 @@ class Builder:
    level=out
   return level[0]['child'],nodes
 
-def build(mode="valid"):
+def build(mode="valid", resource_builder=None, evidence_builder=None, extra_features=()):
  b=Builder(mode);ops=load(HERE.parent/'operations/linked-operations.json');old=load(HERE.parent/'resource-conversion/linked.json')['scenarios']['valid']
  spec=importlib.util.spec_from_file_location('factored',HERE.parent/'resource-factored/generate.py');mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod);resources=mod.build(8)
  pool={key(ref(v['input'])):v['input'] for v in ops['records'].values()};pool.update({key(ref(v['input'])):v['input'] for v in resources['records'].values()})
@@ -92,7 +92,9 @@ def build(mode="valid"):
    association=copy.deepcopy(pool[key(e['record'])]);association['association_id']=uid(2000+(1 if mode=='conflicting-association-id' and slot==3 else slot)*10+j);association['origin']['source_id']=uid(101) if mode=='invented-origin' and slot==3 else root_id
    rr=b.add(association);pool[key(rr)]=association;e['id']=association['association_id'];e['record']=rr
   sr=b.add(source);pool[key(sr)]=source;rs['retention_sources']=sr;rr=b.add(rs);pool[key(rr)]=rs
-  out={};rclosure(rr,out);return rr,out
+  out={};rclosure(rr,out)
+  if resource_builder is not None:return resource_builder(root_id,slot,rs,out,b)
+  return rr,out
  receipt1=ops['records']['receipt-1']['input'];b.pack(1,'data',[(receipt1,1)])
  observations=[];sealed=[]
  for n in range(1,9):
@@ -150,7 +152,11 @@ def build(mode="valid"):
  ledger=obj('photara.storage.ledger',profile=PROFILE,incarnation=INC,standing_control=str(STANDING),directory_allowance=str(DIRECTORY),retained_directory_allowance=str(RETAINED_DIRECTORY),tips=tips,sealed_charge_root=charge_root,observation_root=obsroot,retained_file_charge_root=retained_root,conversion_source=ref(conversion),retirement_tickets=ref(tickets),total_charge=str(total))
  envelope=obj('photara.storage.accounting-envelope',ledger=ref(ledger),holds=ref(holds))
  alternate=copy.deepcopy(sealed[0]);alternate['extensions']={'example.changed':True}
- globals_=observations[:1]+observations[8:]+sealed+([alternate] if mode=='alternate-sealed-claim' else [])+obsnodes+charge_nodes+retained_nodes+[holds,tickets,evidence,pins,conversion]
+ extra_records=[];selected_recovery=states['recovery']
+ if evidence_builder is not None:
+  addition=evidence_builder(states,role_records,semantic,pins,b)
+  evidence=addition['evidence'];extra_records=addition['records'];pins=addition.get('pins',pins);selected_recovery=addition.get('recovery',selected_recovery)
+ globals_=observations[:1]+observations[8:]+sealed+([alternate] if mode=='alternate-sealed-claim' else [])+obsnodes+charge_nodes+retained_nodes+[holds,tickets,evidence,pins,conversion]+extra_records
  global_map={key(ref(v)):v for v in globals_}
  union=dict(global_map)
  for role,records in role_records.items():union.update({k:v for k,v in records.items() if not v['schema']['id'].startswith('photara.package.inventory-')})
@@ -188,8 +194,8 @@ def build(mode="valid"):
  rootplacement=obj('photara.storage.root-placement-branch',count=str(len(placements)),children=children);pr=b.pack(8,'metadata',[(rootplacement,3)])[key(ref(rootplacement))];b.pad(8)
  if mode=='undercharge':ledger['total_charge']=str(total-4096);envelope['ledger']=ref(ledger)
  controls=sorted([ref(ledger),ref(envelope)],key=key);overlay=obj('photara.package.inventory-overlay',base=baseinv,controls=controls,count=str(len(union)+len(controls)))
- roots=obj('photara.package.root-set',version=2,library_id=L,bootstrap_sha256=ops['records']['manifest']['sha256'],kind='sealed',active=states['active'],recovery=states['recovery'],pinned_roots=ref(pins),operation_index=b.values[key(states['active'])]['operation_index'],conversion_source=ref(conversion),retention_evidence=ref(evidence),inventory=ref(overlay),placement=dict(generation='1',root_placements=pr,accounting=ref(envelope)))
- active=b.values[key(states['active'])];manifest_features=ops['records']['manifest']['input']['required_features'];commit=dict(schema=dict(id='photara.package.commit',version=1),project_id=P,commit_id=uid(6001),package_revision='1',bootstrap_sha256=ops['records']['manifest']['sha256'],parent=None,write_id=uid(6002),created_at='2026-09-27T00:00:00.000Z',minimum_reader=dict(major=1,minor=3),required_features=sorted(set(FEATURES+manifest_features)),authored=active['authored'],history=active['history'],inventory=active['inventory'],root_set=roots,extensions={})
+ roots=obj('photara.package.root-set',version=2,library_id=L,bootstrap_sha256=ops['records']['manifest']['sha256'],kind='sealed',active=states['active'],recovery=selected_recovery,pinned_roots=ref(pins),operation_index=b.values[key(states['active'])]['operation_index'],conversion_source=ref(conversion),retention_evidence=ref(evidence),inventory=ref(overlay),placement=dict(generation='1',root_placements=pr,accounting=ref(envelope)))
+ active=b.values[key(states['active'])];manifest_features=ops['records']['manifest']['input']['required_features'];commit=dict(schema=dict(id='photara.package.commit',version=1),project_id=P,commit_id=uid(6001),package_revision='1',bootstrap_sha256=ops['records']['manifest']['sha256'],parent=None,write_id=uid(6002),created_at='2026-09-27T00:00:00.000Z',minimum_reader=dict(major=1,minor=3),required_features=sorted(set(FEATURES+manifest_features+list(extra_features))),authored=active['authored'],history=active['history'],inventory=active['inventory'],root_set=roots,extensions={})
  if mode=='missing-capability':commit['required_features'].remove('photara.scalable-storage.v1')
  head=dict(schema=dict(id='photara.package.head',version=1),project_id=P,commit_id=commit['commit_id'],commit_sha256=sha(enc(commit)))
  loose=[ledger,envelope,overlay];manifest=ops['records']['manifest']['input'];controlcharge=sum(rounded(len(enc(v))) for v in loose+[manifest,head,commit]);assert controlcharge<=STANDING
