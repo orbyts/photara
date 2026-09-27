@@ -7,12 +7,12 @@ pub(in super::super) mod accounting;
 const MAX_RECIPE: usize = 48 * 1024;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub(in super::super) struct Prefix {
-    pack: u64,
-    end: u64,
-    dev: u64,
-    ino: u64,
-    observed_charge: u64,
-    sha: String,
+    pub(super) pack: u64,
+    pub(super) end: u64,
+    pub(super) dev: u64,
+    pub(super) ino: u64,
+    pub(super) observed_charge: u64,
+    pub(super) sha: String,
 }
 impl Prefix {
     pub(in super::super) fn capture(arena: &Arena) -> Result<Self> {
@@ -36,7 +36,7 @@ pub(in super::super) struct Recipe {
     digest: String,
     claims: Vec<Claim>,
     self_covered: bool,
-    control_base: Selection,
+    pub(super) control_base: Selection,
     data_base: Prefix,
     meta_base: Prefix,
     data: WritePlan,

@@ -33,7 +33,7 @@ impl Preview {
     pub(super) fn tail(&self) -> Vec<u8> {
         self.objects.values().flatten().copied().collect()
     }
-    pub(super) fn persist(self, source: &mut Store, partial: bool) -> Result<()> {
+    pub(super) fn verify_present(&self, source: &mut Store) -> Result<usize> {
         let tail = self.tail();
         let len = source.file.metadata().map_err(|e| e.to_string())?.len();
         ensure(
@@ -51,6 +51,12 @@ impl Preview {
             observed == tail[..present],
             "source tail differs from original plan",
         )?;
+        Ok(present)
+    }
+    pub(super) fn persist(self, source: &mut Store, partial: bool) -> Result<()> {
+        let present = self.verify_present(source)?;
+        let tail = self.tail();
+        let len = self.base + present as u64;
         let remaining = &tail[present..];
         let write = if partial {
             &remaining[..remaining.len() / 2]

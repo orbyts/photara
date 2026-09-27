@@ -29,15 +29,13 @@ mutation.
 
 The immediate PS2 engineering step remains disposable integration:
 
-1. compose the verified fresh-generation enrollment prerequisite with the
-   original Graph token before journal acceptance and bound charge-finalization space;
-2. extend the same-tip Graph/ownership path through rollover and packs created
-   and sealed within a single operation;
-3. compose live-object relocation with exact typed claim release and retirement,
-   retaining every active/recovery/all-pin obligation;
-4. measure sustained growth/turnover under fixed capacity for both the provisional
-   B-tree lead and radix comparator;
-5. complete qualified storage/barrier evidence and the permanent-wire review.
+1. remove the measured retirement-ticket serialization limit through a bounded
+   original-plan commitment experiment, retaining the 48 KiB control cap;
+2. demonstrate useful repeated reclamation under fixed capacity for both the
+   provisional B-tree lead and radix comparator, distinguishing required retained
+   receipts/live growth from garbage and maintenance overhead;
+3. complete the scalable wire candidate and linked canonical vectors for review;
+4. complete qualified storage/barrier evidence and the permanent-wire review.
 
 Only consolidated evidence from that integration may support review/freeze of
 the permanent wire and implementation of the shared Rust reader, writer,
@@ -97,13 +95,27 @@ separate PS2 prerequisite.
   source/pack growth without shrinking credit, and transfers a sealed allocation
   charge through typed claim removal, original-token unlink authorization,
   directory barrier and fresh absence before project-only credit. Current
-  retirement evidence uses already-dead metadata placements; live relocation
-  remains a separate gate.
+  retirement evidence now also covers live semantic, ownership and locator
+  relocation. All pin obligations and independent root closures remain checked.
 - [Fresh-generation enrollment](architecture/PS2_FRESH_GENERATION_ENROLLMENT.md)
   selects the original hold before creation and promotes at most eight witnessed
   empty packs under that token. Ten focused tests and the 100-index/seven-Graph
-  regression pass. Empty/partial unbound stages fence; Graph payload, rollover
-  and charge-finalization integration remain open.
+  regression pass. Empty/partial unbound stages fence. The subsequent
+  [witnessed Graph rollover](architecture/PS2_GRAPH_WITNESSED_ROLLOVER.md)
+  integrates birth, payload, born-and-sealed generations and exact charge
+  finalization under the original token. Eight main and seven independent
+  adversarial tests pass. The combined regression passes all 126 index/placement
+  tests and seven original Graph tests, plus strict example Clippy and targeted
+  formatting.
+- [Live-owned relocation](architecture/PS2_LIVE_OWNED_RELOCATION.md) moves both
+  roots before exact selected unlink authorization and once-only project credit.
+  Runtime Graph-born/sealed sources retain original receipts across relocation.
+  Fixed-budget runs still hit the 48 KiB full-plan ticket cap on every scheduled
+  maintenance attempt; sustained useful reclamation is unproven. Compact suffix
+  commitments are the next engineering experiment, not a permanent format.
+- A [scalable wire review candidate](architecture/PS2_SCALABLE_WIRE_REVIEW_CANDIDATE.md)
+  describes typed closure, placement and accounting records and required linked
+  vectors. It is an unfrozen draft; the vectors and final readiness review remain.
 - The local macOS syscall/fault matrix and three explicitly authorized disposable
   [APFS clean-remount cases](architecture/PS2_MACOS_CLEAN_REMOUNT.md) provide
   evidence. Abrupt-power, provider-path and production `Saved` qualification
@@ -144,9 +156,9 @@ disposable proofs, not production deletion.
 
 - No permanent PS2 wire, production package reader/writer, live conversion,
   migration, production GC, Asset Store or production `Accepted`/`Saved` path.
-- No qualified production barrier path. Same-tip disposable Graph/ownership
-  integration and project-charge settlement do not yet cover fresh rollover,
-  live owned-pack relocation or sustained large-project capacity turnover.
+- No qualified production barrier path. Disposable Graph rollover and live
+  relocation are integrated, but useful sustained fixed-budget reclamation and
+  large-project capacity turnover remain unproven.
 - No shared Rust production session coordinator, writer queue or native
   autosave status/recovery path (PS3).
 - No safe real project browse/reopen/switch flow on that durability boundary

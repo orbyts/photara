@@ -31,16 +31,15 @@ ticket while retaining full charge. All additional pin classes refuse before
 admission. Selected unlink authorization precedes the namespace effect; directory
 barrier and fresh absence precede project credit. Missing files without that
 selected authorization, inode replacement and unknown controls refuse. The current
-retirement demonstration uses already-dead metadata placements, not live-object
-relocation. A one-page case returned 4 KiB but created 4 KiB of metadata: net zero
+initial retirement demonstration used already-dead metadata placements. A one-page case returned 4 KiB but created 4 KiB of metadata: net zero
 project capacity. A 64-record case returned 20 KiB against 4 KiB growth,
 releasing 16 KiB of project charge. No project-ledger result establishes filesystem
 availability.
 
-The [joint Graph/ownership fixture](PS2_GRAPH_JOINT_OWNERSHIP.md) now shares one
+The [joint Graph/ownership fixture](PS2_GRAPH_JOINT_OWNERSHIP.md) shares one
 actual-v3 publication and original token across genuine commands, exact receipts,
 semantic changes and self-owned suffixes. Recovery derives from the previous
-active Graph state and ownership tree together. Its bounded fixed point refuses
+active Graph state and ownership tree together. That earlier same-tip path refuses
 fresh rollover before effects. Source staging retains its own attributable
 high-water record and standing scratch allowance; it is not refundable pack
 ownership. Original-token completion charges observed source/tip growth once,
@@ -63,7 +62,61 @@ maps, phase interruptions, staged-selector reconciliation, altered recovered
 liabilities and no-effect capacity/envelope refusal. Unbound empty/partial stages
 remain fenced. The subsequent full regression passes 100 index tests and seven
 Graph tests; strict Clippy and formatting pass. This prerequisite accepts no
-Graph journal and does not yet execute payload rollover or charge finalization.
+Graph journal by itself. The subsequent integration below executes payload
+rollover and charge finalization under the same original admission.
+
+The [witnessed Graph rollover integration](PS2_GRAPH_WITNESSED_ROLLOVER.md)
+enrolls every fresh destination before journal effects, sizes a finite
+finalization corridor before admission, and selects semantic/ownership roots
+and exact measured charge together. The original reserve never expands;
+consumed growth becomes committed charge while the remaining reservation covers
+cleanup. Both map implementations cover generations born and sealed in one
+operation, original receipts, historical growable pins and interrupted phase
+replay. Eight main tests and seven independent corruption/refusal tests pass.
+Twelve refreshed eight-operation measurements write 981,384–2,077,730 bytes
+with 95–189 sync calls. These local fixture costs do not establish production
+latency or qualified durability.
+
+The [combined regression](verification/ps2-integrated-rollover-regression-20260927.json)
+passes all 126 index/placement tests and seven original Graph tests, including
+runtime-born relocation and both fixed-capacity budgets. Strict example Clippy,
+targeted Rustfmt and whitespace checks pass. The record binds source and raw
+measurement hashes and notes an unrelated preexisting workspace-format difference.
+
+[Live-owned relocation](PS2_LIVE_OWNED_RELOCATION.md) now copies selected
+semantic and ownership records or rewrites selected locator pages, removes the
+source claim independently from both roots, and reuses exact selected unlink,
+directory barrier, fresh absence and once-only credit. A garbage-rich synthetic
+source returns 45,056 bytes against 12,288 bytes of growth; all-live examples
+remain net negative. Runtime Graph-born/sealed sources also relocate with their
+original receipts intact. No filesystem availability credit is inferred.
+
+The current full-plan retirement ticket still exceeds its unchanged 48 KiB cap
+for larger candidates. Fixed-capacity runs preserve original admission and
+refuse without effects, but every scheduled maintenance attempt hits that cap.
+They establish finite admission behavior, not sustained reclamation. The next
+authorized experiment replaces embedded replay bodies with exact bounded suffix
+commitments, preserving original reconstruction, complete suffix verification,
+all pins and the same control cap. Required live content and retained receipts
+may legitimately grow; an indefinite capacity plateau is not promised.
+
+| Fixed-budget genuine Graph run | Radix | B-tree |
+| --- | ---: | ---: |
+| Tight limit, 23,367,680 bytes | 32 authored records | 32 authored records |
+| Wide limit, 39,882,752 bytes | 672 authored records | 656 authored records |
+| Successful scheduled maintenance | 0 | 0 |
+
+Both budgets are selected before their runs, both retain every original receipt,
+and each next Graph admission refuses without effects. The detailed
+[samples and refusals](verification/ps2-fixed-capacity-turnover.jsonl) retain
+the actual reasons; no mid-run budget increase or speculative credit is used.
+
+The [scalable wire candidate](PS2_SCALABLE_WIRE_REVIEW_CANDIDATE.md) reconciles
+the earlier flat appendix with typed indexes, independent placement/ownership
+closure, original admission and physical accounting. It explicitly separates
+portable identities from local allocation evidence. Linked canonical vectors,
+the compact-manifest experiment and final readiness review remain engineering
+work; this draft does not freeze compatibility or authorize production code.
 
 The macOS syscall and split-process matrix has been rerun. Three explicitly
 authorized private APFS-image clean-remount cases cover successful publication
@@ -74,12 +127,10 @@ qualification. See [clean-remount evidence](PS2_MACOS_CLEAN_REMOUNT.md).
 
 The remaining engineering dependency is:
 
-1. compose the verified fresh-generation prerequisite under the original Graph
-   token before acceptance, with rollover and exact charge finalization for generations
-   created and sealed within one bounded operation;
-2. integrate live-object relocation with typed retirement, preserve all roots,
-   pins and unresolved obligations, and measure sustained fixed-budget turnover
-   at meaningful scale for both maps;
+1. remove the observed full-plan serialization bottleneck using exact compact
+   commitments and verify replay before and after source retirement;
+2. demonstrate useful repeated eligible reclamation under fixed budgets for
+   both maps, distinguishing unavoidable retained state from maintenance cost;
 3. complete qualified barrier/storage evidence and present the permanent
    recipe/wire for review before shared production reader/writer implementation.
 

@@ -8,9 +8,10 @@
 //! lease or hostile-namespace policy. Empty/partial unbound markers fence; they
 //! are never adopted or deleted. Once selected, inode witnesses are mandatory.
 //!
-//! All promoted packs remain EMPTY and fully covered by the original hold.
-//! Graph journal acceptance, payload recipes, rollover and settlement are later
-//! integration. In particular, created-and-sealed charges need a pre-admitted
+//! Enrollment leaves promoted packs EMPTY and covered by the original hold.
+//! Joint admission commits the Graph binding and finite rollover reservation
+//! before any stage creation; the rollover dispatcher owns journal acceptance,
+//! payload recipes and settlement after all generations have been promoted. In particular, created-and-sealed charges need a pre-admitted
 //! finalization corridor in the last two tips; do not invent predicted refunds
 //! or let charge-record insertion trigger an unreserved rollover.
 #![allow(
@@ -42,6 +43,18 @@ struct Plan {
     // Captured once with no holds. Never nest successive selected HEADs here.
     base: Selection,
     slots: Vec<Slot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    joint: Option<JointAdmission>,
+}
+/// Compact immutable admission commitments, never a second mutable authority.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct JointAdmission {
+    graph_sha: String,
+    rollover_sha: String,
+    target: Head,
+    admitted: BTreeMap<u64, u64>,
+    control: u64,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -258,7 +271,7 @@ fn read_marker(file: &mut File, expected: &[u8], allow_empty: bool) -> Result<()
         "unknown birth marker; no adoption or deletion",
     )
 }
-fn control(f: &Fixture, role: &str) -> Result<Option<Selection>> {
+pub(in super::super) fn control(f: &Fixture, role: &str) -> Result<Option<Selection>> {
     let path = f.dir.join(role);
     let Some(m) = metadata(&path)? else {
         return Ok(None);
@@ -289,7 +302,8 @@ fn validate_selector(h: &Selection, original: &Liability) -> Result<Birth> {
     let initial = original.birth.as_ref().ok_or("original birth absent")?;
     initial.validate()?;
     ensure(birth.plan == initial.plan, "birth immutable plan changed")?;
-    let canonical = canonical_initial(initial)?;
+    let canonical =
+        canonical_initial(initial, original.graph.as_ref(), original.rollover.as_ref())?;
     let mut supplied = original.clone();
     supplied.birth.clone_from(&canonical.birth);
     ensure(
@@ -313,7 +327,11 @@ fn validate_selector(h: &Selection, original: &Liability) -> Result<Birth> {
     )?;
     Ok(birth)
 }
-fn canonical_initial(birth: &Birth) -> Result<Liability> {
+fn canonical_initial(
+    birth: &Birth,
+    graph: Option<&graph_journal::Binding>,
+    rollover: Option<&rollover::Rollover>,
+) -> Result<Liability> {
     birth.validate()?;
     let mut initial = birth.clone();
     initial.phases.fill(Phase::Intended);
@@ -331,9 +349,10 @@ fn canonical_initial(birth: &Birth) -> Result<Liability> {
     let budget = (birth.plan.slots.len() as u64)
         .checked_mul(PACK + 32768)
         .ok_or("birth reserve overflow")?;
-    Ok(Liability {
+    let mut hold = Liability {
         birth: Some(initial),
         retirement_ticket: None,
+        rollover: None,
         graph: None,
         token: birth.plan.token,
         epoch: base.epoch,
@@ -343,7 +362,83 @@ fn canonical_initial(birth: &Birth) -> Result<Liability> {
         continuation: None,
         control,
         origin: Continuation::from_selection(base),
-    })
+    };
+    if let Some(joint) = &birth.plan.joint {
+        let graph = graph.ok_or("joint birth Graph binding absent")?;
+        let rollover = rollover.ok_or("joint birth rollover admission absent")?;
+        let counts = rollover.generation_counts()?;
+        let actual_counts = (
+            birth.plan.slots.iter().filter(|s| s.data).count() as u64,
+            birth.plan.slots.iter().filter(|s| !s.data).count() as u64,
+        );
+        ensure(
+            graph.is_joint()
+                && hash(&serde_json::to_vec(graph).map_err(error)?) == joint.graph_sha
+                && birth.plan.request_sha == joint.graph_sha
+                && rollover.initial_admission_sha()? == joint.rollover_sha
+                && rollover.base() == base
+                && rollover.origin() == hold.origin
+                && rollover.target() == &joint.target
+                && rollover.admitted() == &joint.admitted
+                && rollover.control() == joint.control
+                && counts == actual_counts
+                && joint.control >= control
+                && joint.admitted.len() == 1
+                && joint.admitted.get(&0).is_some_and(|n| {
+                    budget
+                        .checked_add(joint.control)
+                        .is_some_and(|min| *n >= min)
+                }),
+            "joint birth differs from immutable original admission",
+        )?;
+        hold.graph = Some(graph.clone());
+        hold.rollover = Some(rollover.initial());
+        hold.target.clone_from(&joint.target);
+        hold.by_domain.clone_from(&joint.admitted);
+        hold.control = joint.control;
+    } else {
+        ensure(
+            graph.is_none() && rollover.is_none(),
+            "standalone birth acquired joint authority",
+        )?;
+    }
+    Ok(hold)
+}
+/// Authenticate all original liability fields, normalizing only the two phase histories.
+/// The immutable plan commitments, rather than recovered hold amounts, are authority.
+pub(in super::super) fn validate_joint_identity(hold: &Liability) -> Result<()> {
+    let birth = hold.birth.as_ref().ok_or("joint birth absent")?;
+    ensure(birth.plan.joint.is_some(), "joint birth admission absent")?;
+    let canonical = canonical_initial(birth, hold.graph.as_ref(), hold.rollover.as_ref())?;
+    let mut normalized = hold.clone();
+    normalized.birth.clone_from(&canonical.birth);
+    normalized.rollover.clone_from(&canonical.rollover);
+    ensure(normalized == canonical, "joint original liability changed")
+}
+pub(in super::super) fn phase_count(birth: &Birth) -> Result<u64> {
+    birth.validate()?;
+    birth
+        .phases
+        .iter()
+        .try_fold(0, |n, phase| checked(n, phase.ordinal()))
+}
+pub(in super::super) fn base_epoch(birth: &Birth) -> u64 {
+    birth.plan.base.epoch
+}
+pub(in super::super) fn promoted_generations(birth: &Birth) -> Result<Vec<(bool, u64, u64, u64)>> {
+    birth.validate()?;
+    birth
+        .plan
+        .slots
+        .iter()
+        .zip(&birth.phases)
+        .map(|(slot, phase)| {
+            let Phase::Promoted(w) = phase else {
+                return Err("birth generation not promoted".into());
+            };
+            Ok((slot.data, slot.pack, w.dev, w.ino))
+        })
+        .collect()
 }
 fn transition(old: &Birth, new: &Birth) -> Result<()> {
     ensure(old.plan == new.plan, "birth transition plan changed")?;
@@ -373,7 +468,35 @@ pub(in super::super) fn admit_gate_change(selected: &Selection, gate: &GateState
         return Ok(());
     }
     let exact = current.or(incoming).ok_or("birth transition absent")?;
-    let original = canonical_initial(exact.birth.as_ref().ok_or("birth absent")?)?;
+    if let Some(current) = current {
+        let birth = current.birth.as_ref().ok_or("birth absent")?;
+        if birth.plan.joint.is_some()
+            && birth.phases.iter().all(|p| matches!(p, Phase::Promoted(_)))
+            && (current.rollover.as_ref().is_some_and(|r| !r.is_birth())
+                || incoming
+                    .and_then(|h| h.rollover.as_ref())
+                    .is_some_and(|r| !r.is_birth()))
+        {
+            validate_joint_identity(current)?;
+            if current
+                .rollover
+                .as_ref()
+                .is_some_and(rollover::Rollover::is_birth)
+            {
+                validate_selector(selected, current)?;
+            }
+            if let Some(next) = incoming {
+                validate_joint_identity(next)?;
+                ensure(next.birth == current.birth, "joint birth witnesses changed")?;
+            }
+            return rollover::validate_gate_transition(selected, gate);
+        }
+    }
+    let original = canonical_initial(
+        exact.birth.as_ref().ok_or("birth absent")?,
+        exact.graph.as_ref(),
+        exact.rollover.as_ref(),
+    )?;
     let mut prospective = selected.clone();
     prospective.gate = gate.clone();
     prospective.epoch = checked(selected.epoch, 1)?;
@@ -457,6 +580,42 @@ fn reserve_capped(
     birth_cap: usize,
     head_cap: usize,
 ) -> Result<Liability> {
+    reserve_original(
+        f,
+        (data_count, meta_count),
+        request_sha,
+        (birth_cap, head_cap),
+        None,
+    )
+}
+pub(in super::super) fn reserve_joint(
+    f: &mut Fixture,
+    binding: graph_journal::Binding,
+    rollover: rollover::Rollover,
+) -> Result<Liability> {
+    ensure(
+        rollover.is_birth() && rollover.base() == &f.head,
+        "joint birth original base",
+    )?;
+    let counts = rollover.generation_counts()?;
+    let request_sha = hash(&serde_json::to_vec(&binding).map_err(error)?);
+    reserve_original(
+        f,
+        counts,
+        &request_sha,
+        (MAX_BIRTH, GATE_MAX),
+        Some((binding, rollover)),
+    )
+}
+fn reserve_original(
+    f: &mut Fixture,
+    counts: (u64, u64),
+    request_sha: &str,
+    caps: (usize, usize),
+    joint: Option<(graph_journal::Binding, rollover::Rollover)>,
+) -> Result<Liability> {
+    let (data_count, meta_count) = counts;
+    let (birth_cap, head_cap) = caps;
     ensure(
         !f.imported_read_only
             && f.head
@@ -508,6 +667,18 @@ fn reserve_capped(
             directory_ino: directory.ino(),
             base: f.head.clone(),
             slots,
+            joint: joint
+                .as_ref()
+                .map(|(binding, rollover)| -> Result<_> {
+                    Ok(JointAdmission {
+                        graph_sha: hash(&serde_json::to_vec(binding).map_err(error)?),
+                        rollover_sha: rollover.initial_admission_sha()?,
+                        target: rollover.target().clone(),
+                        admitted: rollover.admitted().clone(),
+                        control: rollover.control(),
+                    })
+                })
+                .transpose()?,
         },
     };
     birth.validate()?;
@@ -519,27 +690,14 @@ fn reserve_capped(
             "occupied birth namespace refuses before reservation",
         )?;
     }
-    // Includes full final pack capacity, marker staging and namespace/COW budget.
-    // It is only a modeled admission bound, never qualified OS reservation.
-    let budget = (birth.plan.slots.len() as u64)
-        .checked_mul(PACK + 32768)
-        .ok_or("birth reserve overflow")?;
-    let control = checked(f.control_bound(&gate)?, 65536)?;
-    let hold = Liability {
-        birth: Some(birth),
-        retirement_ticket: None,
-        graph: None,
-        token,
-        epoch: f.head.epoch,
-        target: f.head.semantic.clone(),
-        retirement: None,
-        by_domain: BTreeMap::from([(0, checked(budget, control)?)]),
-        continuation: None,
-        control,
-        origin: Continuation::from_selection(&f.head),
-    };
+    // Canonical reconstruction is shared by admission and every recovered selector.
+    let (binding, rollover) = joint.unzip();
+    let hold = canonical_initial(&birth, binding.as_ref(), rollover.as_ref())?;
     gate.holds.insert(token, hold.clone());
     preflight_maximum(f, &gate, &hold, birth_cap, head_cap)?;
+    if hold.rollover.is_some() {
+        rollover::preflight_controls(f, &hold)?;
+    }
     gate.validate()?;
     f.select_gate(gate)?;
     validate_selector(&f.head, &hold)?;
@@ -615,6 +773,18 @@ fn advance(
     f.select_gate_cut(gate, cut)
 }
 
+pub(in super::super) fn resume_joint(f: &mut Fixture, original: &Liability) -> Result<Liability> {
+    validate_joint_identity(original)?;
+    ensure(
+        original
+            .rollover
+            .as_ref()
+            .is_some_and(rollover::Rollover::is_birth),
+        "joint enrollment already left birth",
+    )?;
+    resume(f, original, Fault::None)
+}
+
 /// Complete enrollment only; keep the original liability selected and charged.
 #[allow(
     clippy::too_many_lines,
@@ -685,6 +855,7 @@ fn resume(f: &mut Fixture, original: &Liability, fault: Fault) -> Result<Liabili
                     marker.len()
                 };
                 file.write_all(&marker[..count]).map_err(error)?;
+                f.c.envelope_write_bytes += count as u64;
                 cut(fault, Fault::PartialMarker)?;
                 cut(fault, Fault::MarkerBytes)?;
             }
@@ -751,6 +922,7 @@ fn resume(f: &mut Fixture, original: &Liability, fault: Fault) -> Result<Liabili
                 open_private(&stage, Some(&w), 2)?;
                 open_private(&destination, Some(&w), 2)?;
                 fs::remove_file(&stage).map_err(error)?;
+                f.c.files_deleted += 1;
                 cut(fault, Fault::AfterStageUnlink)?;
             }
             sync_dir(&f.dir, &mut f.c)?;
@@ -781,10 +953,120 @@ fn resume(f: &mut Fixture, original: &Liability, fault: Fault) -> Result<Liabili
         .ok_or("birth hold vanished")?
         .clone();
     ensure(
-        f.head.semantic == original.target && current.by_domain == original.by_domain,
+        f.head.semantic == birth.plan.base.semantic && current.by_domain == original.by_domain,
         "birth changed semantic target or capacity",
     )?;
     Ok(current)
+}
+
+#[cfg(test)]
+pub(in super::super) fn reserve_joint_partial_marker(
+    f: &mut Fixture,
+    binding: graph_journal::Binding,
+    rollover: rollover::Rollover,
+) -> Result<Liability> {
+    let original = reserve_joint(f, binding, rollover)?;
+    ensure(
+        resume(f, &original, Fault::PartialMarker).is_err(),
+        "joint partial marker cut missing",
+    )?;
+    Ok(original)
+}
+
+/// Called by the real Graph fixture after its no-effect request preparation.
+#[cfg(test)]
+pub(in super::super) fn exercise_joint_birth(
+    f: &mut Fixture,
+    binding: graph_journal::Binding,
+    rollover: rollover::Rollover,
+) -> Result<Liability> {
+    let original = reserve_joint(f, binding, rollover)?;
+    let charge = f.head.gate.domains[&0].charged;
+    ensure(
+        resume(f, &original, Fault::StagedWitnessHead).is_err(),
+        "joint birth cut missing",
+    )?;
+    *f = Fixture::reopen_combined(&f.dir)?;
+    let selected = f.head.clone();
+    let clean = fs::read(f.dir.join("HEAD")).map_err(error)?;
+    // Recover the original from selected bytes, and mutate one field at a time;
+    // never supply a cached untampered hold that could mask self-authentication.
+    for mode in 0..8 {
+        let mut altered = selected.clone();
+        let hold = altered
+            .gate
+            .holds
+            .get_mut(&original.token)
+            .ok_or("joint hold")?;
+        match mode {
+            0 => {
+                hold.by_domain.insert(0, 0);
+            }
+            1 => {
+                hold.by_domain.insert(0, hold.by_domain[&0] - 1);
+            }
+            2 => {
+                hold.control += 1;
+            }
+            3 => {
+                hold.origin.data_end += 1;
+            }
+            4 => {
+                hold.target.active.sha = hash(b"altered joint target");
+            }
+            5 => {
+                hold.epoch += 1;
+            }
+            6 => {
+                hold.graph = None;
+            }
+            _ => {
+                hold.rollover = None;
+            }
+        }
+        let bytes = serde_json::to_vec(&altered).map_err(error)?;
+        fs::write(f.dir.join("HEAD"), &bytes).map_err(error)?;
+        let before = f.snapshot()?;
+        // The shared gate may reject malformed original fields during open,
+        // before the narrower birth dispatcher receives a recovered hold.
+        if let Ok(reopened) = Fixture::reopen_combined(&f.dir) {
+            *f = reopened;
+            let recovered = f.head.gate.holds[&original.token].clone();
+            ensure(
+                resume_joint(f, &recovered).is_err(),
+                "joint changed original accepted",
+            )?;
+        }
+        ensure(
+            fs::read(f.dir.join("HEAD")).map_err(error)? == bytes && f.snapshot()? == before,
+            "joint refusal changed evidence",
+        )?;
+    }
+    fs::write(f.dir.join("HEAD"), &clean).map_err(error)?;
+    *f = Fixture::reopen_combined(&f.dir)?;
+    let recovered = f.head.gate.holds[&original.token].clone();
+    let promoted = resume_joint(f, &recovered)?;
+    validate_joint_identity(&promoted)?;
+    let birth = promoted.birth.as_ref().ok_or("promoted joint birth")?;
+    ensure(
+        promoted.token == original.token
+            && promoted.by_domain == original.by_domain
+            && promoted.target == original.target
+            && promoted.control == original.control
+            && promoted.graph == original.graph
+            && promoted.rollover == original.rollover
+            && f.head.gate.domains[&0].charged == charge
+            && promoted_generations(birth)?.len() == birth.plan.slots.len(),
+        "joint enrollment changed admission",
+    )?;
+    let before = f.snapshot()?;
+    let head = fs::read(f.dir.join("HEAD")).map_err(error)?;
+    resume_joint(f, &promoted)?;
+    ensure(
+        f.snapshot()? == before && fs::read(f.dir.join("HEAD")).map_err(error)? == head,
+        "joint completed birth retry changed state",
+    )?;
+    Ok(promoted)
 }
 
 #[cfg(test)]

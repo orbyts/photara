@@ -8,6 +8,9 @@ use super::typed_inventory::{graph as ownership_graph, recipe, retirement_ledger
 use super::*;
 use crate::graph_model::{self as graph, Record, State};
 
+#[path = "graph_journal/rollover_dispatch.rs"]
+mod rollover_dispatch;
+
 const JOURNAL_MAX: usize = 256 * 1024;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 struct Group {
@@ -31,6 +34,9 @@ pub(super) struct Binding {
     pub(super) source_charge: Option<ownership_graph::SourceCharge>,
 }
 impl Binding {
+    pub(super) fn control_base(&self) -> &Selection {
+        &self.control_base
+    }
     pub(super) fn is_joint(&self) -> bool {
         self.ownership.is_some() && self.source_charge.is_some()
     }
@@ -978,6 +984,9 @@ fn run(n: u64, kind: Kind, joint: bool) -> Result<serde_json::Value> {
     )
 }
 pub(super) fn run_cli(args: &[String]) -> Result<()> {
+    if args.first().is_some_and(|s| s == "rollover") {
+        return rollover_dispatch::run_cli(&args[1..]);
+    }
     let joint = args.first().is_some_and(|s| s == "joint");
     let args = if joint { &args[1..] } else { args };
     println!(

@@ -13,6 +13,8 @@ pub(super) mod graph;
 pub(super) mod recipe;
 #[path = "typed_inventory/retirement_ledger.rs"]
 pub(super) mod retirement_ledger;
+#[path = "typed_inventory/rollover.rs"]
+pub(super) mod rollover;
 pub(super) const OWNER_KEY: u64 = 1 << 63;
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub(super) enum Membership {
@@ -593,6 +595,28 @@ fn publish_claim(f: &mut Fixture, claim: &Claim, cut: Cut) -> Result<serde_json:
     Ok(json!({"preflight":bound,"original_hold":hold.by_domain,"used_model":used}))
 }
 pub(super) fn run_cli(args: &[String]) -> Result<()> {
+    if args.first().is_some_and(|s| s == "relocation") {
+        let counts = if args.len() == 1 {
+            vec![0, 128]
+        } else {
+            args[1..]
+                .iter()
+                .map(|n| n.parse().map_err(error))
+                .collect::<Result<Vec<usize>>>()?
+        };
+        for garbage in counts {
+            ensure(garbage <= 128, "bounded relocation garbage fixture")?;
+            for kind in [Kind::Radix, Kind::Btree] {
+                for data in [true, false] {
+                    println!(
+                        "{}",
+                        retirement_ledger::relocation::run(garbage, kind, data)?
+                    );
+                }
+            }
+        }
+        return Ok(());
+    }
     if args.first().is_some_and(|s| s == "ledger") {
         return retirement_ledger::run_cli(&args[1..]);
     }

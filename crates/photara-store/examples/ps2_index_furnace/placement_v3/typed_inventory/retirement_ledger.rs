@@ -19,6 +19,8 @@
     reason = "Actual-v3 opt-in accounting fixture"
 )]
 use super::*;
+#[path = "retirement_ledger/relocation.rs"]
+pub(in super::super) mod relocation;
 
 const BOOTSTRAP_UNITS: usize = 64;
 const CONTROL_FRAMES: u64 = 4;
@@ -252,7 +254,9 @@ pub(in super::super) struct RetirementTicket {
     // pin change during an uncertain unlink requires revalidation, not credit.
     data_base: recipe::Prefix,
     meta_base: recipe::Prefix,
+    #[serde(with = "relocation::plan_text")]
     data: WritePlan,
+    #[serde(with = "relocation::plan_text")]
     meta: WritePlan,
     tip_claims: Vec<Claim>,
     control_base: Selection,
@@ -1527,6 +1531,10 @@ fn validate_ticket_controls(f: &Fixture, exact: &Liability) -> Result<()> {
 /// Exhaustive fixture audit: every unit is counted once across current/pinned
 /// ownership, growable tips, original retirement tickets and finite enrollment.
 /// This is deliberately not an ordinary-open or checkpoint lifetime scan.
+#[allow(
+    clippy::too_many_lines,
+    reason = "Keep exact allocation union and held-growth provenance audit in one pass"
+)]
 pub(in super::super) fn audit_attribution(f: &mut Fixture) -> Result<()> {
     let Some(ledger) = f.head.gate.ledger.clone() else {
         return Ok(());
@@ -1562,6 +1570,7 @@ pub(in super::super) fn audit_attribution(f: &mut Fixture) -> Result<()> {
     for pin in f.head.gate.pins.values() {
         roots.extend([pin.active.clone(), pin.recovery.clone()]);
     }
+    let mut historical_growable = vec![];
     for root in roots {
         for r in f.audit_inventory(&root)? {
             if let OwnedNode::Leaf { claim } = f.owned_node(&root, &r)? {
@@ -1574,15 +1583,10 @@ pub(in super::super) fn audit_attribution(f: &mut Fixture) -> Result<()> {
                     insert(&mut units, charge)?;
                 } else {
                     ensure(
-                        claim.charge.is_none()
-                            && ledger.tips.iter().any(|t| {
-                                t.data == claim.data
-                                    && t.pack == claim.pack
-                                    && t.dev == claim.dev
-                                    && t.ino == claim.ino
-                            }),
-                        "growable claim has no canonical tip charge",
+                        claim.charge.is_none(),
+                        "growable claim carries competing charge",
                     )?;
+                    historical_growable.push(claim);
                 }
             }
         }
@@ -1595,6 +1599,61 @@ pub(in super::super) fn audit_attribution(f: &mut Fixture) -> Result<()> {
             )?;
             insert(&mut units, ticket.allocation.clone())?;
         }
+    }
+    for claim in historical_growable {
+        let canonical = units.get(&(claim.data, claim.pack));
+        let identity = canonical.is_some_and(|c| c.dev == claim.dev && c.ino == claim.ino);
+        let already_covered = canonical.is_some_and(|c| c.extent >= claim.extent);
+        let current_tip = ledger.tips.iter().any(|t| {
+            t.data == claim.data && t.pack == claim.pack && t.dev == claim.dev && t.ino == claim.ino
+        });
+        let mut covered_growth = false;
+        if identity && !already_covered && current_tip {
+            let holds = f.head.gate.holds.values().cloned().collect::<Vec<_>>();
+            for h in holds {
+                let Some(c) = &h.continuation else {
+                    continue;
+                };
+                let (pack, end) = if claim.data {
+                    (c.data_pack, c.data_end)
+                } else {
+                    (c.meta_pack, c.meta_end)
+                };
+                if c.active != f.head.active
+                    || c.recovery != f.head.recovery
+                    || c.inventory != f.head.inventory
+                    || pack != claim.pack
+                    || end < claim.extent
+                {
+                    continue;
+                }
+                if let Some(ticket) = &h.retirement_ticket {
+                    ticket.validate_selected(f, &h)?;
+                    validate_ticket_controls(f, &h)?;
+                } else if let Some(binding) = &h.graph {
+                    recipe::verify_controls(f, &h, binding.control_base())?;
+                } else if let Some(original) = &c.recipe {
+                    recipe::verify_controls(f, &h, &original.control_base)?;
+                } else {
+                    continue;
+                }
+                let (_, growth) = ledger.observe_tips(f)?;
+                ensure(
+                    growth
+                        <= h.by_domain
+                            .get(&0)
+                            .copied()
+                            .unwrap_or(0)
+                            .saturating_sub(h.control),
+                    "selected tip growth exceeds original allocation reserve",
+                )?;
+                covered_growth = true;
+            }
+        }
+        ensure(
+            identity && (already_covered || covered_growth),
+            "historical growable claim has no canonical allocation charge",
+        )?;
     }
     let mut total = ledger.control.charged;
     if let Some(source) = &ledger.source {
@@ -1712,4 +1771,169 @@ pub(super) fn run_cli(args: &[String]) -> Result<()> {
         );
     }
     Ok(())
+}
+
+impl AllocationCharge {
+    // Sizing only: never returned by an observation or eligible for publication.
+    pub(super) fn sizing(data: bool, pack: u64, dev: u64, ino: u64, extent: u64) -> Self {
+        Self {
+            domain: 0,
+            data,
+            pack,
+            dev,
+            ino,
+            extent,
+            charged_high_water: u64::MAX,
+        }
+    }
+}
+pub(super) fn rollover_sealed_charge(base: &Selection, claim: &Claim) -> Result<AllocationCharge> {
+    ensure(
+        claim.sealed && claim.content_end == claim.extent && claim.observed_charge >= claim.extent,
+        "rollover sealed complete measured allocation",
+    )?;
+    let ledger = base
+        .gate
+        .ledger
+        .as_ref()
+        .ok_or("rollover original ledger")?;
+    let old = ledger
+        .tips
+        .iter()
+        .find(|t| t.data == claim.data && t.pack == claim.pack);
+    if let Some(old) = old {
+        ensure(
+            old.dev == claim.dev && old.ino == claim.ino && old.extent <= claim.extent,
+            "rollover old tip attribution changed",
+        )?;
+    }
+    Ok(AllocationCharge {
+        domain: 0,
+        data: claim.data,
+        pack: claim.pack,
+        dev: claim.dev,
+        ino: claim.ino,
+        extent: claim.extent,
+        charged_high_water: claim
+            .observed_charge
+            .max(old.map_or(0, |c| c.charged_high_water)),
+    })
+}
+#[allow(
+    clippy::too_many_lines,
+    reason = "Validate every allocation before atomically transferring the ledger"
+)]
+pub(super) fn rollover_transfer(
+    f: &Fixture,
+    base: &Selection,
+    claims: &[Claim],
+    c: &Continuation,
+    source: &Store,
+) -> Result<(Ledger, u64)> {
+    let original = base
+        .gate
+        .ledger
+        .as_ref()
+        .ok_or("rollover original attributed ledger")?;
+    ensure(
+        original.pending_enrollment.is_empty(),
+        "rollover bootstrap incomplete",
+    )?;
+    let mut ledger = original.clone();
+    let mut observed = vec![];
+    let mut keys = HashSet::new();
+    for claim in claims {
+        ensure(
+            keys.insert((claim.data, claim.pack)),
+            "rollover duplicate allocation attribution",
+        )?;
+        let arena = if claim.data { &f.data } else { &f.meta };
+        let m = fs::symlink_metadata(arena.path(claim.pack)).map_err(error)?;
+        ensure(
+            m.is_file()
+                && m.nlink() == 1
+                && m.dev() == claim.dev
+                && m.ino() == claim.ino
+                && m.len() == claim.extent
+                && claim.extent <= PACK,
+            "rollover exact publication allocation",
+        )?;
+        let actual = m
+            .blocks()
+            .checked_mul(512)
+            .ok_or("rollover allocation overflow")?
+            .max(m.len());
+        let previous = original
+            .tips
+            .iter()
+            .find(|t| t.data == claim.data && t.pack == claim.pack);
+        if let Some(previous) = previous {
+            ensure(
+                previous.dev == claim.dev
+                    && previous.ino == claim.ino
+                    && previous.extent <= claim.extent,
+                "rollover transferred original tip generation",
+            )?;
+        }
+        let charge = AllocationCharge {
+            domain: 0,
+            data: claim.data,
+            pack: claim.pack,
+            dev: claim.dev,
+            ino: claim.ino,
+            extent: claim.extent,
+            charged_high_water: actual.max(previous.map_or(0, |p| p.charged_high_water)),
+        };
+        if claim.sealed {
+            ensure(
+                claim.charge.as_ref() == Some(&charge),
+                "rollover observed sealed attribution changed",
+            )?;
+        } else {
+            let (pack, end) = if claim.data {
+                (c.data_pack, c.data_end)
+            } else {
+                (c.meta_pack, c.meta_end)
+            };
+            ensure(
+                claim.charge.is_none() && claim.pack == pack && claim.extent == end,
+                "rollover exact final tip attribution",
+            )?;
+        }
+        observed.push((claim.sealed, charge));
+    }
+    for old in &original.tips {
+        ensure(
+            observed.iter().any(|(_, c)| {
+                c.data == old.data && c.pack == old.pack && c.dev == old.dev && c.ino == old.ino
+            }),
+            "rollover original tip lost attribution",
+        )?;
+    }
+    ledger.tips = observed
+        .iter()
+        .filter(|(sealed, _)| !*sealed)
+        .map(|(_, c)| c.clone())
+        .collect();
+    ensure(
+        ledger.tips.len() == 2 && ledger.tips[0].data && !ledger.tips[1].data,
+        "rollover exactly two final tips",
+    )?;
+    let old_charge = original
+        .tips
+        .iter()
+        .try_fold(0, |n, c| checked(n, c.charged_high_water))?;
+    let new_charge = observed
+        .iter()
+        .try_fold(0, |n, (_, c)| checked(n, c.charged_high_water))?;
+    let growth = new_charge
+        .checked_sub(old_charge)
+        .ok_or("rollover cannot refund old tips")?;
+    let registered = original
+        .source
+        .as_ref()
+        .ok_or("rollover original source attribution")?;
+    let (next_source, source_growth) = registered.observe_growth(source)?;
+    ledger.source = Some(next_source);
+    Ok((ledger, checked(growth, source_growth)?))
 }

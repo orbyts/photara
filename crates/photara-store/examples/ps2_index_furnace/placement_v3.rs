@@ -381,6 +381,7 @@ struct Fixture {
     cache: VecDeque<(PRef, Page)>,
     c: Counters,
     staged: Option<Vec<Page>>,
+    planned_metadata: Option<HashMap<PRef, Page>>,
     desired_gate: Option<GateState>,
     authorized_hold: Option<u64>,
     planning: bool,
@@ -487,6 +488,13 @@ impl Fixture {
                         .is_some_and(|end| end <= self.head.meta_end)),
             "metadata outside selected prefix",
         )?;
+        if let Some(page) = self
+            .planned_metadata
+            .as_ref()
+            .and_then(|pages| pages.get(r))
+        {
+            return Ok(page.clone());
+        }
         if let Some(i) = self.cache.iter().position(|(key, _)| key == r) {
             let item = self.cache.remove(i).unwrap();
             let page = item.1.clone();
@@ -817,6 +825,17 @@ impl Fixture {
             data_cursor: self.head.data_cursor,
             meta_cursor: self.head.meta_cursor,
         };
+        self.publish_exact(next, cut)
+    }
+    fn publish_exact(&mut self, next: Selection, cut: Cut) -> Result<()> {
+        ensure(
+            !self.imported_read_only && !self.dir.join("intent").exists(),
+            "unresolved or read-only exact publication",
+        )?;
+        ensure(
+            next.epoch == checked(self.head.epoch, 1)?,
+            "exact publication epoch",
+        )?;
         next.gate.validate()?;
         let old = self.head.clone();
         self.envelope("intent", &old)?;
@@ -952,6 +971,7 @@ impl Fixture {
             cache: VecDeque::new(),
             c,
             staged: None,
+            planned_metadata: None,
             desired_gate: None,
             authorized_hold: None,
             planning: false,
@@ -1658,6 +1678,8 @@ struct CapacityDomain {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct Liability {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    rollover: Option<typed_inventory::rollover::Rollover>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     birth: Option<typed_inventory::fresh_generation::Birth>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     retirement_ticket: Option<typed_inventory::retirement_ledger::RetirementTicket>,
@@ -1726,7 +1748,12 @@ fn checked(a: u64, b: u64) -> Result<u64> {
 impl GateState {
     fn held(&self, domain: u64) -> Result<u64> {
         self.holds.values().try_fold(0, |a, h| {
-            checked(a, h.by_domain.get(&domain).copied().unwrap_or(0))
+            let amount = if let Some(r) = &h.rollover {
+                r.remaining(domain)?
+            } else {
+                h.by_domain.get(&domain).copied().unwrap_or(0)
+            };
+            checked(a, amount)
         })
     }
     fn validate(&self) -> Result<()> {
@@ -1750,6 +1777,15 @@ impl GateState {
                 *token == hold.token && *token <= self.last_token,
                 "hold token structure",
             )?;
+            if let Some(r) = &hold.rollover {
+                ensure(
+                    r.admitted() == &hold.by_domain
+                        && r.control() == hold.control
+                        && r.target() == &hold.target
+                        && r.origin() == hold.origin,
+                    "rollover immutable admission differs from liability",
+                )?;
+            }
             for domain in hold.by_domain.keys() {
                 ensure(self.domains.contains_key(domain), "unknown capacity domain")?;
             }
@@ -1827,6 +1863,19 @@ impl Fixture {
     fn select_gate_cut(&mut self, mut gate: GateState, cut: Cut) -> Result<()> {
         typed_inventory::fresh_generation::admit_gate_change(&self.head, &gate)?;
         ensure(
+            !self
+                .head
+                .gate
+                .holds
+                .values()
+                .any(|h| h.rollover.as_ref().is_some_and(|r| !r.is_birth()))
+                && !gate
+                    .holds
+                    .values()
+                    .any(|h| h.rollover.as_ref().is_some_and(|r| !r.is_birth())),
+            "rollover phases require measured private publication",
+        )?;
+        ensure(
             !self.imported_read_only,
             "imported inventory requires explicit full audit",
         )?;
@@ -1851,7 +1900,19 @@ impl Fixture {
         }
         result
     }
+    fn admit_unrelated_gate_operation(&self) -> Result<()> {
+        ensure(
+            !self.head.gate.holds.values().any(|h| {
+                h.birth.is_some()
+                    || h.graph.is_some()
+                    || h.retirement_ticket.is_some()
+                    || h.continuation.as_ref().is_some_and(|c| c.recipe.is_some())
+            }),
+            "original bound operation must finish before unrelated gate mutation",
+        )
+    }
     fn acquire(&mut self, class: PinClass, unknown: bool) -> Result<Obligation> {
+        self.admit_unrelated_gate_operation()?;
         ensure(
             !matches!(class, PinClass::Active | PinClass::Recovery),
             "native root owns active/recovery pin",
@@ -1880,6 +1941,7 @@ impl Fixture {
         reader_finished: bool,
         reconciled: bool,
     ) -> Result<()> {
+        self.admit_unrelated_gate_operation()?;
         ensure(
             completed
                 && (exact.class != PinClass::ReaderLease || reader_finished)
@@ -1930,6 +1992,7 @@ impl Fixture {
         graph: Option<graph_journal::Binding>,
         retirement_ticket: Option<typed_inventory::retirement_ledger::RetirementTicket>,
     ) -> Result<Liability> {
+        self.admit_unrelated_gate_operation()?;
         if self.head.gate.ledger.is_some() {
             if let Some(binding) = &graph {
                 ensure(
@@ -1970,6 +2033,7 @@ impl Fixture {
             checked(by_domain.get(&0).copied().unwrap_or(0), control)?,
         );
         let mut hold = Liability {
+            rollover: None,
             birth: None,
             retirement_ticket,
             graph,
@@ -2192,6 +2256,7 @@ impl Fixture {
                 ..Counters::default()
             },
             staged: None,
+            planned_metadata: None,
             desired_gate: None,
             authorized_hold: None,
             planning: false,
