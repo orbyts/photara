@@ -7,6 +7,30 @@ requires field-level review before production reader changes. The
 extension; its examples do not silently supersede the existing operation,
 conversion-source or managed-resource requirements.
 
+## Minimal completion plan — 2026-09-29
+
+Use existing evidence to close this review; the historical matrix below is not
+an instruction to repeat every experiment under every newer fixture.
+
+| Remaining review item | Smallest required work |
+| --- | --- |
+| Whole-Blob selected closure | Finish the in-flight D19 shared-reader patch and affected regressions; reuse the existing corpus and Blob vectors. Preserve metadata-only structural access. |
+| Selected newborn and born-and-sealed attribution | First measure one two-slot case against the unchanged 131,072-byte/24-role control limits. If it fits, extend the existing phase target with one selected path and focused binding/charge/reserve negatives. Reuse the native furnace's crash/link/inode matrix. |
+| Pending resource origin | One selected original/phase-to-pending-evidence case in existing targets. Do not silently remove the approved variant to accelerate review. |
+| Retained Blob conversion | Check the existing retained-file path separates structural evidence from explicit strong media audit; fix only the concrete integration gap. |
+| Exact review packet | Reconcile the supported O/P/F variants, schema/capability dispatch, typed edges, bounds and evidence links into this review. Identify unresolved incompatibilities explicitly. |
+
+Existing sparse retirement proof, original conversion retention, four resource
+origins, receipt/no-op semantics, same-original publication and recovery evidence
+are reusable. Add a test only where the proposed final dispatch differs in a way
+those tests do not cover. A distinct codec-v2 transition is not required when
+only codec-v1 is proposed and unsupported codecs refuse.
+
+After this packet is reviewable, resolve the permanent-format boundary and
+implement the shared Rust path. Storage qualification remains a separate required
+PS2 exit condition; extra byte fixtures cannot satisfy it. PS3, PS4 and LL2a keep
+their roadmap order. No new product limit or weaker durability promise is implied.
+
 ## Evidence needed for the review
 
 | Area | Verified evidence | Remaining engineering |

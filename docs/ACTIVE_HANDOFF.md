@@ -30,6 +30,19 @@ PS2 is active. LL1 contract/schema/security review is advanced parallel work,
 but it cannot bypass PS2, PS3 or PS4 and does not authorize LL2 production
 mutation.
 
+### Execution priority — 2026-09-29
+
+Reach PS2 → PS3 → PS4 → LL2a with minimum token use. Reuse committed evidence;
+do not create another fixture family or repeat broad verification unless a
+specific exit requirement lacks evidence. Finish the current Blob integration,
+then consolidate one exact-wire review package and identify only concrete
+remaining blockers. Each further patch must close a named roadmap requirement.
+Run focused checks once, with affected regression checks after shared changes.
+Keep updates to completed gates, material findings or required decisions.
+Do not expand LL1 removal, UI polish, second-device acceptance or later platform
+work before LL2a. These efficiency constraints do not waive permanent-format,
+security, production or storage-qualification boundaries.
+
 The immediate PS2 engineering step is completing the reviewable wire candidate:
 
 1. compose the independently verified scalable resource-source factoring,
