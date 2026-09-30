@@ -151,7 +151,7 @@ pub(super) fn selected_original(w: &wire::World) -> Result<(Value, Value)> {
     )?;
     Ok((o, p))
 }
-fn packed_value(plan: &decoder::Plan, r: &Value) -> Result<Value> {
+pub(super) fn packed_value(plan: &decoder::Plan, r: &Value) -> Result<Value> {
     for bytes in plan.files.values() {
         let mut p = 0;
         while p < bytes.len() {
@@ -184,7 +184,7 @@ fn packed_value(plan: &decoder::Plan, r: &Value) -> Result<Value> {
     }
     Err("phase packed record absent")
 }
-fn publish_control(
+pub(super) fn publish_control(
     old: &wire::World,
     prior: &wire::World,
     root: Value,
@@ -380,7 +380,7 @@ fn rounded(n: usize) -> Result<u64> {
         .map(|n| n / 4096 * 4096)
         .ok_or("phase control rounding")
 }
-fn preflight(old: &wire::World, worlds: &[wire::World], o: &Value) -> Result<u64> {
+pub(super) fn preflight(old: &wire::World, worlds: &[wire::World], o: &Value) -> Result<u64> {
     let mut peak = 0;
     let mut prior = old;
     for next in worlds {

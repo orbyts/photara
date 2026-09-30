@@ -46,3 +46,22 @@ pub(crate) fn observe_blob(
     }
     Ok(observed)
 }
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct SnapshotDescription {
+    pub regular: bool,
+    pub physical: RawDescription,
+}
+/// Private snapshot metadata only; no selected descriptor authorizes byte access.
+pub(crate) trait SnapshotMetadata {
+    fn paths(&self) -> Result<BTreeSet<Vec<String>>>;
+    fn describe_file(&self, path: &[String]) -> Result<SnapshotDescription>;
+}
+pub(crate) trait SnapshotAudit: SnapshotMetadata {
+    fn audit_file(
+        &self,
+        path: &[String],
+        digest: &str,
+        registered: &SnapshotDescription,
+    ) -> Result<()>;
+}

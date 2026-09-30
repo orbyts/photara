@@ -26,8 +26,9 @@ obj=g.obj
 def tree(b,name,entries,entry_key=lambda e:e,order=lambda x:x,subtotal=None):
  entries=sorted(entries,key=lambda e:order(entry_key(e)));nodes=[];level=[]
  def add(v):nodes.append(v);return b.add(v)
- for i in range(0,max(1,len(entries)),4):
-  p=entries[i:i+4];fields=dict(count=str(len(p)),entries=p)
+ leafsize=3 if name in ['photara.storage.local-observation','photara.storage.charge','photara.package.retained-file-charge'] else 4
+ for i in range(0,max(1,len(entries)),leafsize):
+  p=entries[i:i+leafsize];fields=dict(count=str(len(p)),entries=p)
   if subtotal:fields['charged_high_water']=str(sum(int(subtotal(e)) for e in p))
   r=add(obj(name+'-leaf',**fields));s=dict(first=entry_key(p[0]) if p else None,last=entry_key(p[-1]) if p else None,count=fields['count'],child=r)
   if subtotal:s['charged_high_water']=fields['charged_high_water']
@@ -45,7 +46,9 @@ def tree(b,name,entries,entry_key=lambda e:e,order=lambda x:x,subtotal=None):
   level=out
  return level[0]['child'],nodes
 
-def build():
+def build(converted=False):
+ global EXTENT
+ EXTENT=262144 if converted else 131072;g.EXTENT=EXTENT
  original_path=ROOT/'docs/fixtures/generation-two/d19-package-specimen.json'
  original_bytes=original_path.read_bytes();original=json.loads(original_bytes)
  source={r['path']:r['utf8'].encode() for r in original['files']}
@@ -71,14 +74,24 @@ def build():
  holds=obj('photara.storage.hold-leaf',count='0',reserved='0',consumed='0',remaining='0',entries=[])
  tickets=obj('photara.storage.retirement-ticket-leaf',count='0',charged_high_water='0',entries=[])
  retained=obj('photara.package.retained-file-charge-leaf',count='0',charged_high_water='0',entries=[])
+ conversion=None;sourceobs=[];retainednodes=[];retainedentries=[];snapshot={}
+ if converted:
+  conversion=obj('photara.package.conversion-source',conversion_id=uid(7001),snapshot_directory=['conversion-sources',uid(7001),'package'],source_bootstrap_sha256=bootstrap,source_commit_id=head0['commit_id'],source_format_version=manifest['format_version'],source_head_sha256=sha(source['HEAD.json']),files=[dict(components=p.split('/'),byte_length=str(len(data)),sha256=sha(data)) for p,data in sorted(source.items())])
+  for i,(p,data) in enumerate(sorted(source.items())):
+   physical=dict(device='7',inode=str(5000+i));charge=str(rounded(len(data)))
+   observation=obj('photara.storage.local-observation',observation_id=uid(8000+i),profile=PROFILE,incarnation=INC,subject=dict(kind='retained-file',conversion_id=conversion['conversion_id'],namespace=conversion['snapshot_directory'],path=p.split('/')),physical=physical,measured_extent=str(len(data)),charged_high_water=charge);sourceobs.append(observation)
+   retainedentries.append(dict(key=dict(conversion_id=conversion['conversion_id'],path=p.split('/')),conversion_source=ref(conversion),source_file=dict(byte_length=str(len(data)),sha256=sha(data)),registered_charge=charge,observation=ref(observation)))
+   snapshot[p]=dict(hex=data.hex(),regular=True,witness=physical)
+  retainedref,retainednodes=tree(b,'photara.package.retained-file-charge',retainedentries,lambda e:e['key'],order=lambda x:(x['conversion_id'],x['path']),subtotal=lambda e:e['registered_charge'])
+  retained=b.values[key(retainedref)]
  observations=[]
  for n in [1,2,3]:
   extent=len(raw) if n==3 else EXTENT
   observations.append(obj('photara.storage.local-observation',observation_id=uid(3000+n),profile=PROFILE,incarnation=INC,subject=dict(kind='whole-blob' if n==3 else 'pack',allocation_id=g.aid(n),arena='metadata' if n==2 else 'data'),physical=g.witness(n),measured_extent=str(extent),charged_high_water=str(rounded(extent))))
  charge=obj('photara.storage.sealed-charge',allocation_id=g.aid(3),arena='data',domain_incarnation=INC,measured_extent=str(len(raw)),charged_high_water=str(rounded(len(raw))),observation=ref(observations[2]))
- obsroot,obsnodes=tree(b,'photara.storage.local-observation',[dict(observation_id=observations[2]['observation_id'],observation=ref(observations[2]))],lambda e:e['observation_id'])
+ obsroot,obsnodes=tree(b,'photara.storage.local-observation',[dict(observation_id=o['observation_id'],observation=ref(o)) for o in [observations[2]]+sourceobs],lambda e:e['observation_id'])
  charges,chargenodes=tree(b,'photara.storage.charge',[dict(allocation_id=g.aid(3),charge=ref(charge),charged_high_water=charge['charged_high_water'])],lambda e:e['allocation_id'],subtotal=lambda e:e['charged_high_water'])
- global_records=idnodes+ordnodes+[index,state,pins,evidence,holds,tickets,retained,observations[2],charge]+obsnodes+chargenodes+list(legacy.values())
+ global_records=idnodes+ordnodes+[index,state,pins,evidence,holds,tickets,retained,observations[2],charge]+obsnodes+chargenodes+list(legacy.values())+sourceobs+retainednodes+([conversion] if converted else [])
  global_refs=[ref(v) for v in global_records]+[blob]
  global_refs={key(r):r for r in global_refs}
  baseinv,globalnodes=tree(b,'photara.package.inventory',list(global_refs.values()),order=key)
@@ -106,13 +119,13 @@ def build():
  placement=obj('photara.storage.root-placement-leaf',count='1',entries=[dict(root=ref(state),root_id=state['root_id'],locator=locator,ownership=owner)])
  rootplacement=b.pack(2,'metadata',[(placement,3)])[key(ref(placement))]
  b.pad(1);b.pad(2)
- total=2*EXTENT+rounded(len(raw))+STANDING+DIRECTORY
+ total=2*EXTENT+rounded(len(raw))+STANDING+DIRECTORY+(sum(int(e['registered_charge']) for e in retainedentries)+16384 if converted else 0)
  tips=[dict(allocation_id=g.aid(n),arena=observations[n-1]['subject']['arena'],extent=str(EXTENT),registered_charge=str(EXTENT),observation=observations[n-1]) for n in [1,2]]
- ledger=obj('photara.storage.ledger',profile=PROFILE,incarnation=INC,standing_control=str(STANDING),directory_allowance=str(DIRECTORY),retained_directory_allowance='0',tips=tips,sealed_charge_root=charges,observation_root=obsroot,retained_file_charge_root=ref(retained),conversion_source=None,retirement_tickets=ref(tickets),total_charge=str(total))
+ ledger=obj('photara.storage.ledger',profile=PROFILE,incarnation=INC,standing_control=str(STANDING),directory_allowance=str(DIRECTORY),retained_directory_allowance='16384' if converted else '0',tips=tips,sealed_charge_root=charges,observation_root=obsroot,retained_file_charge_root=ref(retained),conversion_source=ref(conversion) if converted else None,retirement_tickets=ref(tickets),total_charge=str(total))
  envelope=obj('photara.storage.accounting-envelope',ledger=ref(ledger),holds=ref(holds))
  controls=sorted([ref(ledger),ref(envelope)],key=key)
  overlay=obj('photara.package.inventory-overlay',base=baseinv,controls=controls,count=str(len(global_refs)+2))
- roots=obj('photara.package.root-set',version=2,library_id=L,bootstrap_sha256=bootstrap,kind='sealed',active=ref(state),recovery=ref(state),pinned_roots=ref(pins),operation_index=ref(index),conversion_source=None,retention_evidence=ref(evidence),inventory=ref(overlay),placement=dict(generation='1',root_placements=rootplacement,accounting=ref(envelope)))
+ roots=obj('photara.package.root-set',version=2,library_id=L,bootstrap_sha256=bootstrap,kind='sealed',active=ref(state),recovery=ref(state),pinned_roots=ref(pins),operation_index=ref(index),conversion_source=ref(conversion) if converted else None,retention_evidence=ref(evidence),inventory=ref(overlay),placement=dict(generation='1',root_placements=rootplacement,accounting=ref(envelope)))
  capabilities=['photara.scalable-storage.v1','photara.sealed-roots.v1','photara.storage-accounting.v1','photara.whole-blob-storage.v1']
  commit=dict(schema=dict(id='photara.package.commit',version=1),project_id=P,commit_id=uid(6001),package_revision='1',bootstrap_sha256=bootstrap,parent=None,write_id=uid(6002),created_at='2026-09-27T00:00:00.000Z',minimum_reader=dict(major=1,minor=3),required_features=sorted(set(manifest['required_features']+capabilities)),authored=state['authored'],history=state['history'],inventory=semantic,root_set=roots,extensions={})
  head=dict(schema=dict(id='photara.package.head',version=1),project_id=P,commit_id=commit['commit_id'],commit_sha256=sha(enc(commit)))
@@ -120,6 +133,13 @@ def build():
  allocations={k:dict(layout='framed-json',arena=f['arena'],hex=f['raw'].hex(),witness=f['witness']) for k,f in b.files.items()}
  allocations[g.aid(3)]=dict(layout='whole-blob',arena='data',hex=raw.hex(),witness=g.witness(3))
  registered={k:dict(layout=v['layout'],arena=v['arena'],extent=str(len(bytes.fromhex(v['hex']))),registered_charge=str(rounded(len(bytes.fromhex(v['hex'])))),witness=v['witness']) for k,v in allocations.items()}
- return dict(status='unfrozen-preparatory-not-shared-head-verified',qualification=False,original_package_sha256=sha(original_bytes),bootstrap={k:enc(v).decode() for k,v in [('manifest',manifest),('head',head),('commit',commit)]},loose={ref(v)['sha256']:enc(v).decode() for v in loose},allocations=allocations,source_files={},source_witnesses={},journal=[],original_evidence=dict(profile=PROFILE,incarnation=INC,allocations=registered,standing_control=str(STANDING),directory_allowance=str(DIRECTORY),retained_directory_allowance='0'),expected=dict(total_charge=str(total),control_charge=str(control_charge),legacy_closure=original_refs,blob=blob,blob_allocation=g.aid(3),semantic_members=len(semantic_refs),global_members=len(global_refs)+2),records={ref(v)['sha256']:dict(canonical=enc(v).decode(),sha256=ref(v)['sha256'],byte_length=len(enc(v))) for v in list(b.values.values())+loose})
+ result=dict(status='unfrozen-preparatory-not-shared-head-verified',qualification=False,original_package_sha256=sha(original_bytes),bootstrap={k:enc(v).decode() for k,v in [('manifest',manifest),('head',head),('commit',commit)]},loose={ref(v)['sha256']:enc(v).decode() for v in loose},allocations=allocations,source_files={},source_witnesses={},journal=[],original_evidence=dict(profile=PROFILE,incarnation=INC,allocations=registered,standing_control=str(STANDING),directory_allowance=str(DIRECTORY),retained_directory_allowance='0'),expected=dict(total_charge=str(total),control_charge=str(control_charge),legacy_closure=original_refs,blob=blob,blob_allocation=g.aid(3),semantic_members=len(semantic_refs),global_members=len(global_refs)+2),records={ref(v)['sha256']:dict(canonical=enc(v).decode(),sha256=ref(v)['sha256'],byte_length=len(enc(v))) for v in list(b.values.values())+loose})
+ if converted:
+  result['snapshot_files']=snapshot
+  result['original_evidence']['retained_directory_allowance']='16384'
+  result['original_evidence']['conversion']=enc(conversion).decode()
+  result['original_evidence']['retained_files']={p:dict(regular=True,extent=str(len(source[p])),registered_charge=str(rounded(len(source[p]))),sha256=sha(source[p]),witness=v['witness']) for p,v in snapshot.items()}
+ return result
+
 if __name__=='__main__':
- result=build();(HERE/'linked.json').write_text(json.dumps(result,sort_keys=True,indent=2)+'\n');print(result['status'],result['expected']['total_charge'])
+ result=build('--converted' in sys.argv);(HERE/('converted.json' if '--converted' in sys.argv else 'linked.json')).write_text(json.dumps(result,sort_keys=True,indent=2)+'\n');print(result['status'],result['expected']['total_charge'])

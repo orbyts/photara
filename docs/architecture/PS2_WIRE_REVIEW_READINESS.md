@@ -1,37 +1,74 @@
 # PS2 exact-wire review readiness
 
-Status: **engineering checklist, not a format approval**, 2026-09-27.
+Status: **consolidated byte candidate ready for review, not a format approval**, 2026-09-29.
 The [codec/publication contract](PS2_PRODUCTION_CODEC_AND_PUBLICATION_CONTRACT.md#field-level-wire-completion-required-before-codec-code)
 requires field-level review before production reader changes. The
 [scalable candidate](PS2_SCALABLE_WIRE_REVIEW_CANDIDATE.md) supplies the physical
 extension; its examples do not silently supersede the existing operation,
 conversion-source or managed-resource requirements.
 
-## Minimal completion plan — 2026-09-29
+## Current consolidated review packet — 2026-09-29
 
-Use existing evidence to close this review; the historical matrix below is not
-an instruction to repeat every experiment under every newer fixture.
+**The bounded byte-candidate work is complete and ready for permanent-format
+review. PS2 itself is not complete.** This section supersedes the remaining-work
+labels in the historical engineering matrix below. Do not repeat those experiments
+or add another fixture family without a specific production implementation gap.
 
-| Remaining review item | Smallest required work |
+| Review scope | Exact specification and golden evidence |
 | --- | --- |
-| Whole-Blob selected closure | Finish the in-flight D19 shared-reader patch and affected regressions; reuse the existing corpus and Blob vectors. Preserve metadata-only structural access. |
-| Selected newborn and born-and-sealed attribution | First measure one two-slot case against the unchanged 131,072-byte/24-role control limits. If it fits, extend the existing phase target with one selected path and focused binding/charge/reserve negatives. Reuse the native furnace's crash/link/inode matrix. |
-| Pending resource origin | One selected original/phase-to-pending-evidence case in existing targets. Do not silently remove the approved variant to accelerate review. |
-| Retained Blob conversion | Check the existing retained-file path separates structural evidence from explicit strong media audit; fix only the concrete integration gap. |
-| Exact review packet | Reconcile the supported O/P/F variants, schema/capability dispatch, typed edges, bounds and evidence links into this review. Identify unresolved incompatibilities explicitly. |
+| Shared physical coordinates and typed closure | [Integrated settled coordinates](PS2_INTEGRATED_SETTLED_COORDINATE_CANDIDATE.md) and [integration plan](PS2_FINAL_COORDINATE_INTEGRATION_PLAN.md): RootSet/StateRoot v2, operation-index v2, placement, locator, ownership, accounting and bounded disjoint loose controls. |
+| Original authority and same-tip publication | [Selected admission](PS2_SELECTED_ADMISSION_CANDIDATE.md) and [selected phases](PS2_SELECTED_PHASE_BYTE_CANDIDATE.md): exact original receipt prefix, deterministic replay, O/P/F fields, selected-stage effects, independent recovery and once-only settlement. |
+| One born-and-sealed allocation | [Phase addendum](PS2_SELECTED_PHASE_BYTE_CANDIDATE.md#bounded-single-birth-and-pending-increment) and [canonical controls](proposals/ps2/selected-phase/birth-pending-controls.json): explicit single-birth admission/layout variants, acyclic generation/binding edges, actual sealed charge and finalizer selection. |
+| Resource origins and unresolved pending hold | [Origin candidate](PS2_SELECTED_ORIGIN_BYTE_CANDIDATE.md) plus the phase addendum: authored/history/recovery/explicit origins and the separate pending-admission codec. Embedded intent commits authority; publication still requires the identical packed intent and evidence. Pending clean is a refusal, not a release policy. |
+| Whole Blob and retained conversion | [Shared Blob candidate](PS2_SELECTED_BLOB_SHARED_CANDIDATE.md) and its linked standalone/converted corpora: unchanged D19 identity and legacy bytes, metadata-only structural checks, explicit strong audit and all 38 retained original files. |
 
-Existing sparse retirement proof, original conversion retention, four resource
-origins, receipt/no-op semantics, same-original publication and recovery evidence
-are reusable. Add a test only where the proposed final dispatch differs in a way
-those tests do not cover. A distinct codec-v2 transition is not required when
-only codec-v1 is proposed and unsupported codecs refuse.
+The proposed dispatch keeps legacy authored Graph, managed resource v1 and
+representation v2 bytes unchanged, with the existing HEAD/outer commit envelope.
+The scalable candidate's 1.3 floor/capability union is part of this review; it is
+not silently covered by the earlier direction-only 1.2 contract. Schema-specific
+typed edges distinguish semantic, global physical and ownership closure. The
+linked exact schemas and canonical corpora, not historical illustrative layouts,
+define each proposed variant. Unsupported codecs refuse; no implicit alias or
+upgrade is proposed.
 
-After this packet is reviewable, resolve the permanent-format boundary and
-implement the shared Rust path. Storage qualification remains a separate required
-PS2 exit condition; extra byte fixtures cannot satisfy it. PS3, PS4 and LL2a keep
-their roadmap order. No new product limit or weaker durability promise is implied.
+The single-birth and pending variants use explicit
+`photara.codec.ps2-single-birth-admission-v1` and
+`photara.codec.ps2-single-birth-pending-admission-v1`, with
+`photara.codec.ps2-single-birth-layout-v1`. Same-tip retains its distinct existing
+codec. Single-birth controls fit the unchanged synthetic 131,072-byte/24-role
+allowance with **zero headroom**; two-birth remains a refusal. These are fixture
+bounds, not production limits. Original admission precedes effects and never
+commits future witness-dependent inventories, avoiding self-reference.
 
-## Evidence needed for the review
+The [final regression manifest](verification/ps2-final-wire-regression.json)
+binds 47 source files and three logs: **100 tests passed**, strict Clippy and
+targeted formatting passed. All 50 recorded source/output hashes were independently
+rechecked before this checkpoint. Earlier native furnace, sparse retirement and
+clean-remount evidence remains reusable, with its original limits; it does not
+make distinct historical wire layouts compatible.
+
+### Concrete decision and next work
+
+Review/freeze the demonstrated common records and explicit codec variants above
+for shared Rust implementation. The [contract's field-level gate](PS2_PRODUCTION_CODEC_AND_PUBLICATION_CONTRACT.md#field-level-wire-completion-required-before-codec-code)
+requires this review before production-reader changes. Approval does not authorize
+production writes, migration, deletion, deployment, automatic conversion, resource
+expiry, new numeric limits or a weaker Accepted/Saved promise.
+
+After review: implement the shared Rust reader/writer/recovery/admission path,
+finish the separately required local storage qualification, then PS3 session and
+autosave, PS4 browse/reopen/switch, and LL2a signed cross-Library acceptance.
+Synthetic shared-Rust session work can proceed without a live writable profile.
+The current fixed Graph/D19 adapters are not general production readers. Blob
+mutation/newborn admission and combined Graph/media operations are not established
+by the read-only Blob proof. Clean-remount trials do not establish abrupt-power
+durability or qualify a live Saved claim. Preserve those boundaries explicitly
+in implementation; do not fill them with additional unrelated fixture work.
+
+LL1 stays at its existing parallel review-ready checkpoint. No UI polish, deletion
+expansion, second-device acceptance or later-platform work before LL2a.
+
+## Historical engineering matrix (superseded by the current packet)
 
 | Area | Verified evidence | Remaining engineering |
 | --- | --- | --- |

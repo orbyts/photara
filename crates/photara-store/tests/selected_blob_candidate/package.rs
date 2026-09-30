@@ -1,7 +1,7 @@
 //! Trusted caller context for the shared driver; no selected wire record creates this authority.
 use super::{
     keys::{JsonKey, MixedObjectKey},
-    provider::{RawDescription, RawMetadata},
+    provider::{RawDescription, RawMetadata, SnapshotDescription, SnapshotMetadata},
 };
 use photara_store::package::ObjectRef;
 use serde_json::Value;
@@ -28,6 +28,7 @@ pub(crate) struct Registration {
     pub allocations: BTreeMap<String, AllocationRegistration>,
     pub standing_control: u64,
     pub directory_allowance: u64,
+    pub retained_source: Option<SnapshotRegistration>,
 }
 pub(crate) struct SemanticMembers {
     pub json: BTreeSet<JsonKey>,
@@ -49,4 +50,18 @@ pub(crate) struct PackageContext<'a> {
     pub required_features: &'a BTreeSet<String>,
     pub semantic: &'a dyn RootSemantic,
     pub raw: &'a dyn RawMetadata,
+    pub snapshot: Option<&'a dyn SnapshotMetadata>,
+}
+
+#[derive(Clone)]
+pub(crate) struct SnapshotFileRegistration {
+    pub description: SnapshotDescription,
+    pub sha256: String,
+    pub registered_charge: u64,
+}
+#[derive(Clone)]
+pub(crate) struct SnapshotRegistration {
+    pub descriptor: Vec<u8>,
+    pub files: BTreeMap<Vec<String>, SnapshotFileRegistration>,
+    pub directory_allowance: u64,
 }

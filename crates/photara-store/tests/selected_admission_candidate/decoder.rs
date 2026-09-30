@@ -295,6 +295,32 @@ pub(super) struct Plan {
     pub(super) base_inventory: Value,
     pub(super) root_placements: Value,
 }
+pub(super) struct Born {
+    pub(super) observation: Value,
+    pub(super) charge: Value,
+    pub(super) charge_root: Value,
+    pub(super) observation_root: Value,
+    pub(super) retention_evidence: Option<Value>,
+}
+pub(super) struct PendingLayout {
+    pub(super) intent: Value,
+    pub(super) evidence: Option<Value>,
+}
+/// Original selected association subset; callers supply the verified old closure.
+pub(super) fn pending_requirements(old: &wire::World, proof: &wire::Proof) -> Result<Value> {
+    let builder = Builder::load(old)?;
+    let state = get(
+        &builder.pool,
+        &proof.roles["active"].state["resource_state"],
+    )?;
+    let sources = get(&builder.pool, &state["retention_sources"])?;
+    ensure(
+        sources["schema"]["id"] == "photara.resource.selection-leaf",
+        "bounded original source association leaf",
+    )?;
+    let source = get(&builder.pool, &sources["entries"][0]["record"])?;
+    Ok(source["requirements"].clone())
+}
 #[allow(
     clippy::too_many_lines,
     reason = "Deterministic pure append layout from authenticated base and Core output"
@@ -304,6 +330,31 @@ pub(super) fn regenerate(
     proof: &wire::Proof,
     prepared: &prepare::Prepared,
 ) -> Result<Plan> {
+    regenerate_one_birth(old, proof, prepared, None).map(|(plan, _)| plan)
+}
+#[allow(
+    clippy::too_many_lines,
+    reason = "Same deterministic layout, optional single witnessed data birth"
+)]
+pub(super) fn regenerate_one_birth(
+    old: &wire::World,
+    proof: &wire::Proof,
+    prepared: &prepare::Prepared,
+    birth_witness: Option<&Value>,
+) -> Result<(Plan, Option<Born>)> {
+    regenerate_pending(old, proof, prepared, birth_witness, None)
+}
+#[allow(
+    clippy::too_many_lines,
+    reason = "Deterministic optional single-birth/pending layout; default bytes unchanged"
+)]
+pub(super) fn regenerate_pending(
+    old: &wire::World,
+    proof: &wire::Proof,
+    prepared: &prepare::Prepared,
+    birth_witness: Option<&Value>,
+    pending: Option<&PendingLayout>,
+) -> Result<(Plan, Option<Born>)> {
     let mut b = Builder::load(old)?;
     for v in prepared.authored.values() {
         b.add(v.clone());
@@ -318,6 +369,7 @@ pub(super) fn regenerate(
         sources["schema"]["id"] == "photara.resource.selection-leaf",
         "bounded source association leaf codec",
     )?;
+    let active_id = uid(if pending.is_some() { 8201 } else { 8001 });
     for (i, e) in sources["entries"]
         .as_array_mut()
         .ok_or("decoder associations")?
@@ -325,16 +377,34 @@ pub(super) fn regenerate(
         .enumerate()
     {
         let mut a = get(&b.pool, &e["record"])?;
-        a["association_id"] = json!(uid(
-            8000 + u64::try_from(i).map_err(|_| "association ordinal")?
-        ));
-        a["origin"]["source_id"] = json!(uid(8001));
+        a["association_id"] = json!(uid((if pending.is_some() { 8200 } else { 8000 })
+            + u64::try_from(i).map_err(|_| "association ordinal")?));
+        a["origin"]["source_id"] = json!(active_id);
+        if i == 0
+            && let Some(p) = pending
+        {
+            a["origin"] = json!({"kind":"pending","source_id":p.intent["operation_id"]});
+        }
         e["id"] = a["association_id"].clone();
         e["record"] = b.add(a);
     }
     rs["retention_sources"] = b.add(sources);
     active["resource_state"] = b.add(rs);
-    resources::verify(&active["resource_state"], &uid(8001), |r| get(&b.pool, r))?;
+    resources::verify_with_origin(
+        &active["resource_state"],
+        &active_id,
+        |r| get(&b.pool, r),
+        |source, ctx| {
+            ensure(
+                source["origin"] == json!({"kind":"authored","source_id":ctx["root_id"]})
+                    || pending.is_some_and(|p| {
+                        source["origin"]
+                            == json!({"kind":"pending","source_id":p.intent["operation_id"]})
+                    }),
+                "decoder fixed pending source",
+            )
+        },
+    )?;
     let mut receipts = proof.roles["active"].receipts.clone();
     receipts.push(prepared.receipt.clone());
     let entries=receipts.iter().map(|r|json!({"operation_id":r["operation_id"],"request_sha256":r["request_sha256"],"acceptance_ordinal":r["acceptance_ordinal"],"receipt":reference(r)})).collect::<Vec<_>>();
@@ -368,7 +438,7 @@ pub(super) fn regenerate(
         .find(|(k, _)| k.0 == prepared.receipt["after"]["digest"])
         .ok_or("actual new authored body")?
         .1;
-    active["root_id"] = json!(uid(8001));
+    active["root_id"] = json!(active_id);
     active["authored_revision"] = prepared.receipt["after"]["revision"].clone();
     active["authored"] = reference(authored);
     active["operation_index"] = b.add(index);
@@ -423,7 +493,7 @@ pub(super) fn regenerate(
         .iter()
         .map(key)
         .collect::<Result<BTreeSet<_>>>()?;
-    let globals = proof
+    let mut globals = proof
         .global
         .iter()
         .filter(|k| !oldsemantic.contains(*k) && !controls.contains(*k))
@@ -434,6 +504,114 @@ pub(super) fn regenerate(
             ))
         })
         .collect::<Result<BTreeMap<_, _>>>()?;
+    let mut born = if let Some(witness) = birth_witness {
+        ensure(
+            !old.allocations.contains_key(&aid(9)),
+            "original birth allocation absent",
+        )?;
+        wire::fields(witness, &["device", "inode"])?;
+        wire::number(&witness["device"])?;
+        ensure(wire::number(&witness["inode"])? > 0, "original birth inode")?;
+        b.files.insert(aid(9), Vec::new());
+        b.locations.insert(aid(9), BTreeMap::new());
+        b.pack(9, "data", vec![(prepared.receipt.clone(), 1)])?;
+        let extent = b.files[&aid(9)].len() as u64;
+        let highwater = extent.div_ceil(4096) * 4096;
+        let oldenv = old.loose(&root["placement"]["accounting"])?;
+        let ledger = old.loose(&oldenv["ledger"])?;
+        let observation = object(
+            "photara.storage.local-observation",
+            json!({"observation_id":"ffffffff-ffff-4fff-8fff-ffffffffffff","profile":ledger["profile"],"incarnation":ledger["incarnation"],"subject":{"kind":"pack","allocation_id":aid(9),"arena":"data"},"physical":witness,"measured_extent":extent.to_string(),"charged_high_water":highwater.to_string()}),
+        );
+        let charge = object(
+            "photara.storage.sealed-charge",
+            json!({"allocation_id":aid(9),"arena":"data","domain_incarnation":ledger["incarnation"],"measured_extent":extent.to_string(),"charged_high_water":highwater.to_string(),"observation":reference(&observation)}),
+        );
+        let mut roots = Vec::new();
+        for (name, field, keyname, entry) in [
+            (
+                "photara.storage.local-observation",
+                "observation_root",
+                "observation_id",
+                json!({"observation_id":observation["observation_id"],"observation":reference(&observation)}),
+            ),
+            (
+                "photara.storage.charge",
+                "sealed_charge_root",
+                "allocation_id",
+                json!({"allocation_id":aid(9),"charge":reference(&charge),"charged_high_water":highwater.to_string()}),
+            ),
+        ] {
+            let previous = get(&b.pool, &ledger[field])?;
+            let ischarge = field == "sealed_charge_root";
+            let mut leaf = object(
+                &format!("{name}-leaf"),
+                json!({"count":"1","entries":[entry]}),
+            );
+            let (first, last) = if let Some(entries) = previous["entries"].as_array() {
+                (
+                    entries.first().unwrap()[keyname].clone(),
+                    entries.last().unwrap()[keyname].clone(),
+                )
+            } else {
+                (
+                    previous["children"][0]["first"].clone(),
+                    previous["children"].as_array().unwrap().last().unwrap()["last"].clone(),
+                )
+            };
+            let mut left =
+                json!({"first":first,"last":last,"count":previous["count"],"child":ledger[field]});
+            if ischarge {
+                leaf["charged_high_water"] = json!(highwater.to_string());
+                left["charged_high_water"] = previous["charged_high_water"].clone();
+            }
+            let mut right = json!({"first":entry[keyname],"last":entry[keyname],"count":"1","child":reference(&leaf)});
+            let mut branch = object(
+                &format!("{name}-branch"),
+                json!({"count":(wire::number(&previous["count"])?+1).to_string(),"children":[]}),
+            );
+            if ischarge {
+                right["charged_high_water"] = json!(highwater.to_string());
+                branch["charged_high_water"] =
+                    json!((wire::number(&previous["charged_high_water"])? + highwater).to_string());
+            }
+            branch["children"] = json!([left, right]);
+            roots.push(reference(&branch));
+            for value in [leaf, branch] {
+                b.add(value.clone());
+                globals.insert(key(&reference(&value))?, value);
+            }
+        }
+        for value in [&observation, &charge] {
+            b.add(value.clone());
+            globals.insert(key(&reference(value))?, value.clone());
+        }
+        Some(Born {
+            observation,
+            charge,
+            observation_root: roots[0].clone(),
+            charge_root: roots[1].clone(),
+            retention_evidence: None,
+        })
+    } else {
+        None
+    };
+    if let Some(pending) = pending
+        && let Some(evidence) = &pending.evidence
+    {
+        let evidence_tree = object(
+            "photara.resource.retention-evidence-leaf",
+            json!({"count":"1","entries":[{"key":{"kind":"pending","source_id":pending.intent["operation_id"]},"evidence":reference(evidence)}]}),
+        );
+        globals.remove(&key(&root["retention_evidence"])?);
+        for value in [&pending.intent, evidence, &evidence_tree] {
+            b.add(value.clone());
+            globals.insert(key(&reference(value))?, value.clone());
+        }
+        born.as_mut()
+            .ok_or("pending bound finalizer")?
+            .retention_evidence = Some(reference(&evidence_tree));
+    }
     let mut union = globals.clone();
     for records in &roles {
         union.extend(
@@ -460,14 +638,20 @@ pub(super) fn regenerate(
                 aid(n),
                 b.files[&aid(n)]
                     .len()
-                    .checked_add(STEP)
+                    .checked_add(if born.is_some() && n == 2 {
+                        STEP - 4096
+                    } else {
+                        STEP
+                    })
                     .ok_or("decoder admitted corridor overflow")?,
             ))
         })
         .collect::<Result<BTreeMap<_, _>>>()?;
     let sealed = globals
         .values()
-        .find(|v| v["schema"]["id"] == "photara.storage.sealed-charge")
+        .find(|v| {
+            v["schema"]["id"] == "photara.storage.sealed-charge" && v["allocation_id"] == aid(1)
+        })
         .ok_or("original sealed charge")?
         .clone();
     let mut placements = Vec::new();
@@ -481,19 +665,26 @@ pub(super) fn regenerate(
         );
         let items = records
             .iter()
-            .filter(|(k, _)| !b.locations[&aid(1)].contains_key(*k))
+            .filter(|(k, _)| {
+                !(b.locations[&aid(1)].contains_key(*k)
+                    || n == 2 && born.is_some() && b.locations[&aid(9)].contains_key(*k))
+            })
             .map(|(_, v)| (v.clone(), tag(v)))
             .collect();
         b.pack(n, "data", items)?;
         let mut claims = Vec::new();
-        for unit in [1, n, n + 1, 8] {
-            let issealed = unit == 1;
+        let mut units = vec![1, n, n + 1, 8];
+        if n == 2 && born.is_some() {
+            units.push(9);
+        }
+        for unit in units {
+            let issealed = unit == 1 || unit == 9;
             let raw = if issealed {
-                b.files[&aid(1)].as_slice()
+                b.files[&aid(unit)].as_slice()
             } else {
                 &[]
             };
-            claims.push(object("photara.storage.allocation-claim",json!({"allocation_id":aid(unit),"arena":if unit==n+1||unit==8{"metadata"}else{"data"},"layout":"framed-json","owned_extent":if issealed{raw.len()}else{ends[&aid(unit)]}.to_string(),"authenticated_prefix":{"byte_length":raw.len().to_string(),"sha256":hash(raw)},"sealed":issealed,"sealed_charge":if issealed{reference(&sealed)}else{Value::Null}})));
+            claims.push(object("photara.storage.allocation-claim",json!({"allocation_id":aid(unit),"arena":if unit==n+1||unit==8{"metadata"}else{"data"},"layout":"framed-json","owned_extent":if issealed{raw.len()}else{ends[&aid(unit)]}.to_string(),"authenticated_prefix":{"byte_length":raw.len().to_string(),"sha256":hash(raw)},"sealed":issealed,"sealed_charge":if unit==9{reference(&born.as_ref().unwrap().charge)}else if issealed{reference(&sealed)}else{Value::Null}})));
         }
         let (owner, ownnodes) = b.tree(
             "photara.storage.ownership",
@@ -521,6 +712,9 @@ pub(super) fn regenerate(
         );
         let mut locations = b.locations[&aid(1)].clone();
         locations.extend(b.locations[&aid(n)].clone());
+        if n == 2 && born.is_some() {
+            locations.extend(b.locations[&aid(9)].clone());
+        }
         let entries=records.iter().map(|(k,v)|json!({"object":reference(v),"membership":if tag(v)==2{"ownership"}else{"semantic"},"physical":locations[k]})).collect::<Vec<_>>();
         let mut children = Vec::new();
         for part in entries.chunks(64) {
@@ -566,10 +760,22 @@ pub(super) fn regenerate(
         f.extend(length.to_le_bytes());
         f.resize(ends[&aid(n)], 0);
     }
-    Ok(Plan {
-        files: b.files,
-        target: json!({"active":states[0],"recovery":states[1],"pinned_roots":root["pinned_roots"],"operation_index":active["operation_index"],"conversion_source":root["conversion_source"]}),
-        base_inventory,
-        root_placements,
-    })
+    Ok((
+        Plan {
+            files: b.files,
+            target: json!({"active":states[0],"recovery":states[1],"pinned_roots":root["pinned_roots"],"operation_index":active["operation_index"],"conversion_source":root["conversion_source"]}),
+            base_inventory,
+            root_placements,
+        },
+        born,
+    ))
+}
+
+pub(super) fn all_requirements(old: &wire::World, proof: &wire::Proof) -> Result<Value> {
+    let builder = Builder::load(old)?;
+    let state = get(
+        &builder.pool,
+        &proof.roles["active"].state["resource_state"],
+    )?;
+    Ok(state["requirements"].clone())
 }

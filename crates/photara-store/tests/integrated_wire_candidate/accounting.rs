@@ -21,6 +21,15 @@ pub(super) struct FileEvidence {
     pub(super) device: u64,
     pub(super) inode: u64,
 }
+/// Actual structural observation, independently matched to original registration by caller.
+/// No content bytes and no claim that the current file digest was verified.
+pub(super) struct StructuralFileEvidence {
+    pub extent: u64,
+    pub registered_charge: u64,
+    pub device: u64,
+    pub inode: u64,
+    pub regular: bool,
+}
 pub(super) struct Evidence {
     pub(super) project_id: String,
     pub(super) profile: String,
@@ -439,7 +448,21 @@ pub(super) fn verify<F: FnMut(&Value) -> Result<Value>>(
     resolve: F,
     evidence: &Evidence,
 ) -> Result<Proof> {
-    validate(ledger, holds, resolve, Some(evidence))
+    validate(ledger, holds, resolve, Some(evidence), None)
+}
+/// Read-only retained source check. Strong default verification remains unchanged.
+pub(super) fn verify_structural_source<F: FnMut(&Value) -> Result<Value>>(
+    ledger: &Value,
+    holds: &Value,
+    resolve: F,
+    evidence: &Evidence,
+    files: &BTreeMap<Vec<String>, StructuralFileEvidence>,
+) -> Result<Proof> {
+    ensure(
+        evidence.retained_files.is_empty(),
+        "structural source cannot mix byte evidence",
+    )?;
+    validate(ledger, holds, resolve, Some(evidence), Some(files))
 }
 /// Read-only metadata proof. Embedded observations are checked for internal consistency,
 /// never asserted to be fresh physical evidence. The caller authenticates selected controls.
@@ -448,7 +471,7 @@ pub(super) fn metadata<F: FnMut(&Value) -> Result<Value>>(
     holds: &Value,
     resolve: F,
 ) -> Result<Proof> {
-    validate(ledger, holds, resolve, None)
+    validate(ledger, holds, resolve, None, None)
 }
 #[allow(
     clippy::too_many_lines,
@@ -459,6 +482,7 @@ fn validate<F: FnMut(&Value) -> Result<Value>>(
     holds: &Value,
     resolve: F,
     evidence: Option<&Evidence>,
+    structural: Option<&BTreeMap<Vec<String>, StructuralFileEvidence>>,
 ) -> Result<Proof> {
     let project_id = id(&ledger["project_id"])?;
     let incarnation = id(&ledger["incarnation"])?;
@@ -673,7 +697,9 @@ fn validate<F: FnMut(&Value) -> Result<Value>>(
         )?;
         if let Some(e) = evidence {
             ensure(
-                e.conversion.is_none() && e.retained_files.is_empty(),
+                e.conversion.is_none()
+                    && e.retained_files.is_empty()
+                    && structural.is_none_or(BTreeMap::is_empty),
                 "accounting absent conversion evidence",
             )?;
         }
@@ -734,7 +760,7 @@ fn validate<F: FnMut(&Value) -> Result<Value>>(
         )?;
         if let Some(e) = evidence {
             ensure(
-                e.retained_files.len() == original_files.len(),
+                structural.map_or(e.retained_files.len(), BTreeMap::len) == original_files.len(),
                 "accounting exact original file coverage",
             )?;
         }
@@ -769,7 +795,20 @@ fn validate<F: FnMut(&Value) -> Result<Value>>(
                     && used_observations.insert(observation_key),
                 "accounting exact retained local witness",
             )?;
-            if let Some(e) = evidence {
+            if let Some(files) = structural {
+                let physical = files
+                    .get(&p)
+                    .ok_or("accounting original retained structural witness absent")?;
+                ensure(
+                    physical.regular
+                        && physical.inode > 0
+                        && physical.extent == number(&original_file["byte_length"])?
+                        && number(&entry["registered_charge"])? == physical.registered_charge
+                        && number(&observation["physical"]["device"])? == physical.device
+                        && number(&observation["physical"]["inode"])? == physical.inode,
+                    "accounting exact retained structural extent and witness",
+                )?;
+            } else if let Some(e) = evidence {
                 let physical = e
                     .retained_files
                     .get(&p)

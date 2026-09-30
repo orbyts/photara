@@ -1491,10 +1491,18 @@ fn evidence(
                 })
                 .collect(),
             retained_files: BTreeMap::new(),
-            conversion: None,
+            conversion: c
+                .registration
+                .retained_source
+                .as_ref()
+                .map(|r| r.descriptor.clone()),
             standing_control: c.registration.standing_control,
             directory_allowance: c.registration.directory_allowance,
-            retained_directory_allowance: 0,
+            retained_directory_allowance: c
+                .registration
+                .retained_source
+                .as_ref()
+                .map_or(0, |r| r.directory_allowance),
         });
     }
     let allocations = w
@@ -1685,6 +1693,15 @@ pub(super) fn verify_selected_operation(
     prepared_authored: &BTreeMap<Key, Value>,
     selection: &OperationSelection,
 ) -> Result<Proof> {
+    verify_selected_operation_with(w, old, prepared_authored, selection, &AuthoredOnly)
+}
+pub(super) fn verify_selected_operation_with(
+    w: &World,
+    old: &World,
+    prepared_authored: &BTreeMap<Key, Value>,
+    selection: &OperationSelection,
+    policy: &impl ResourcePolicy,
+) -> Result<Proof> {
     let original_envelope = old.loose(&old.commit["root_set"]["placement"]["accounting"])?;
     ensure(
         selection.packed_hold == original_envelope["holds"],
@@ -1697,7 +1714,7 @@ pub(super) fn verify_selected_operation(
         prepared_authored,
         selection: Some(selection),
     };
-    verify_inner(w, &AuthoredOnly, Some(&t), None)
+    verify_inner(w, policy, Some(&t), None)
 }
 struct Transition<'a> {
     old: &'a World,
@@ -1785,7 +1802,7 @@ fn verify_inner(
     let ev = evidence(w, &conversion, context)?;
     let hold_ref = operation.map_or(&envelope["holds"], |s| &s.packed_hold);
     let holds = active_res.get(hold_ref, 2)?;
-    let account = accounting::verify(&ledger, &holds, |r| active_res.any(r), &ev)?;
+    let account = package_accounting(&ledger, &holds, &active_res, &ev, context, false)?;
     ensure(
         account.allocations == w.allocation_ids(),
         "exact all physical allocation charges",
@@ -2006,9 +2023,9 @@ fn recovery_inner(
     let proof = role(policy, w, &res, &root["recovery"], entry, None, context)?;
     let hold_ref = operation.map_or(&envelope["holds"], |s| &s.packed_hold);
     let holds = res.get(hold_ref, 2)?;
-    let accounting = accounting::metadata(&ledger, &holds, |r| res.any(r))?;
     let conversion = conversion(w, &root, &ledger, &res, context, true)?;
     let ev = evidence(w, &conversion, context)?;
+    let accounting = package_accounting(&ledger, &holds, &res, &ev, context, true)?;
     let owner = ownership(w, &res, entry, &shared, &ev, &accounting)?;
     let mut pins = BTreeSet::new();
     let entries = walk(&res, &root["pinned_roots"], Kind::Pin, &mut pins)?;
@@ -2120,6 +2137,7 @@ fn mixed_union(
     Ok(all)
 }
 fn validate_registration(w: &World, c: &PackageContext<'_>) -> Result<()> {
+    snapshot_evidence(c)?;
     ensure(
         w.source.is_empty() && w.source_witnesses == json!({}) && w.journal.is_empty(),
         "standalone legacy source/journal absence",
@@ -2181,7 +2199,17 @@ fn conversion(
     context: Option<&PackageContext<'_>>,
     recovery: bool,
 ) -> Result<Value> {
-    if context.is_some() {
+    if let Some(c) = context {
+        if let Some(original) = &c.registration.retained_source {
+            let descriptor = res.get(&root["conversion_source"], 1)?;
+            ensure(
+                encode(&descriptor) == original.descriptor
+                    && ledger["conversion_source"] == root["conversion_source"]
+                    && descriptor["source_bootstrap_sha256"] == c.identity.bootstrap_sha256,
+                "selected original D19 ConversionSource",
+            )?;
+            return Ok(descriptor);
+        }
         ensure(
             root["conversion_source"].is_null()
                 && ledger["conversion_source"].is_null()
@@ -2282,7 +2310,27 @@ pub(super) fn audit_package(
     context: &PackageContext<'_>,
     audit: &dyn provider::RawAudit,
 ) -> Result<Proof> {
+    audit_package_inner(w, context, audit, None)
+}
+pub(super) fn audit_package_with_snapshot(
+    w: &World,
+    context: &PackageContext<'_>,
+    audit: &dyn provider::RawAudit,
+    snapshot: &dyn provider::SnapshotAudit,
+) -> Result<Proof> {
+    audit_package_inner(w, context, audit, Some(snapshot))
+}
+fn audit_package_inner(
+    w: &World,
+    context: &PackageContext<'_>,
+    audit: &dyn provider::RawAudit,
+    snapshot: Option<&dyn provider::SnapshotAudit>,
+) -> Result<Proof> {
     let proof = verify_package(w, context)?;
+    ensure(
+        context.registration.retained_source.is_some() == snapshot.is_some(),
+        "explicit snapshot audit required",
+    )?;
     for (object, id) in &proof.blob_locations {
         let original = context
             .registration
@@ -2291,5 +2339,82 @@ pub(super) fn audit_package(
             .ok_or("original audit registration")?;
         audit.audit(object.object_ref(), id, &original.description)?;
     }
+    if let (Some(original), Some(audit)) = (&context.registration.retained_source, snapshot) {
+        ensure(
+            audit.paths()? == original.files.keys().cloned().collect(),
+            "audit exact snapshot paths",
+        )?;
+        for (path, file) in &original.files {
+            audit.audit_file(path, &file.sha256, &file.description)?;
+        }
+    }
     Ok(proof)
+}
+
+fn snapshot_evidence(
+    context: &PackageContext<'_>,
+) -> Result<Option<BTreeMap<Vec<String>, accounting::StructuralFileEvidence>>> {
+    let Some(original) = &context.registration.retained_source else {
+        ensure(context.snapshot.is_none(), "unexpected snapshot provider")?;
+        return Ok(None);
+    };
+    let provider = context
+        .snapshot
+        .ok_or("original snapshot provider required")?;
+    let paths = provider.paths()?;
+    ensure(
+        paths.len() <= 256 && paths == original.files.keys().cloned().collect(),
+        "exact retained snapshot paths",
+    )?;
+    let mut files = BTreeMap::new();
+    let mut total = 0u64;
+    for (path, registration) in &original.files {
+        photara_core::contracts::resource::RelativeComponents::new(path.clone())
+            .map_err(|_| "snapshot portable path")?;
+        let actual = provider.describe_file(path)?;
+        ensure(
+            actual.regular && actual.physical.inode > 0 && actual == registration.description,
+            "retained snapshot original type/extent/witness",
+        )?;
+        total = total
+            .checked_add(actual.physical.extent)
+            .ok_or("snapshot extent overflow")?;
+        ensure(total <= 16 * 1024 * 1024, "snapshot aggregate extent bound")?;
+        files.insert(
+            path.clone(),
+            accounting::StructuralFileEvidence {
+                extent: actual.physical.extent,
+                registered_charge: registration.registered_charge,
+                device: actual.physical.device,
+                inode: actual.physical.inode,
+                regular: actual.regular,
+            },
+        );
+    }
+    Ok(Some(files))
+}
+fn package_accounting(
+    ledger: &Value,
+    holds: &Value,
+    res: &Resolver,
+    evidence: &accounting::Evidence,
+    context: Option<&PackageContext<'_>>,
+    recovery: bool,
+) -> Result<accounting::Proof> {
+    if let Some(c) = context
+        && let Some(files) = snapshot_evidence(c)?
+    {
+        return accounting::verify_structural_source(
+            ledger,
+            holds,
+            |r| res.any(r),
+            evidence,
+            &files,
+        );
+    }
+    if recovery {
+        accounting::metadata(ledger, holds, |r| res.any(r))
+    } else {
+        accounting::verify(ledger, holds, |r| res.any(r), evidence)
+    }
 }

@@ -4,6 +4,12 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use wire::{Key, Result, ensure, fields, key, number, schema, text};
 pub(super) struct Origins;
+/// Implemented only by a route adapter that validates actual selected O/P/hold bytes.
+pub(super) trait PendingAuthority {
+    fn operation_id(&self) -> &Value;
+    fn intent(&self, context: &wire::EvidenceContext<'_>, evidence: &Value) -> Result<Value>;
+}
+pub(super) struct WithPending<'a>(pub &'a dyn PendingAuthority);
 type OriginKey = (String, String);
 type Requirements = BTreeMap<String, Value>;
 
@@ -14,10 +20,13 @@ fn uuid(v: &Value) -> Result<&str> {
     Ok(s)
 }
 fn origin_key(v: &Value) -> Result<OriginKey> {
+    origin_key_mode(v, false)
+}
+fn origin_key_mode(v: &Value, pending: bool) -> Result<OriginKey> {
     fields(v, &["kind", "source_id"])?;
     let kind = text(&v["kind"])?;
     ensure(
-        ["history", "recovery", "explicit"].contains(&kind),
+        ["history", "recovery", "explicit"].contains(&kind) || (pending && kind == "pending"),
         "pending/unknown origin evidence unsupported",
     )?;
     Ok((kind.into(), uuid(&v["source_id"])?.into()))
@@ -39,13 +48,18 @@ fn fetched(res: &wire::Resolver, r: &Value, set: &mut BTreeSet<Key>) -> Result<V
 #[derive(Clone, Copy)]
 enum Tree {
     Evidence,
+    PendingEvidence,
     Requirements,
 }
 impl Tree {
     fn node(self, leaf: bool) -> &'static str {
         match (self, leaf) {
-            (Self::Evidence, true) => "photara.resource.retention-evidence-leaf",
-            (Self::Evidence, false) => "photara.resource.retention-evidence-branch",
+            (Self::Evidence | Self::PendingEvidence, true) => {
+                "photara.resource.retention-evidence-leaf"
+            }
+            (Self::Evidence | Self::PendingEvidence, false) => {
+                "photara.resource.retention-evidence-branch"
+            }
             (Self::Requirements, true) => "photara.resource.selection-leaf",
             (Self::Requirements, false) => "photara.resource.selection-branch",
         }
@@ -53,6 +67,7 @@ impl Tree {
     fn boundary(self, v: &Value) -> Result<OriginKey> {
         match self {
             Self::Evidence => origin_key(v),
+            Self::PendingEvidence => origin_key_mode(v, true),
             Self::Requirements => Ok((String::new(), uuid(v)?.into())),
         }
     }
@@ -60,13 +75,13 @@ impl Tree {
         fields(
             v,
             match self {
-                Self::Evidence => &["key", "evidence"],
+                Self::Evidence | Self::PendingEvidence => &["key", "evidence"],
                 Self::Requirements => &["id", "record"],
             },
         )?;
         self.boundary(
             &v[match self {
-                Self::Evidence => "key",
+                Self::Evidence | Self::PendingEvidence => "key",
                 Self::Requirements => "id",
             }],
         )
@@ -228,19 +243,7 @@ impl wire::ResourcePolicy for Origins {
         &["photara.resource-retention-evidence.v1"]
     }
     fn resources(&self, state: &Value, res: &wire::Resolver) -> Result<resources::Proof> {
-        resources::verify_with_origin(
-            &state["resource_state"],
-            text(&state["root_id"])?,
-            |r| res.get(r, 1),
-            |source, context| match text(&source["origin"]["kind"])? {
-                "authored" | "history" | "recovery" => ensure(
-                    source["origin"]["source_id"] == context["root_id"],
-                    "origin owning root identity",
-                ),
-                "explicit" => Ok(()),
-                _ => Err("pending/unknown resource origin unsupported"),
-            },
-        )
+        selected_resources(state, res, None)
     }
 
     fn evidence(
@@ -248,11 +251,61 @@ impl wire::ResourcePolicy for Origins {
         ctx: &wire::EvidenceContext<'_>,
         res: &wire::Resolver,
     ) -> Result<wire::Contribution> {
-        evidence(ctx, res)
+        evidence(ctx, res, None)
     }
 }
 
-fn evidence(ctx: &wire::EvidenceContext<'_>, res: &wire::Resolver) -> Result<wire::Contribution> {
+impl wire::ResourcePolicy for WithPending<'_> {
+    fn extra_features(&self) -> &'static [&'static str] {
+        &["photara.resource-retention-evidence.v1"]
+    }
+    fn resources(&self, state: &Value, res: &wire::Resolver) -> Result<resources::Proof> {
+        selected_resources(state, res, Some(self.0))
+    }
+    fn evidence(
+        &self,
+        ctx: &wire::EvidenceContext<'_>,
+        res: &wire::Resolver,
+    ) -> Result<wire::Contribution> {
+        evidence(ctx, res, Some(self.0))
+    }
+}
+fn selected_resources(
+    state: &Value,
+    res: &wire::Resolver,
+    pending: Option<&dyn PendingAuthority>,
+) -> Result<resources::Proof> {
+    resources::verify_with_origin(
+        &state["resource_state"],
+        text(&state["root_id"])?,
+        |r| res.get(r, 1),
+        |source, context| match text(&source["origin"]["kind"])? {
+            "authored" | "history" | "recovery" => ensure(
+                source["origin"]["source_id"] == context["root_id"],
+                "origin owning root identity",
+            ),
+            "explicit" => Ok(()),
+            "pending" => match pending {
+                Some(authority) => ensure(
+                    source["origin"]["source_id"] == *authority.operation_id(),
+                    "pending source operation identity",
+                ),
+                None => Err("pending/unknown resource origin unsupported"),
+            },
+            _ => Err("pending/unknown resource origin unsupported"),
+        },
+    )
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "Exact selected origin union and optional original-operation proof in one pass"
+)]
+fn evidence(
+    ctx: &wire::EvidenceContext<'_>,
+    res: &wire::Resolver,
+    pending: Option<&dyn PendingAuthority>,
+) -> Result<wire::Contribution> {
     let mut out = wire::Contribution {
         logical: BTreeSet::new(),
         implementation: BTreeSet::new(),
@@ -260,7 +313,11 @@ fn evidence(ctx: &wire::EvidenceContext<'_>, res: &wire::Resolver) -> Result<wir
     let entries = walk(
         res,
         &ctx.root["retention_evidence"],
-        Tree::Evidence,
+        if pending.is_some() {
+            Tree::PendingEvidence
+        } else {
+            Tree::Evidence
+        },
         &mut out.implementation,
         &mut BTreeSet::new(),
         0,
@@ -273,7 +330,9 @@ fn evidence(ctx: &wire::EvidenceContext<'_>, res: &wire::Resolver) -> Result<wir
             merge(&mut all_requirements, subset.clone())?;
             if source["origin"]["kind"] != "authored" {
                 merge(
-                    expected.entry(origin_key(&source["origin"])?).or_default(),
+                    expected
+                        .entry(origin_key_mode(&source["origin"], pending.is_some())?)
+                        .or_default(),
                     subset,
                 )?;
             }
@@ -281,11 +340,44 @@ fn evidence(ctx: &wire::EvidenceContext<'_>, res: &wire::Resolver) -> Result<wir
     }
     let mut actual = BTreeSet::new();
     for entry in entries {
-        let k = origin_key(&entry["key"])?;
+        let k = origin_key_mode(&entry["key"], pending.is_some())?;
         actual.insert(k.clone());
         let value = fetched(res, &entry["evidence"], &mut out.logical)?;
         evidence_schema(ctx, &value, &k)?;
-        let subset = requirements(res, &value["requirements"], &mut out)?;
+        let intent = if k.0 == "pending" {
+            let intent = pending
+                .ok_or("pending evidence unsupported")?
+                .intent(ctx, &value)?;
+            let packed = fetched(res, &value["retention_intent"], &mut out.logical)?;
+            ensure(packed == intent, "pending actual packed intent")?;
+            schema(
+                &intent,
+                "photara.resource.pending-retention-intent",
+                1,
+                &[
+                    "library_id",
+                    "bootstrap_sha256",
+                    "operation_id",
+                    "request_sha256",
+                    "requirements",
+                ],
+            )?;
+            ensure(
+                intent["library_id"] == ctx.root["library_id"]
+                    && intent["bootstrap_sha256"] == ctx.root["bootstrap_sha256"]
+                    && intent["operation_id"] == value["operation_id"]
+                    && intent["request_sha256"] == value["request_sha256"]
+                    && wire::reference(&intent) == value["retention_intent"],
+                "pending exact original intent identity",
+            )?;
+            Some(intent)
+        } else {
+            None
+        };
+        let subset_ref = intent
+            .as_ref()
+            .map_or(&value["requirements"], |i| &i["requirements"]);
+        let subset = requirements(res, subset_ref, &mut out)?;
         ensure(!subset.is_empty(), "origin evidence nonempty subset")?;
         // Metadata identity consistency is global even when only recovery authority is checked.
         merge(&mut all_requirements, subset.clone())?;
@@ -301,6 +393,9 @@ fn evidence(ctx: &wire::EvidenceContext<'_>, res: &wire::Resolver) -> Result<wir
                 expected.get(&k) == Some(&subset),
                 "origin exact selected subset union",
             )?;
+        }
+        if k.0 == "pending" {
+            continue;
         }
         if k.0 == "explicit" {
             number(&value["revision"])?;
@@ -348,6 +443,16 @@ fn evidence_schema(ctx: &wire::EvidenceContext<'_>, value: &Value, k: &OriginKey
             "photara.resource.retention-policy",
             vec!["policy_id", "revision", "requirements"],
         ),
+        "pending" => (
+            "photara.resource.pending-retention-evidence",
+            vec![
+                "operation_id",
+                "request_sha256",
+                "token",
+                "original_admission",
+                "retention_intent",
+            ],
+        ),
         _ => return Err("pending evidence unsupported"),
     };
     let mut extra_fields = vec!["library_id", "bootstrap_sha256"];
@@ -358,7 +463,12 @@ fn evidence_schema(ctx: &wire::EvidenceContext<'_>, value: &Value, k: &OriginKey
             && value["bootstrap_sha256"] == ctx.root["bootstrap_sha256"],
         "origin evidence package identity",
     )?;
-    let identity = if k.0 == "explicit" {
+    let identity = if k.0 == "pending" {
+        number(&value["token"])?;
+        key(&value["original_admission"])?;
+        key(&value["retention_intent"])?;
+        "operation_id"
+    } else if k.0 == "explicit" {
         "policy_id"
     } else {
         "source_id"

@@ -1,0 +1,33 @@
+   Compiling photara-store v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-store)
+    Finished `release` profile [optimized] target(s) in 4.57s
+     Running tests/selected_blob_api_candidate.rs (/Users/suhail/.cache/cargo/targets/release/deps/selected_blob_api_candidate-36e29caf074c0e28)
+
+running 4 tests
+test mixed_keys_preserve_json_api_and_kind_identity_without_encoded_hash_tags ... ok
+test tree_keys_keep_numeric_and_uuid_order_without_string_padding_conventions ... ok
+test structural_provider_interface_exposes_metadata_while_explicit_audit_reads_private_bytes ... ok
+test trusted_context_uses_original_registration_and_exact_zero_null_dispatch ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/selected_blob_shared_candidate.rs (/Users/suhail/.cache/cargo/targets/release/deps/selected_blob_shared_candidate-496c7eecb2ab3751)
+
+running 16 tests
+test cross_role_whole_allocation_identity_cannot_alias_but_exact_sharing_is_valid ... ok
+test trusted_scope_empty_dispatch_and_original_registration_cannot_be_rebound ... ok
+test retained_snapshot_witness_missing_extra_and_nonregular_files_refuse_without_reads ... ok
+test resources::tests::resolver_cannot_substitute_canonical_object ... ok
+test accounting::tests::integrated_accounting_resolver_must_return_exact_original_canonical_bytes ... ok
+test accounting::tests::integrated_accounting_actual_settled_roots_and_breakdown ... ok
+test accounting::tests::integrated_accounting_tip_bodies_are_ordered_and_disjoint ... ok
+test resources::tests::structural_support_is_not_retention_or_media_proof ... ok
+test accounting::tests::integrated_accounting_metadata_is_exact_but_not_physical_evidence ... ok
+test accounting::tests::integrated_accounting_nonempty_transition_or_unknown_fields_fence ... ok
+test original_d19_shared_head_structural_open_reads_no_media ... ok
+test resources::tests::actual_context_closure_and_wrong_root ... ok
+test current_media_corruption_is_audit_only_but_same_byte_inode_replacement_refuses ... ok
+test accounting::tests::integrated_accounting_original_witness_and_charge_basis_cannot_rebind ... ok
+test rebuilt_hash_correct_metadata_negatives_reach_their_intended_invariants ... ok
+test converted_d19_snapshot_structural_open_never_reads_media_and_audit_is_explicit ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s

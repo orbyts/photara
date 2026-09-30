@@ -1,0 +1,174 @@
+{
+  "limits": [
+    "Read-only structural source proof, not writable admission, verified current content or qualified capture.",
+    "Private in-memory metadata provider; no native directory/inode custody claim.",
+    "Original reference archive is strongly verified in trusted setup separately from instrumented current-media access.",
+    "No Blob mutation, newborn Blob or combined Graph/media operation."
+  ],
+  "observations": {
+    "explicit_current_blob_audit_bytes": 5,
+    "explicit_retained_blob_audit_bytes": 5,
+    "explicit_retained_file_audits": 38,
+    "framed_tip_extents": [
+      262144,
+      262144
+    ],
+    "metadata_refusals": [
+      "same-byte inode substitution",
+      "missing path",
+      "extra path",
+      "nonregular file"
+    ],
+    "project": "original D19 project unchanged",
+    "retained_directory_allowance": 16384,
+    "retained_same_extent_corruption": "structural full/recovery succeed; explicit strong audit refuses",
+    "snapshot_files": 38,
+    "structural_current_media_bytes": 0,
+    "structural_retained_file_audits": 0,
+    "structural_retained_media_bytes": 0,
+    "total_charge": 782336
+  },
+  "outputs": [
+    {
+      "bytes": 2471,
+      "path": "docs/architecture/verification/ps2-selected-blob-converted-focused.txt",
+      "sha256": "5f22067c23f126a43b9e5c5eccc0626e6d2c9cf464a80a04a216cb6741956a84"
+    },
+    {
+      "bytes": 202,
+      "path": "docs/architecture/verification/ps2-selected-blob-converted-clippy.txt",
+      "sha256": "4a892df7e53adbb51267b6ee285ce9c8ed59c3417f81c26753785ef405fa9d17"
+    }
+  ],
+  "owned_paths": [
+    "crates/photara-store/tests/integrated_wire_candidate/wire.rs",
+    "crates/photara-store/tests/integrated_wire_candidate/accounting.rs",
+    "crates/photara-store/tests/selected_blob_candidate/context.rs",
+    "crates/photara-store/tests/selected_blob_candidate/package.rs",
+    "crates/photara-store/tests/selected_blob_candidate/provider.rs",
+    "crates/photara-store/tests/selected_blob_candidate/snapshot.rs",
+    "crates/photara-store/tests/selected_blob_shared_candidate.rs",
+    "docs/architecture/proposals/ps2/selected-blob/generate.py",
+    "docs/architecture/proposals/ps2/selected-blob/converted.json",
+    "docs/architecture/PS2_SELECTED_BLOB_SHARED_CANDIDATE.md"
+  ],
+  "production": false,
+  "provenance": [
+    "Default accounting verify still checks exact file bytes and hashes. Only additive verify_structural_source uses metadata-only evidence, with original descriptor/path/charge/witness binding.",
+    "The generator changed only to add optional converted mode and obey existing accounting leaf bounds; historical default corpus bytes remain exact.",
+    "The shared final six-target regression manifest binds final sources after the pending-policy wrapper was added; the focused logs remain earlier local evidence."
+  ],
+  "results": {
+    "combined_affected_regression": {
+      "failures": 0,
+      "manifest": "docs/architecture/verification/ps2-final-wire-regression.json",
+      "rustfmt": "passed",
+      "strict_clippy": "all six targets passed",
+      "tests": 100
+    },
+    "focused_release": {
+      "pure_helpers": 4,
+      "seconds": [
+        0.3,
+        0.01
+      ],
+      "shared_target": 16
+    },
+    "reproduction": "Both 657394-byte standalone and 1451451-byte converted corpora reproduce exactly; standalone bytes unchanged",
+    "rustfmt": "passed",
+    "strict_clippy": "two affected Blob targets passed"
+  },
+  "sources": [
+    {
+      "bytes": 86264,
+      "path": "crates/photara-store/tests/integrated_wire_candidate/wire.rs",
+      "sha256": "f506f4a535e744f272cf4b3ad981fd106fde00916b092cd0f2b665dab645441d"
+    },
+    {
+      "bytes": 43708,
+      "path": "crates/photara-store/tests/integrated_wire_candidate/accounting.rs",
+      "sha256": "af5c5205a547718a6bf39be8034ef1ae6be94972b626977ee6b7f63c90821e77"
+    },
+    {
+      "bytes": 20570,
+      "path": "crates/photara-store/tests/selected_blob_candidate/context.rs",
+      "sha256": "0a381b8671db00a6a062abc6da8127c1fcbe08bc3c3dc9370d6704d062da2d37"
+    },
+    {
+      "bytes": 2204,
+      "path": "crates/photara-store/tests/selected_blob_candidate/package.rs",
+      "sha256": "a0e3b38f18de6c8a1674b40a36f73bdaf6fb2350042b1790e19999bcfd761013"
+    },
+    {
+      "bytes": 2244,
+      "path": "crates/photara-store/tests/selected_blob_candidate/provider.rs",
+      "sha256": "526b2492ebf4530db72ad0bf4174b26962438d92ddf6a6844e445f5e06f6699e"
+    },
+    {
+      "bytes": 4836,
+      "path": "crates/photara-store/tests/selected_blob_candidate/snapshot.rs",
+      "sha256": "8a84e3c458bd9b77004293457a745116b33dd180050f3852d46ac75f7403d1bc"
+    },
+    {
+      "bytes": 9854,
+      "path": "crates/photara-store/tests/selected_blob_shared_candidate.rs",
+      "sha256": "9702a33c74a9a1f5c5a45cea85b14ce1842ab35c821904bdbc2048946c2992f0"
+    },
+    {
+      "bytes": 14312,
+      "path": "docs/architecture/proposals/ps2/selected-blob/generate.py",
+      "sha256": "4761dc0fe5e2c59a8fefe021862bb4dcf196785549ceeb2b8ef9b0f639e1ae1c"
+    },
+    {
+      "bytes": 1451451,
+      "path": "docs/architecture/proposals/ps2/selected-blob/converted.json",
+      "sha256": "1ad409158a1ad5d306fb06518df4e4e941cf085563ba3830a3b72d0cb2550bd3"
+    },
+    {
+      "bytes": 5471,
+      "path": "docs/architecture/PS2_SELECTED_BLOB_SHARED_CANDIDATE.md",
+      "sha256": "0d3368ac090ef40b1dd427901c8827d98b5ff4b6a7109d1e693e7a37ce44c961"
+    },
+    {
+      "bytes": 657394,
+      "path": "docs/architecture/proposals/ps2/selected-blob/linked.json",
+      "sha256": "7a02529a3531b1088b4e82dc64f7da3320f5c62a21909b5e8c461e44bf995e8e"
+    },
+    {
+      "bytes": 43396,
+      "path": "docs/fixtures/generation-two/d19-package-specimen.json",
+      "sha256": "be32df34ad90d00430dd4fb0e6e475dc2c5c0093d89b261ab8c6fb26a95113b7"
+    },
+    {
+      "bytes": 6342,
+      "path": "crates/photara-store/tests/selected_blob_candidate/legacy.rs",
+      "sha256": "0832559e2f6ddacff6214035b2b20a243d526047db8b004adbc7d7670793ef1f"
+    },
+    {
+      "bytes": 4329,
+      "path": "crates/photara-store/tests/selected_blob_candidate/media.rs",
+      "sha256": "37c0b4b3fe7a8622c555061f99364894bdfa212309c196204fb23c50866d11fc"
+    },
+    {
+      "bytes": 2322,
+      "path": "crates/photara-store/tests/selected_blob_candidate/media_adapter.rs",
+      "sha256": "f517bb7e793ad5626652b154dde0c3b48fd9514f63f3ddab57d0021bcc4c5fa2"
+    },
+    {
+      "bytes": 2337,
+      "path": "crates/photara-store/tests/selected_blob_candidate/keys.rs",
+      "sha256": "c382226915b5272a14d93c99542a0721321937a18dc62594b6e9252720fe8aa8"
+    },
+    {
+      "bytes": 8753,
+      "path": "crates/photara-store/tests/integrated_wire_candidate/resources.rs",
+      "sha256": "3dbe309191575825106134dcdbf8ef6fa0c586ffe7ef0ed28e1f8815e677cd36"
+    },
+    {
+      "bytes": 8266,
+      "path": "crates/photara-store/tests/selected_blob_api_candidate.rs",
+      "sha256": "bac2efbd562af40b489a8b4623724335dbdd873d14d75d988fdd66d4133d9002"
+    }
+  ],
+  "status": "verified-unfrozen-test-only"
+}

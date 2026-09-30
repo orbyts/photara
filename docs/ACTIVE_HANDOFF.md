@@ -43,20 +43,18 @@ Do not expand LL1 removal, UI polish, second-device acceptance or later platform
 work before LL2a. These efficiency constraints do not waive permanent-format,
 security, production or storage-qualification boundaries.
 
-The immediate PS2 engineering step is completing the reviewable wire candidate:
+The bounded byte-candidate work is now complete: the final shared suite passes
+**100 tests**, strict Clippy and targeted formatting, with all 50 source/log
+hashes independently verified. See the [single current review packet](architecture/PS2_WIRE_REVIEW_READINESS.md#current-consolidated-review-packet--2026-09-29)
+for the exact common records, same-tip/single-birth/pending variants, whole-Blob
+and retained-conversion evidence, limits and concrete format decision.
 
-1. compose the independently verified scalable resource-source factoring,
-   local observation/retained-file accounting and sparse original-charge
-   components with Blob compatibility, exact proposed permanent coordinates
-   and newborn/replay fields;
-2. consolidate the exact byte/closure proposal, original replay commitments,
-   measured limits and negative economics for permanent-wire review;
-3. complete qualified storage/barrier evidence as its separate prerequisite.
-
-Only consolidated evidence from that integration may support review/freeze of
-the permanent wire and implementation of the shared Rust reader, writer,
-recovery and admission boundary. macOS storage/barrier qualification remains a
-separate PS2 prerequisite.
+**Next gate: permanent-format review before production-reader changes.** No more
+fixture families or duplicate broad tests are needed to present this decision.
+After review, implement shared Rust reader/writer/recovery/admission, complete
+storage qualification, then proceed PS3 → PS4 → LL2a. PS2 remains active because
+that production implementation and qualification are not complete. Clean-remount
+permission/evidence does not authorize abrupt interruption or production writes.
 
 ## Approved semantics — do not reopen without contradictory evidence
 

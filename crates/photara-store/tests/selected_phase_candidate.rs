@@ -6,6 +6,14 @@ mod accounting;
 mod admission;
 #[path = "selected_admission_candidate/decoder.rs"]
 mod decoder;
+#[path = "selected_phase_candidate/newborn_budget.rs"]
+mod newborn_budget;
+#[path = "selected_phase_candidate/one_birth.rs"]
+mod one_birth;
+#[path = "selected_origin_candidate/origins.rs"]
+mod origins;
+#[path = "selected_phase_candidate/pending.rs"]
+mod pending;
 #[path = "selected_phase_candidate/phases.rs"]
 mod phases;
 #[path = "selected_admission_candidate/prepare.rs"]

@@ -152,3 +152,85 @@ fn rebuilt_hash_correct_metadata_negatives_reach_their_intended_invariants() {
         assert_eq!(media.counters(), (0, 0));
     }
 }
+
+#[path = "selected_blob_candidate/snapshot.rs"]
+mod snapshot;
+fn converted_corpus() -> Value {
+    serde_json::from_str(include_str!(
+        "../../../docs/architecture/proposals/ps2/selected-blob/converted.json"
+    ))
+    .unwrap()
+}
+fn retained_blob_path(c: &Value) -> Vec<String> {
+    c["snapshot_files"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .find(|p| p.starts_with("objects/blobs/"))
+        .unwrap()
+        .split('/')
+        .map(str::to_owned)
+        .collect()
+}
+#[test]
+fn converted_d19_snapshot_structural_open_never_reads_media_and_audit_is_explicit() {
+    let c = converted_corpus();
+    let trusted = context::D19Context::trusted_converted().unwrap();
+    let media = media_adapter::InstrumentedMedia::load(&c).unwrap();
+    let snapshot = snapshot::Snapshot::load(&c).unwrap();
+    let w = wire::World::load_blob(&c, &media).unwrap();
+    let context = trusted.package_with_snapshot(&media, &snapshot);
+    let proof = wire::verify_package(&w, &context).unwrap();
+    assert_eq!(proof.total, 782_336);
+    wire::recovery_package(&w, &context).unwrap();
+    assert_eq!(media.counters(), (0, 0));
+    assert_eq!(snapshot.counters(), (0, 0, 0));
+    assert_eq!(
+        wire::audit_package(&w, &context, &media).err(),
+        Some("explicit snapshot audit required")
+    );
+    wire::audit_package_with_snapshot(&w, &context, &media, &snapshot).unwrap();
+    assert_eq!(media.counters(), (5, 1));
+    assert_eq!(snapshot.counters(), (5, 1, 38));
+    let mut damaged = snapshot::Snapshot::load(&c).unwrap();
+    damaged.corrupt(&retained_blob_path(&c)).unwrap();
+    let context = trusted.package_with_snapshot(&media, &damaged);
+    wire::verify_package(&w, &context).unwrap();
+    wire::recovery_package(&w, &context).unwrap();
+    assert_eq!(damaged.counters(), (0, 0, 0));
+    assert_eq!(
+        wire::audit_package_with_snapshot(&w, &context, &media, &damaged).err(),
+        Some("snapshot strong audit digest")
+    );
+    assert_eq!(damaged.counters().0, 5);
+    assert_eq!(damaged.counters().1, 1);
+}
+#[test]
+fn retained_snapshot_witness_missing_extra_and_nonregular_files_refuse_without_reads() {
+    let c = converted_corpus();
+    let path = retained_blob_path(&c);
+    let trusted = context::D19Context::trusted_converted().unwrap();
+    let media = media_adapter::InstrumentedMedia::load(&c).unwrap();
+    let w = wire::World::load_blob(&c, &media).unwrap();
+    for case in 0..4 {
+        let mut snapshot = snapshot::Snapshot::load(&c).unwrap();
+        match case {
+            0 => snapshot.replace_inode(&path).unwrap(),
+            1 => snapshot.remove(&path),
+            2 => snapshot.add_foreign(),
+            3 => snapshot.nonregular(&path).unwrap(),
+            _ => unreachable!(),
+        }
+        let expected = if case == 0 || case == 3 {
+            "retained snapshot original type/extent/witness"
+        } else {
+            "exact retained snapshot paths"
+        };
+        assert_eq!(
+            wire::verify_package(&w, &trusted.package_with_snapshot(&media, &snapshot)).err(),
+            Some(expected)
+        );
+        assert_eq!(snapshot.counters(), (0, 0, 0));
+    }
+    assert_eq!(media.counters(), (0, 0));
+}

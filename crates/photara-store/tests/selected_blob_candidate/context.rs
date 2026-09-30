@@ -72,8 +72,29 @@ fn get(r: &Value, resolve: &mut impl FnMut(&Value) -> Result<Value>) -> Result<(
 impl D19Context {
     /// Separately trusted fixed registration epoch. No candidate argument exists.
     pub(super) fn trusted() -> Result<Self> {
-        ensure(CORPUS.len() <= 8 * 1024 * 1024, "context corpus bound")?;
-        let corpus: Value = serde_json::from_slice(CORPUS).map_err(|_| "context fixed corpus")?;
+        Self::from_trusted(false)
+    }
+    pub(super) fn trusted_converted() -> Result<Self> {
+        Self::from_trusted(true)
+    }
+    #[allow(
+        clippy::too_many_lines,
+        reason = "Keep the trusted original identity and registration construction in one pass"
+    )]
+    fn from_trusted(converted: bool) -> Result<Self> {
+        let corpus_bytes: &[u8] = if converted {
+            include_bytes!(
+                "../../../../docs/architecture/proposals/ps2/selected-blob/converted.json"
+            )
+        } else {
+            CORPUS
+        };
+        ensure(
+            corpus_bytes.len() <= 8 * 1024 * 1024,
+            "context corpus bound",
+        )?;
+        let corpus: Value =
+            serde_json::from_slice(corpus_bytes).map_err(|_| "context fixed corpus")?;
         let legacy = TrustedLegacy::d19()?;
         ensure(
             corpus["original_package_sha256"] == legacy.original_package_sha256,
@@ -140,9 +161,14 @@ impl D19Context {
             allocations,
             standing_control: number(&original["standing_control"])?,
             directory_allowance: number(&original["directory_allowance"])?,
+            retained_source: if converted {
+                Some(trusted_snapshot(original)?)
+            } else {
+                None
+            },
         };
         ensure(
-            number(&original["retained_directory_allowance"])? == 0,
+            converted || number(&original["retained_directory_allowance"])? == 0,
             "context no original conversion registration",
         )?;
         let identity = Identity {
@@ -363,7 +389,17 @@ impl D19Context {
             required_features: &self.required_features,
             semantic: self,
             raw,
+            snapshot: None,
         }
+    }
+    pub(super) fn package_with_snapshot<'a>(
+        &'a self,
+        raw: &'a dyn RawMetadata,
+        snapshot: &'a dyn super::provider::SnapshotMetadata,
+    ) -> PackageContext<'a> {
+        let mut context = self.package(raw);
+        context.snapshot = Some(snapshot);
+        context
     }
 }
 impl RootSemantic for D19Context {
@@ -405,4 +441,106 @@ impl RootSemantic for D19Context {
         }
         Ok(SemanticMembers { json, blobs })
     }
+}
+
+fn trusted_snapshot(original: &Value) -> Result<super::package::SnapshotRegistration> {
+    use super::{
+        package::{SnapshotFileRegistration, SnapshotRegistration},
+        provider::SnapshotDescription,
+    };
+    let descriptor = original["conversion"]
+        .as_str()
+        .ok_or("original conversion bytes")?
+        .as_bytes()
+        .to_vec();
+    let value = legacy::parse(&descriptor)?;
+    let archive: Value = serde_json::from_slice(include_bytes!(
+        "../../../../docs/fixtures/generation-two/d19-package-specimen.json"
+    ))
+    .map_err(|_| "original D19 archive")?;
+    let originals: BTreeMap<Vec<String>, Vec<u8>> = archive["files"]
+        .as_array()
+        .ok_or("original files")?
+        .iter()
+        .map(|r| {
+            Ok((
+                r["path"]
+                    .as_str()
+                    .ok_or("original path")?
+                    .split('/')
+                    .map(str::to_owned)
+                    .collect(),
+                r["utf8"]
+                    .as_str()
+                    .ok_or("original file")?
+                    .as_bytes()
+                    .to_vec(),
+            ))
+        })
+        .collect::<Result<_>>()?;
+    let manifest = legacy::parse(
+        originals
+            .get(&vec!["manifest.json".into()])
+            .ok_or("original manifest")?,
+    )?;
+    let head_bytes = originals
+        .get(&vec!["HEAD.json".into()])
+        .ok_or("original HEAD")?;
+    let head = legacy::parse(head_bytes)?;
+    let files: Vec<Value> = originals.iter().map(|(p,b)| json!({"components":p,"byte_length":b.len().to_string(),"sha256":legacy::hash(b)})).collect();
+    ensure(
+        value["files"] == json!(files)
+            && value["project_id"] == manifest["project_id"]
+            && value["source_format_version"] == manifest["format_version"]
+            && value["source_head_sha256"] == legacy::hash(head_bytes)
+            && value["source_commit_id"] == head["commit_id"]
+            && value["source_bootstrap_sha256"]
+                == legacy::hash(
+                    &photara_core::canonical_json(&manifest)
+                        .map_err(|_| "original manifest canonical")?,
+                ),
+        "original D19 conversion commitments",
+    )?;
+    let mut registered = BTreeMap::new();
+    for (name, r) in original["retained_files"]
+        .as_object()
+        .ok_or("original snapshot registration")?
+    {
+        let path = name.split('/').map(str::to_owned).collect::<Vec<_>>();
+        photara_core::contracts::resource::RelativeComponents::new(path.clone())
+            .map_err(|_| "original portable snapshot path")?;
+        let bytes = originals.get(&path).ok_or("original snapshot path")?;
+        ensure(
+            r["regular"] == true
+                && number(&r["extent"])? == bytes.len() as u64
+                && r["sha256"] == legacy::hash(bytes),
+            "original snapshot description",
+        )?;
+        let physical = RawDescription {
+            extent: number(&r["extent"])?,
+            device: number(&r["witness"]["device"])?,
+            inode: number(&r["witness"]["inode"])?,
+        };
+        ensure(physical.inode > 0, "original snapshot inode")?;
+        registered.insert(
+            path,
+            SnapshotFileRegistration {
+                description: SnapshotDescription {
+                    regular: true,
+                    physical,
+                },
+                sha256: r["sha256"].as_str().ok_or("original file digest")?.into(),
+                registered_charge: number(&r["registered_charge"])?,
+            },
+        );
+    }
+    ensure(
+        registered.keys().eq(originals.keys()),
+        "original snapshot exact registration paths",
+    )?;
+    Ok(SnapshotRegistration {
+        descriptor,
+        files: registered,
+        directory_allowance: number(&original["retained_directory_allowance"])?,
+    })
 }
