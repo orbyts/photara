@@ -1,0 +1,190 @@
+{
+  "historical_dependency": [
+    {
+      "bytes": 14527,
+      "git_revision": "80de62d",
+      "path": "crates/photara-store/tests/selected_phase_candidate.rs",
+      "sha256": "481d9a01f64a5b190a134b4e44b9b3feef104e9993d80f45df44a284f43afdd7"
+    }
+  ],
+  "limitations": [
+    "Fixed original registration and preservation adapter, not arbitrary legacy reader or qualified storage authority.",
+    "No retained D19 conversion snapshot, Blob transition/newborn admission, or combined Graph/media mutation.",
+    "Fixture count/extent caps are not permanent-format or product limits."
+  ],
+  "observations": {
+    "explicit_audit_bytes": 5,
+    "explicit_audit_hashes": 1,
+    "raw_alias_across_roles": "coherently reframed exact cross-role identity refusal",
+    "same_byte_inode_substitution": "structural refusal",
+    "same_extent_corruption": "structural success, explicit audit failure",
+    "structural_media_bytes_read": 0,
+    "structural_media_hashes": 0,
+    "total_charge": 348160
+  },
+  "outputs": [
+    {
+      "bytes": 2293,
+      "path": "docs/architecture/verification/ps2-selected-blob-shared-focused.txt",
+      "sha256": "6e1a95a12e4f3336de3df6d8d3a0abf199688f07d3bcdecceffc3b76f9075c48"
+    },
+    {
+      "bytes": 5835,
+      "path": "docs/architecture/verification/ps2-selected-blob-shared-regression.txt",
+      "sha256": "8405af411b10eefe5377812a964c7c4348c6694fff8f436caa8f9ea6a9dd3190"
+    },
+    {
+      "bytes": 1805,
+      "path": "docs/architecture/verification/ps2-selected-blob-shared-admission-regression.txt",
+      "sha256": "ead19297ead04a57c5aa01aa39565f9bb3303121c78c25478062d59ffd4e247b"
+    },
+    {
+      "bytes": 202,
+      "path": "docs/architecture/verification/ps2-selected-blob-shared-clippy.txt",
+      "sha256": "63823720d60ba5fdfc7d0ee9db714ff86aa09bd8a7582e7da3cac047d99001a1"
+    }
+  ],
+  "owned_paths": [
+    "crates/photara-store/tests/integrated_wire_candidate/wire.rs",
+    "crates/photara-store/tests/selected_origin_candidate/origins.rs",
+    "crates/photara-store/tests/selected_blob_api_candidate.rs",
+    "crates/photara-store/tests/selected_blob_shared_candidate.rs",
+    "crates/photara-store/tests/selected_blob_candidate/context.rs",
+    "crates/photara-store/tests/selected_blob_candidate/keys.rs",
+    "crates/photara-store/tests/selected_blob_candidate/media_adapter.rs",
+    "crates/photara-store/tests/selected_blob_candidate/package.rs",
+    "crates/photara-store/tests/selected_blob_candidate/provider.rs",
+    "docs/architecture/PS2_SELECTED_BLOB_SHARED_API_PATCH.md",
+    "docs/architecture/PS2_SELECTED_BLOB_SHARED_CANDIDATE.md",
+    "docs/architecture/proposals/ps2/selected-blob/shared_negatives.py",
+    "docs/architecture/proposals/ps2/selected-blob/shared-negatives.json"
+  ],
+  "production": false,
+  "provenance": [
+    "The regression binary used the phase entry point at 80de62d with this shared-reader working patch; a concurrently added newborn estimator is excluded. No claim is made for that later estimator.",
+    "After behavioral runs, only formatting, lint attributes, doc-comment quoting, a numeric separator and explicit BTreeMap default spelling changed in executable sources; strict Clippy compiled the final shared source.",
+    "D19 reference bytes are strongly checked during separate trusted setup. Current-media provider loading is outside read counters; structural access itself has no raw byte getter."
+  ],
+  "results": {
+    "affected_regression": {
+      "admission": 16,
+      "origins": 16,
+      "phase": 22,
+      "settled": 17
+    },
+    "focused": {
+      "coherent_negative_vectors": 7,
+      "pure_helpers": 4,
+      "shared_target": 14
+    },
+    "negative_corpus": "exact reproduction",
+    "original_preparation_hashes": "all preserved",
+    "positive_corpus": "657394 bytes, exact reproduction",
+    "rustfmt": "passed",
+    "strict_clippy": "passed, six targets"
+  },
+  "scope": "Standalone original-project D19 HEAD via common physical/root/accounting driver; null ConversionSource, zero accepted operations; no mutation or runtime qualification.",
+  "sources": [
+    {
+      "bytes": 81815,
+      "path": "crates/photara-store/tests/integrated_wire_candidate/wire.rs",
+      "sha256": "d357e590e09ad55c9a18a0b1832e02aaa17d1790cb151f98c7bdc3ba2c140ce4"
+    },
+    {
+      "bytes": 17902,
+      "path": "crates/photara-store/tests/selected_origin_candidate/origins.rs",
+      "sha256": "d536b08b06e215428c660cd3d9c5732d9ac4de3ce22846c1833572d001cdf0f0"
+    },
+    {
+      "bytes": 8266,
+      "path": "crates/photara-store/tests/selected_blob_api_candidate.rs",
+      "sha256": "bac2efbd562af40b489a8b4623724335dbdd873d14d75d988fdd66d4133d9002"
+    },
+    {
+      "bytes": 6650,
+      "path": "crates/photara-store/tests/selected_blob_shared_candidate.rs",
+      "sha256": "934a20731497e22e2fd334cbdc3016f75c0f3982bd0132c1a577669559aade1e"
+    },
+    {
+      "bytes": 15551,
+      "path": "crates/photara-store/tests/selected_blob_candidate/context.rs",
+      "sha256": "e6a3d503fca2a6900bdcc31b8920ea664ab64ca290fb995ecaf8f81404c520bd"
+    },
+    {
+      "bytes": 2337,
+      "path": "crates/photara-store/tests/selected_blob_candidate/keys.rs",
+      "sha256": "c382226915b5272a14d93c99542a0721321937a18dc62594b6e9252720fe8aa8"
+    },
+    {
+      "bytes": 2322,
+      "path": "crates/photara-store/tests/selected_blob_candidate/media_adapter.rs",
+      "sha256": "f517bb7e793ad5626652b154dde0c3b48fd9514f63f3ddab57d0021bcc4c5fa2"
+    },
+    {
+      "bytes": 1708,
+      "path": "crates/photara-store/tests/selected_blob_candidate/package.rs",
+      "sha256": "a8fb6c489dea3bc49b3eef5ac161b4983f4c7cfb4d81f04a682c468dcc5a364a"
+    },
+    {
+      "bytes": 1656,
+      "path": "crates/photara-store/tests/selected_blob_candidate/provider.rs",
+      "sha256": "0c515448d731166c96ddeea203fe6252ccfae85a5dcd1e0fd7b91ee39d6e6db9"
+    },
+    {
+      "bytes": 10046,
+      "path": "docs/architecture/PS2_SELECTED_BLOB_SHARED_API_PATCH.md",
+      "sha256": "926b163c12bdf9c5125eb6e5e29e804ecb046b70b6836163e52c8983a3be539f"
+    },
+    {
+      "bytes": 4022,
+      "path": "docs/architecture/PS2_SELECTED_BLOB_SHARED_CANDIDATE.md",
+      "sha256": "dc3d9a3f31d1923b05852cdf2186335559b24490e1670734ecc55784900fc186"
+    },
+    {
+      "bytes": 4503,
+      "path": "docs/architecture/proposals/ps2/selected-blob/shared_negatives.py",
+      "sha256": "96ce7a689bf8404d5169662faf0c35521088c359f145405ac454a2060333dea2"
+    },
+    {
+      "bytes": 2109615,
+      "path": "docs/architecture/proposals/ps2/selected-blob/shared-negatives.json",
+      "sha256": "e73b82da809566149d80c86ebb229f6e45fe345b325d092d6d62f05f5513c0ea"
+    },
+    {
+      "bytes": 41898,
+      "path": "crates/photara-store/tests/integrated_wire_candidate/accounting.rs",
+      "sha256": "5b0c3361d3925310833fcc7055df537625e23c13d8a538d70c4135dfe5e71a75"
+    },
+    {
+      "bytes": 8753,
+      "path": "crates/photara-store/tests/integrated_wire_candidate/resources.rs",
+      "sha256": "3dbe309191575825106134dcdbf8ef6fa0c586ffe7ef0ed28e1f8815e677cd36"
+    },
+    {
+      "bytes": 6342,
+      "path": "crates/photara-store/tests/selected_blob_candidate/legacy.rs",
+      "sha256": "0832559e2f6ddacff6214035b2b20a243d526047db8b004adbc7d7670793ef1f"
+    },
+    {
+      "bytes": 4329,
+      "path": "crates/photara-store/tests/selected_blob_candidate/media.rs",
+      "sha256": "37c0b4b3fe7a8622c555061f99364894bdfa212309c196204fb23c50866d11fc"
+    },
+    {
+      "bytes": 11772,
+      "path": "docs/architecture/proposals/ps2/selected-blob/generate.py",
+      "sha256": "abe142d385b9d50e5db88448f8badb059cd94d9e9096ccc4c9d3cd04be8c4ced"
+    },
+    {
+      "bytes": 657394,
+      "path": "docs/architecture/proposals/ps2/selected-blob/linked.json",
+      "sha256": "7a02529a3531b1088b4e82dc64f7da3320f5c62a21909b5e8c461e44bf995e8e"
+    },
+    {
+      "bytes": 43396,
+      "path": "docs/fixtures/generation-two/d19-package-specimen.json",
+      "sha256": "be32df34ad90d00430dd4fb0e6e475dc2c5c0093d89b261ab8c6fb26a95113b7"
+    }
+  ],
+  "status": "verified-unfrozen-test-only"
+}

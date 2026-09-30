@@ -144,6 +144,8 @@ remain separate obligations.
 
 The [D19 Blob preparation](PS2_SELECTED_BLOB_PREPARATION.md) passes ten tests for
 trusted original semantic preservation, generic raw accounting and instrumented
-structural versus explicit audit. Its proposed HEAD has not passed the shared
-physical reader. Neither these adapters nor the no-ConversionSource corpus close
-full Blob composition or converted-source audit behavior.
+structural versus explicit audit. The subsequent
+[shared Blob integration](PS2_SELECTED_BLOB_SHARED_CANDIDATE.md) passes 18 focused
+tests and all 71 affected regression tests through the common physical reader.
+Standalone whole-HEAD composition is complete; retained-Blob conversion and
+Graph/media mutation remain outside that proof.

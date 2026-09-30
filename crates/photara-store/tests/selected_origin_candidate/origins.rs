@@ -480,6 +480,8 @@ mod tests {
     fn evidence_tree_checks_selected_order_and_exact_child_summary() {
         let mut res = wire::Resolver {
             objects: BTreeMap::new(),
+            blobs: BTreeMap::new(),
+            project: wire::PROJECT.into(),
             used: BTreeSet::new(),
         };
         let a = json!({"kind":"explicit","source_id":"71000000-0000-4000-8000-000000000001"});

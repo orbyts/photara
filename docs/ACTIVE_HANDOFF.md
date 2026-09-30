@@ -226,6 +226,12 @@ separate PS2 prerequisite.
 The current synthesis and exact measurements are in
 [PS2 consolidated engineering evidence](architecture/PS2_CONSOLIDATED_ENGINEERING_EVIDENCE.md).
 
+The [shared Blob checkpoint](architecture/PS2_SELECTED_BLOB_SHARED_CANDIDATE.md)
+now verifies the original D19 project through the common HEAD/physical/accounting
+reader. Eighteen focused tests and 71 affected regression tests pass, with strict
+lint. Structural access reads no current media; explicit audit catches corruption.
+This closes standalone Blob composition, not retained-Blob conversion or mutation.
+
 ### LL1 parallel evidence
 
 - Keep the existing `RESTRICT` constraints. Disposable PostgreSQL and SQLite

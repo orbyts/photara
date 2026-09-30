@@ -1,0 +1,76 @@
+   Compiling photara-store v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-store)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.44s
+     Running tests/integrated_wire_candidate.rs (/Users/suhail/.cache/cargo/targets/debug/deps/integrated_wire_candidate-2311a2b1550792f0)
+
+running 17 tests
+test resources::tests::resolver_cannot_substitute_canonical_object ... ok
+test accounting::tests::integrated_accounting_resolver_must_return_exact_original_canonical_bytes ... ok
+test accounting::tests::integrated_accounting_actual_settled_roots_and_breakdown ... ok
+test accounting::tests::integrated_accounting_tip_bodies_are_ordered_and_disjoint ... ok
+test resources::tests::structural_support_is_not_retention_or_media_proof ... ok
+test unchanged_legacy_reader_refuses_before_new_storage_dependencies ... ok
+test resources::tests::actual_context_closure_and_wrong_root ... ok
+test accounting::tests::integrated_accounting_nonempty_transition_or_unknown_fields_fence ... ok
+test accounting::tests::integrated_accounting_metadata_is_exact_but_not_physical_evidence ... ok
+test recovery_reads_its_own_selected_closure_without_other_roles ... ok
+test accounting::tests::integrated_accounting_original_witness_and_charge_basis_cannot_rebind ... ok
+test supplied_bytes_and_original_local_identity_are_independent_checks ... ok
+test actual_head_selects_three_independent_roots_and_exact_accounting ... ok
+test bounded_fixture_entry_and_same_id_original_result ... ok
+test original_semantic_receipt_conversion_bytes_and_fixed_vectors_are_preserved ... ok
+test bounded_parser_and_optional_extension_nonedge_dispatch ... ok
+test coherent_wrong_selectors_ownership_membership_and_charges_refuse ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.22s
+
+     Running tests/selected_origin_candidate.rs (/Users/suhail/.cache/cargo/targets/debug/deps/selected_origin_candidate-5297eb01f34ad988)
+
+running 16 tests
+test origins::tests::pending_is_not_a_synthetic_live_hold ... ok
+test origins::tests::evidence_tree_checks_selected_order_and_exact_child_summary ... ok
+test resources::tests::resolver_cannot_substitute_canonical_object ... ok
+test accounting::tests::integrated_accounting_resolver_must_return_exact_original_canonical_bytes ... ok
+test resources::tests::structural_support_is_not_retention_or_media_proof ... ok
+test accounting::tests::integrated_accounting_actual_settled_roots_and_breakdown ... ok
+test accounting::tests::integrated_accounting_tip_bodies_are_ordered_and_disjoint ... ok
+test accounting::tests::integrated_accounting_nonempty_transition_or_unknown_fields_fence ... ok
+test accounting::tests::integrated_accounting_metadata_is_exact_but_not_physical_evidence ... ok
+test resources::tests::actual_context_closure_and_wrong_root ... ok
+test unchanged_legacy_reader_refuses_before_new_storage_dependencies ... ok
+test canonical_records_preserve_original_receipts_and_source_bytes ... ok
+test accounting::tests::integrated_accounting_original_witness_and_charge_basis_cannot_rebind ... ok
+test independent_recovery_uses_own_subset_of_shared_policy_without_foreign_payloads ... ok
+test actual_head_selects_four_origins_and_retains_exact_receipts_and_snapshot ... ok
+test coherent_origin_metadata_cannot_substitute_selected_authority ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 26.78s
+
+     Running tests/selected_phase_candidate.rs (/Users/suhail/.cache/cargo/targets/debug/deps/selected_phase_candidate-2408a9526a79dc56)
+
+running 22 tests
+test resources::tests::resolver_cannot_substitute_canonical_object ... ok
+test accounting::tests::integrated_accounting_resolver_must_return_exact_original_canonical_bytes ... ok
+test accounting::tests::integrated_accounting_tip_bodies_are_ordered_and_disjoint ... ok
+test accounting::tests::integrated_accounting_actual_settled_roots_and_breakdown ... ok
+test accounting::tests::integrated_accounting_metadata_is_exact_but_not_physical_evidence ... ok
+test accounting::tests::integrated_accounting_nonempty_transition_or_unknown_fields_fence ... ok
+test resources::tests::actual_context_closure_and_wrong_root ... ok
+test resources::tests::structural_support_is_not_retention_or_media_proof ... ok
+test accounting::tests::integrated_accounting_original_witness_and_charge_basis_cannot_rebind ... ok
+test prepare::selected_admission_prepares_real_unaccepted_fourth_operation ... ok
+test replay_prepare::tests::replay_preparation_needs_only_actual_original_semantics ... ok
+test replay_prepare::tests::replay_preparation_missing_or_corrupt_actual_semantics_refuses ... ok
+test recovery_reads_current_original_root_without_active_or_retained_payload ... ok
+test recovery_checks_embedded_receipt_manifest_set_pin_set_and_individual_cap ... ok
+test replay_prepare::tests::replay_preparation_original_intent_and_result_cannot_substitute ... ok
+test coherent_recovery_original_metadata_refuses_without_foreign_payload_authority ... ok
+test selector_cleanup_cannot_invent_missing_journal_or_candidate_control_bytes ... ok
+test clean_retry_returns_original_receipt_without_second_charge_or_release ... ok
+test changed_original_phase_controls_unknown_suffix_and_no_effects_refuse ... ok
+test actual_selected_same_original_phase_route ... ok
+test each_selector_cut_reconciles_exact_original_and_preserves_unknown_controls has been running for over 60 seconds
+test fresh_handles_replay_matching_partial_payload_and_finalizer_only has been running for over 60 seconds
+test fresh_handles_replay_matching_partial_payload_and_finalizer_only ... ok
+test each_selector_cut_reconciles_exact_original_and_preserves_unknown_controls ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 139.81s

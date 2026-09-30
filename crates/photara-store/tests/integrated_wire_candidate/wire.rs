@@ -1,6 +1,15 @@
 //! Proposed settled coordinates, bounded canonical parsing and schema-directed closure.
 use super::{accounting, resources};
+#[path = "../selected_blob_candidate/keys.rs"]
+pub(super) mod keys;
+#[path = "../selected_blob_candidate/package.rs"]
+pub(super) mod package;
+#[path = "../selected_blob_candidate/provider.rs"]
+pub(super) mod provider;
+use keys::{MixedObjectKey, TreeKey};
+use package::PackageContext;
 use photara_core::contracts::schema::QualifiedName;
+use provider::{RawDescription, RawMetadata};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 pub(super) type Result<T> = std::result::Result<T, &'static str>;
@@ -63,11 +72,14 @@ fn extensions(v: &Value) -> Result<()> {
     )
 }
 pub(super) fn schema(v: &Value, id: &str, version: u64, extra: &[&str]) -> Result<()> {
+    schema_at(v, id, version, extra, PROJECT)
+}
+fn schema_at(v: &Value, id: &str, version: u64, extra: &[&str], project: &str) -> Result<()> {
     let mut keys = vec!["schema", "project_id", "extensions"];
     keys.extend(extra);
     fields(v, &keys)?;
     ensure(
-        v["schema"] == json!({"id":id,"version":version}) && v["project_id"] == PROJECT,
+        v["schema"] == json!({"id":id,"version":version}) && v["project_id"] == project,
         "schema/project dispatch",
     )?;
     extensions(&v["extensions"])
@@ -136,6 +148,7 @@ pub(super) struct World {
     pub commit: Value,
     pub loose: BTreeMap<String, Vec<u8>>,
     pub allocations: BTreeMap<String, Allocation>,
+    pub raw_allocations: BTreeMap<String, RawDescription>,
     pub source: BTreeMap<String, Vec<u8>>,
     pub source_witnesses: Value,
     pub journal: Vec<Value>,
@@ -159,7 +172,7 @@ impl World {
             v["status"] == "unfrozen-proposed-settled-integrated" && v["qualification"] == false,
             "fixture dispatch",
         )?;
-        Self::load_fields(v)
+        Self::load_fields(v, None)
     }
     /// New test-only transition harness; semantic dispatch still occurs in verification.
     pub(super) fn load_transition(v: &Value) -> Result<Self> {
@@ -173,18 +186,62 @@ impl World {
             ) && v["qualification"] == false,
             "transition fixture dispatch",
         )?;
-        Self::load_fields(v)
+        Self::load_fields(v, None)
     }
-    fn load_fields(v: &Value) -> Result<Self> {
+    pub(super) fn load_blob(v: &Value, raw: &dyn RawMetadata) -> Result<Self> {
+        ensure(
+            v["status"] == "unfrozen-preparatory-not-shared-head-verified"
+                && v["qualification"] == false,
+            "Blob fixture dispatch",
+        )?;
+        Self::load_fields(v, Some(raw))
+    }
+    fn project(&self) -> Result<&str> {
+        text(&self.head["project_id"])
+    }
+    fn allocation_ids(&self) -> BTreeSet<String> {
+        self.allocations
+            .keys()
+            .chain(self.raw_allocations.keys())
+            .cloned()
+            .collect()
+    }
+    fn load_fields(v: &Value, raw: Option<&dyn RawMetadata>) -> Result<Self> {
         let entries = v["allocations"].as_object().ok_or("allocations")?;
         ensure(entries.len() <= 16, "allocation count bound")?;
-        let mut total = 0;
+        let mut total = 0u64;
         let mut allocations = BTreeMap::new();
+        let mut raw_allocations = BTreeMap::new();
         for (id, a) in entries {
             uuid(&json!(id))?;
             ensure(a["arena"] == "data" || a["arena"] == "metadata", "arena")?;
+            if a["layout"] == "whole-blob" {
+                ensure(a["arena"] == "data", "whole Blob arena")?;
+                let actual = raw
+                    .ok_or("raw allocation requires trusted context")?
+                    .describe(id)?;
+                fields(&a["witness"], &["device", "inode"])?;
+                ensure(
+                    actual.device == number(&a["witness"]["device"])?
+                        && actual.inode == number(&a["witness"]["inode"])?,
+                    "raw provider descriptor",
+                )?;
+                ensure(actual.inode > 0, "raw inode")?;
+                total = total
+                    .checked_add(actual.extent)
+                    .ok_or("aggregate allocation overflow")?;
+                ensure(total <= 16 * 1024 * 1024, "aggregate allocation bound")?;
+                raw_allocations.insert(id.clone(), actual);
+                continue;
+            }
+            ensure(
+                a["layout"].is_null() || a["layout"] == "framed-json",
+                "allocation layout dispatch",
+            )?;
             let bytes = unhex(text(&a["hex"])?)?;
-            total += bytes.len();
+            total = total
+                .checked_add(bytes.len() as u64)
+                .ok_or("aggregate allocation overflow")?;
             ensure(total <= 16 * 1024 * 1024, "aggregate allocation bound")?;
             fields(&a["witness"], &["device", "inode"])?;
             number(&a["witness"]["device"])?;
@@ -197,6 +254,12 @@ impl World {
                     witness: a["witness"].clone(),
                 },
             );
+        }
+        if let Some(raw) = raw {
+            ensure(
+                raw.allocation_ids()? == raw_allocations.keys().cloned().collect(),
+                "exact loader raw allocation set",
+            )?;
         }
         let loose = v["loose"].as_object().ok_or("loose")?;
         ensure(loose.len() <= 24, "control count bound")?;
@@ -229,6 +292,7 @@ impl World {
                 .map(|(k, v)| Ok((k.clone(), text(v)?.as_bytes().to_vec())))
                 .collect::<Result<_>>()?,
             allocations,
+            raw_allocations,
             source: source
                 .iter()
                 .map(|(p, v)| Ok((p.clone(), unhex(text(v)?)?)))
@@ -268,6 +332,7 @@ impl World {
             extra_features,
             transition,
             transition.and_then(|t| t.selection),
+            None,
         )
     }
     #[allow(
@@ -279,19 +344,37 @@ impl World {
         extra_features: &[&str],
         transition: Option<&Transition<'_>>,
         operation: Option<&OperationSelection>,
+        context: Option<&PackageContext<'_>>,
     ) -> Result<Value> {
+        let project = context.map_or(PROJECT, |c| c.identity.project.as_str());
+        let library = context.map_or(LIBRARY, |c| c.identity.library.as_str());
+        ensure(
+            context.is_some() || self.raw_allocations.is_empty(),
+            "raw transition requires unsupported codec",
+        )?;
+        if let Some(c) = context {
+            ensure(
+                transition.is_none() && operation.is_none(),
+                "raw transition requires unsupported codec",
+            )?;
+            ensure(
+                encode(&self.manifest) == c.identity.manifest_bytes
+                    && self.commit["bootstrap_sha256"] == c.identity.bootstrap_sha256,
+                "trusted package bootstrap",
+            )?;
+        }
         fields(
             &self.head,
             &["schema", "project_id", "commit_id", "commit_sha256"],
         )?;
         ensure(
             self.head["schema"] == json!({"id":"photara.package.head","version":1})
-                && self.head["project_id"] == PROJECT
+                && self.head["project_id"] == project
                 && self.head["commit_id"] == self.commit["commit_id"]
                 && self.head["commit_sha256"] == hash(&encode(&self.commit)),
             "HEAD exact commit",
         )?;
-        schema(
+        schema_at(
             &self.commit,
             "photara.package.commit",
             1,
@@ -309,11 +392,17 @@ impl World {
                 "inventory",
                 "root_set",
             ],
+            project,
         )?;
-        let mut features = FEATURES
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect::<BTreeSet<_>>();
+        let mut features = context.map_or_else(
+            || {
+                FEATURES
+                    .iter()
+                    .map(std::string::ToString::to_string)
+                    .collect::<BTreeSet<_>>()
+            },
+            |c| c.required_features.clone(),
+        );
         for f in extra_features {
             features.insert((*f).to_owned());
         }
@@ -361,12 +450,12 @@ impl World {
         )
         .map_err(|_| "timestamp")?;
         ensure(
-            self.manifest["project_id"] == PROJECT
+            self.manifest["project_id"] == project
                 && self.commit["bootstrap_sha256"] == hash(&encode(&self.manifest)),
             "original bootstrap",
         )?;
         let root = &self.commit["root_set"];
-        schema(
+        schema_at(
             root,
             "photara.package.root-set",
             2,
@@ -383,10 +472,11 @@ impl World {
                 "inventory",
                 "placement",
             ],
+            project,
         )?;
         ensure(
             root["kind"] == "sealed"
-                && root["library_id"] == LIBRARY
+                && root["library_id"] == library
                 && root["bootstrap_sha256"] == self.commit["bootstrap_sha256"],
             "RootSet identity",
         )?;
@@ -481,7 +571,7 @@ fn physical_tree(
     )?;
     let v = physical(w, r, 3, used)?;
     let leaf = v["schema"]["id"] == format!("photara.storage.{kind}-leaf");
-    schema(
+    schema_at(
         &v,
         &format!(
             "photara.storage.{kind}-{}",
@@ -489,6 +579,7 @@ fn physical_tree(
         ),
         1,
         &["count", if leaf { "entries" } else { "children" }],
+        w.project()?,
     )?;
     let mut entries = vec![];
     if leaf {
@@ -518,7 +609,10 @@ fn physical_tree(
     let field = if kind == "locator" { "object" } else { "root" };
     let mut prior = None;
     for e in &entries {
-        let k = key(&e[field])?;
+        let k = MixedObjectKey::parse(&e[field])?;
+        if kind != "locator" {
+            k.json_key()?;
+        }
         ensure(
             prior.as_ref().is_none_or(|p| p < &k),
             "physical sorted unique",
@@ -530,6 +624,8 @@ fn physical_tree(
 #[derive(Clone)]
 pub(super) struct Resolver {
     pub objects: BTreeMap<Key, (Value, u8)>,
+    pub blobs: BTreeMap<MixedObjectKey, String>,
+    pub project: String,
     pub used: BTreeSet<String>,
 }
 impl Resolver {
@@ -537,8 +633,40 @@ impl Resolver {
         let mut used = BTreeSet::new();
         let es = physical_tree(w, r, "locator", &mut used, &mut BTreeSet::new(), 0)?;
         let mut objects = BTreeMap::new();
+        let mut blobs = BTreeMap::new();
         for e in es {
             fields(&e, &["object", "membership", "physical"])?;
+            if e["membership"] == "blob" {
+                let k = MixedObjectKey::parse(&e["object"])?;
+                ensure(
+                    k.object_ref().kind == photara_store::package::ObjectKind::Blob,
+                    "Blob locator kind",
+                )?;
+                let p = &e["physical"];
+                fields(p, &["kind", "allocation_id", "byte_length", "sha256"])?;
+                let id = uuid(&p["allocation_id"])?;
+                let actual = w
+                    .raw_allocations
+                    .get(id)
+                    .ok_or("missing whole Blob allocation")?;
+                ensure(
+                    p["kind"] == "whole-blob"
+                        && p["sha256"] == e["object"]["sha256"]
+                        && number(&p["byte_length"])? == actual.extent
+                        && actual.extent == k.object_ref().byte_length.get(),
+                    "whole Blob locator extent/commitment",
+                )?;
+                ensure(
+                    !blobs.values().any(|prior| prior == id),
+                    "one whole Blob identity per allocation",
+                )?;
+                ensure(
+                    blobs.insert(k, id.to_owned()).is_none(),
+                    "duplicate Blob locator key",
+                )?;
+                used.insert(id.to_owned());
+                continue;
+            }
             let tag = match text(&e["membership"])? {
                 "semantic" => 1,
                 "ownership" => 2,
@@ -552,7 +680,12 @@ impl Resolver {
                 "duplicate locator key",
             )?;
         }
-        Ok(Self { objects, used })
+        Ok(Self {
+            objects,
+            blobs,
+            project: w.project()?.into(),
+            used,
+        })
     }
     pub(super) fn get(&self, r: &Value, tag: u8) -> Result<Value> {
         let (v, t) = self.objects.get(&key(r)?).ok_or("missing located object")?;
@@ -594,23 +727,20 @@ impl Kind {
             Self::Pin => "photara.package.retained-root",
         }
     }
-    fn entry_key(self, v: &Value) -> Result<String> {
+    fn entry_key(self, v: &Value) -> Result<TreeKey> {
         match self {
-            Self::Inventory => {
-                let (s, n) = key(v)?;
-                Ok(format!("{s}:{n:020}"))
-            }
-            Self::Id => Ok(uuid(&v["operation_id"])?.into()),
-            Self::Ordinal => Ok(format!("{:020}", number(&v["acceptance_ordinal"])?)),
-            Self::Ownership => Ok(uuid(&v["allocation_id"])?.into()),
-            Self::Pin => Ok(uuid(&v["pin_id"])?.into()),
+            Self::Inventory => TreeKey::object(v),
+            Self::Id => TreeKey::id(&v["operation_id"]),
+            Self::Ordinal => TreeKey::ordinal(&v["acceptance_ordinal"]),
+            Self::Ownership => TreeKey::id(&v["allocation_id"]),
+            Self::Pin => TreeKey::id(&v["pin_id"]),
         }
     }
-    fn summary_key(self, v: &Value) -> Result<String> {
+    fn summary_key(self, v: &Value) -> Result<TreeKey> {
         match self {
-            Self::Inventory => self.entry_key(v),
-            Self::Ordinal => Ok(format!("{:020}", number(v)?)),
-            _ => Ok(uuid(v)?.into()),
+            Self::Inventory => TreeKey::object(v),
+            Self::Ordinal => TreeKey::ordinal(v),
+            _ => TreeKey::id(v),
         }
     }
 }
@@ -635,11 +765,12 @@ fn tree(
     };
     let v = res.get(r, tag)?;
     let leaf = v["schema"]["id"] == format!("{}-leaf", kind.name());
-    schema(
+    schema_at(
         &v,
         &format!("{}-{}", kind.name(), if leaf { "leaf" } else { "branch" }),
         1,
         &["count", if leaf { "entries" } else { "children" }],
+        &res.project,
     )?;
     let mut entries = vec![];
     if leaf {
@@ -1012,6 +1143,7 @@ fn operations(
 pub(super) struct RoleProof {
     pub state: Value,
     pub semantic: BTreeSet<Key>,
+    pub blob_semantic: BTreeSet<MixedObjectKey>,
     pub inventory_nodes: BTreeSet<Key>,
     pub receipts: Vec<Value>,
     pub supported: bool,
@@ -1045,11 +1177,12 @@ pub(super) trait ResourcePolicy {
     }
     fn evidence(&self, ctx: &EvidenceContext<'_>, res: &Resolver) -> Result<Contribution> {
         let retention = res.get(&ctx.root["retention_evidence"], 1)?;
-        schema(
+        schema_at(
             &retention,
             "photara.resource.retention-evidence-leaf",
             1,
             &["count", "entries"],
+            &res.project,
         )?;
         ensure(
             retention["count"] == "0" && array(&retention["entries"])?.is_empty(),
@@ -1063,6 +1196,10 @@ pub(super) trait ResourcePolicy {
 }
 struct AuthoredOnly;
 impl ResourcePolicy for AuthoredOnly {}
+#[allow(
+    clippy::too_many_lines,
+    reason = "One common selected semantic and inventory proof for explicit codec variants"
+)]
 fn role(
     policy: &impl ResourcePolicy,
     w: &World,
@@ -1070,9 +1207,10 @@ fn role(
     r: &Value,
     entry: &Value,
     transition: Option<&Transition<'_>>,
+    context: Option<&PackageContext<'_>>,
 ) -> Result<RoleProof> {
     let state = res.get(r, 1)?;
-    schema(
+    schema_at(
         &state,
         "photara.package.state-root",
         2,
@@ -1090,9 +1228,10 @@ fn role(
             "predecessor",
             "inventory",
         ],
+        &res.project,
     )?;
     ensure(
-        state["library_id"] == LIBRARY
+        state["library_id"] == w.commit["root_set"]["library_id"]
             && state["bootstrap_sha256"] == w.commit["bootstrap_sha256"]
             && state["root_id"] == entry["root_id"],
         "StateRoot identity/provenance",
@@ -1122,10 +1261,46 @@ fn role(
                 == json!({"id":"photara.project.history","version":2}),
         "StateRoot authored/history typed edges",
     )?;
-    let mut semantic = BTreeSet::new();
-    let receipts = operations(w, res, &state, &mut semantic, transition)?;
-    let resources = policy.resources(&state, res)?;
-    semantic.extend(resources.closure);
+    let (semantic, blob_semantic, receipts, resources) = if let Some(c) = context {
+        ensure(
+            state["resource_state"].is_null()
+                && !c.required_features.contains("photara.resource-backings.v1")
+                && !c
+                    .required_features
+                    .contains("photara.resource-state-trees.v1"),
+            "null resource capability dispatch",
+        )?;
+        let mut members = c
+            .semantic
+            .legacy_members(&state, &mut |r| res.get(r, 1), &mut |r| {
+                let k =
+                    MixedObjectKey::parse(&serde_json::to_value(r).map_err(|_| "Blob reference")?)?;
+                let id = res.blobs.get(&k).ok_or("missing semantic Blob locator")?;
+                let registration = c
+                    .registration
+                    .allocations
+                    .get(id)
+                    .ok_or("original Blob registration")?;
+                provider::observe_blob(c.raw, r, id, &registration.description).map(|d| d.extent)
+            })?;
+        empty_operations(w, res, &state, &mut members.json)?;
+        (
+            members.json,
+            members.blobs,
+            vec![],
+            resources::Proof {
+                closure: BTreeSet::new(),
+                supported: true,
+                associations: BTreeMap::new(),
+            },
+        )
+    } else {
+        let mut semantic = BTreeSet::new();
+        let receipts = operations(w, res, &state, &mut semantic, transition)?;
+        let resources = policy.resources(&state, res)?;
+        semantic.extend(resources.closure.clone());
+        (semantic, BTreeSet::new(), receipts, resources)
+    };
     let mut inventory_nodes = BTreeSet::new();
     let expected = walk(
         res,
@@ -1134,18 +1309,26 @@ fn role(
         &mut inventory_nodes,
     )?
     .iter()
-    .map(key)
+    .map(MixedObjectKey::parse)
     .collect::<Result<BTreeSet<_>>>()?;
-    ensure(expected == semantic, "exact StateRoot semantic inventory")?;
+    ensure(
+        expected == mixed_union(&semantic, &blob_semantic)?,
+        "exact StateRoot semantic inventory",
+    )?;
     Ok(RoleProof {
         state,
         semantic,
+        blob_semantic,
         inventory_nodes,
         receipts,
         supported: resources.supported,
         associations: resources.associations,
     })
 }
+#[allow(
+    clippy::too_many_lines,
+    reason = "One exact ownership proof with metadata-only whole Blob classification"
+)]
 fn ownership(
     w: &World,
     res: &Resolver,
@@ -1161,7 +1344,7 @@ fn ownership(
         fields(&e, &["allocation_id", "claim"])?;
         let v = res.get(&e["claim"], 2)?;
         nodes.insert(key(&e["claim"])?);
-        schema(
+        schema_at(
             &v,
             "photara.storage.allocation-claim",
             1,
@@ -1174,13 +1357,32 @@ fn ownership(
                 "sealed",
                 "sealed_charge",
             ],
+            &res.project,
         )?;
         let id = uuid(&v["allocation_id"])?;
         ensure(
             v["allocation_id"] == e["allocation_id"] && claimed.insert(id.to_owned()),
             "unique ownership key",
         )?;
-        let actual = w.allocations.get(id).ok_or("missing claimed allocation")?;
+        let (arena, layout, extent, witness) = if let Some(actual) = w.allocations.get(id) {
+            (
+                actual.arena.as_str(),
+                "framed-json",
+                actual.bytes.len() as u64,
+                actual.witness.clone(),
+            )
+        } else {
+            let actual = w
+                .raw_allocations
+                .get(id)
+                .ok_or("missing claimed allocation")?;
+            (
+                "data",
+                "whole-blob",
+                actual.extent,
+                json!({"device":actual.device.to_string(),"inode":actual.inode.to_string()}),
+            )
+        };
         let registered = accounting
             .allocations
             .get(id)
@@ -1190,33 +1392,49 @@ fn ownership(
             .get(id)
             .ok_or("selected allocation observation")?;
         ensure(
-            observation["physical"] == actual.witness
-                && number(&observation["measured_extent"])? == actual.bytes.len() as u64
+            observation["physical"] == witness
+                && number(&observation["measured_extent"])? == extent
                 && number(&observation["charged_high_water"])? == registered.registered_charge,
             "supplied owned allocation original witness",
         )?;
 
         ensure(
-            v["layout"] == "framed-json"
-                && v["arena"] == actual.arena
-                && number(&v["owned_extent"])? == actual.bytes.len() as u64
-                && registered.extent == actual.bytes.len() as u64,
+            v["layout"] == layout
+                && v["arena"] == arena
+                && number(&v["owned_extent"])? == extent
+                && registered.extent == extent,
             "ownership full extent/layout",
         )?;
         fields(&v["authenticated_prefix"], &["byte_length", "sha256"])?;
         let end = usize::try_from(number(&v["authenticated_prefix"]["byte_length"])?)
             .map_err(|_| "prefix length")?;
-        let prefix = actual.bytes.get(..end).ok_or("prefix range")?;
-        ensure(
-            hash(prefix) == digest(&v["authenticated_prefix"]["sha256"])?,
-            "ownership strong prefix",
-        )?;
+        if let Some(actual) = w.allocations.get(id) {
+            let prefix = actual.bytes.get(..end).ok_or("prefix range")?;
+            ensure(
+                hash(prefix) == digest(&v["authenticated_prefix"]["sha256"])?,
+                "ownership strong prefix",
+            )?;
+        } else {
+            let objects = res
+                .blobs
+                .iter()
+                .filter(|(_, allocation)| allocation.as_str() == id)
+                .collect::<Vec<_>>();
+            ensure(
+                objects.len() == 1 && v["sealed"] == true && end as u64 == extent,
+                "whole Blob ownership classification",
+            )?;
+            ensure(
+                v["authenticated_prefix"]["sha256"] == objects[0].0.object_ref().sha256.as_str(),
+                "whole Blob ownership commitment",
+            )?;
+        }
         if v["sealed"] == true {
             ensure(
                 selected.sealed_refs.get(id) == Some(&key(&v["sealed_charge"])?),
                 "exact selected sealed charge reference",
             )?;
-            ensure(end == actual.bytes.len(), "sealed complete prefix")?;
+            ensure(end as u64 == extent, "sealed complete prefix")?;
             let charge = res.get(&v["sealed_charge"], 2)?;
             ensure(
                 charge["allocation_id"] == id
@@ -1238,7 +1456,47 @@ fn ownership(
     ensure(claimed == expected, "exact per-root owned allocations")?;
     Ok(nodes)
 }
-fn evidence(w: &World, _conversion: &Value) -> Result<accounting::Evidence> {
+fn evidence(
+    w: &World,
+    _conversion: &Value,
+    context: Option<&PackageContext<'_>>,
+) -> Result<accounting::Evidence> {
+    if let Some(c) = context {
+        validate_registration(w, c)?;
+        return Ok(accounting::Evidence {
+            project_id: c.identity.project.clone(),
+            profile: c.registration.profile.clone(),
+            incarnation: c.registration.incarnation.clone(),
+            allocations: c
+                .registration
+                .allocations
+                .iter()
+                .map(|(id, a)| {
+                    (
+                        id.clone(),
+                        accounting::AllocationEvidence {
+                            arena: a.arena.clone(),
+                            subject_kind: if a.layout == "whole-blob" {
+                                "whole-blob"
+                            } else {
+                                "pack"
+                            }
+                            .into(),
+                            extent: a.description.extent,
+                            registered_charge: a.registered_charge,
+                            device: a.description.device,
+                            inode: a.description.inode,
+                        },
+                    )
+                })
+                .collect(),
+            retained_files: BTreeMap::new(),
+            conversion: None,
+            standing_control: c.registration.standing_control,
+            directory_allowance: c.registration.directory_allowance,
+            retained_directory_allowance: 0,
+        });
+    }
     let allocations = w
         .allocations
         .iter()
@@ -1288,37 +1546,49 @@ pub(super) struct Proof {
     pub total: u64,
     pub roles: BTreeMap<String, RoleProof>,
     pub global: BTreeSet<Key>,
+    pub blob_global: BTreeSet<MixedObjectKey>,
+    pub blob_locations: BTreeMap<MixedObjectKey, String>,
     pub controls: u64,
 }
 fn selected_controls(w: &World, root: &Value) -> Result<(Value, Value, Value, u64)> {
-    selected_operation_controls(w, root, None)
+    selected_operation_controls(w, root, None, None)
 }
 fn selected_operation_controls(
     w: &World,
     root: &Value,
     selection: Option<&OperationSelection>,
+    context: Option<&PackageContext<'_>>,
 ) -> Result<(Value, Value, Value, u64)> {
+    let (profile, incarnation, standing) = context.map_or((PROFILE, INCARNATION, 131_072), |c| {
+        (
+            c.registration.profile.as_str(),
+            c.registration.incarnation.as_str(),
+            c.registration.standing_control,
+        )
+    });
     let envelope = w.loose(&root["placement"]["accounting"])?;
-    schema(
+    schema_at(
         &envelope,
         "photara.storage.accounting-envelope",
         1,
         &["ledger", "holds"],
+        w.project()?,
     )?;
     let ledger = w.loose(&envelope["ledger"])?;
     ensure(
         ledger["project_id"] == root["project_id"]
             && ledger["conversion_source"] == root["conversion_source"]
-            && ledger["profile"] == PROFILE
-            && ledger["incarnation"] == INCARNATION,
+            && ledger["profile"] == profile
+            && ledger["incarnation"] == incarnation,
         "selected ledger root/scope identity",
     )?;
     let overlay = w.loose(&root["inventory"])?;
-    schema(
+    schema_at(
         &overlay,
         "photara.package.inventory-overlay",
         1,
         &["base", "controls", "count"],
+        w.project()?,
     )?;
     let mut controls = vec![
         key(&root["placement"]["accounting"])?,
@@ -1368,7 +1638,7 @@ fn selected_operation_controls(
             .ok_or("control charge overflow")?;
     }
     ensure(
-        charge <= 131_072 && number(&ledger["standing_control"])? == 131_072,
+        charge <= standing && number(&ledger["standing_control"])? == standing,
         "selected standing control pool",
     )?;
     Ok((envelope, ledger, overlay, charge))
@@ -1385,7 +1655,7 @@ pub(super) fn verify(w: &World) -> Result<Proof> {
     reason = "Shared full selected closure proof with explicit resource policy"
 )]
 pub(super) fn verify_with(w: &World, policy: &impl ResourcePolicy) -> Result<Proof> {
-    verify_inner(w, policy, None)
+    verify_inner(w, policy, None, None)
 }
 /// Test-only prepared transition. The original package is independently verified here;
 /// the caller supplies only canonical authored bytes produced by its actual Core/PS1 oracle.
@@ -1400,7 +1670,7 @@ pub(super) fn verify_transition(
         prepared_authored,
         selection: None,
     };
-    verify_inner(w, &AuthoredOnly, Some(&t))
+    verify_inner(w, &AuthoredOnly, Some(&t), None)
 }
 /// Trusted compiled route proof, derived from parsed original bytes and its finite stage chain.
 /// It does not replace actual physical, ledger, locator or global-union validation.
@@ -1427,7 +1697,7 @@ pub(super) fn verify_selected_operation(
         prepared_authored,
         selection: Some(selection),
     };
-    verify_inner(w, &AuthoredOnly, Some(&t))
+    verify_inner(w, &AuthoredOnly, Some(&t), None)
 }
 struct Transition<'a> {
     old: &'a World,
@@ -1443,10 +1713,20 @@ fn verify_inner(
     w: &World,
     policy: &impl ResourcePolicy,
     transition: Option<&Transition<'_>>,
+    context: Option<&PackageContext<'_>>,
 ) -> Result<Proof> {
-    let root = w.bootstrap_transition(policy.extra_features(), transition)?;
+    let root = w.bootstrap_context(
+        policy.extra_features(),
+        transition,
+        transition.and_then(|t| t.selection),
+        context,
+    )?;
+    if let Some(c) = context {
+        validate_registration(w, c)?;
+    }
     let operation = transition.and_then(|t| t.selection);
-    let (envelope, ledger, overlay, controls) = selected_operation_controls(w, &root, operation)?;
+    let (envelope, ledger, overlay, controls) =
+        selected_operation_controls(w, &root, operation, context)?;
     let mut shared = BTreeSet::new();
     let placements = physical_tree(
         w,
@@ -1477,7 +1757,10 @@ fn verify_inner(
         Kind::Pin,
         &mut pin_nodes,
     )?;
-    ensure(!pins.is_empty(), "nonempty retained pin specimen")?;
+    ensure(
+        context.is_some() || !pins.is_empty(),
+        "nonempty retained pin specimen",
+    )?;
     let mut selected = vec![
         ("active".to_owned(), root["active"].clone()),
         ("recovery".to_owned(), root["recovery"].clone()),
@@ -1498,27 +1781,24 @@ fn verify_inner(
                 .collect::<Result<BTreeSet<_>>>()?,
         "exact selected root placements",
     )?;
-    let conversion = active_res.get(&root["conversion_source"], 1)?;
-    ensure(
-        conversion["source_bootstrap_sha256"] == w.commit["bootstrap_sha256"]
-            && w.source.get("manifest.json") == Some(&encode(&w.manifest)),
-        "conversion exact original bootstrap",
-    )?;
-    let ev = evidence(w, &conversion)?;
+    let conversion = conversion(w, &root, &ledger, &active_res, context, false)?;
+    let ev = evidence(w, &conversion, context)?;
     let hold_ref = operation.map_or(&envelope["holds"], |s| &s.packed_hold);
     let holds = active_res.get(hold_ref, 2)?;
     let account = accounting::verify(&ledger, &holds, |r| active_res.any(r), &ev)?;
     ensure(
-        account.allocations == w.allocations.keys().cloned().collect(),
+        account.allocations == w.allocation_ids(),
         "exact all physical allocation charges",
     )?;
     let mut prepared = BTreeMap::new();
     let mut selected_states = BTreeMap::new();
     let mut selected_roles = BTreeMap::new();
+    let mut blob_identities = BTreeMap::new();
     for (label, r) in &selected {
         let entry = byroot.get(&key(r)?).ok_or("selected placement")?;
         let res = Resolver::new(w, &entry["locator"])?;
-        let proof = role(policy, w, &res, r, entry, transition)?;
+        merge_blob_identities(&mut blob_identities, &res.blobs)?;
+        let proof = role(policy, w, &res, r, entry, transition, context)?;
         selected_states.insert(key(r)?, proof.state.clone());
         selected_roles.insert(label.clone(), proof.clone());
         prepared.insert(label.clone(), (res, proof));
@@ -1543,6 +1823,7 @@ fn verify_inner(
         )?;
     }
     let mut global = account.logical.clone();
+    let mut blob_global = BTreeSet::new();
     if let Some(selected) = operation {
         for r in &selected.controls {
             w.loose(r)?;
@@ -1561,7 +1842,7 @@ fn verify_inner(
         &mut global_nodes,
     )?
     .iter()
-    .map(key)
+    .map(MixedObjectKey::parse)
     .collect::<Result<BTreeSet<_>>>()?;
     let mut roles = BTreeMap::new();
     let mut associations = BTreeMap::new();
@@ -1584,6 +1865,7 @@ fn verify_inner(
             }
         }
         global.extend(proof.semantic.clone());
+        blob_global.extend(proof.blob_semantic.clone());
         global.insert(key(&r)?);
         let owner = ownership(w, &res, entry, &shared, &ev, &account)?;
         let mut expected = proof.semantic.clone();
@@ -1602,7 +1884,8 @@ fn verify_inner(
         expected.extend(global_nodes.clone());
         expected.extend(owner);
         ensure(
-            expected == res.objects.keys().cloned().collect(),
+            expected == res.objects.keys().cloned().collect()
+                && proof.blob_semantic == res.blobs.keys().cloned().collect(),
             "exact per-root locator logical closure",
         )?;
         // Every independently readable role carries the same authenticated global control dependencies.
@@ -1624,10 +1907,7 @@ fn verify_inner(
         used.extend(res.used);
         roles.insert(label, proof);
     }
-    ensure(
-        used == w.allocations.keys().cloned().collect(),
-        "no unowned extra allocation",
-    )?;
+    ensure(used == w.allocation_ids(), "no unowned extra allocation")?;
     let a = &roles["active"].receipts;
     for p in roles.values() {
         ensure(
@@ -1637,18 +1917,21 @@ fn verify_inner(
     }
     let controlkeys = array(&overlay["controls"])?
         .iter()
-        .map(key)
+        .map(MixedObjectKey::parse)
         .collect::<Result<BTreeSet<_>>>()?;
     ensure(base.is_disjoint(&controlkeys), "overlay disjoint controls")?;
     let union = base.union(&controlkeys).cloned().collect::<BTreeSet<_>>();
     ensure(
-        union == global && union.len() as u64 == number(&overlay["count"])?,
+        union == mixed_union(&global, &blob_global)?
+            && union.len() as u64 == number(&overlay["count"])?,
         "exact global inventory union",
     )?;
     Ok(Proof {
         total: account.total,
         roles,
         global,
+        blob_global,
+        blob_locations: active_res.blobs,
         controls,
     })
 }
@@ -1679,11 +1962,11 @@ pub(super) fn recovery(w: &World) -> Result<RoleProof> {
     reason = "Shared independent recovery closure with explicit policy limits"
 )]
 pub(super) fn recovery_with(w: &World, policy: &impl ResourcePolicy) -> Result<RoleProof> {
-    recovery_inner(w, policy, None)
+    recovery_inner(w, policy, None, None)
 }
 /// Read-only supplied recovery closure. The route must validate selected O/P/F metadata first.
 pub(super) fn recovery_operation(w: &World, selection: &OperationSelection) -> Result<RoleProof> {
-    recovery_inner(w, &AuthoredOnly, Some(selection))
+    recovery_inner(w, &AuthoredOnly, Some(selection), None)
 }
 #[allow(
     clippy::too_many_lines,
@@ -1693,9 +1976,10 @@ fn recovery_inner(
     w: &World,
     policy: &impl ResourcePolicy,
     operation: Option<&OperationSelection>,
+    context: Option<&PackageContext<'_>>,
 ) -> Result<RoleProof> {
-    let root = w.bootstrap_context(policy.extra_features(), None, operation)?;
-    let (envelope, ledger, overlay, _) = selected_operation_controls(w, &root, operation)?;
+    let root = w.bootstrap_context(policy.extra_features(), None, operation, context)?;
+    let (envelope, ledger, overlay, _) = selected_operation_controls(w, &root, operation, context)?;
     let mut shared = BTreeSet::new();
     let placements = physical_tree(
         w,
@@ -1719,18 +2003,12 @@ fn recovery_inner(
         .get(&key(&root["recovery"])?)
         .ok_or("recovery placement")?;
     let res = Resolver::new(w, &entry["locator"])?;
-    let proof = role(policy, w, &res, &root["recovery"], entry, None)?;
+    let proof = role(policy, w, &res, &root["recovery"], entry, None, context)?;
     let hold_ref = operation.map_or(&envelope["holds"], |s| &s.packed_hold);
     let holds = res.get(hold_ref, 2)?;
     let accounting = accounting::metadata(&ledger, &holds, |r| res.any(r))?;
-    let conversion = res.get(&root["conversion_source"], 1)?;
-    ensure(
-        conversion == original_conversion()
-            && ledger["conversion_source"] == root["conversion_source"]
-            && conversion["source_bootstrap_sha256"] == root["bootstrap_sha256"],
-        "recovery original conversion identity",
-    )?;
-    let ev = evidence(w, &conversion)?;
+    let conversion = conversion(w, &root, &ledger, &res, context, true)?;
+    let ev = evidence(w, &conversion, context)?;
     let owner = ownership(w, &res, entry, &shared, &ev, &accounting)?;
     let mut pins = BTreeSet::new();
     let entries = walk(&res, &root["pinned_roots"], Kind::Pin, &mut pins)?;
@@ -1771,11 +2049,11 @@ fn recovery_inner(
     let mut global_nodes = BTreeSet::new();
     let base = walk(&res, &overlay["base"], Kind::Inventory, &mut global_nodes)?
         .iter()
-        .map(key)
+        .map(MixedObjectKey::parse)
         .collect::<Result<BTreeSet<_>>>()?;
     let controls = array(&overlay["controls"])?
         .iter()
-        .map(key)
+        .map(MixedObjectKey::parse)
         .collect::<Result<BTreeSet<_>>>()?;
     ensure(
         base.is_disjoint(&controls)
@@ -1797,7 +2075,8 @@ fn recovery_inner(
     required.extend(extra.clone());
     required.insert(key(&root["placement"]["accounting"])?);
     ensure(
-        required.is_subset(&base.union(&controls).cloned().collect()),
+        mixed_union(&required, &proof.blob_semantic)?
+            .is_subset(&base.union(&controls).cloned().collect()),
         "recovery required global control/semantic members",
     )?;
     let mut exact = proof.semantic.clone();
@@ -1816,8 +2095,201 @@ fn recovery_inner(
     exact.extend(global_nodes);
     exact.extend(owner);
     ensure(
-        exact == res.objects.keys().cloned().collect(),
+        exact == res.objects.keys().cloned().collect()
+            && proof.blob_semantic == res.blobs.keys().cloned().collect(),
         "exact independent recovery locator closure",
     )?;
+    Ok(proof)
+}
+
+fn mixed_union(
+    json: &BTreeSet<Key>,
+    blobs: &BTreeSet<MixedObjectKey>,
+) -> Result<BTreeSet<MixedObjectKey>> {
+    let mut all = json
+        .iter()
+        .map(MixedObjectKey::from_json_key)
+        .collect::<Result<BTreeSet<_>>>()?;
+    for blob in blobs {
+        ensure(
+            blob.object_ref().kind == photara_store::package::ObjectKind::Blob,
+            "Blob set kind",
+        )?;
+        all.insert(blob.clone());
+    }
+    Ok(all)
+}
+fn validate_registration(w: &World, c: &PackageContext<'_>) -> Result<()> {
+    ensure(
+        w.source.is_empty() && w.source_witnesses == json!({}) && w.journal.is_empty(),
+        "standalone legacy source/journal absence",
+    )?;
+    ensure(
+        w.allocation_ids() == c.registration.allocations.keys().cloned().collect(),
+        "exact original allocation registration set",
+    )?;
+    ensure(
+        c.raw.allocation_ids()? == w.raw_allocations.keys().cloned().collect(),
+        "exact provider raw allocation set",
+    )?;
+    for (id, registered) in &c.registration.allocations {
+        let actual = if registered.layout == "whole-blob" {
+            ensure(
+                registered.arena == "data" && !w.allocations.contains_key(id),
+                "raw original allocation layout",
+            )?;
+            let supplied = w
+                .raw_allocations
+                .get(id)
+                .ok_or("missing registered raw allocation")?;
+            ensure(
+                *supplied == c.raw.describe(id)?,
+                "fresh raw provider metadata",
+            )?;
+            supplied.clone()
+        } else {
+            ensure(
+                registered.layout == "framed-json" && !w.raw_allocations.contains_key(id),
+                "framed original allocation layout",
+            )?;
+            let supplied = w
+                .allocations
+                .get(id)
+                .ok_or("missing registered framed allocation")?;
+            ensure(
+                supplied.arena == registered.arena,
+                "original allocation arena",
+            )?;
+            RawDescription {
+                extent: supplied.bytes.len() as u64,
+                device: number(&supplied.witness["device"])?,
+                inode: number(&supplied.witness["inode"])?,
+            }
+        };
+        ensure(
+            actual == registered.description && actual.inode > 0,
+            "original registered allocation identity/extent",
+        )?;
+    }
+    Ok(())
+}
+fn conversion(
+    w: &World,
+    root: &Value,
+    ledger: &Value,
+    res: &Resolver,
+    context: Option<&PackageContext<'_>>,
+    recovery: bool,
+) -> Result<Value> {
+    if context.is_some() {
+        ensure(
+            root["conversion_source"].is_null()
+                && ledger["conversion_source"].is_null()
+                && w.source.is_empty()
+                && w.source_witnesses == json!({})
+                && ledger["retained_directory_allowance"] == "0",
+            "standalone null conversion dispatch",
+        )?;
+        // The ordinary accounting tree parser still verifies the actual empty retained tree.
+        return Ok(Value::Null);
+    }
+    let conversion = res.get(&root["conversion_source"], 1)?;
+    if recovery {
+        ensure(
+            conversion == original_conversion()
+                && ledger["conversion_source"] == root["conversion_source"]
+                && conversion["source_bootstrap_sha256"] == root["bootstrap_sha256"],
+            "recovery original conversion identity",
+        )?;
+    } else {
+        ensure(
+            conversion["source_bootstrap_sha256"] == w.commit["bootstrap_sha256"]
+                && w.source.get("manifest.json") == Some(&encode(&w.manifest)),
+            "conversion exact original bootstrap",
+        )?;
+    }
+    Ok(conversion)
+}
+/// Zero operation state is an explicit shared codec variant, not a semantic adapter exception.
+fn empty_operations(
+    w: &World,
+    res: &Resolver,
+    state: &Value,
+    members: &mut BTreeSet<Key>,
+) -> Result<()> {
+    let index = res.get(&state["operation_index"], 1)?;
+    schema_at(
+        &index,
+        "photara.package.operation-index",
+        2,
+        &[
+            "library_id",
+            "bootstrap_sha256",
+            "accepted",
+            "by_id",
+            "by_ordinal",
+        ],
+        &res.project,
+    )?;
+    ensure(
+        index["library_id"] == state["library_id"]
+            && index["bootstrap_sha256"] == state["bootstrap_sha256"],
+        "empty index selected identity",
+    )?;
+    let seed = json!({"domain":"photara.package.accepted-prefix.v1","project_id":res.project,"library_id":state["library_id"],"bootstrap_sha256":state["bootstrap_sha256"],"through_ordinal":"0"});
+    let accepted = json!({"through_ordinal":"0","prefix_sha256":hash(&encode(&seed))});
+    ensure(
+        index["accepted"] == accepted
+            && state["accepted"] == accepted
+            && state["journal_inclusion"].is_null()
+            && w.journal.is_empty(),
+        "exact empty operation prefix/journal",
+    )?;
+    members.insert(key(&state["operation_index"])?);
+    for (field, kind) in [("by_id", Kind::Id), ("by_ordinal", Kind::Ordinal)] {
+        let entries = walk(res, &index[field], kind, members)?;
+        let node = res.get(&index[field], 1)?;
+        ensure(
+            entries.is_empty() && node["schema"]["id"] == format!("{}-leaf", kind.name()),
+            "canonical empty operation tree",
+        )?;
+    }
+    Ok(())
+}
+/// The context is separately trusted setup; the selected ledger never supplies registration.
+pub(super) fn verify_package(w: &World, context: &PackageContext<'_>) -> Result<Proof> {
+    verify_inner(w, &AuthoredOnly, None, Some(context))
+}
+pub(super) fn recovery_package(w: &World, context: &PackageContext<'_>) -> Result<RoleProof> {
+    recovery_inner(w, &AuthoredOnly, None, Some(context))
+}
+
+/// One original whole allocation cannot name distinct objects in different role locators.
+pub(super) fn merge_blob_identities(
+    identities: &mut BTreeMap<String, MixedObjectKey>,
+    locations: &BTreeMap<MixedObjectKey, String>,
+) -> Result<()> {
+    for (object, allocation) in locations {
+        if let Some(old) = identities.insert(allocation.clone(), object.clone()) {
+            ensure(old == *object, "whole Blob identity across roles")?;
+        }
+    }
+    Ok(())
+}
+/// Explicit strong audit consumes the mapping from a fresh common structural proof.
+pub(super) fn audit_package(
+    w: &World,
+    context: &PackageContext<'_>,
+    audit: &dyn provider::RawAudit,
+) -> Result<Proof> {
+    let proof = verify_package(w, context)?;
+    for (object, id) in &proof.blob_locations {
+        let original = context
+            .registration
+            .allocations
+            .get(id)
+            .ok_or("original audit registration")?;
+        audit.audit(object.object_ref(), id, &original.description)?;
+    }
     Ok(proof)
 }
