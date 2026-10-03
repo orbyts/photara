@@ -30,6 +30,15 @@ qualification, preserving PS3 → PS4 → LL2a order. The historical review requ
 below is satisfied only within this narrow scope; it is retained to identify
 what was reviewed.
 
+### Implementation-discovered limitation — 2026-10-03
+
+The freeze preserves the demonstrated one-operation recipes; it does not make
+their hardcoded IDs reusable for repeated production saves. Shared-reader
+implementation exposed the concrete collision described in the [repeatable
+writer amendment](PS2_REPEATABLE_WRITER_AMENDMENT.md). Approval of that additive
+recipe is pending. Do not silently generalize existing codec IDs, and do not
+claim PS2 complete based on the new read components.
+
 ## Current consolidated review packet — 2026-09-29
 
 **The bounded byte-candidate work is complete and ready for permanent-format

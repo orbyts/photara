@@ -181,3 +181,33 @@ fn known(v: &Value) -> Result<bool, PackageError> {
         )
     ))
 }
+
+/// Reuses the unchanged legacy typed record/link rules for authenticated packed
+/// objects. The context contains no Blob bytes or filesystem; callers separately
+/// establish Blob locator extents and select explicit strong audit when requested.
+pub(super) fn validate_packed_semantics(
+    commit: &Commit,
+    closure: &BTreeSet<ObjectRef>,
+    objects: BTreeMap<Sha256Hex, VerifiedObject>,
+    blobs: BTreeMap<Sha256Hex, ObjectRef>,
+    limits: PackageLimits,
+) -> Result<Vec<PackageDiagnostic>, PackageError> {
+    let mut diagnostics = Vec::new();
+    for object in objects.values() {
+        validate_record(&object.value, commit.project_id, &mut diagnostics)?;
+    }
+    let context = Context {
+        generation_two: true,
+        reader: super::reader::Reader::Memory(MemoryPackage::new(BTreeMap::new(), limits)?),
+        limits,
+        project_id: commit.project_id,
+        objects,
+        blobs,
+        json_bytes: 0,
+        blob_bytes: 0,
+        diagnostics,
+    };
+    links::validate_commit(commit, closure, &context)?;
+    links::validate_links(&context)?;
+    Ok(context.diagnostics)
+}

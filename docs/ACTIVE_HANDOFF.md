@@ -6,8 +6,9 @@ experiment reports are reference material only.
 ## Baseline
 
 - Authoritative branch: `main`.
-- Production-code baseline (subsequent work remains disposable fixtures/documentation):
-  `f91f8de1546896267bac13adeac00c1659133232`.
+- Historical production-code baseline before shared PS2 implementation:
+  `f91f8de1546896267bac13adeac00c1659133232`. Shared `package::v1_3` reader
+  components now follow the narrow 2026-10-03 approval; production writes remain disabled.
 - The current `main` commit containing this file is the handoff publication;
   resolve it with `git rev-parse HEAD`. Remote synchronization is currently
   unavailable: normal pushes and a read-only remote probe failed; the last
@@ -62,6 +63,28 @@ deployment, automatic conversion, expiry, new product limits or weaker durabilit
 Fixture bounds remain distinct from production limits. Clean-remount permission
 does not authorize abrupt interruption. PS2 remains active until implementation
 and storage qualification are complete.
+
+### Concrete implementation boundary — 2026-10-03
+
+Shared `package::v1_3` components now implement frozen frame/coordinate codecs,
+scoped and full typed-tree reads, selected HEAD/root checks, operation receipt
+prefixes, unchanged legacy semantic links, metadata-only Blob access with explicit
+streaming audit, resource metadata, settled accounting and ownership checks.
+Exact-byte selector comparison and publication progress bookkeeping are present.
+These are components, not complete package acceptance, write admission or a writer.
+Whole-package/global closure orchestration, the runtime conversion-snapshot adapter,
+non-authored retention authority and O/P/F execution/admission remain incomplete.
+Verification: `cargo test -p photara-store --lib --test ps2_frozen_codec
+--test package_v1_1 --quiet` passed 134 tests; 11 preexisting tests remain ignored.
+Strict scoped Clippy, targeted Rustfmt and diff checks passed. Existing frozen
+candidate sources/corpora were not edited.
+
+Implementation exposed a **repeatability gap in the frozen specimen recipes**:
+the next active root/association IDs and allocation roles are hardcoded. A second
+operation would reuse a root ID still held by recovery. Preserve old codec replay;
+do not change their deterministic recipe silently. The [bounded additive amendment](architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md)
+is ready for review. Stop writer generalization at this compatibility boundary.
+No extra fixture family or storage trial is needed to establish this gap.
 
 ## Approved semantics — do not reopen without contradictory evidence
 

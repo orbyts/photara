@@ -13,6 +13,7 @@ mod reader;
 mod records;
 mod types;
 pub mod v1_1;
+pub mod v1_3;
 
 pub use json::{JsonLimits, parse_canonical_json, parse_json};
 pub use memory::MemoryPackage;
