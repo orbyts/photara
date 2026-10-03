@@ -87,6 +87,7 @@ pub struct RepeatablePlan {
     pub(crate) prepared: PreparedChange,
     pub(crate) reservation: u64,
     pub(crate) peak: u64,
+    pub(crate) control_role_peak: u64,
     pub(crate) attempt: Attempt,
     pub(crate) empty_hold: crate::package::ObjectRef,
     pub(crate) retained_controls:
@@ -406,6 +407,7 @@ pub(crate) fn compile_inner(
     let mut priorcommit = old.commit.clone();
     let mut priorloose = old.loose.clone();
     let mut peak = 0u64;
+    let mut control_role_peak = 0u64;
     for (i, stage) in STAGES.iter().enumerate() {
         let published = i >= 5;
         let charged = if published { consumed } else { 0 };
@@ -553,6 +555,7 @@ pub(crate) fn compile_inner(
             "standing control charge",
         )?;
         peak = peak.max(charge);
+        control_role_peak = control_role_peak.max(coexist.len() as u64 + 3);
         priorhead = head.clone();
         priorcommit = commit.clone();
         priorloose = loose.clone();
@@ -571,6 +574,7 @@ pub(crate) fn compile_inner(
         prepared,
         reservation: reserve,
         peak,
+        control_role_peak,
         attempt,
         empty_hold: original.empty_hold.clone(),
         retained_controls,

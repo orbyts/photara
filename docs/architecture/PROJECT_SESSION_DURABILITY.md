@@ -403,6 +403,83 @@ Recovery runs before enabling mutations:
   request locate/recovery. Same path/new inode is not the same incarnation. A moved
   package can be rebound only after identity, manifest, HEAD/ancestry and lock checks.
 
+### Proposed first journal-storage implementation — approval pending
+
+This narrowly specifies an **unapproved checkpoint-record subset**, not the whole
+PS3 mutation/undo journal. It authorizes no implementation until reviewed and no
+real-library enablement. The earlier 16/64/256 MiB and 100-group/32 MiB values remain
+proposals; use explicit disposable registration budgets for record bytes, aggregate
+bytes, records and parser work. Refuse before growth exceeds any bound. No rotation,
+compaction, expiry, deletion, automatic conversion or incarnation reset is included.
+
+**Exact proposed v1 bytes.** A file is `ASCII("PHPSJ001") || LE32(len(H)) || H || C0`
+followed by zero or more `LE32(len(Pi)) || Pi || Ci` frames. `H` and `Pi` are exact
+Photara canonical UTF-8 JSON with no newline; lengths count bytes, and zero lengths
+refuse. Checksums are **32 raw bytes**, not hex text:
+`C0 = SHA256(ASCII("PHPSJ001") || LE32(len(H)) || H)` and
+`Ci = SHA256(C(i-1) || LE32(len(Pi)) || Pi)`. Validate checked arithmetic and the
+registered byte/work bounds before allocation. A checksum covers the entire
+canonical envelope, including kind, identities and body. Duplicate JSON keys,
+noncanonical encodings and trailing non-frame bytes never become valid records.
+
+The exact header fields are `{format_version:1, stream_id:Id, journal_id:Id,
+device_id:Id, project_id:Id, library_id:Id, incarnation_id:Id,
+bootstrap_sha256:Digest, base_head:HeadV1, base_package_revision:Decimal}`.
+`HeadV1` is the unchanged package HEAD object. IDs are canonical nonnil UUIDs,
+digests lowercase SHA-256 hex, and Decimal is the existing canonical unsigned
+u64 string. `stream_id` identifies this physical device-local file;
+`journal_id` preserves the logical accepted-journal identity. Header identity and
+base HEAD must match independently validated package/local binding inputs. No
+header field is proof of registration or writer permission.
+
+The exact envelope is `{format_version:1, sequence:Decimal, record_id:Id,
+session_generation:Decimal, project_id:Id, incarnation_id:Id, kind:String,
+body:Object}`. Physical `sequence` starts at `"1"` and increments without gaps;
+record IDs are unique. Project/incarnation equal the header; generation is a
+positive owner-session generation supplied by the registrar. Unknown version,
+kind or field at either layer refuses automatic append/replay. The first decoder
+supports **only** these exact bodies:
+
+| Kind | Exact body and required validation |
+| --- | --- |
+| `CheckpointIntent` | `{original:O, semantic_intent:IntentV1, operation_receipt:ReceiptV1, accepted_frame:AcceptedFrameV1}`. These are unchanged existing typed objects: original admission, canonical semantic intent, portable operation receipt and accepted-journal frame. Dispatch O by its supported original codec; verify its exact request commitments, old package/registration, original reserve, planner inputs and replayed Core result through the shared repeatable verifier. Every receipt/frame operation ID, request digest, journal ID/sequence and receipt digest must agree. Persist this exact record before the attempt's first package effect. Unsupported original codecs refuse; opaque JSON is not an execution plan. |
+| `CheckpointReceipt` | `{intent_record_id:Id, intent_record_checksum:Digest, original_sha256:Digest, operation_receipt:ReceiptV1, selected_head:HeadV1, selected_commit:CommitV1}`. The referenced earlier intent's record ID and raw checksum (hex here) must match; hash its exact O bytes and preserve its exact original receipt. HEAD/commit must be the original plan's verified completed selector with matching digest, revision, authored coordinate and journal inclusion. Append only after shared full closure verification and the required package barriers; establish this journal record's own qualified barriers before returning completion. |
+
+The frozen `AcceptedFrameV1` remains a **nested unchanged object**, with its
+original logical sequence and journal-prefix meaning. It is not the outer storage
+frame, and its sequence must never be overwritten by the outer consecutive
+checkpoint-record sequence. Neither record kind newly acknowledges a mutation.
+`Mutation`, `UndoBoundary`, `SessionBarrier` and `RecoveryDecision` are unsupported
+in this first subset; their full typed bodies and logical/physical sequence mapping
+must be specified before enabling PS3 acknowledgements. This proposal does not
+claim generic patch replay, undo support, or a complete Accepted journal.
+
+Use a separately pinned device-local journal namespace under the configured local
+storage root, keyed by device/package incarnation and stream ID. Its path, native
+pins, owner epoch, qualification reports and active-stream selection belong to
+local registration, not portable authored objects or a caller boolean. One held
+cooperative authority serializes appends. Do not create a replacement stream when
+one is missing or corrupt, or discover authority from an occupied filename.
+Account this namespace, its receipt bytes and coexistence independently from the
+package; qualify both domains even if they share a volume.
+
+On uncertain append, preserve bytes and resolve the exact original record before
+any later append. A complete matching record is re-barriered before completion;
+matching bytes alone do not prove durability. An incomplete tail preserves the
+verified prefix and blocks further appends in this subset (no implicit truncate).
+A checksum mismatch is corruption, including at the tail. Package retry restores
+persisted original planner inputs, selectors, intent and receipt through
+[`restore_plan`](../../crates/photara-store/src/package/v1_3/repeatable/restart.rs),
+not current fixture/default inputs. Exact retry returns the original matching
+receipt; changed bytes under the same record/operation identity refuse. Stored
+receipt JSON alone cannot mint `Saved`: live qualification, original-ID inclusion
+and current accepted-coordinate checks remain mandatory.
+
+The review request is limited to implementing these storage bytes/two typed kinds
+plus the separate [conditional native-profile proposal](PS2_MACOS_STORAGE_QUALIFICATION.md#proposed-first-native-profile-and-admission-decision--unapproved).
+It does not approve the remaining PS3 record kinds, production size/undo limits,
+retention changes, migrations, provider-unknown admission or real-library writes.
+
 ## Coordinator and native lifecycle
 
 A Rust per-package authority owns ordered mutation admission, journal, package

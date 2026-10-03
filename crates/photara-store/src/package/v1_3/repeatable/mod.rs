@@ -81,3 +81,8 @@ mod tests;
 pub use recovery::{Admission, admit, reconstruct_original, recover};
 mod restart;
 pub use restart::{RestartContext, restore_plan};
+
+mod evidence_charge;
+pub use evidence_charge::{
+    EvidenceAllocationCharge, EvidenceAllocationId, EvidenceCharge, check_evidence_charge,
+};

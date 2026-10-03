@@ -10,11 +10,10 @@ experiment reports are reference material only.
   `f91f8de1546896267bac13adeac00c1659133232`. Shared `package::v1_3` reader
   components now follow the narrow 2026-10-03 approval; production writes remain disabled.
 - The current `main` commit containing this file is the handoff publication;
-  resolve it with `git rev-parse HEAD`. Remote synchronization is currently
-  unavailable: normal pushes and a read-only remote probe failed; the last
-  observed `origin/main` is `365acc03b8cd28702b9ca637c2306a83d0044ebf`.
-  Preserve the verified local descendant commits and resume a normal
-  fast-forward push when access returns; do not reset them to the remote.
+  resolve it with `git rev-parse HEAD`. Remote synchronization was restored with
+  explicit user approval: verified history through `1fc5b67` was pushed normally
+  to `github.com/orbyts/photara` on `origin/main`. Preserve that history; do not reset
+  to the historical remote baseline or repeat the old access troubleshooting.
 - The working tree must be clean. Do not modify the unrelated dirty
   `codex/promote-graph-lab` worktree.
 - Preserve stash `ce39772a4008c886265ac9a25485b2970d0f8332` until the post-LL2a
@@ -100,6 +99,23 @@ barrier/failure-model scope and trusted registration/authorization. The clean
 trial does not establish these or permit a production constructor. Do not mark
 PS2 complete, enable Saved, or start PS3/PS4/LL2a production wiring from this result.
 Approved power-interruption permission remains **absent**.
+
+The native evidence accounting preflight now combines selected-control peak with
+all supplied retained/prospective journal/receipt allocations and explicit
+namespace charge under the original standing byte/count bounds. It preserves
+charged high-water and refuses duplicate identities or insufficient bounds; it
+does not qualify a native charge rule or mint admission. The remaining review
+must distinguish the frozen logical accepted-journal frame from the still
+proposed device-local journal container and checkpoint acknowledgement. See the
+[native profile proposal](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md#proposed-first-native-profile-and-admission-decision--unapproved)
+and [journal contract](architecture/PROJECT_SESSION_DURABILITY.md#durable-journal-and-reconciliation).
+Neither the old proposed journal size/undo limits nor native scratch filenames
+are approved production format or retention policy.
+The [exact checkpoint-journal subset proposal](architecture/PROJECT_SESSION_DURABILITY.md#proposed-first-journal-storage-implementation--approval-pending)
+specifies the requested framing and two record bodies; it remains unapproved.
+Accounting validation: five affected repeatable tests passed (one existing native
+opt-in ignored), including unchanged exact vectors; strict Clippy, scoped Rustfmt
+and diff checks passed. No additional remount or broad fixture run was needed.
 
 Implementation exposed a **repeatability gap in the frozen specimen recipes**:
 the next active root/association IDs and allocation roles are hardcoded. A second

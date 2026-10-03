@@ -748,3 +748,80 @@ fn selector_outcome_unknown_reopens_the_exact_candidate_before_success() {
 #[cfg(target_os = "macos")]
 #[path = "native_test.rs"]
 mod native_test;
+
+#[test]
+fn native_evidence_charge_stays_inside_original_standing_allowance() {
+    let fixture = fixture();
+    let original = verify(&fixture);
+    let (intent, receipt) = request();
+    let p = plan::compile_inner(
+        &original,
+        &intent,
+        &receipt,
+        attempt(&original, 1000),
+        budget(),
+    )
+    .unwrap();
+    let retained = EvidenceAllocationCharge {
+        identity: EvidenceAllocationId::Registered {
+            device: 7,
+            inode: 90_001,
+        },
+        current_extent: 32,
+        maximum_extent: 32,
+        registered_charge: 16_384,
+    };
+    let journal = EvidenceAllocationCharge {
+        identity: EvidenceAllocationId::Reserved { slot: 1 },
+        current_extent: 0,
+        maximum_extent: 5000,
+        registered_charge: 0,
+    };
+    let receipt = EvidenceAllocationCharge {
+        identity: EvidenceAllocationId::Reserved { slot: 2 },
+        current_extent: 0,
+        maximum_extent: 400,
+        registered_charge: 0,
+    };
+    let proof = check_evidence_charge(&p, &[retained, journal, receipt], 4096).unwrap();
+    assert_eq!(proof.evidence_peak(), 16_384 + 8192 + 4096 + 4096);
+    assert_eq!(proof.total_peak(), p.control_peak() + proof.evidence_peak());
+    assert_eq!(proof.remaining_standing() + proof.total_peak(), 262_144);
+    assert_eq!(proof.allocation_count(), p.control_role_peak + 3);
+    // Neither matching contents nor a smaller current extent refunds captured charge.
+    assert_eq!(
+        check_evidence_charge(&p, &[retained], 0)
+            .unwrap()
+            .evidence_peak(),
+        16_384
+    );
+    assert!(check_evidence_charge(&p, &[retained, retained], 0).is_err());
+    let huge = EvidenceAllocationCharge {
+        maximum_extent: 262_144,
+        ..journal
+    };
+    assert_eq!(
+        check_evidence_charge(&p, &[huge], 0).err(),
+        Some(package::PackageError::Limit)
+    );
+    let undercharged = EvidenceAllocationCharge {
+        registered_charge: 0,
+        ..retained
+    };
+    assert!(check_evidence_charge(&p, &[undercharged], 0).is_err());
+    let shrinking = EvidenceAllocationCharge {
+        maximum_extent: 0,
+        ..retained
+    };
+    assert!(check_evidence_charge(&p, &[shrinking], 0).is_err());
+    let allocations = (0..64)
+        .map(|slot| EvidenceAllocationCharge {
+            identity: EvidenceAllocationId::Reserved { slot },
+            ..receipt
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        check_evidence_charge(&p, &allocations, 0).err(),
+        Some(package::PackageError::Limit)
+    );
+}

@@ -139,3 +139,58 @@ instead of advertising universal APFS durability.
 No user decision is needed to continue safe disposable interface tests. Before
 production enablement, review the ownership/provider policy, exact barrier evidence
 and remaining guarantees; this document does not satisfy that gate.
+
+## Proposed first native profile and admission decision — unapproved
+
+This is a proposed qualification policy, not a new portable format or permission
+for real-library writes. It uses the [shared-writer clean-remount result](PS2_MACOS_CLEAN_REMOUNT.md#shared-repeatable-rust-path--2026-10-03)
+and existing failure/lease evidence; it does not request another fixture family or
+repeat those runs. The immediate implementation target is testable autosave on
+explicit disposable packages. Production `Accepted`/`Saved` constructors remain
+unavailable until the profile and the following engineering conditions are met.
+
+**Decision requested:** permit qualification against the stated macOS platform
+persistence contract and bounded failure model below, without treating an abrupt
+power experiment as a prerequisite for implementing PS3. This accepts a platform
+assumption; it does not assert that clean detach proved power-loss durability.
+Approval would not admit a user library, enable deployment, or override an unknown
+provider classification. Without that decision, disposable adapter/session work
+can still proceed, but the profile must remain unqualified.
+
+| Proposed rule | Concrete interpretation and remaining engineering |
+| --- | --- |
+| Supported configuration | Start with the observed macOS 27.0.1 / 26A434 adapter build. Bind a report to exact OS/adapter/policy versions, persistent volume UUID, mount epoch, filesystem facts, device/hardware mapping and directory pins. The tested APFS image is an experiment configuration, **not evidence qualifying arbitrary internal/external APFS devices**. Each supported production configuration needs its own recorded mapping and review. Unknown mappings, remount/move or lost event continuity invalidate the lease; no automatic device/inode rebinding. |
+| Persistence assumption | Assume the supported kernel/filesystem/device stack honors the documented same-device full-sync contract and atomic same-filesystem rename. Use `fsync` then `F_FULLFSYNC` on written files, and the qualified directory barrier after every new name/rename and newly created ancestor; issue the required final same-device full-sync after namespace barriers. Explicitly review that sequence against the installed SDK contract before declaring the profile qualified. Successful calls alone are insufficient evidence for the namespace guarantee. Refuse unsupported barriers; never substitute plain `sync_all`. Firmware that lies about flush completion, hardware destruction, filesystem/kernel defects and noncooperating writes remain outside the guarantee. This is a conditional platform guarantee, not a weaker process-only meaning of `Saved`. |
+| Ownership | Keep the already approved registered cooperative in-place model. The registrar binds host authorization, exact Project/Library/incarnation, manifest/HEAD, parent/root/volume/lock pins, access policy and protocol digest, then holds the stable nonblocking lifetime lock. All Photara-controlled writers/moves/deletes participate. `WriterBusy` is a refusal; no timeout stealing. Private mode, a chooser grant or a raw lock never constructs admission. No managed-root requirement is added to user-selected packages. |
+| Provider policy | Preserve **managed or unknown ⇒ read-only** for both package and journal roots. Initial disposable trials may use their separately owned image/controller provenance solely as experiment scope; they cannot mint general provider-exclusion evidence. Production host code must produce version-bound positive evidence tied to the complete path/volume/mount facts. Known File Provider/cloud roots, provider metadata or API uncertainty refuse. “Outside Dropbox,” false iCloud status and absent watcher events are not positive evidence. If available platform APIs cannot establish the proposed positive scope, stop at this evidence gap; admitting unknown paths would require a separate policy change, not a checkbox or silent classifier relaxation. |
+| Journal/receipt namespace | Implement PS0's **separate device-local journal store**, under the existing configured local-data root, keyed by device and package incarnation; do not put it in the live catalog or creation journal. Pin/register it independently and qualify its own volume. The package may be on another qualified volume. Bind the journal header to the original manifest/incarnation/base and persist the original checkpoint receipt there. The remount trial's image evidence directory remains historical experiment evidence; it is not this production namespace. No migration, root rename or new journal wire is implied. |
+| Native charge | Keep project admission charge distinct from free-space telemetry. Establish a versioned conservative native observation rule covering logical extents, reported allocated storage, rounding, inode/directory metadata, controls, staging and journal coexistence. Never use compressed/sparse/cloned allocation savings as unproved credit. Carry each unit's charged high-water monotonically until the existing exact retirement/absence/barrier proof permits release. Quantify and preflight the worst simultaneous control/directory/journal allowance before effects; the trial's 262144-byte standing allowance and 4096-byte rounding are **fixture parameters, not a qualified universal APFS bound**. If the bound cannot be established or retained, refuse admission. Neither a capacity query nor successful reservation accounting reserves future physical APFS space. |
+| Two durability domains | Charge package and local-journal work separately, include both reservations before accepting an operation, and coordinate shared-volume capacity without double credit. Journal rotation/header/index/receipt bytes and their parent directories must be included. Reissue barriers for exact observed original-bound progress after an uncertain result, including an already selected clean HEAD. Any uncertain domain freezes later mutation and preserves the original operation; no fresh planner inputs or IDs. |
+
+The implementation seams are concrete: [`CapabilityProfile`/opaque lease](../../crates/photara-store/src/package/planning/io.rs),
+the [version-bound dry-run path classifier](../../crates/photara-store/tests/package_planning/macos_path_classifier.rs)
+(its only positive provider evidence is explicitly synthetic), and
+[`RepeatableIo`](../../crates/photara-store/src/package/v1_3/repeatable/execute.rs).
+The native adapter is still `cfg(test)`: neither its test principal nor its private
+registration file is a production registrar. The profile must cover the journal
+adapter as well as packed package publication before either acknowledgement is
+exposed. `Accepted` remains the exact operation's durable journal result; `Saved`
+remains the independently verified selected package plus durable original receipt
+for the current accepted revision. An older checkpoint cannot mark newer edits saved.
+
+**Already authorized engineering:** implement the pinned namespace/registration
+state machine, host fact collection and fail-closed classifier, journal accounting,
+barrier/error plumbing, and PS3 scheduling against the shared Rust authority in
+explicit disposable storage; validate new behavior with focused tests. No new
+approval is needed merely to implement these conservative rules or to preserve
+read-only fallback. Provider evidence, native charge bounds and final registrar
+construction are concrete unfinished engineering, not facts supplied by approval.
+
+**Actual approval boundary:** accept the explicit platform/failure-model reliance
+and supported-profile scope before marking a native profile qualified. Any proposal
+to admit provider-unknown paths, weaken `Accepted`/`Saved`, auto-rebind copies/moves,
+change retention, or enable real-library writes/deployment remains separate and is
+not requested here. Power interruption would also need separate authorization;
+the present proposal adds no such experiment. Qualification review can reject the
+profile if the required platform evidence is insufficient, even after its policy
+direction is approved.
