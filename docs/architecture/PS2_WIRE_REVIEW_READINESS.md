@@ -35,8 +35,8 @@ what was reviewed.
 The freeze preserves the demonstrated one-operation recipes; it does not make
 their hardcoded IDs reusable for repeated production saves. Shared-reader
 implementation exposed the concrete collision described in the [repeatable
-writer amendment](PS2_REPEATABLE_WRITER_AMENDMENT.md). Approval of that additive
-recipe is pending. Do not silently generalize existing codec IDs, and do not
+writer amendment](PS2_REPEATABLE_WRITER_AMENDMENT.md). The user approved that bounded additive
+recipe amendment on 2026-10-03 for implementation and exact-byte validation. Do not silently generalize existing codec IDs, and do not
 claim PS2 complete based on the new read components.
 
 ## Current consolidated review packet — 2026-09-29

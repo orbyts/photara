@@ -1,6 +1,7 @@
 # PS2 repeatable writer amendment
 
-Status: **proposed, not approved**, 2026-10-03. Implementation exposed a concrete
+Status: **approved for bounded additive implementation and exact-byte validation**,
+2026-10-03. Implementation exposed a concrete
 compatibility gap in the narrowly frozen packet at `9b7facf`. Existing approved
 bytes and codec meanings remain frozen. This is not a new fixture workstream.
 
@@ -27,10 +28,10 @@ Changing its identifier/topology choices silently would change those bytes under
 an already frozen codec. The earlier consolidated packet should have called out
 this limitation before requesting a freeze for production implementation.
 
-## Proposed bounded amendment
+## Approved bounded amendment
 
 Authorize a separately versioned repeatable planning recipe, preserving all
-existing frozen codecs for exact decode/replay. Proposed dispatch names:
+existing frozen codecs for exact decode/replay. Approved additive dispatch names:
 
 - Original codec: `photara.codec.ps2-repeatable-admission-v1`.
 - Layout codec: `photara.codec.ps2-repeatable-layout-v1`.
@@ -63,10 +64,15 @@ unsupported semantic commands, undo/provenance spellings or retention policy.
 The exact new field layout and canonical vectors must be recorded with the
 implementation; none may be silently treated as part of the earlier freeze.
 
-## Decision requested
+## Approval recorded — 2026-10-03
 
-Approve this bounded additive repeatable-codec amendment and its explicit
-persisted-input approach, allowing implementation and exact-byte validation.
+The user explicitly approved this bounded additive amendment and persisted-input
+approach for implementation and exact-byte validation. Planner inputs must be
+generated once before admission, persisted under the original commitment, strictly
+validated before effects and reused exactly for retry/recovery. Required validation
+includes at least two consecutive operations and interruption/retry of the same
+original attempt using the existing infrastructure. No further approval is needed
+within this scope; stop only for a new concrete correctness/compatibility boundary.
 The original freeze stays intact; changing existing codec meanings is not an
 alternative. Storage qualification follows implementation, then PS3 → PS4 → LL2a.
 This does not authorize real-library writes, migration, deletion, deployment,

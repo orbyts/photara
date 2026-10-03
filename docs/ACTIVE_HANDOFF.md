@@ -83,8 +83,12 @@ Implementation exposed a **repeatability gap in the frozen specimen recipes**:
 the next active root/association IDs and allocation roles are hardcoded. A second
 operation would reuse a root ID still held by recovery. Preserve old codec replay;
 do not change their deterministic recipe silently. The [bounded additive amendment](architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md)
-is ready for review. Stop writer generalization at this compatibility boundary.
-No extra fixture family or storage trial is needed to establish this gap.
+was explicitly approved on 2026-10-03 for bounded additive implementation and
+exact-byte validation. Implement the repeatable admission/layout variants with
+persisted planner choices, preserve all frozen codecs and golden bytes, and prove
+two consecutive operations plus interruption/retry of the same original attempt.
+Do not ask again for that amendment or add a fixture family. Finish the shared
+writer/admission path, then disposable storage qualification, then PS3 → PS4 → LL2a.
 
 ## Approved semantics — do not reopen without contradictory evidence
 
