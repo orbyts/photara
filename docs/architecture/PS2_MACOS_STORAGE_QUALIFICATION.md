@@ -198,3 +198,44 @@ not requested here. Power interruption would also need separate authorization;
 the present proposal adds no such experiment. Qualification review can reject the
 profile if the required platform evidence is insufficient, even after its policy
 direction is approved.
+
+## Conditional disposable qualification — 2026-10-03
+
+The approved PHPSJ001 implementation passed the existing controlled-image trial:
+persisted intent → partial package append → clean remount → original retry →
+clean remount → completed retry → independent closure/receipt verification.
+The image is detached and retained. The exact configuration was macOS 27.0.1
+build 26A434, APFS volume `10d00d7d-c3e6-4628-b9b6-df7a8325987f`, under the private
+controller root `/private/tmp/photara-ps2-remount-vt9tvk2o`. See the
+[qualification evidence](verification/ps2-checkpoint-journal-qualification.json).
+
+The host assessment independently checks the image/mount association, boot and
+volume identities, controller generations and pinned handles. Its positive scope
+is only this explicitly owned disposable environment. Real-library provider
+exclusion and production registration are not inferred from it.
+
+Native checks compare logical extents and reported allocated blocks for every
+known package/source/control/journal inode, including namespace entries, against
+registered charges. Exact planned coexistence fits the original standing pool;
+the pool remains charged and observations repeat after effects/retry. The final
+standing footprint is 126,976 bytes within the unchanged 262,144-byte fixture
+allowance. The checkpoint reserves 36,864 bytes and observes 32,768 allocated
+bytes; its separate namespace/control allowance is 16,384 bytes. These are
+fixture registrations, not production defaults or physical-space reservations.
+Overruns, ENOSPC and uncertain barriers refuse/freeze while retaining original
+intent; no expected deletion or compression saving funds later work.
+
+The barrier review confirms file fsync/full-sync before namespace barriers,
+same-device full-sync after namespace changes, exact HEAD replacement, and
+reissued file **and directory** barriers for matching preexisting controls.
+Intent precedes package effects; the completed checkpoint wrapper follows full
+selected-closure validation and package barriers, then its own journal barriers.
+There is no weaker fallback and no power-loss claim.
+
+This closes the **configuration-scoped disposable storage qualification** for
+the approved checkpoint implementation. It supports progression toward disposable
+PS3 autosave after the separately unapproved mutation/undo journal amendment.
+It does not qualify arbitrary APFS paths or enable production Accepted/Saved
+constructors, real-library writes or deployment. The native harness's general
+`qualified`/`saved_claim` flags remain false for that reason. The remaining real-path
+provider, authorization and local-root registrar work stays gated from enablement.

@@ -6,7 +6,7 @@ use super::{
 };
 use crate::package::PackageError;
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub enum Admission {
     ExistingReceipt(Value),
@@ -73,6 +73,10 @@ pub fn reconstruct_original(
 ) -> Result<OriginalPackage, PackageError> {
     reconstruct(current, record, limits).map_err(|_| PackageError::Integrity)
 }
+#[expect(
+    clippy::too_many_lines,
+    reason = "Original commitment reconstruction and bounded retained-control recovery kept together"
+)]
 fn reconstruct(
     current: &OriginalPackage,
     record: &Value,
@@ -167,6 +171,18 @@ fn reconstruct(
     let overlay = &record["old"]["overlay"];
     let refs = overlay["controls"].as_array().ok_or("old controls")?;
     wire::ensure(refs.len() <= limits.max_objects, "control object bound")?;
+    let missing = refs
+        .iter()
+        .map(key)
+        .collect::<wire::Result<BTreeSet<_>>>()?
+        .into_iter()
+        .filter(|k| !available.contains_key(k))
+        .collect::<BTreeSet<_>>();
+    available.extend(retained_controls(current, &missing, limits)?);
+    wire::ensure(
+        available.len() <= limits.max_objects,
+        "restored object budget",
+    )?;
     for r in refs {
         let k = key(r)?;
         let v = available.get(&k).ok_or("preserved original control")?;
@@ -174,4 +190,79 @@ fn reconstruct(
     }
     old.loose.insert(hash(&encode(overlay)), encode(overlay));
     Ok(old)
+}
+
+// A completed successor has moved prior loose controls into its immutable
+// append. Read only exact requested digest/length commitments from complete
+// current frames; never interpret or truncate an incomplete current tail.
+fn retained_controls(
+    current: &OriginalPackage,
+    wanted: &BTreeSet<wire::Key>,
+    limits: Limits,
+) -> wire::Result<BTreeMap<wire::Key, Value>> {
+    let mut found = BTreeMap::new();
+    if wanted.is_empty() {
+        return Ok(found);
+    }
+    let mut total = 0u64;
+    let mut frames = 0usize;
+    let mut parsed = 0usize;
+    for a in current.allocations.values() {
+        total = total
+            .checked_add(a.bytes.len() as u64)
+            .ok_or("current byte overflow")?;
+        wire::ensure(
+            a.bytes.len() as u64 <= limits.max_allocation_bytes
+                && total <= limits.max_total_allocation_bytes,
+            "current allocation budget",
+        )?;
+        let mut at = 0usize;
+        while at < a.bytes.len() {
+            frames = frames.checked_add(1).ok_or("current frame overflow")?;
+            wire::ensure(frames <= limits.max_frames, "current frame budget")?;
+            let Some(header) = a
+                .bytes
+                .get(at..at.checked_add(16).ok_or("current frame overflow")?)
+            else {
+                break;
+            };
+            wire::ensure(
+                &header[..8] == b"PS2PKD01"
+                    && header[9..12] == [0, 0, 0]
+                    && ((a.arena == "data" && header[8] <= 2)
+                        || (a.arena == "metadata" && matches!(header[8], 0 | 3))),
+                "current frame header",
+            )?;
+            let length = u32::from_le_bytes(
+                header[12..16]
+                    .try_into()
+                    .map_err(|_| "current frame length")?,
+            ) as usize;
+            let end = at
+                .checked_add(16)
+                .and_then(|n| n.checked_add(length))
+                .ok_or("current frame overflow")?;
+            let Some(body) = a.bytes.get(at + 16..end) else {
+                break;
+            };
+            if matches!(header[8], 1 | 2) && wanted.iter().any(|(_, len)| *len == length as u64) {
+                let k = (hash(body), length as u64);
+                if wanted.contains(&k) && !found.contains_key(&k) {
+                    parsed = parsed
+                        .checked_add(length)
+                        .ok_or("retained control overflow")?;
+                    wire::ensure(
+                        parsed <= limits.semantic.max_total_json_bytes,
+                        "retained control byte budget",
+                    )?;
+                    let value = crate::package::parse_canonical_json(body, limits.semantic.json)
+                        .map_err(|_| "retained canonical control")?;
+                    found.insert(k, value);
+                }
+            }
+            at = end;
+        }
+    }
+    wire::ensure(found.len() == wanted.len(), "missing retained control")?;
+    Ok(found)
 }

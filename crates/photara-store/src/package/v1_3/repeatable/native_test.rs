@@ -20,6 +20,7 @@ const DIRECTORY: OFlags = OFlags::RDONLY
     .union(OFlags::CLOEXEC);
 const PACKAGE: &str = "repeatable-package";
 const EVIDENCE: &str = "repeatable-evidence";
+const CHECKPOINT: &str = "checkpoint.phpsj";
 fn invalid() -> std::io::Error {
     std::io::ErrorKind::InvalidData.into()
 }
@@ -92,10 +93,12 @@ fn create(root: &File, name: &str, bytes: &[u8]) -> IoResult<File> {
 }
 fn exact_file(root: &File, name: &str, bytes: &[u8]) -> IoResult<()> {
     match regular(root, name, false) {
-        Ok(_) => {
+        Ok(file) => {
             if read(root, name)? != bytes {
                 return Err(invalid());
             }
+            barrier(&file)?;
+            barrier(root)?;
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             create(root, name, bytes)?;
@@ -104,6 +107,20 @@ fn exact_file(root: &File, name: &str, bytes: &[u8]) -> IoResult<()> {
         Err(e) => return Err(e),
     }
     Ok(())
+}
+fn append_exact(root: &File, name: &str, expected: &[u8], suffix: &[u8]) -> IoResult<()> {
+    let mut file = regular(root, name, true)?;
+    let original_pin = pin(&file)?;
+    if read(root, name)? != expected
+        || pin(&regular(root, name, false)?)? != original_pin
+        || file.metadata()?.len() != expected.len() as u64
+    {
+        return Err(invalid());
+    }
+    file.seek(SeekFrom::Start(expected.len() as u64))?;
+    file.write_all(suffix)?;
+    barrier(&file)?;
+    barrier(root)
 }
 fn native_string(a: &[std::ffi::c_char]) -> String {
     String::from_utf8(
@@ -120,6 +137,7 @@ struct Scope {
     path: PathBuf,
     nonce: String,
     generation: u64,
+    assessment: v1_3::native_profile::DisposableAssessment,
 }
 impl Scope {
     fn load() -> IoResult<Self> {
@@ -184,12 +202,18 @@ impl Scope {
             .as_u64()
             .filter(|n| *n > 0)
             .ok_or_else(invalid)?;
+        let assessment = v1_3::native_profile::assess_disposable_image(
+            &path,
+            serde_json::from_value(binding).map_err(|_| invalid())?,
+        )
+        .map_err(|_| invalid())?;
         Ok(Self {
             scratch,
             mount,
             path: parent.join("mount").join(PACKAGE),
             nonce,
             generation,
+            assessment,
         })
     }
 }
@@ -306,8 +330,26 @@ fn prepare(scope: &Scope) -> IoResult<()> {
             .as_bytes(),
     )?;
     barrier(&root)?;
+    let initial: OriginalPackage = package(&support::Fixture::from_value(data.clone()));
+    let (_, receipt) = request();
+    let journal_header = json!({"format_version":1,"stream_id":uuid::Uuid::new_v4().to_string(),"journal_id":receipt["journal_id"],"device_id":uuid::Uuid::new_v4().to_string(),"project_id":initial.manifest["project_id"],"library_id":initial.commit["root_set"]["library_id"],"incarnation_id":initial.commit["root_set"]["placement"]["incarnation"],"bootstrap_sha256":hash(&canonical(&initial.manifest)),"base_head":initial.head,"base_package_revision":initial.commit["package_revision"]});
+    // Incarnation is selected by accounting, not the portable placement selector.
+    let mut journal_header = journal_header;
+    journal_header["incarnation_id"] = serde_json::to_value(
+        support::Fixture::from_value(data.clone())
+            .registration
+            .incarnation,
+    )
+    .map_err(|_| invalid())?;
+    let checkpoint = create(
+        &evidence,
+        CHECKPOINT,
+        &journal::Journal::create(&journal_header, journal_limits(262_144))
+            .map_err(|_| invalid())?,
+    )?;
+    barrier(&evidence)?;
     // Trusted experimental registration captured before any repeatable writer effect.
-    let registration = json!({"nonce":scope.nonce,"package_pin":pin(&root)?,"lock_pin":pin(&lock)?,"evidence_pin":pin(&evidence)?,"generation":scope.generation,"data":data});
+    let registration = json!({"nonce":scope.nonce,"package_pin":pin(&root)?,"lock_pin":pin(&lock)?,"evidence_pin":pin(&evidence)?,"generation":scope.generation,"journal_header":journal_header,"journal_pin":pin(&checkpoint)?,"data":data});
     create(
         &scope.scratch,
         "repeatable-registration.json",
@@ -326,6 +368,38 @@ struct Native {
     interrupt: bool,
     allowed: BTreeMap<String, Vec<u8>>,
     commits: BTreeMap<String, Vec<u8>>,
+    journal_header: Value,
+    journal_pin: Pin,
+    journal_capacity: u64,
+    journal_high_water: u64,
+    completion: Option<journal::JournalAppend>,
+    intent_record: Option<Value>,
+    published_head: Value,
+    completed_head: Value,
+    ceiling: Option<support::Fixture>,
+    namespace_allowance: u64,
+}
+fn journal_limits(standing: u64) -> journal::JournalLimits {
+    let bytes = usize::try_from(standing).expect("bounded fixture standing pool");
+    journal::JournalLimits {
+        json: support::limits().json,
+        max_file_bytes: bytes,
+        max_records: 2, // Existing fixture: one original operation, intent + completion.
+        max_work_bytes: bytes,
+    }
+}
+fn record_identity(
+    record: Option<&Value>,
+    generation: u64,
+) -> IoResult<journal::JournalRecordIdentity> {
+    Ok(journal::JournalRecordIdentity {
+        record_id: package::PackageUuid::parse(&record.map_or_else(
+            || uuid::Uuid::new_v4().to_string(),
+            |r| r["record_id"].as_str().unwrap_or("").to_owned(),
+        ))
+        .map_err(|_| invalid())?,
+        session_generation: record.map_or(Ok(generation), |r| number(&r["session_generation"]))?,
+    })
 }
 type NativeLease = crate::package::planning::io::RegisteredCooperativeLease<File>;
 impl Native {
@@ -354,6 +428,16 @@ impl Native {
         {
             return Err(invalid());
         }
+        for entry in std::fs::read_dir(scope.path.parent().ok_or_else(invalid)?.join(EVIDENCE))? {
+            if entry?.file_name() != CHECKPOINT {
+                return Err(invalid());
+            }
+        }
+        let journal_pin = pin(&regular(&evidence, CHECKPOINT, false)?)?;
+        if registration["journal_pin"] != json!(journal_pin) {
+            return Err(invalid());
+        }
+        let journal_header = registration["journal_header"].clone();
         let root_pin = pin(&root)?;
         let lock_pin = pin(&lock)?;
         Ok(Self {
@@ -367,9 +451,20 @@ impl Native {
             interrupt: false,
             allowed: BTreeMap::new(),
             commits: BTreeMap::new(),
+            journal_header,
+            journal_pin,
+            journal_capacity: 0,
+            journal_high_water: 0,
+            completion: None,
+            intent_record: None,
+            published_head: Value::Null,
+            completed_head: Value::Null,
+            ceiling: None,
+            namespace_allowance: 0,
         })
     }
     fn lease(&self, p: &OriginalPackage) -> IoResult<NativeLease> {
+        self.scope.assessment.revalidate().map_err(|_| invalid())?;
         let lock = regular(&self.root, ".writer-lock", false)?;
         flock(&lock, FlockOperation::NonBlockingLockExclusive)?;
         Ok(crate::package::planning::io::test_lease(
@@ -384,6 +479,7 @@ impl Native {
         ))
     }
     fn pins(&self) -> IoResult<()> {
+        self.scope.assessment.check_pins().map_err(|_| invalid())?;
         let evidence = File::from(openat(
             &self.scope.mount,
             EVIDENCE,
@@ -394,6 +490,9 @@ impl Native {
             || pin(&self.evidence)? != self.evidence_pin
             || evidence.metadata()?.permissions().mode() & 0o077 != 0
         {
+            return Err(invalid());
+        }
+        if pin(&regular(&evidence, CHECKPOINT, false)?)? != self.journal_pin {
             return Err(invalid());
         }
         let root = File::from(open(&self.scope.path, DIRECTORY, Mode::empty())?);
@@ -504,6 +603,8 @@ impl Native {
         self.pins()
             .map_err(|_| ExecutionError::InvalidObservation)?;
         let observed = snapshot(&self.base, p);
+        self.footprint(&observed)
+            .map_err(|_| ExecutionError::InvalidObservation)?;
         v1_3::reader::inspect_operation_package(
             p,
             identity(p),
@@ -528,6 +629,260 @@ impl Native {
             self.commits
                 .insert(hash(&canonical(&stage.commit)), canonical(&stage.commit));
         }
+    }
+    fn footprint(&self, ceiling: &support::Fixture) -> IoResult<Value> {
+        use v1_3::native_profile::{check_charge, measure_allocation};
+        let unit = self.base.registration.charge_unit;
+        let mut allocations = Vec::new();
+        let mut standing = vec![
+            measure_allocation(&self.root).map_err(|_| invalid())?,
+            measure_allocation(&self.evidence).map_err(|_| invalid())?,
+        ];
+        let mut owned = std::collections::BTreeSet::new();
+        for (id, a) in &ceiling.allocations {
+            let name = pack_name(&id.to_string());
+            let usage =
+                measure_allocation(&regular(&self.root, &name, false)?).map_err(|_| invalid())?;
+            let charge = check_charge(&[usage], unit, a.charge).map_err(|_| invalid())?;
+            allocations.push(json!({"name":name,"charge":charge}));
+            owned.insert(name);
+        }
+        for (path, a) in &self.base.registration.retained_files {
+            let name = source_name(&path.join("/"));
+            let usage =
+                measure_allocation(&regular(&self.root, &name, false)?).map_err(|_| invalid())?;
+            let charge =
+                check_charge(&[usage], unit, a.registered_charge).map_err(|_| invalid())?;
+            allocations.push(json!({"name":name,"charge":charge}));
+            owned.insert(name);
+        }
+        for entry in std::fs::read_dir(&self.scope.path)? {
+            let name = entry?.file_name().into_string().map_err(|_| invalid())?;
+            if !owned.contains(&name) {
+                if !matches!(
+                    name.as_str(),
+                    ".owner" | ".writer-lock" | "manifest.json" | "HEAD.json" | "HEAD.next"
+                ) && !name
+                    .strip_suffix(".control")
+                    .is_some_and(|sha| self.allowed.contains_key(sha))
+                    && !name
+                        .strip_suffix(".commit")
+                        .is_some_and(|sha| self.commits.contains_key(sha))
+                {
+                    return Err(invalid());
+                }
+                standing.push(
+                    measure_allocation(&regular(&self.root, &name, false)?)
+                        .map_err(|_| invalid())?,
+                );
+            }
+        }
+        for entry in
+            std::fs::read_dir(self.scope.path.parent().ok_or_else(invalid)?.join(EVIDENCE))?
+        {
+            if entry?.file_name() != CHECKPOINT {
+                return Err(invalid());
+            }
+        }
+        standing.push(
+            measure_allocation(&regular(&self.evidence, CHECKPOINT, false)?)
+                .map_err(|_| invalid())?,
+        );
+        let charged = check_charge(&standing, unit, self.base.registration.standing_control)
+            .map_err(|_| invalid())?;
+        Ok(json!({"allocation_charges":allocations,"standing_observation":charged}))
+    }
+    fn check_effect_footprint(&self) -> IoResult<()> {
+        self.footprint(self.ceiling.as_ref().ok_or_else(invalid)?)
+            .map(|_| ())
+    }
+    fn checkpoint(&self) -> IoResult<journal::Journal> {
+        let bytes = read(&self.evidence, CHECKPOINT)?;
+        let parsed = journal::Journal::read(
+            &bytes,
+            &self.journal_header,
+            journal_limits(self.base.registration.standing_control),
+        )
+        .map_err(|_| invalid())?;
+        if parsed.tail() != journal::JournalTail::Complete {
+            return Err(invalid());
+        }
+        Ok(parsed)
+    }
+    fn append_checkpoint(&mut self, append: &journal::JournalAppend) -> IoResult<()> {
+        self.pins()?;
+        let bytes = read(&self.evidence, CHECKPOINT)?;
+        if bytes.len() != append.expected_extent()
+            || hash(&bytes) != append.expected_prefix_sha256()
+        {
+            return Err(invalid());
+        }
+        let file = regular(&self.evidence, CHECKPOINT, false)?;
+        self.journal_high_water = self.journal_high_water.max(
+            file.metadata()?
+                .blocks()
+                .checked_mul(512)
+                .ok_or_else(invalid)?,
+        );
+        if self.journal_high_water > self.journal_capacity {
+            return Err(invalid());
+        }
+        append_exact(&self.evidence, CHECKPOINT, &bytes, append.bytes())?;
+        self.journal_high_water = self.journal_high_water.max(
+            file.metadata()?
+                .blocks()
+                .checked_mul(512)
+                .ok_or_else(invalid)?,
+        );
+        if self.journal_high_water > self.journal_capacity {
+            return Err(invalid());
+        }
+        self.check_effect_footprint()
+    }
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Keep exact journal preflight and original-bound append ordering together"
+    )]
+    fn prepare_checkpoint(&mut self, plan: &RepeatablePlan) -> IoResult<()> {
+        let current = self.current()?;
+        let observed = snapshot(&self.base, &current);
+        let identity = identity(&current);
+        let reader = support::limits();
+        let context = RestartContext {
+            inspection: &observed,
+            registration: &self.base.registration,
+            directory: v1_3::DirectoryObservation {
+                device: self.root_pin[0],
+                inode: self.root_pin[1],
+            },
+            identity: &identity,
+            frames: frames(),
+            reader: &reader,
+            planner: budget(),
+            max_originals: 2,
+        };
+        let limits = journal_limits(self.base.registration.standing_control);
+        let parsed = self.checkpoint()?;
+        let verified = parsed.verify(&current, &context).map_err(|_| invalid())?;
+        let prior_intent = parsed
+            .records()
+            .iter()
+            .find(|r| r.value()["kind"] == "CheckpointIntent")
+            .map(journal::JournalRecord::value);
+        let intent = verified
+            .prepare_intent(
+                plan,
+                record_identity(prior_intent, self.scope.generation)?,
+                limits,
+            )
+            .map_err(|_| invalid())?;
+        let mut planned = read(&self.evidence, CHECKPOINT)?;
+        planned.extend(intent.bytes());
+        let intent_id = package::PackageUuid::parse(
+            intent.record().value()["record_id"]
+                .as_str()
+                .ok_or_else(invalid)?,
+        )
+        .map_err(|_| invalid())?;
+        let next = journal::Journal::read(&planned, &self.journal_header, limits)
+            .map_err(|_| invalid())?;
+        let verified_next = next.verify(&current, &context).map_err(|_| invalid())?;
+        let prior_receipt = next
+            .records()
+            .iter()
+            .find(|r| r.value()["kind"] == "CheckpointReceipt")
+            .map(journal::JournalRecord::value);
+        let receipt_identity = record_identity(prior_receipt, self.scope.generation)?;
+        let completion = verified_next
+            .prepare_receipt(plan, intent_id, receipt_identity, limits)
+            .map_err(|_| invalid())?;
+        let header_len = journal::Journal::create(&self.journal_header, limits)
+            .map_err(|_| invalid())?
+            .len();
+        let intent_end = header_len
+            .checked_add(36)
+            .and_then(|n| n.checked_add(canonical(intent.record().value()).len()))
+            .ok_or_else(invalid)?;
+        let prefix = journal::Journal::read(
+            planned.get(..intent_end).ok_or_else(invalid)?,
+            &self.journal_header,
+            limits,
+        )
+        .map_err(|_| invalid())?;
+        let worst = prefix
+            .verify(&current, &context)
+            .map_err(|_| invalid())?
+            .prepare_receipt(
+                plan,
+                intent_id,
+                journal::JournalRecordIdentity {
+                    session_generation: u64::MAX,
+                    ..receipt_identity
+                },
+                limits,
+            )
+            .map_err(|_| invalid())?;
+        let extent = u64::try_from(
+            intent_end
+                .checked_add(worst.bytes().len())
+                .ok_or_else(invalid)?,
+        )
+        .map_err(|_| invalid())?;
+        let unit = self.base.registration.charge_unit;
+        // Fixed fixture reserve, retained in full: rounded complete journal plus
+        // one allocation-slack unit and four fixed namespace/control units.
+        // Two directories, owner and lock are conservatively charged in addition
+        // to the planner pool. This is not a universal APFS metadata bound.
+        let capacity = extent
+            .checked_add(unit - 1)
+            .and_then(|n| n.checked_div(unit))
+            .and_then(|n| n.checked_add(1))
+            .and_then(|n| n.checked_mul(unit))
+            .ok_or_else(invalid)?;
+        let namespace = unit.checked_mul(4).ok_or_else(invalid)?;
+        let fixed = [&self.root, &self.evidence];
+        let mut namespace_usage = fixed
+            .into_iter()
+            .map(|file| v1_3::native_profile::measure_allocation(file).map_err(|_| invalid()))
+            .collect::<IoResult<Vec<_>>>()?;
+        for name in [".owner", ".writer-lock"] {
+            namespace_usage.push(
+                v1_3::native_profile::measure_allocation(&regular(&self.root, name, false)?)
+                    .map_err(|_| invalid())?,
+            );
+        }
+        v1_3::native_profile::check_charge(&namespace_usage, unit, namespace)
+            .map_err(|_| invalid())?;
+        let peak = plan
+            .control_peak()
+            .checked_add(capacity)
+            .and_then(|n| n.checked_add(namespace))
+            .ok_or_else(invalid)?;
+        if peak > self.base.registration.standing_control
+            || peak > number(&plan.original()["control_bounds"]["aggregate_control_bytes"])?
+            || plan.control_role_peak.checked_add(5).ok_or_else(invalid)?
+                > number(&plan.original()["control_bounds"]["aggregate_control_count"])?
+        {
+            return Err(std::io::Error::other(format!(
+                "checkpoint standing refusal: controls={} journal={} namespace={} total={} limit={}",
+                plan.control_peak(),
+                capacity,
+                unit,
+                peak,
+                self.base.registration.standing_control
+            )));
+        }
+        self.footprint(&snapshot(&self.base, &selected(plan, 6)))?;
+        self.namespace_allowance = namespace;
+        self.ceiling = Some(snapshot(&self.base, &selected(plan, 6)));
+        self.journal_capacity = capacity;
+        self.intent_record = Some(intent.record().value().clone());
+        self.published_head.clone_from(&plan.stages[5].head);
+        self.completed_head.clone_from(&plan.stages[6].head);
+        self.completion = Some(completion);
+        self.append_checkpoint(&intent)?;
+        self.footprint(&snapshot(&self.base, &selected(plan, 6)))?;
+        Ok(())
     }
     fn prune_commits(&self, keep: &Value) -> IoResult<()> {
         let current = hash(&canonical(keep));
@@ -583,6 +938,8 @@ impl RepeatableIo for Native {
     ) -> Result<(), ExecutionError> {
         self.lease_ok(l)?;
         self.allow(p);
+        self.footprint(&snapshot(&self.base, &selected(p, 6)))
+            .map_err(|_| ExecutionError::InvalidObservation)?;
         self.check(&selected(p, 6), p, 6)
     }
     fn verify_progress(
@@ -601,27 +958,29 @@ impl RepeatableIo for Native {
         if current.head != *head || current.commit != *commit || current.loose != *loose {
             return Err(ExecutionError::InvalidObservation);
         }
-        let id = p.prepared.receipt["operation_id"]
-            .as_str()
+        let checkpoint = self
+            .checkpoint()
+            .map_err(|_| ExecutionError::InvalidObservation)?;
+        let intent = self
+            .intent_record
+            .as_ref()
             .ok_or(ExecutionError::InvalidObservation)?;
-        for (required, name, bytes) in [
-            (
-                stage.is_some_and(|n| n >= 1),
-                format!("repeatable-journal-{id}.json"),
-                canonical(&plan::journal_frame(&p.prepared.receipt)),
-            ),
-            (
-                stage == Some(6),
-                format!("repeatable-receipt-{id}.json"),
-                canonical(&p.prepared.receipt),
-            ),
-        ] {
-            match read(&self.evidence, &name) {
-                Ok(actual) if actual == bytes => {}
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound && !required => {}
-                _ => return Err(ExecutionError::InvalidObservation),
-            }
+        if !checkpoint.records().iter().any(|r| r.value() == intent)
+            || intent["body"]["original"] != p.original
+            || intent["body"]["operation_receipt"] != p.prepared.receipt
+            || checkpoint.records().iter().any(|r| {
+                r.value()["kind"] == "CheckpointReceipt"
+                    && (stage != Some(6)
+                        || self
+                            .completion
+                            .as_ref()
+                            .is_none_or(|c| c.record().value() != r.value()))
+            })
+        {
+            return Err(ExecutionError::InvalidObservation);
         }
+        // A clean selected HEAD may precede its wrapper after interruption.
+        // execute revalidates closure and barriers before record_receipt repairs it.
         match read(&self.root, "HEAD.next") {
             Ok(bytes) if p.stages.iter().any(|s| canonical(&s.head) == bytes) => {}
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
@@ -652,23 +1011,7 @@ impl RepeatableIo for Native {
                 true,
             )?)?;
             barrier(&regular(&self.root, "HEAD.json", true)?)?;
-            let id = p.prepared.receipt["operation_id"]
-                .as_str()
-                .ok_or_else(invalid)?;
-            if stage >= 1 {
-                barrier(&regular(
-                    &self.evidence,
-                    &format!("repeatable-journal-{id}.json"),
-                    true,
-                )?)?;
-            }
-            if stage == 6 {
-                barrier(&regular(
-                    &self.evidence,
-                    &format!("repeatable-receipt-{id}.json"),
-                    true,
-                )?)?;
-            }
+            barrier(&regular(&self.evidence, CHECKPOINT, true)?)?;
             barrier(&self.root)?;
             barrier(&self.evidence)?;
             // Remove only previously authenticated operation-owned sidecars.
@@ -688,7 +1031,8 @@ impl RepeatableIo for Native {
                 }
             }
             self.prune_commits(&p.stages[stage].commit)?;
-            barrier(&self.root)
+            barrier(&self.root)?;
+            self.check_effect_footprint()
         })())
     }
     fn select(
@@ -722,22 +1066,26 @@ impl RepeatableIo for Native {
                 }
             }
             self.prune_commits(&stage.commit)?;
-            barrier(&self.root)
+            barrier(&self.root)?;
+            self.check_effect_footprint()
         })())
     }
     fn journal(&mut self, l: &NativeLease, frame: &Value) -> Result<(), EffectFailure> {
         self.lease_ok(l).map_err(|_| EffectFailure::NotPerformed)?;
-        uncertain(exact_file(
-            &self.evidence,
-            &format!(
-                "repeatable-journal-{}.json",
-                frame["operation_id"]
-                    .as_str()
-                    .ok_or(EffectFailure::NotPerformed)?
-            ),
-            &canonical(frame),
-        ))
+        let intent = self
+            .intent_record
+            .as_ref()
+            .ok_or(EffectFailure::NotPerformed)?;
+        if intent["body"]["accepted_frame"] != *frame {
+            return Err(EffectFailure::NotPerformed);
+        }
+        uncertain((|| {
+            self.checkpoint()?;
+            barrier(&regular(&self.evidence, CHECKPOINT, true)?)?;
+            barrier(&self.evidence)
+        })())
     }
+
     fn append(
         &mut self,
         l: &NativeLease,
@@ -759,7 +1107,8 @@ impl RepeatableIo for Native {
             } else {
                 bytes
             })?;
-            barrier(&f)
+            barrier(&f)?;
+            self.check_effect_footprint()
         })())?;
         if interrupt {
             Err(EffectFailure::OutcomeUnknown)
@@ -792,17 +1141,39 @@ impl RepeatableIo for Native {
         if o["request"]["receipt"] != reference(r) {
             return Err(EffectFailure::NotPerformed);
         }
-        uncertain(exact_file(
-            &self.evidence,
-            &format!(
-                "repeatable-receipt-{}.json",
-                r["operation_id"]
-                    .as_str()
-                    .ok_or(EffectFailure::NotPerformed)?
-            ),
-            &canonical(r),
-        ))
+        uncertain((|| {
+            let head: Value =
+                serde_json::from_slice(&read(&self.root, "HEAD.json")?).map_err(|_| invalid())?;
+            if head == self.published_head {
+                // Intent already contains the exact original receipt. Stage 5
+                // barriers it; only selected clean stage 6 gets the wrapper.
+                barrier(&regular(&self.evidence, CHECKPOINT, true)?)?;
+                return barrier(&self.evidence);
+            }
+            if head != self.completed_head {
+                return Err(invalid());
+            }
+            barrier(&regular(&self.root, "HEAD.json", true)?)?;
+            barrier(&self.root)?;
+            let completion = self.completion.take().ok_or_else(invalid)?;
+            let result = (|| {
+                let parsed = self.checkpoint()?;
+                if parsed
+                    .records()
+                    .iter()
+                    .any(|record| record.value() == completion.record().value())
+                {
+                    barrier(&regular(&self.evidence, CHECKPOINT, true)?)?;
+                    barrier(&self.evidence)
+                } else {
+                    self.append_checkpoint(&completion)
+                }
+            })();
+            self.completion = Some(completion);
+            result
+        })())
     }
+
     fn cleanup_controls(
         &mut self,
         l: &NativeLease,
@@ -812,6 +1183,10 @@ impl RepeatableIo for Native {
         uncertain(barrier(&self.root))
     }
 }
+#[expect(
+    clippy::too_many_lines,
+    reason = "Keep the existing disposable phase dispatcher and persisted-retry checks together"
+)]
 fn run(mut io: Native, phase: &str) -> IoResult<()> {
     let actual = io.current()?;
     let original_record = actual
@@ -826,27 +1201,41 @@ fn run(mut io: Native, phase: &str) -> IoResult<()> {
         device: io.root_pin[0],
         inode: io.root_pin[1],
     };
-    let plan = if original_record.is_some() {
-        // Retry authority comes entirely from persisted original controls and
-        // observed native bytes, never regenerated fixture planner inputs.
-        restore_plan(
+    let checkpoint = io.checkpoint()?;
+    let context = RestartContext {
+        inspection: &observed,
+        registration: &io.base.registration,
+        directory,
+        identity: &id,
+        frames: frames(),
+        reader: &reader,
+        planner: budget(),
+        max_originals: 2,
+    };
+    checkpoint
+        .verify(&actual, &context)
+        .map_err(|_| invalid())?;
+    let persisted = checkpoint
+        .records()
+        .iter()
+        .find(|r| r.value()["kind"] == "CheckpointIntent");
+    let plan = if let Some(record) = persisted {
+        let body = &record.value()["body"];
+        restart::restore_intent_plan(
             &actual,
-            &RestartContext {
-                inspection: &observed,
-                registration: &io.base.registration,
-                directory,
-                identity: &id,
-                frames: frames(),
-                reader: &reader,
-                planner: budget(),
-                max_originals: 2,
-            },
+            &body["original"],
+            &body["semantic_intent"],
+            &body["operation_receipt"],
+            &context,
         )
         .map_err(|_| invalid())?
     } else {
+        if original_record.is_some() {
+            return Err(invalid());
+        }
         let original = v1_3::verify_original(
             actual.clone(),
-            id,
+            identity(&actual),
             &observed,
             &io.base.registration,
             directory,
@@ -865,14 +1254,44 @@ fn run(mut io: Native, phase: &str) -> IoResult<()> {
         .map_err(|_| invalid())?
     };
     let receipt = plan.prepared.receipt.clone();
+    if actual.head == plan.old.head {
+        if actual.commit != plan.old.commit
+            || actual.loose != plan.old.loose
+            || actual.allocations.len() != plan.old.allocations.len()
+            || actual.allocations.iter().any(|(id, a)| {
+                plan.old.allocations.get(id).is_none_or(|old| {
+                    old.bytes != a.bytes || old.witness != a.witness || old.arena != a.arena
+                })
+            })
+        {
+            return Err(invalid());
+        }
+    } else if restore_plan(&actual, &context)
+        .map_err(|_| invalid())?
+        .original()
+        != plan.original()
+    {
+        return Err(invalid());
+    }
     io.allow(&plan);
     let lease = io.lease(&plan.old)?;
+    io.authorize(&lease, plan.original(), &receipt)
+        .map_err(|_| invalid())?;
+    io.prepare_checkpoint(&plan)?;
     if phase == "verify" {
         let actual = io.current()?;
         io.verify_progress(&lease, &plan, Some(6))
             .map_err(|_| invalid())?;
         io.check(&actual, &plan, 6).map_err(|_| invalid())?;
-        let report = json!({"binding_generation":io.scope.generation,"head_sha256":hash(&canonical(&actual.head)),"closure_valid":true,"original_sha256":hash(&canonical(plan.original())),"receipt_sha256":hash(&canonical(&receipt)),"standing_control":io.base.registration.standing_control,"native_charge_profile_qualified":false,"qualified":false,"saved_claim":false,"power_loss_tested":false,"remount_tested":false});
+        if !io
+            .checkpoint()?
+            .records()
+            .iter()
+            .any(|r| r.value()["kind"] == "CheckpointReceipt")
+        {
+            return Err(invalid());
+        }
+        let report = json!({"binding_generation":io.scope.generation,"head_sha256":hash(&canonical(&actual.head)),"closure_valid":true,"original_sha256":hash(&canonical(plan.original())),"receipt_sha256":hash(&canonical(&receipt)),"standing_control":io.base.registration.standing_control,"checkpoint_capacity_charge":io.journal_capacity,"checkpoint_observed_high_water":io.journal_high_water,"checkpoint_namespace_allowance":io.namespace_allowance,"native_profile":io.scope.assessment.report(),"native_footprint":io.footprint(&snapshot(&io.base,&actual))?,"native_charge_profile_qualified":false,"qualified":false,"saved_claim":false,"power_loss_tested":false,"remount_tested":false});
         exact_file(
             &io.scope.scratch,
             &format!("repeatable-verified-{}.json", io.scope.generation),

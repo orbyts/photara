@@ -1,0 +1,582 @@
+{
+  "status": "conditional-disposable-configuration-qualified-for-approved-checkpoint-subset",
+  "approval_commit": "e2e7074",
+  "scope": "Explicitly owned private APFS image only; no general real-library admission or production Saved constructor",
+  "test_configuration": {
+    "adapter_revision": "photara-disposable-apfs-assessment-v1",
+    "barrier_policy": "fsync files; fsync affected directories; F_FULLFSYNC same-device after namespace barriers; unsupported/error refuses",
+    "boot_session": "9b67987f-a7ef-4381-848b-ceb4fdc1da32",
+    "controller_binding_sha256": "ef183e41edff1343c95c15c8b6be1b2cfabf39cd8f2f7ab30ab6b0714372e0ef",
+    "controller_generation": 3,
+    "controller_manifest_sha256": "f1090d8a3723b31e2e1e5b776dfb65676d58e04413c68334c566d178620d415a",
+    "filesystem": "apfs",
+    "image_pin": [
+      16777232,
+      356800294
+    ],
+    "mount_flags": 78680600,
+    "mount_pin": [
+      16777239,
+      2
+    ],
+    "mount_source": "/dev/disk5s1",
+    "observer_revision": 1,
+    "os_build": "26A434",
+    "os_version": "27.0.1",
+    "policy_revision": 1,
+    "profile_scope": "controller-owned-disposable-image; no general provider exclusion",
+    "scratch_pin": [
+      16777232,
+      356800290
+    ],
+    "volume_uuid": "10d00d7d-c3e6-4628-b9b6-df7a8325987f"
+  },
+  "native_verification": {
+    "binding_generation": 3,
+    "checkpoint_capacity_charge": 36864,
+    "checkpoint_namespace_allowance": 16384,
+    "checkpoint_observed_high_water": 32768,
+    "closure_valid": true,
+    "head_sha256": "c335aef4ed45300b3e893ce717fb97a57d037d6654efe6fdbe5a954fd6cb1a27",
+    "native_charge_profile_qualified": false,
+    "native_footprint": {
+      "allocation_charges": [
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 1306,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "pack-96000000-0000-4000-8000-000000001001"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 524288,
+            "entries": 1,
+            "logical_bytes": 524288,
+            "quantum": 4096,
+            "registered_allowance": 524288,
+            "rounded_required_charge": 524288
+          },
+          "name": "pack-96000000-0000-4000-8000-000000001002"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 524288,
+            "entries": 1,
+            "logical_bytes": 524288,
+            "quantum": 4096,
+            "registered_allowance": 524288,
+            "rounded_required_charge": 524288
+          },
+          "name": "pack-96000000-0000-4000-8000-000000001003"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 524288,
+            "entries": 1,
+            "logical_bytes": 524288,
+            "quantum": 4096,
+            "registered_allowance": 524288,
+            "rounded_required_charge": 524288
+          },
+          "name": "pack-96000000-0000-4000-8000-000000001004"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 524288,
+            "entries": 1,
+            "logical_bytes": 524288,
+            "quantum": 4096,
+            "registered_allowance": 524288,
+            "rounded_required_charge": 524288
+          },
+          "name": "pack-96000000-0000-4000-8000-000000001005"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 524288,
+            "entries": 1,
+            "logical_bytes": 524288,
+            "quantum": 4096,
+            "registered_allowance": 524288,
+            "rounded_required_charge": 524288
+          },
+          "name": "pack-96000000-0000-4000-8000-000000001006"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 524288,
+            "entries": 1,
+            "logical_bytes": 524288,
+            "quantum": 4096,
+            "registered_allowance": 524288,
+            "rounded_required_charge": 524288
+          },
+          "name": "pack-96000000-0000-4000-8000-000000001007"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 524288,
+            "entries": 1,
+            "logical_bytes": 524288,
+            "quantum": 4096,
+            "registered_allowance": 524288,
+            "rounded_required_charge": 524288
+          },
+          "name": "pack-96000000-0000-4000-8000-000000001008"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 238,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-db197df0b0a91534fb993e702454cb902cbb6da1ce463c252686aabcd32a09f2"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 977,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-c358ff70465be86a70c592d1c1bfc906fc4ade10dde209bd526b69d7d199ac19"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 23,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-8c02f666e829dc253fd39a91a975fafda8f29f460603dad057dc97e422ef3e18"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 409,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-ffa5b716b5a57837f7929dfcca4b4dfdeb97210a7fd5a12d2f1978846d6f1743"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 137,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-5f4eb06a813c89a5c8e2e9c277c537f6ebafca8036448ab2d53da87a12671951"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 2226,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-1cc9c3d56337e761a40a5b7b16a77e776a52898ea42722d79a09720c7d907e49"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 1257,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-70b6f22d780f9b2a6d125229cd38967c850272860e277fe4a50d1a04aceb1604"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 277,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-8ac159d355f96fb0ea54f4749312dde4c7cdbbe5d003c3478d0231f42b6978c4"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 1309,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-aa13aee66c3bb0b1ddbed540d06f4af1fcbc103b8b4568e804b010b23efad55a"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 497,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-bc8f6cda12aae3cbd20ece3148a0b1093f0cc31fd7033ab2784ccc8b0411cd5e"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 124,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-40692254cef072aedf8d3c5f61001f5f372408cba63303c74acf533e02fc193d"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 373,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-5bd4700ddb71b7763d266a1094618d4688a3c46c58d9284b097738cba3ff0409"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 1356,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-472a9e3acb512c237b723e44b2ca2b5363901439c06fd7fd7f8d3b590a0d98b9"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 239,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-707e28022a773fee917c9af1c1a0d82acf71f5c193c90298b7731ab745efdbbd"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 177,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-926a7278651c40c0d3ff248552b658ebc247c756c9ced1f1a2c23adfbd85b3c2"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 134,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-5e473f091482cd08a9b1b6e6172599bf76c06155e47c32ddf77696955746c93a"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 25,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-e49ad2c7c89b6613dd979ba1892f66204cf3bed8f341a515615ae3931ec3d2cd"
+        },
+        {
+          "charge": {
+            "allocated_bytes": 4096,
+            "entries": 1,
+            "logical_bytes": 16,
+            "quantum": 4096,
+            "registered_allowance": 4096,
+            "rounded_required_charge": 4096
+          },
+          "name": "retained-6faa7ad5755fd7c8a56e66d64299f1e4074d14f7328fc691fcf0d8fa5b519572"
+        }
+      ],
+      "standing_observation": {
+        "allocated_bytes": 114688,
+        "entries": 16,
+        "logical_bytes": 77519,
+        "quantum": 4096,
+        "registered_allowance": 262144,
+        "rounded_required_charge": 126976
+      }
+    },
+    "native_profile": {
+      "adapter_revision": "photara-disposable-apfs-assessment-v1",
+      "barrier_policy": "fsync files; fsync affected directories; F_FULLFSYNC same-device after namespace barriers; unsupported/error refuses",
+      "boot_session": "9b67987f-a7ef-4381-848b-ceb4fdc1da32",
+      "controller_binding_sha256": "ef183e41edff1343c95c15c8b6be1b2cfabf39cd8f2f7ab30ab6b0714372e0ef",
+      "controller_generation": 3,
+      "controller_manifest_sha256": "f1090d8a3723b31e2e1e5b776dfb65676d58e04413c68334c566d178620d415a",
+      "filesystem": "apfs",
+      "image_pin": [
+        16777232,
+        356800294
+      ],
+      "mount_flags": 78680600,
+      "mount_pin": [
+        16777239,
+        2
+      ],
+      "mount_source": "/dev/disk5s1",
+      "observer_revision": 1,
+      "os_build": "26A434",
+      "os_version": "27.0.1",
+      "policy_revision": 1,
+      "profile_scope": "controller-owned-disposable-image; no general provider exclusion",
+      "scratch_pin": [
+        16777232,
+        356800290
+      ],
+      "volume_uuid": "10d00d7d-c3e6-4628-b9b6-df7a8325987f"
+    },
+    "original_sha256": "a525e7a86e8e27c65a22847824ebc3f77775387190025c7557e73448fb201ad5",
+    "power_loss_tested": false,
+    "qualified": false,
+    "receipt_sha256": "e64bcdb1b08a50712afe01ccde8b16dcf2a713884f562d866086cd7a486d39f1",
+    "remount_tested": false,
+    "saved_claim": false,
+    "standing_control": 262144
+  },
+  "trial": {
+    "root": "/private/tmp/photara-ps2-remount-vt9tvk2o",
+    "clean_remounts": 2,
+    "image_detached": true,
+    "image_retained": true,
+    "power_loss_tested": false,
+    "hardware_fault_tested": false,
+    "controller": {
+      "path": "/private/tmp/photara-repeatable-controller.py",
+      "bytes": 4833,
+      "sha256": "85a0461d4d6a41d4b9344f09bb0ae02a44348a68d278e92cc3cf40be39079b4e"
+    },
+    "evidence": [
+      {
+        "path": "/private/tmp/photara-ps2-remount-vt9tvk2o/manifest.json",
+        "bytes": 316,
+        "sha256": "f1090d8a3723b31e2e1e5b776dfb65676d58e04413c68334c566d178620d415a"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-vt9tvk2o/owner.json",
+        "bytes": 133,
+        "sha256": "74676a9083ecc668e54a64a3353da02fd600389df5ce7b69744f6009aa740e5f"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-vt9tvk2o/controller.json",
+        "bytes": 156,
+        "sha256": "67cd2022cd188fbf50426f78a8092151bdebfa8af34c8deef6d029a021a56111"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-vt9tvk2o/binding-1.json",
+        "bytes": 237,
+        "sha256": "a8db83b9ffc01ab7f5b59fb28f346dd150deba986cb79e18531842c6e209e874"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-vt9tvk2o/binding-2.json",
+        "bytes": 237,
+        "sha256": "d24588499f39ba699d3b7d6ca73507dce77cd0e3c53977757c8ea015c8caa3ea"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-vt9tvk2o/binding-3.json",
+        "bytes": 237,
+        "sha256": "ef183e41edff1343c95c15c8b6be1b2cfabf39cd8f2f7ab30ab6b0714372e0ef"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-vt9tvk2o/prepare-1.log",
+        "bytes": 512,
+        "sha256": "6b399ff2f11efc5bd605babd63253a7741f2872eaa2f8110fd3af1974053dab0"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-vt9tvk2o/interrupt-1.log",
+        "bytes": 383,
+        "sha256": "136b02ed6d81416f9094faa398b86c21175770a877c2693b7f98ebf97488fc25"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-vt9tvk2o/retry-2.log",
+        "bytes": 383,
+        "sha256": "a3a0fbb81c9c2bd2ef9ce0b9092a73bab9430b75fb362f589030e283c81af7f3"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-vt9tvk2o/retry-3.log",
+        "bytes": 626,
+        "sha256": "23774a347fac8bd20d47396a91d012e422eace53480712f07bf90388db467cc6"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-vt9tvk2o/verify-3.log",
+        "bytes": 7795,
+        "sha256": "1948bd2b1b30f4a3647ff9daacd8e6ec0889247f5561bfbb4e4389b6b752d26b"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-vt9tvk2o/repeatable-verified-3.json",
+        "bytes": 7298,
+        "sha256": "4b000f609e1ca58805cd5a2419f88b03c221b4288efcf281df93f9ddf7e0c0cd"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-vt9tvk2o/detach-3.stdout",
+        "bytes": 17,
+        "sha256": "7a042615bf3722a3771413c5ae0834a1153311a88abad4deef4d8ad80a5c7273"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-vt9tvk2o/detach-3.stderr",
+        "bytes": 95,
+        "sha256": "dd2e6d5d2227b9d3236b0a0f6cfe0fb59d68b9c29c990f4763c4a19ca9f7ae44"
+      }
+    ]
+  },
+  "verification": {
+    "library_command": "cargo test -p photara-store --lib --quiet",
+    "library_passed": 28,
+    "library_failed": 0,
+    "library_ignored": 1,
+    "ignored_reason": "native trial explicitly invoked separately",
+    "regression_log": {
+      "path": "/private/tmp/ps2-checkpoint-journal-regression.log",
+      "bytes": 585,
+      "sha256": "07024cbf86d1783d2912a08b5e4e7ed70bb1151978bcfd008c1dc867fd515e16"
+    },
+    "frozen_sources_and_outputs_unchanged": 50,
+    "four_record_phpsj001_sha256": "788ad5be74841fdb8e58457d952ad60e72266400eb3813286b6cf4f10bd180b1",
+    "post_test_changes": "Behavior-preserving naming/borrowing/formatting/lint cleanup only; final strict check recorded separately",
+    "strict_clippy": {
+      "command": "cargo clippy -p photara-store --lib --tests -- -D warnings",
+      "result": "pass",
+      "log": {
+        "path": "/private/tmp/ps2-checkpoint-journal-clippy.log",
+        "bytes": 203,
+        "sha256": "e50736fee37b7defa58c7726a76c676abc3e7e8e3070241ad933052ef0cc244c"
+      }
+    },
+    "scoped_format": "pass: rustfmt --check --edition 2024 crates/photara-store/src/package/v1_3/mod.rs",
+    "regression_output": "\nrunning 29 tests\n......i...................test package::v1_3::repeatable::tests::journal_tests::phpsj001_two_completed_operations_bind_exact_selectors has been running for over 60 seconds\ntest package::v1_3::repeatable::tests::selector_outcome_unknown_reopens_the_exact_candidate_before_success has been running for over 60 seconds\ntest package::v1_3::repeatable::tests::two_consecutive_operations_resume_the_same_original_after_partial_append has been running for over 60 seconds\n...\ntest result: ok. 28 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 120.70s\n\n",
+    "strict_output": "    Checking photara-store v0.2.0-alpha.0 (/Users/suhail/Library/CloudStorage/Dropbox/matrix/crates/photara/crates/photara-store)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.77s\n"
+  },
+  "barrier_review": [
+    "Persist and barrier exact PHPSJ001 intent before package effects",
+    "fsync and F_FULLFSYNC every written or exact-existing uncertain file, with directory barriers",
+    "Atomic same-directory HEAD replacement and same-device full-sync after namespace barriers",
+    "Completed wrapper after verified clean selector and package barriers, followed by journal barriers",
+    "Torn journal freezes without truncate; changed bytes/IDs or incomplete predecessor refuse",
+    "Retain full registered allowance; reobserve native allocation after effects and retry; no compression/deletion credit"
+  ],
+  "limits": [
+    "Configuration-specific conditional platform reliance, not power-loss proof",
+    "Native general qualified and Saved flags remain false; controlled disposable qualification is the scope of this artifact",
+    "Measured accounting is conservative internal admission, not physical-space reservation or guaranteed ENOSPC-free progress",
+    "262144/4096 are original fixture registration parameters, not production limits",
+    "No mutation/undo/barrier/recovery record-kind implementation approved",
+    "No real-library writes/migration/deletion/deployment; no automatic conversion, journal rotation/compaction or expiry"
+  ],
+  "sources": [
+    {
+      "path": "crates/photara-store/src/package/v1_3/native_profile.rs",
+      "bytes": 25084,
+      "sha256": "fccc0346d157dbe4369e1856342f547f71647b47c339ecc5d4b2ed13d7414f2b"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/core.rs",
+      "bytes": 9861,
+      "sha256": "328334431be5d6738f03f55d3b9968a8eaa3157d9d7657abf84d8f663c65f465"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/evidence_charge.rs",
+      "bytes": 5198,
+      "sha256": "80f4b803894fd37e829b5c916eae3a7ff0c744e5bc1aada35acf7653a6e8e269"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/execute.rs",
+      "bytes": 10821,
+      "sha256": "9bb5fde52fc3890838500c0412cc9fec5e885071197d2a06a1beef4778ea3e0e"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/input.rs",
+      "bytes": 7854,
+      "sha256": "593b60b1e3c7723b63a30fdfe6c0d3bca776e64bde0cc8021578cbd5f1bbec7b"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/journal.rs",
+      "bytes": 24492,
+      "sha256": "91090d6dbc75da5ea7a35cd9015da9df78ba0db1bc9a1368d11c4f96304f82d2"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/journal_tests.rs",
+      "bytes": 12141,
+      "sha256": "82800891ad486a55ead4453023800ee60f30d663420ab25397b67688946fe2b1"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/layout.rs",
+      "bytes": 30592,
+      "sha256": "2bdc8019fb45a9d5e4d3ea1409edb0f95a0e302cbec714ff48522cf0a8ddcf6e"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/mod.rs",
+      "bytes": 3140,
+      "sha256": "c88e6c2e0a7bd4ee35dfb4de9e6d1f9a0be8eec26b110a49704d99cdae35100d"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/native_test.rs",
+      "bytes": 50528,
+      "sha256": "a0ea6c982be725272ba65809c02d6c22c83c2c9dc5a18eed51740e9fbb59802b"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/plan.rs",
+      "bytes": 25802,
+      "sha256": "cd21e159f750a717fe692c6761a65059cbcef86ab49b8e64e726045d5e538651"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/recovery.rs",
+      "bytes": 10329,
+      "sha256": "e5ab3da6ef6a7a74adcc4fb37391e6fa224cf9e90a87d8b4e6b3a1a4838891d2"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/restart.rs",
+      "bytes": 18589,
+      "sha256": "ac7c61056ea2923c0aee365591577a59e17b7119e91de1f7639dc25a03236b3d"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/tests.rs",
+      "bytes": 28722,
+      "sha256": "33668bcc18a9b1a0e19921fd04678eac4d803d777fdcdc2051057ffc9a56f934"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/mod.rs",
+      "bytes": 1687,
+      "sha256": "0b19d869be0593f0528e540e9303859bc10a1f081784dea2d21a186aca7019b4"
+    }
+  ]
+}

@@ -825,3 +825,6 @@ fn native_evidence_charge_stays_inside_original_standing_allowance() {
         Some(package::PackageError::Limit)
     );
 }
+
+#[path = "journal_tests.rs"]
+mod journal_tests;

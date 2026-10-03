@@ -399,3 +399,86 @@ pub fn restore_plan<I: AllocationInspection>(
     }
     Ok(plan)
 }
+
+/// Validate a persisted checkpoint intent before its first selected package
+/// effect. This restores the original recipe, not a proof of current suffixes
+/// or publication; execution must independently validate those before effects.
+pub(crate) fn restore_intent_plan<I: AllocationInspection>(
+    current: &OriginalPackage,
+    original: &Value,
+    intent: &Value,
+    receipt: &Value,
+    context: &RestartContext<'_, I>,
+) -> Result<RepeatablePlan, PackageError> {
+    check(context.directory.inode != 0 && context.registration.charge_unit > 0)?;
+    check(context.max_originals > 0)?;
+    check(
+        original["scope"]
+            == serde_json::json!({"profile":context.registration.profile,"incarnation":context.registration.incarnation.to_string(),"directory":{"device":context.directory.device.to_string(),"inode":context.directory.inode.to_string()}}),
+    )?;
+    let mut replay = Replayer {
+        context,
+        seen: BTreeSet::from([wire::hash(&wire::encode(original))]),
+    };
+    let old = recovery::reconstruct_original(current, original, context.planner)?;
+    let verified = replay.verified(old)?;
+    recovery::recover(&verified, original, intent, receipt, context.planner)
+}
+
+/// Verify a checkpoint receipt's completed historical closure using only actual
+/// retained prefixes. Later valid appends do not manufacture missing old bytes.
+pub(crate) fn verify_completed_plan<I: AllocationInspection>(
+    current: &OriginalPackage,
+    plan: &RepeatablePlan,
+    context: &RestartContext<'_, I>,
+) -> Result<(), PackageError> {
+    let stage = &plan.stages()[6];
+    let mut package = plan.old.clone();
+    package.head = stage.head.clone();
+    package.commit = stage.commit.clone();
+    package.loose = stage.loose.clone();
+    for (id, allocation) in &mut package.allocations {
+        let actual = current.allocations.get(id).ok_or(PackageError::Integrity)?;
+        let target = plan.files.get(id).ok_or(PackageError::Integrity)?;
+        check(actual.arena == allocation.arena && actual.witness == allocation.witness)?;
+        check(actual.bytes.starts_with(target))?;
+        allocation.bytes.clone_from(target);
+    }
+    let envelope = loose(
+        &package,
+        &package.commit["root_set"]["placement"]["accounting"],
+        context.reader.json,
+    )?;
+    let ledger = loose(&package, &envelope["ledger"], context.reader.json)?;
+    let tip_charges = ledger["tips"]
+        .as_array()
+        .ok_or(PackageError::Record)?
+        .iter()
+        .map(|tip| {
+            Ok((
+                tip["allocation_id"]
+                    .as_str()
+                    .ok_or(PackageError::Record)?
+                    .to_owned(),
+                number(&tip["registered_charge"])?,
+            ))
+        })
+        .collect::<Result<BTreeMap<_, _>, PackageError>>()?;
+    let prefix = Prefix {
+        package: &package,
+        actual: context.inspection,
+        unit: context.registration.charge_unit,
+        tip_charges,
+    };
+    v1_3::reader::inspect_operation_package(
+        &package,
+        identity(context.identity),
+        &prefix,
+        context.registration,
+        context.frames,
+        context.reader,
+        plan,
+        6,
+    )
+    .map(|_| ())
+}

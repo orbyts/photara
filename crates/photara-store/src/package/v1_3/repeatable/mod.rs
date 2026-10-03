@@ -86,3 +86,5 @@ mod evidence_charge;
 pub use evidence_charge::{
     EvidenceAllocationCharge, EvidenceAllocationId, EvidenceCharge, check_evidence_charge,
 };
+
+pub mod journal;

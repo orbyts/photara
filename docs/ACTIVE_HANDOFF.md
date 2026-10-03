@@ -26,9 +26,13 @@ The delivery path is:
 **PS2 production durability → PS3 one-project session/autosave → PS4 project
 browse/reopen/switch → LL2a signed cross-Library acceptance.**
 
-PS2 is active. LL1 contract/schema/security review is advanced parallel work,
-but it cannot bypass PS2, PS3 or PS4 and does not authorize LL2 production
-mutation.
+The approved PS2 checkpoint implementation and **conditional disposable-image
+qualification** now pass. The next boundary for the disposable autosave route is
+the unapproved PS3 mutation/undo journal amendment in
+[Project session and durability](architecture/PROJECT_SESSION_DURABILITY.md#ps3-record-kind-amendment--proposed-unapproved).
+General real-library storage admission remains disabled; this scoped result is
+not a production release gate. LL1 remains parallel and cannot bypass PS3/PS4 or
+authorize LL2 production mutation.
 
 ### Execution priority — 2026-09-29
 
@@ -93,12 +97,41 @@ passed partial append → remount → original retry → remount → persisted-p
 retry/verification. Its image is detached and retained with logs. All 50 prior
 frozen source/output hashes remain unchanged. Do not repeat these unchanged runs.
 
-The next PS2 gate is a separately reviewed storage/admission qualification
-artifact: native project-wide charge accounting, provider exclusion, supported
-barrier/failure-model scope and trusted registration/authorization. The clean
-trial does not establish these or permit a production constructor. Do not mark
-PS2 complete, enable Saved, or start PS3/PS4/LL2a production wiring from this result.
+The earlier clean-remount observation alone did not establish native storage
+qualification. The approved implementation and scoped qualification below now
+supersede that blocker for the designated disposable configuration only. Do not
+infer general real-path provider exclusion or production writer authority, enable
+real-library Saved, or bypass PS3/PS4/LL2a production-wiring review.
 Approved power-interruption permission remains **absent**.
+
+### Approved checkpoint implementation and scoped qualification — 2026-10-03
+
+Shared PHPSJ001 now validates exact framing/checksums, strict header/envelopes,
+CheckpointIntent/CheckpointReceipt, unchanged nested accepted frames, sequential
+completed checkpoints and original retries. Torn tails freeze without truncation;
+corrupt/unknown records refuse. Completed second-operation recovery now finds
+digest-bound prior controls retained in complete packed frames, under existing
+scan/work bounds. Four-record exact byte fingerprint:
+`788ad5be74841fdb8e58457d952ad60e72266400eb3813286b6cf4f10bd180b1`.
+
+The native adapter persists intent before package effects, independently checks
+the owned image/configuration and pinned identities, preflights journal/control
+coexistence, measures allocated storage, and reissues file/directory barriers on
+uncertain exact-byte retries. The new partial append → remount → retry → remount
+→ completed retry/verification passed; its image is detached and retained.
+The [qualification record](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md#conditional-disposable-qualification--2026-10-03)
+and [machine evidence](architecture/verification/ps2-checkpoint-journal-qualification.json)
+define the exact scope. The existing standing allowance remains 262,144 bytes;
+the final measured standing footprint is 126,976 bytes. These are fixture values,
+not production limits or a promise of physical free-space reservation.
+
+All 28 library tests passed (one native opt-in invoked separately); strict Clippy,
+scoped Rustfmt and diff checks passed. The 50 frozen source/output hashes remain
+unchanged. Do not repeat this unchanged evidence.
+The immediate review is the PS3 record-kind amendment in the existing session
+document. It remains unapproved: no Mutation/undo/barrier/recovery kind, real
+library, migration, conversion, rotation/compaction/expiry or deployment is enabled.
+After that review, implement disposable PS3 autosave before PS4 and LL2a.
 
 The native evidence accounting preflight now combines selected-control peak with
 all supplied retained/prospective journal/receipt allocations and explicit
