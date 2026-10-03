@@ -480,6 +480,110 @@ plus the separate [conditional native-profile direction](PS2_MACOS_STORAGE_QUALI
 It does not approve the remaining PS3 record kinds, production size/undo limits,
 retention changes, migrations, provider-unknown admission or real-library writes.
 
+
+### PS3 record-kind amendment — proposed, unapproved
+
+This is one proposed amendment for the four deferred kinds below; it is **not**
+covered by the checkpoint-subset approval. Keep `PHPSJ001`, its exact header,
+envelope/checksums, existing checkpoint bodies, intent/receipt encodings and all
+old golden bytes unchanged. Older decoders refuse these unsupported kinds. The
+new decoder must still refuse unknown kinds/versions/fields. This amendment adds
+no retention expiry, production size/undo limits, rotation, deletion, automatic
+conversion, real-library admission or cross-client undo authority. The proposed
+first disposable PS3 scope is **single-operation edits and durable single-operation
+undo**. Multi-transaction gesture grouping and its periodic gesture checkpoints
+remain deferred; do not expose those paths as implemented PS0 behavior.
+
+Common exact types: `Link={record_id:Id,record_checksum:Digest}` identifies an
+**earlier verified frame in this stream**, including its raw checksum encoded as
+hex. `Owner={attachment_id:Id,attachment_generation:Decimal,principal:Principal}`
+uses the existing checked Principal encoding; it records historical attachment
+ownership, never grants authority. `Coordinate` is the unchanged full PS1
+AuthoredCoordinate. `RecordBytes={reference:JRef,value:Object}` carries an exact
+canonical JSON object whose hash/length match its JRef. Arrays of these records
+sort by `(sha256,numeric byte_length)` and reject duplicate references. `Patch={before:JRef,
+after:JRef,removed:[RecordBytes],added:[RecordBytes]}` names the before/after AuthoredProject
+roots and carries the exact set differences of their schema-defined authored
+closures, including changed graph/context records; unchanged dependencies resolve
+from the verified base/prefix. No arbitrary JSON-pointer patch language is added.
+`OperationTarget={kind:"operation",operation_id:Id,mutation:Link}` names one exact
+earlier Mutation; its operation ID must equal that record's frozen intent/receipt.
+This is local undo evidence, not a portable receipt group or a new intent variant.
+
+| Kind | Exact proposed body |
+| --- | --- |
+| `Mutation` | `{semantic_intent:IntentV1,operation_receipt:ReceiptV1,accepted_frame:AcceptedFrameV1,owner:Owner,base_head:HeadV1,result:Coordinate,patch:Patch,action:Action,redo_invalidated:[Id]}`. `Action` is exactly `{kind:"edit"}` or `{kind:"undo",target:OperationTarget}` or `{kind:"redo",target:OperationTarget,undo:OperationTarget}`. The redo target is the original edit and undo names the exact intervening undo Mutation. `redo_invalidated` is the sorted unique set of this owner's previously redoable original operation IDs invalidated by this transaction. |
+| `UndoBoundary` | `{owner:Owner,target:OperationTarget,reason:"single-operation"}`. Confirms the already complete single-operation undo unit without changing authored state or joining operations. A durable single Mutation is undoable without this optional redundant marker; recovery never invents a group or requires appending a missing marker to recover that edit. |
+| `SessionBarrier` | `{owner:Owner,reason:Reason,through:Link|null,accepted_frame:AcceptedFrameV1|null,target:Coordinate}` where Reason is `flush`, `save-now`, `close`, `switch`, `sleep`, or `terminate`. `through` identifies the frozen final Mutation, not the SessionBarrier's outer sequence. Both nullable fields are null exactly when this stream has no Mutation; then target equals the inherited completed-checkpoint coordinate defined below, including its accepted prefix. |
+| `RecoveryDecision` | `{owner:Owner,verified_through:Link|null,observed:{head:HeadV1,commit:CommitV1}|null,outcome:Outcome}`. Outcome is exactly `{kind:"prefix-replay",through_mutation:Link|null,result:Coordinate}`, `{kind:"checkpoint-reconciled",intent:Link,receipt:Link}`, or `{kind:"conflict-preserved",preserved_branch_id:Id,reason:Reason}` with Reason `unrelated-head`, `rollback`, `missing-package`, or `identity-changed`. The branch ID names preserved local recovery evidence, not a new package, stream or incarnation. |
+
+**Mutation validation and acknowledgement.** Verify current authorization and
+owner attachment separately. Replay the exact supported typed command against the
+authenticated preceding authored state through Core/PS1; require its complete
+result coordinate and canonical closure differences to equal `result`/`patch`.
+Validate both patch sides, all schema-defined dependencies, unknown optional-byte
+preservation, and receipt/intent/frame/request identity agreement. Do not trust a
+patch because its hashes match, execute providers, or admit currently unsupported
+commands. The base HEAD is the verified package checkpoint backing this prefix;
+intent.expected is the immediately preceding accepted authored coordinate, which
+may be newer than that HEAD. No-op edits retain equal before/after roots and empty
+patch arrays while preserving normal operation dedupe.
+
+The accepted frame's logical sequence advances once per Mutation, never for the
+other three kinds or a repeated CheckpointIntent containing that same frame.
+Checkpoint inclusion must resolve the actual continuous accepted prefix; matching
+numeric sequence alone is insufficient. Generate every operation/command,
+record and recovery-branch ID and supplied timestamp once before its first append;
+retain exact bytes across unknown outcomes. Only a verified, qualified-barriered
+Mutation yields Accepted. Duplicate operations return the original receipt and
+ownership/action metadata; a changed request or an attempt to replace its stored
+ownership/action metadata refuses without changing that original operation. Stored provenance never authorizes a retry by itself.
+
+**Undo and recovery rules.** Preserve the frozen supported portable grammar:
+`IntentV1.boundary` is exactly `single`, intent and ReceiptV1 `undo_group_id` are
+exactly null. Refuse begin/continue/end and nonnull groups; no existing portable
+validator is widened. New durable undo units are keyed by original operation ID
+plus the exact Mutation link above. Historical null-group receipts without this
+Mutation's owner/patch evidence do not acquire invented undo membership.
+Before undo/redo, validate the target operation and owner, current command
+preconditions, and the affected values against the target's recorded result.
+Derive an inverse/forward command from preserved before/after values and run it
+through Core as a **new** single/null transaction with new operation/command IDs
+and newly computed revisions/digests. Never replay an old revision or apply inverse
+bytes directly. Support only inverses expressible in the reviewed command subset;
+unknown inverses, changed preconditions or another owner's target refuse without
+effects. Recovered ownership requires separately validated attachment continuation;
+never rewrite the recorded owner. Redo invalidation must equal the derived
+owner-local undo state and be durable in the same Mutation. Preserve retained
+patch dependencies and operation dedupe; no eviction rule is introduced.
+
+For a prefix with no Mutation, the inherited base is the latest earlier
+CheckpointReceipt whose original intent, selected package closure, exact operation
+inclusion and required durability evidence independently verify; use the verified
+header base only if no such completed checkpoint exists. A checkpoint-only stream
+may therefore advance this base without inventing a Mutation. A SessionBarrier
+with null `through`/`accepted_frame`, or prefix-replay RecoveryDecision with null
+`through_mutation`, must use that inherited coordinate and its exact accepted
+prefix, not reset to the header. An unverified receipt cannot advance it.
+
+SessionBarrier captures a finite accepted target and is not Saved evidence or a
+package receipt. RecoveryDecision records an independently validated outcome: exact
+HEAD/commit and inclusion proofs still govern replay/receipt reconstruction.
+`verified_through` excludes the decision itself; no decision can bless a corrupt
+suffix, authorize rebinding/merge, discard a branch or replace missing original
+planner inputs. If a damaged tail blocks appending, preserve it and report recovery
+without manufacturing a decision in another stream. Explicit recovery selection
+and conflict-resolution policy remain deferred, as in PS0.
+
+Implementation review must include Core/patch disagreement, changed unknown optional
+bytes, duplicate operation with altered local action, wrong-owner undo, stale inverse,
+single-operation undo after restart, redo invalidation, logical/outer sequence
+separation, forged recovery inclusion and barrier coverage by an older checkpoint.
+The only added dispatch is these four local journal kinds and their exact bodies;
+old readers continue to refuse them, and portable single/null intent/receipt
+meaning and golden bytes remain unchanged. Gesture grouping requires a later
+explicit additive codec/dispatch proposal; it is not hidden in this amendment.
+
 ## Coordinator and native lifecycle
 
 A Rust per-package authority owns ordered mutation admission, journal, package
