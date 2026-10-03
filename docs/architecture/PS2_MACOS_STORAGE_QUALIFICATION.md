@@ -140,22 +140,25 @@ No user decision is needed to continue safe disposable interface tests. Before
 production enablement, review the ownership/provider policy, exact barrier evidence
 and remaining guarantees; this document does not satisfy that gate.
 
-## Proposed first native profile and admission decision — unapproved
+## First native profile and admission direction — approved 2026-10-03
 
-This is a proposed qualification policy, not a new portable format or permission
+The user approved this qualification direction and conditional platform/failure-model
+reliance on 2026-10-03 for implementation and disposable validation. It is not a
+qualified profile, a new portable format or permission
 for real-library writes. It uses the [shared-writer clean-remount result](PS2_MACOS_CLEAN_REMOUNT.md#shared-repeatable-rust-path--2026-10-03)
 and existing failure/lease evidence; it does not request another fixture family or
 repeat those runs. The immediate implementation target is testable autosave on
 explicit disposable packages. Production `Accepted`/`Saved` constructors remain
 unavailable until the profile and the following engineering conditions are met.
 
-**Decision requested:** permit qualification against the stated macOS platform
+**Approved direction:** permit qualification against the stated macOS platform
 persistence contract and bounded failure model below, without treating an abrupt
 power experiment as a prerequisite for implementing PS3. This accepts a platform
 assumption; it does not assert that clean detach proved power-loss durability.
-Approval would not admit a user library, enable deployment, or override an unknown
-provider classification. Without that decision, disposable adapter/session work
-can still proceed, but the profile must remain unqualified.
+This approval does not admit a user library, enable deployment, or override an
+unknown provider classification. The profile remains unqualified until required
+barrier ordering, identity binding, provider classification and configuration-specific
+evidence pass qualification. Abrupt-power and hardware-fault experiments remain unauthorized.
 
 | Proposed rule | Concrete interpretation and remaining engineering |
 | --- | --- |
@@ -186,8 +189,9 @@ approval is needed merely to implement these conservative rules or to preserve
 read-only fallback. Provider evidence, native charge bounds and final registrar
 construction are concrete unfinished engineering, not facts supplied by approval.
 
-**Actual approval boundary:** accept the explicit platform/failure-model reliance
-and supported-profile scope before marking a native profile qualified. Any proposal
+**Approved scope, remaining evidence gate:** the explicit platform/failure-model
+reliance and supported-profile direction are approved; required evidence must still
+pass before marking a native profile qualified. Any proposal
 to admit provider-unknown paths, weaken `Accepted`/`Saved`, auto-rebind copies/moves,
 change retention, or enable real-library writes/deployment remains separate and is
 not requested here. Power interruption would also need separate authorization;

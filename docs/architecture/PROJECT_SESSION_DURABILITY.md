@@ -403,16 +403,16 @@ Recovery runs before enabling mutations:
   request locate/recovery. Same path/new inode is not the same incarnation. A moved
   package can be rebound only after identity, manifest, HEAD/ancestry and lock checks.
 
-### Proposed first journal-storage implementation — approval pending
+### First journal-storage implementation — approved 2026-10-03
 
-This narrowly specifies an **unapproved checkpoint-record subset**, not the whole
-PS3 mutation/undo journal. It authorizes no implementation until reviewed and no
-real-library enablement. The earlier 16/64/256 MiB and 100-group/32 MiB values remain
+The user approved this exact **checkpoint-record subset** on 2026-10-03 for
+implementation and disposable validation, not the whole PS3 mutation/undo journal
+or real-library enablement. The earlier 16/64/256 MiB and 100-group/32 MiB values remain
 proposals; use explicit disposable registration budgets for record bytes, aggregate
 bytes, records and parser work. Refuse before growth exceeds any bound. No rotation,
 compaction, expiry, deletion, automatic conversion or incarnation reset is included.
 
-**Exact proposed v1 bytes.** A file is `ASCII("PHPSJ001") || LE32(len(H)) || H || C0`
+**Exact approved v1 bytes.** A file is `ASCII("PHPSJ001") || LE32(len(H)) || H || C0`
 followed by zero or more `LE32(len(Pi)) || Pi || Ci` frames. `H` and `Pi` are exact
 Photara canonical UTF-8 JSON with no newline; lengths count bytes, and zero lengths
 refuse. Checksums are **32 raw bytes**, not hex text:
@@ -475,8 +475,8 @@ receipt; changed bytes under the same record/operation identity refuse. Stored
 receipt JSON alone cannot mint `Saved`: live qualification, original-ID inclusion
 and current accepted-coordinate checks remain mandatory.
 
-The review request is limited to implementing these storage bytes/two typed kinds
-plus the separate [conditional native-profile proposal](PS2_MACOS_STORAGE_QUALIFICATION.md#proposed-first-native-profile-and-admission-decision--unapproved).
+The approval is limited to implementing these storage bytes/two typed kinds
+plus the separate [conditional native-profile direction](PS2_MACOS_STORAGE_QUALIFICATION.md#first-native-profile-and-admission-direction--approved-2026-10-03).
 It does not approve the remaining PS3 record kinds, production size/undo limits,
 retention changes, migrations, provider-unknown admission or real-library writes.
 

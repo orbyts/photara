@@ -105,14 +105,22 @@ all supplied retained/prospective journal/receipt allocations and explicit
 namespace charge under the original standing byte/count bounds. It preserves
 charged high-water and refuses duplicate identities or insufficient bounds; it
 does not qualify a native charge rule or mint admission. The remaining review
-must distinguish the frozen logical accepted-journal frame from the still
-proposed device-local journal container and checkpoint acknowledgement. See the
-[native profile proposal](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md#proposed-first-native-profile-and-admission-decision--unapproved)
+must distinguish the frozen logical accepted-journal frame from the separately approved
+device-local journal container and checkpoint acknowledgement. See the
+[native profile direction](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md#first-native-profile-and-admission-direction--approved-2026-10-03)
 and [journal contract](architecture/PROJECT_SESSION_DURABILITY.md#durable-journal-and-reconciliation).
 Neither the old proposed journal size/undo limits nor native scratch filenames
 are approved production format or retention policy.
-The [exact checkpoint-journal subset proposal](architecture/PROJECT_SESSION_DURABILITY.md#proposed-first-journal-storage-implementation--approval-pending)
-specifies the requested framing and two record bodies; it remains unapproved.
+The [exact checkpoint-journal subset proposal](architecture/PROJECT_SESSION_DURABILITY.md#first-journal-storage-implementation--approved-2026-10-03)
+specifies the exact framing and two record bodies; the user approved both it and
+the conditional macOS profile direction on 2026-10-03 for implementation and
+disposable validation. Preserve nested AcceptedFrameV1 and original bindings.
+Remaining PS3 record kinds, production limits, rotation/compaction/expiry,
+automatic conversion and real-library enablement are not approved. Managed or
+unknown provider storage stays read-only. No weaker barriers or acknowledgements,
+APFS-only qualification, abrupt-power or hardware-fault experiments are authorized.
+Do not ask again for these approved format/profile decisions; finish the actual
+qualification evidence, then PS3 → PS4 → LL2a.
 Accounting validation: five affected repeatable tests passed (one existing native
 opt-in ignored), including unchanged exact vectors; strict Clippy, scoped Rustfmt
 and diff checks passed. No additional remount or broad fixture run was needed.
