@@ -49,12 +49,19 @@ hashes independently verified. See the [single current review packet](architectu
 for the exact common records, same-tip/single-birth/pending variants, whole-Blob
 and retained-conversion evidence, limits and concrete format decision.
 
-**Next gate: permanent-format review before production-reader changes.** No more
-fixture families or duplicate broad tests are needed to present this decision.
-After review, implement shared Rust reader/writer/recovery/admission, complete
-storage qualification, then proceed PS3 → PS4 → LL2a. PS2 remains active because
-that production implementation and qualification are not complete. Clean-remount
-permission/evidence does not authorize abrupt interruption or production writes.
+**Permanent-format boundary approved 2026-10-03.** The user froze the exact
+reviewed codec/schema/coordinate variants and compatibility/refusal behavior at
+`9b7facf` for shared Rust implementation. See the [recorded approval scope](architecture/PS2_WIRE_REVIEW_READINESS.md#permanent-format-approval--2026-10-03).
+Implement shared Rust reader/writer/recovery/admission, then separately qualify
+the disposable storage environment, followed by PS3 → PS4 → LL2a. Do not ask
+again for this format approval or expand proof work without a concrete contract
+gap exposed by implementation.
+
+The approval does not authorize real-library writes, migration, deletion,
+deployment, automatic conversion, expiry, new product limits or weaker durability.
+Fixture bounds remain distinct from production limits. Clean-remount permission
+does not authorize abrupt interruption. PS2 remains active until implementation
+and storage qualification are complete.
 
 ## Approved semantics — do not reopen without contradictory evidence
 
@@ -333,8 +340,9 @@ later gate before Layout becomes the first product node.
 
 ## Prohibited claims and actions
 
-- Do not call disposable fixtures production, a permanent wire, a qualified
-  storage profile, or a user-visible `Saved` guarantee.
+- Do not call disposable fixture implementations production, a qualified
+  storage profile, or a user-visible `Saved` guarantee. Only the exact reviewed
+  wire variants have the narrow permanent-format approval recorded above.
 - Do not patch Swift `Browse Projects`/`closeProject()` into apparent safe
   switching before the Rust session/durability boundary.
 - Do not perform live package writes/conversion, numbered migration, production

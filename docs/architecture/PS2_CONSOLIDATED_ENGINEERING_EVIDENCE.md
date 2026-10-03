@@ -7,6 +7,16 @@ and Retention contract and the separate `Accepted`/`Saved` acknowledgements
 remain unchanged. Large external managed media is not read or strongly hashed
 by ordinary open, autosave, root turnover or metadata validation.
 
+## Current implementation authority — 2026-10-03
+
+The [consolidated wire packet](PS2_WIRE_REVIEW_READINESS.md#permanent-format-approval--2026-10-03)
+records explicit narrow permanent-format approval at `9b7facf`. The final shared
+byte-candidate run passes 100 tests, strict lint and formatting. Its source-bound
+evidence supersedes the open byte-composition checklist in the historical
+synthesis below. Shared Rust implementation is now authorized; real-library
+writes and production qualification are not. Do not repeat historical fixtures
+merely to advance their date.
+
 ## Current PS2 synthesis and next gate — 2026-09-27
 
 The latest proposed-coordinate checkpoint is the

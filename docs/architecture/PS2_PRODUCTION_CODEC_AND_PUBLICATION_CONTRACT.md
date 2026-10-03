@@ -1,7 +1,11 @@
 # PS2 production codec and publication contract — approved direction
 
-Status: **boundary approved as direction; exact wire appendix awaits review,
-not a production format freeze**.
+Status: **direction approved; demonstrated wire variants separately frozen
+2026-10-03** in the [consolidated packet](PS2_WIRE_REVIEW_READINESS.md#permanent-format-approval--2026-10-03).
+That approval supersedes the pending-review language below only for its exact
+reviewed variants (including their reviewed 1.3 floor/v2 roots). The earlier
+1.2/v1 illustrative coordinates below are not interchangeable with those bytes.
+Production enablement and storage qualification remain gated.
 This is the next boundary after the [approved disposable semantics](PS2_SEALED_ROOT_PROTOCOL_PROPOSAL.md)
 and [on-disk experimental evidence](PS2_EXPERIMENTAL_SEALED_CODEC_CHECKPOINT.md).
 It selects candidate permanent identifiers and validation rules for review.

@@ -1,11 +1,34 @@
 # PS2 exact-wire review readiness
 
-Status: **consolidated byte candidate ready for review, not a format approval**, 2026-09-29.
+Status: **demonstrated variants frozen by explicit user approval, 2026-10-03**.
+See the [approval scope](#permanent-format-approval--2026-10-03).
 The [codec/publication contract](PS2_PRODUCTION_CODEC_AND_PUBLICATION_CONTRACT.md#field-level-wire-completion-required-before-codec-code)
 requires field-level review before production reader changes. The
 [scalable candidate](PS2_SCALABLE_WIRE_REVIEW_CANDIDATE.md) supplies the physical
 extension; its examples do not silently supersede the existing operation,
 conversion-source or managed-resource requirements.
+
+## Permanent-format approval — 2026-10-03
+
+Suhail explicitly approved the demonstrated wire variants in this packet at
+commit `9b7facf740f0a0e29fdd2bf4fdae0dec08a7b70b` as the permanent-format boundary for the shared Rust
+reader/writer/recovery/admission implementation. The exact reviewed codec,
+schema, coordinate and compatibility/refusal behavior is frozen; the source-bound
+[final verification manifest](verification/ps2-final-wire-regression.json) and
+linked canonical corpora identify the demonstrated bytes. Historical incompatible
+proposals and hypothetical variants are not approved by association.
+
+This approval does not authorize production writes to real libraries, migration,
+deletion, deployment, automatic conversion, resource expiry, new product limits,
+or weaker durability/Accepted/Saved semantics. Fixture/test bounds remain fixture
+bounds. Qualified storage remains a separate prerequisite. No further fixture
+families or proof expansion unless implementation exposes a concrete gap in the
+approved contract. A required wire change must return for review.
+
+Proceed with shared Rust implementation, then disposable-environment storage
+qualification, preserving PS3 → PS4 → LL2a order. The historical review request
+below is satisfied only within this narrow scope; it is retained to identify
+what was reviewed.
 
 ## Current consolidated review packet — 2026-09-29
 
