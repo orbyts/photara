@@ -1,0 +1,23 @@
+
+running 22 tests
+....i...............test package::v1_3::repeatable::tests::selector_outcome_unknown_reopens_the_exact_candidate_before_success has been running for over 60 seconds
+test package::v1_3::repeatable::tests::two_consecutive_operations_resume_the_same_original_after_partial_append has been running for over 60 seconds
+..
+test result: ok. 21 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 72.49s
+
+
+running 126 tests
+i.........................i..i.....i...iiiiii.i........................................ 87/126
+.......................................
+test result: ok. 115 passed; 0 failed; 11 ignored; 0 measured; 0 filtered out; finished in 43.27s
+
+
+running 4 tests
+....
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+
+running 5 tests
+.....
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 49.33s
+

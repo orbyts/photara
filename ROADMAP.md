@@ -2,9 +2,11 @@
 
 ## Delivery path: cross-Library acceptance, then platform-ready vertical slice — 2026-09-17
 
-**Current position: PS2.** PS0/BR0/PS1 are accepted; the PS2 packed writer,
-liveness and capacity results below are disposable evidence, not a production
-package writer or an app autosave path. Move through the following bounded
+**Current position: PS2.** PS0/BR0/PS1 are accepted. The bounded shared Rust
+reader/repeatable writer now passes consecutive-operation and persisted-restart
+checks, with an authorized disposable clean-remount observation; see the
+[active handoff](docs/ACTIVE_HANDOFF.md). A qualified production storage/admission
+path and app autosave remain gated. Move through the following bounded
 checkpoints, committing and fast-forward pushing verified slices to `main`
 periodically rather than carrying a long-lived dirty checkout. Preserve the
 recoverable pre-fast-forward stash until the cross-Library acceptance and stash audit

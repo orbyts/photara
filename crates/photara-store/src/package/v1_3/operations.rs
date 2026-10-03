@@ -154,7 +154,10 @@ pub fn audit_operations(
     }
     Ok(OperationAudit { receipts, objects })
 }
-fn validate_receipt(value: &Value, identity: &SelectionIdentity) -> Result<(), PackageError> {
+pub(super) fn validate_receipt(
+    value: &Value,
+    identity: &SelectionIdentity,
+) -> Result<(), PackageError> {
     schema(
         value,
         "photara.package.operation-receipt",

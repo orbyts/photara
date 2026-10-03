@@ -1,0 +1,148 @@
+{
+  "status": "passed-bounded-shared-implementation-not-PS2-exit",
+  "date": "2026-10-03",
+  "base_commit": "9a9c924bc8a64e422fe3602ad870ae8058e029af",
+  "commands": [
+    {
+      "command": "cargo test -p photara-store --lib --test ps2_frozen_codec --test ps2_frozen_reader --test package_v1_1 --quiet",
+      "exit": 0,
+      "passed": 145,
+      "ignored": 12,
+      "ignored_note": "11 preexisting tests plus native image test invoked separately in controlled phases"
+    },
+    {
+      "command": "cargo clippy -p photara-store --lib --tests -- -D warnings",
+      "exit": 0
+    },
+    {
+      "command": "rustfmt --check --edition 2024 crates/photara-store/src/package/v1_3/mod.rs crates/photara-store/src/package/planning/io.rs crates/photara-store/tests/ps2_frozen_reader.rs",
+      "exit": 0
+    },
+    {
+      "command": "git diff --check",
+      "exit": 0
+    }
+  ],
+  "new_vector_sha256": [
+    "b56de6aa7dfa328f00b55d2263c1912e13146a4537ef110d5a985542c9ce9e82",
+    "fdbbf81b9a6f5bd6472a2b515f45b1f029fa91576401745a576dd49c447e1915"
+  ],
+  "sources": [
+    {
+      "path": "crates/photara-store/src/package/planning/io.rs",
+      "bytes": 10847,
+      "sha256": "24dd95c59a35b998f744cab94d9e3b1c931b5b544dc69c6c32fd07638e0a1705"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/mod.rs",
+      "bytes": 1634,
+      "sha256": "57372c6bdb628ee73b131519809338f223f4329624d0280606b76d63b9f78b39"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/operations.rs",
+      "bytes": 12593,
+      "sha256": "1b074780310232d04fe59e781eb7950e62956664214efb3f33fe7585cd2bbcd1"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/origins.rs",
+      "bytes": 25296,
+      "sha256": "b27bb977eb2ae1a28b4dc80040a89af705505a5d1c6e55b7867fa4b881703f60"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/reader.rs",
+      "bytes": 32151,
+      "sha256": "1c53209e9109b038d421984902974c736b8deeb2ceb6f7da5aa0b1e32c713252"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/reader_original.rs",
+      "bytes": 11181,
+      "sha256": "143444e519d3f45b5a9501e9ae60ab6ec739bccff663d2d99a299e9367efd64c"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/core.rs",
+      "bytes": 9861,
+      "sha256": "328334431be5d6738f03f55d3b9968a8eaa3157d9d7657abf84d8f663c65f465"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/execute.rs",
+      "bytes": 10821,
+      "sha256": "9bb5fde52fc3890838500c0412cc9fec5e885071197d2a06a1beef4778ea3e0e"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/input.rs",
+      "bytes": 7854,
+      "sha256": "593b60b1e3c7723b63a30fdfe6c0d3bca776e64bde0cc8021578cbd5f1bbec7b"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/layout.rs",
+      "bytes": 30592,
+      "sha256": "2bdc8019fb45a9d5e4d3ea1409edb0f95a0e302cbec714ff48522cf0a8ddcf6e"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/mod.rs",
+      "bytes": 2979,
+      "sha256": "ebf8847bd4a056022a6ccbea485fadaeb31cbc27ea92cfb16f89ec68779dc292"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/native_test.rs",
+      "bytes": 32360,
+      "sha256": "7ab794374e025595088a2df45426b21f54696d3b438b04b51ed9e11d7bad2890"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/plan.rs",
+      "bytes": 25621,
+      "sha256": "380adfa4c9bd0a0602b916594b500521e82f990b0d0df64c7cf23346fb4408cb"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/recovery.rs",
+      "bytes": 6757,
+      "sha256": "29a003b4929f2eaeecd5f8b64861adf7de86d6d58d5ab8b187e287c63a66bbcd"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/restart.rs",
+      "bytes": 15363,
+      "sha256": "afb5a04a5d4c0e9796b2a1f10ea14f7022ac1300393aef58eaf8649b414015ba"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/tests.rs",
+      "bytes": 26102,
+      "sha256": "1ab737ca51608c73d81cd4dfe7120a2a4349553b70be298ab503b789a0f15485"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/selected.rs",
+      "bytes": 16366,
+      "sha256": "8645f4cce095319b9d27dbbcf5a0859003be7184d1902f2e27e2f31aa7d07f61"
+    },
+    {
+      "path": "crates/photara-store/tests/ps2_frozen_reader.rs",
+      "bytes": 4622,
+      "sha256": "1087d4be8d4c1aab77da88d0386ec7e77e3ed918fd2982987f97c16046edb35b"
+    },
+    {
+      "path": "crates/photara-store/tests/ps2_reader_support/mod.rs",
+      "bytes": 9559,
+      "sha256": "25d7d7f55c7c7c1c288dcfb09c65f5c2af284b9d8c8ce4d437baee4aa9159312"
+    },
+    {
+      "path": "crates/photara-store/tests/ps2_reader_support/native_bootstrap.py",
+      "bytes": 2608,
+      "sha256": "d1ef3294d51ca927d62db8b6f077a4f37e992be78ba3c19f299e300a79f855a9"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "docs/architecture/verification/ps2-shared-repeatable-regression.txt",
+      "bytes": 920,
+      "sha256": "5be4c763a658449f20acc8941fb6c8f1487283e437fa595a223913991c0fe13d"
+    },
+    {
+      "path": "docs/architecture/verification/ps2-shared-repeatable-clippy.txt",
+      "bytes": 203,
+      "sha256": "debfe1509b022809a0d88df3bfe469220a006f0818ded5ce95cc5e6e3145befd"
+    }
+  ],
+  "frozen_packet_unchanged_entries": 50,
+  "native_observation": "docs/architecture/verification/ps2-shared-repeatable-remount-20261003.json",
+  "production_writes_enabled": false,
+  "storage_profile_qualified": false
+}

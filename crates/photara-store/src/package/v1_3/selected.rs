@@ -25,6 +25,8 @@ pub struct SelectedEnvelope {
     pub(super) commit: Value,
     pub(super) root: Value,
     pub(super) identity: SelectionIdentity,
+    pub(super) outer_bytes: u64,
+    pub(super) outer_lengths: [u64; 3],
 }
 #[derive(Clone, Copy, Debug)]
 pub enum SelectedRole {
@@ -61,6 +63,16 @@ impl SelectedEnvelope {
         if identity.project.as_uuid().is_nil() || identity.library.as_uuid().is_nil() {
             return Err(PackageError::Record);
         }
+        let outer_lengths = [
+            manifest.len() as u64,
+            head.len() as u64,
+            commit.len() as u64,
+        ];
+        let outer_bytes = manifest
+            .len()
+            .checked_add(head.len())
+            .and_then(|n| n.checked_add(commit.len()))
+            .ok_or(PackageError::Limit)? as u64;
         let manifest = parse_canonical_json(manifest, limits)?;
         let head = parse_canonical_json(head, limits)?;
         let commit = parse_canonical_json(commit, limits)?;
@@ -191,6 +203,8 @@ impl SelectedEnvelope {
             commit,
             root,
             identity,
+            outer_bytes,
+            outer_lengths,
         })
     }
     /// Authenticates the selected role through its own placement/locator. It
@@ -198,10 +212,6 @@ impl SelectedEnvelope {
     /// # Errors
     /// Refuses omitted role placement, wrong identity, wrong state schema or
     /// locator/hash/tag failures. Budgets are explicitly supplied by the caller.
-    #[expect(
-        clippy::too_many_lines,
-        reason = "Keep exact frozen field and identity checks in auditable protocol order"
-    )]
     pub fn open_role(
         &self,
         provider: &impl PhysicalRecords,
@@ -213,6 +223,18 @@ impl SelectedEnvelope {
             SelectedRole::Recovery => "recovery",
         };
         let reference = json_ref(&self.root[field])?;
+        self.open_reference(provider, &reference, limits)
+    }
+    /// Opens an exact retained `StateRoot`. Package orchestration separately proves
+    /// that this reference is selected by an active/recovery role or retained pin.
+    #[expect(clippy::too_many_lines, reason = "Exact frozen StateRoot dispatch")]
+    pub(super) fn open_reference(
+        &self,
+        provider: &impl PhysicalRecords,
+        reference: &ObjectRef,
+        limits: TreeLimits,
+    ) -> Result<StructuralState, PackageError> {
+        let reference = reference.clone();
         let root = physical(&self.root["placement"]["root_placements"])?;
         let tree = PhysicalTree::new(
             provider,
@@ -312,7 +334,7 @@ impl SelectedEnvelope {
             sha(&state["predecessor"]["root_sha256"])?;
             number(&state["predecessor"]["authored_revision"])?;
         }
-        if matches!(role, SelectedRole::Active)
+        if reference == json_ref(&self.root["active"])?
             && (state["authored"] != self.commit["authored"]
                 || state["history"] != self.commit["history"]
                 || state["inventory"] != self.commit["inventory"]

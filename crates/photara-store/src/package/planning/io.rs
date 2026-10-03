@@ -256,3 +256,31 @@ pub trait PackageIo {
 
 #[cfg(test)]
 mod tests;
+
+/// Synthetic protocol tests only; absent from production builds.
+#[cfg(test)]
+pub(crate) fn test_lease<L>(
+    platform_lease: L,
+    manifest: &[u8],
+    head: &[u8],
+    incarnation: super::IncarnationId,
+    revision: super::super::DecimalU64,
+) -> RegisteredCooperativeLease<L> {
+    RegisteredCooperativeLease {
+        platform_lease,
+        binding: AdmissionExpectation {
+            head: HeadToken {
+                incarnation,
+                manifest: manifest.into(),
+                head: head.into(),
+                manifest_digest: super::super::digest(manifest),
+                head_digest: super::super::digest(head),
+                revision,
+            },
+            volume_identity: super::super::digest(b"synthetic test volume"),
+            owner_epoch: OwnerEpoch::parse("10000000-0000-4000-8000-000000000002")
+                .expect("test UUID"),
+            protocol_digest: super::super::digest(b"repeatable test protocol"),
+        },
+    }
+}

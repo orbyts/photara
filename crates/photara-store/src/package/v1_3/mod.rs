@@ -39,3 +39,12 @@ pub use ownership::{
     AllocationInspection, AllocationLayout, AllocationObservation, OwnershipAudit,
     OwnershipContext, audit_ownership,
 };
+
+pub mod repeatable;
+
+mod origins;
+mod reader;
+pub use reader::{
+    ControlRecords, DirectoryObservation, ReaderLimits, RetainedObservation, RoleClosure,
+    SettledPackage, SettledRegistration, inspect_recovery, inspect_settled, verify_original,
+};

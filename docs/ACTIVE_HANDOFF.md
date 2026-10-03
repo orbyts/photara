@@ -66,18 +66,40 @@ and storage qualification are complete.
 
 ### Concrete implementation boundary — 2026-10-03
 
-Shared `package::v1_3` components now implement frozen frame/coordinate codecs,
-scoped and full typed-tree reads, selected HEAD/root checks, operation receipt
-prefixes, unchanged legacy semantic links, metadata-only Blob access with explicit
-streaming audit, resource metadata, settled accounting and ownership checks.
-Exact-byte selector comparison and publication progress bookkeeping are present.
-These are components, not complete package acceptance, write admission or a writer.
-Whole-package/global closure orchestration, the runtime conversion-snapshot adapter,
-non-authored retention authority and O/P/F execution/admission remain incomplete.
-Verification: `cargo test -p photara-store --lib --test ps2_frozen_codec
---test package_v1_1 --quiet` passed 134 tests; 11 preexisting tests remain ignored.
-Strict scoped Clippy, targeted Rustfmt and diff checks passed. Existing frozen
-candidate sources/corpora were not edited.
+Shared `package::v1_3` now composes complete settled active/recovery/retained
+closures for the supported reviewed variants, including metadata-only Blob and
+retained-source accounting. The additive repeatable Graph path implements actual
+Core replay, pre-effect capacity/identity checks, seven selected O/P/F stages,
+exact append retry, barrier reissue, original receipt dedupe and bounded restart
+from persisted prior originals. The prior in-memory-plan dependency is removed.
+Two consecutive operations (Graph update then no-op) and interrupted restart of
+both pass; exact byte fingerprints are pinned in the [amendment record](architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#exact-additive-vectors).
+
+The disposable fixture explicitly registers a 262,144-byte standing-control
+allowance before its first admission; the old 131,072-byte specimen correctly
+refuses the second operation's 151,552-byte coexistence requirement. This is not a
+production default or an automatic increase. Old corpus files/codecs remain unchanged.
+
+This is a bounded shared implementation, not PS2 exit or production enablement.
+The repeatable mutation planner currently supports framed JSON Graph packages;
+whole-Blob mutation, newborn/retirement execution and pending-origin operation
+authority are not supplied by this path. Imported/unsupported variants must refuse
+writable admission. There is no production registrar/qualified native adapter or
+production Accepted/Saved token. The private native test adapter remains cfg(test).
+Verification: 145 tests passed across library, frozen codec/reader and legacy
+package targets, plus strict library/tests Clippy, targeted Rustfmt and diff checks
+([manifest](architecture/verification/ps2-shared-repeatable-regression.json)); 11 preexisting tests and the explicitly invoked native trial are
+opt-in. The private [shared clean-remount observation](architecture/PS2_MACOS_CLEAN_REMOUNT.md#shared-repeatable-rust-path--2026-10-03)
+passed partial append → remount → original retry → remount → persisted-plan
+retry/verification. Its image is detached and retained with logs. All 50 prior
+frozen source/output hashes remain unchanged. Do not repeat these unchanged runs.
+
+The next PS2 gate is a separately reviewed storage/admission qualification
+artifact: native project-wide charge accounting, provider exclusion, supported
+barrier/failure-model scope and trusted registration/authorization. The clean
+trial does not establish these or permit a production constructor. Do not mark
+PS2 complete, enable Saved, or start PS3/PS4/LL2a production wiring from this result.
+Approved power-interruption permission remains **absent**.
 
 Implementation exposed a **repeatability gap in the frozen specimen recipes**:
 the next active root/association IDs and allocation roles are hardcoded. A second
@@ -313,8 +335,9 @@ These are disposable proofs and review documents, not production deletion.
 
 ## Unimplemented or unproven
 
-- No permanent PS2 wire, production package reader/writer, live conversion,
-  migration, production GC, Asset Store or production `Accepted`/`Saved` path.
+- Narrow PS2 wire approval and bounded shared reader/repeatable writer exist;
+  no enabled production adapter, live conversion, migration, production GC,
+  Asset Store or production `Accepted`/`Saved` path.
 - No qualified production barrier path. Disposable Graph rollover and live
   relocation are integrated with bounded useful fixed-budget reclamation;
   arbitrary-scale maintenance, qualified local binding and production admission

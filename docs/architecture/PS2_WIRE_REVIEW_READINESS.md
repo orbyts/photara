@@ -36,8 +36,14 @@ The freeze preserves the demonstrated one-operation recipes; it does not make
 their hardcoded IDs reusable for repeated production saves. Shared-reader
 implementation exposed the concrete collision described in the [repeatable
 writer amendment](PS2_REPEATABLE_WRITER_AMENDMENT.md). The user approved that bounded additive
-recipe amendment on 2026-10-03 for implementation and exact-byte validation. Do not silently generalize existing codec IDs, and do not
-claim PS2 complete based on the new read components.
+recipe amendment on 2026-10-03 for implementation and exact-byte validation.
+The bounded shared implementation now proves two consecutive operations,
+interrupted persisted restart and original receipt retry, with pinned additive
+byte fingerprints. The [shared native clean-remount observation](PS2_MACOS_CLEAN_REMOUNT.md#shared-repeatable-rust-path--2026-10-03)
+also passed. All 50 frozen source/output hashes remain unchanged. Do not silently
+generalize existing codec IDs or claim PS2 exit/production qualification from these
+bounded results. The active handoff identifies unsupported paths and the remaining
+storage/admission boundary.
 
 ## Current consolidated review packet — 2026-09-29
 
