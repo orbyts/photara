@@ -1,0 +1,508 @@
+{
+  "date": "2026-10-05",
+  "scope": "PS3 approved four-kind amendment and conditional disposable native autosave; production session wiring remains gated",
+  "approval_commit": "8c3be7a",
+  "tests": {
+    "rust": {
+      "passed": 32,
+      "failed": 0,
+      "native_opt_in_ignored_in_suite": 1,
+      "seconds": 38.56
+    },
+    "strict_clippy": "passed",
+    "swift_6_build": "passed",
+    "swift_projection_and_short_pipe_regressions": "passed",
+    "frozen_hashes_checked": 50,
+    "frozen_hashes_changed": 0
+  },
+  "wire_vectors": {
+    "unchanged_checkpoint_four_record": "788ad5be74841fdb8e58457d952ad60e72266400eb3813286b6cf4f10bd180b1",
+    "ps3_six_record": "75b9ccd52e7adcc4599c1abdd9879fae46e094ce4a71ed404ee4d490285443ef"
+  },
+  "native": {
+    "root": "/private/tmp/photara-ps2-remount-cuc4usia",
+    "detached_generation": 2,
+    "consecutive_edits": "passed; revisions 5 and 6",
+    "undo_redo": "passed; revisions 7 and 8",
+    "changed_request_same_id": "refused before effects",
+    "original_retry": "original receipt retained while current state remains newer",
+    "process_interruption": "child only, after Accepted revision 9; reopened and checkpointed same original",
+    "clean_remount": "passed; exact Saved revision 9 x=61 y=14",
+    "ui": "pending move x=61 to x=77; Close waited; reopened Saved revision 10 x=77 y=14; normal close exit 0",
+    "observation": {
+      "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+      "macos": "27.0.1",
+      "generation": 2,
+      "tip_charges": {
+        "96000000-0000-4000-8000-000000001002": "4194304",
+        "96000000-0000-4000-8000-000000001003": "4194304",
+        "96000000-0000-4000-8000-000000001004": "4194304",
+        "96000000-0000-4000-8000-000000001005": "4194304",
+        "96000000-0000-4000-8000-000000001006": "4194304",
+        "96000000-0000-4000-8000-000000001007": "4194304",
+        "96000000-0000-4000-8000-000000001008": "4194304"
+      },
+      "files": [
+        {
+          "path": "repeatable-evidence/checkpoint.phpsj",
+          "logical_bytes": 313402,
+          "allocated_bytes": 335872,
+          "sha256": "158ff1cef350a3bbf5897599dc31db5b66cc98c46902f01aa7334f73a9b0e0c0"
+        },
+        {
+          "path": "repeatable-package/.owner",
+          "logical_bytes": 36,
+          "allocated_bytes": 4096,
+          "sha256": "90d2b3caf51a33aeebd4b27b4ccfbfe8717320a6652d80b9bd49822aa3d482c3"
+        },
+        {
+          "path": "repeatable-package/.writer-lock",
+          "logical_bytes": 0,
+          "allocated_bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "repeatable-package/1f05a1d20d808f3ae680b017e7a3dfc6d0e8bc03bd5b20d0c6cb466f11eb5e11.commit",
+          "logical_bytes": 2862,
+          "allocated_bytes": 4096,
+          "sha256": "1f05a1d20d808f3ae680b017e7a3dfc6d0e8bc03bd5b20d0c6cb466f11eb5e11"
+        },
+        {
+          "path": "repeatable-package/6160b7fab714f38e6eaf11d1f11f57fe0c505bb64645dec48264a9f12cdd620f.control",
+          "logical_bytes": 1069,
+          "allocated_bytes": 4096,
+          "sha256": "6160b7fab714f38e6eaf11d1f11f57fe0c505bb64645dec48264a9f12cdd620f"
+        },
+        {
+          "path": "repeatable-package/82369bcde85b62ef7c40c79a270dbe2c54c6dba56af0b42f6d435b6fa23c230e.control",
+          "logical_bytes": 953,
+          "allocated_bytes": 4096,
+          "sha256": "82369bcde85b62ef7c40c79a270dbe2c54c6dba56af0b42f6d435b6fa23c230e"
+        },
+        {
+          "path": "repeatable-package/87f149693eeee9b9e987b9936ba263dcb64f0d0cf2689f41047a4ac6c7f9c243.control",
+          "logical_bytes": 5472,
+          "allocated_bytes": 8192,
+          "sha256": "87f149693eeee9b9e987b9936ba263dcb64f0d0cf2689f41047a4ac6c7f9c243"
+        },
+        {
+          "path": "repeatable-package/91ced27d93e0d462756659dc506ddb7ee6e3af26ed6d25676217728af88ea819.control",
+          "logical_bytes": 377,
+          "allocated_bytes": 4096,
+          "sha256": "91ced27d93e0d462756659dc506ddb7ee6e3af26ed6d25676217728af88ea819"
+        },
+        {
+          "path": "repeatable-package/HEAD.json",
+          "logical_bytes": 238,
+          "allocated_bytes": 4096,
+          "sha256": "6a5f420d77da9787e0c77f4c7b4fed97d1bfdef77ff8cb8bcebd8986fe9b9d55"
+        },
+        {
+          "path": "repeatable-package/c6b706ae271138d3e320706dc21a143d79d1714d4f65c42311d3066dd1faa3b1.control",
+          "logical_bytes": 1085,
+          "allocated_bytes": 4096,
+          "sha256": "c6b706ae271138d3e320706dc21a143d79d1714d4f65c42311d3066dd1faa3b1"
+        },
+        {
+          "path": "repeatable-package/d977c030c3dd65c6ec67584e608b961b550276de52d634a1b9983919bf1370f2.control",
+          "logical_bytes": 461,
+          "allocated_bytes": 4096,
+          "sha256": "d977c030c3dd65c6ec67584e608b961b550276de52d634a1b9983919bf1370f2"
+        },
+        {
+          "path": "repeatable-package/dc3aa7f68907a7148e5189d3ee95cdf8ab92c97a98b196e3cfe0988c584697da.control",
+          "logical_bytes": 8474,
+          "allocated_bytes": 12288,
+          "sha256": "dc3aa7f68907a7148e5189d3ee95cdf8ab92c97a98b196e3cfe0988c584697da"
+        },
+        {
+          "path": "repeatable-package/e26c746acaba88539fa1a065390bf1828eb8e7da916656ac3ce98f9d8eb5dfa0.control",
+          "logical_bytes": 30165,
+          "allocated_bytes": 32768,
+          "sha256": "e26c746acaba88539fa1a065390bf1828eb8e7da916656ac3ce98f9d8eb5dfa0"
+        },
+        {
+          "path": "repeatable-package/manifest.json",
+          "logical_bytes": 409,
+          "allocated_bytes": 4096,
+          "sha256": "e5cfd9582ed8bd0ee07890d933e4dac52dff15a80fc7345c8494e1b2baac1a5d"
+        },
+        {
+          "path": "repeatable-package/pack-96000000-0000-4000-8000-000000001001",
+          "logical_bytes": 1306,
+          "allocated_bytes": 4096,
+          "sha256": "7e3149d07f260031a83a649c070121f71e46384f94b7c6f80c81cb4e391f5c06"
+        },
+        {
+          "path": "repeatable-package/pack-96000000-0000-4000-8000-000000001002",
+          "logical_bytes": 2097152,
+          "allocated_bytes": 4194304,
+          "sha256": "b8ce3eecbdb69a14a3debf4573e2da72a93563156936a757a6e88f3f6d4e49d4"
+        },
+        {
+          "path": "repeatable-package/pack-96000000-0000-4000-8000-000000001003",
+          "logical_bytes": 2097152,
+          "allocated_bytes": 4194304,
+          "sha256": "b3f299f2d913d00b41502ab89e6abecc6887e103d841f4b2dd683e2d934752d5"
+        },
+        {
+          "path": "repeatable-package/pack-96000000-0000-4000-8000-000000001004",
+          "logical_bytes": 2097152,
+          "allocated_bytes": 4194304,
+          "sha256": "42cc0e8ec3847fa2003abcf303861567e7203d4ebc38898541b4090eefc99d0e"
+        },
+        {
+          "path": "repeatable-package/pack-96000000-0000-4000-8000-000000001005",
+          "logical_bytes": 2097152,
+          "allocated_bytes": 4194304,
+          "sha256": "20eba011fe7eab9bb7f574fe2af28346e89edefc25ce2fcba528f3d3ec3fb13e"
+        },
+        {
+          "path": "repeatable-package/pack-96000000-0000-4000-8000-000000001006",
+          "logical_bytes": 2097152,
+          "allocated_bytes": 4194304,
+          "sha256": "12485903f56b68f6c7d8fee7cbd7e12b37a1922fb6889b1aec7c9d7ec9a15e6a"
+        },
+        {
+          "path": "repeatable-package/pack-96000000-0000-4000-8000-000000001007",
+          "logical_bytes": 2097152,
+          "allocated_bytes": 4194304,
+          "sha256": "00edfa91d925847b38f0cfc48f229d495e3a948117f8b4efb2dc4170022c8389"
+        },
+        {
+          "path": "repeatable-package/pack-96000000-0000-4000-8000-000000001008",
+          "logical_bytes": 2097152,
+          "allocated_bytes": 4194304,
+          "sha256": "13827ac827c7853c84acf8c8a87dcb8c5b347407a0838e21b7f850d083687e66"
+        },
+        {
+          "path": "repeatable-package/retained-1cc9c3d56337e761a40a5b7b16a77e776a52898ea42722d79a09720c7d907e49",
+          "logical_bytes": 2226,
+          "allocated_bytes": 4096,
+          "sha256": "0c60dbe4219b49964c092f569a124ec9f36c4161d32eb43744685aad7faf952a"
+        },
+        {
+          "path": "repeatable-package/retained-40692254cef072aedf8d3c5f61001f5f372408cba63303c74acf533e02fc193d",
+          "logical_bytes": 124,
+          "allocated_bytes": 4096,
+          "sha256": "3fdc36038b91079178c3bdf39c5242a8b02dc83d2f48e895bfc200e420365862"
+        },
+        {
+          "path": "repeatable-package/retained-472a9e3acb512c237b723e44b2ca2b5363901439c06fd7fd7f8d3b590a0d98b9",
+          "logical_bytes": 1356,
+          "allocated_bytes": 4096,
+          "sha256": "6bb66b0ecdf5ce8661fe891228c408f1ef22c3dac7c754733230f52456be2b9b"
+        },
+        {
+          "path": "repeatable-package/retained-5bd4700ddb71b7763d266a1094618d4688a3c46c58d9284b097738cba3ff0409",
+          "logical_bytes": 373,
+          "allocated_bytes": 4096,
+          "sha256": "40b0f6e3c87681a6e0fb81d6a0b710e00590bb2a55f89a5c7259b67d71a60478"
+        },
+        {
+          "path": "repeatable-package/retained-5e473f091482cd08a9b1b6e6172599bf76c06155e47c32ddf77696955746c93a",
+          "logical_bytes": 134,
+          "allocated_bytes": 4096,
+          "sha256": "c7b0f0d31604a3e75f3a7487b41659f62dd294738a945b1a2de626520feb63c8"
+        },
+        {
+          "path": "repeatable-package/retained-5f4eb06a813c89a5c8e2e9c277c537f6ebafca8036448ab2d53da87a12671951",
+          "logical_bytes": 137,
+          "allocated_bytes": 4096,
+          "sha256": "0592214fb674295d7a9900d4a5e53fc3e9e9f0aef8f523b47a854e36b8e63928"
+        },
+        {
+          "path": "repeatable-package/retained-6faa7ad5755fd7c8a56e66d64299f1e4074d14f7328fc691fcf0d8fa5b519572",
+          "logical_bytes": 16,
+          "allocated_bytes": 4096,
+          "sha256": "c391a04b641f3a318778dcad24b6389979fea63c895c792abc123f0727595b15"
+        },
+        {
+          "path": "repeatable-package/retained-707e28022a773fee917c9af1c1a0d82acf71f5c193c90298b7731ab745efdbbd",
+          "logical_bytes": 239,
+          "allocated_bytes": 4096,
+          "sha256": "9be1a4a340bdfb04664aa584628d3962b503560c9f0b61d2c8bd23b6ad5bfd76"
+        },
+        {
+          "path": "repeatable-package/retained-70b6f22d780f9b2a6d125229cd38967c850272860e277fe4a50d1a04aceb1604",
+          "logical_bytes": 1257,
+          "allocated_bytes": 4096,
+          "sha256": "160163d7e2e1327f8e5cfee7f3226b7544dec46be5edcb6f1e094efba678e7b7"
+        },
+        {
+          "path": "repeatable-package/retained-8ac159d355f96fb0ea54f4749312dde4c7cdbbe5d003c3478d0231f42b6978c4",
+          "logical_bytes": 277,
+          "allocated_bytes": 4096,
+          "sha256": "1ec43cf3bf6a9bd279cd57710b30a10ecc8eedfe64e1a8d0eafe5e2ec5ebb157"
+        },
+        {
+          "path": "repeatable-package/retained-8c02f666e829dc253fd39a91a975fafda8f29f460603dad057dc97e422ef3e18",
+          "logical_bytes": 23,
+          "allocated_bytes": 4096,
+          "sha256": "9c1aa485877073691325527a515ec5cc61146167b42b8739c02fe0b81fe9fd73"
+        },
+        {
+          "path": "repeatable-package/retained-926a7278651c40c0d3ff248552b658ebc247c756c9ced1f1a2c23adfbd85b3c2",
+          "logical_bytes": 177,
+          "allocated_bytes": 4096,
+          "sha256": "a339f6ba01c5e5d1ab2e5ecf7c45321f5c21f2502bcdd35985fa9b5f2c935488"
+        },
+        {
+          "path": "repeatable-package/retained-aa13aee66c3bb0b1ddbed540d06f4af1fcbc103b8b4568e804b010b23efad55a",
+          "logical_bytes": 1309,
+          "allocated_bytes": 4096,
+          "sha256": "2232c29fb67b03a9b9edcfdbcb4dc11fe7436f90c01f823e7b5fe21094c2146c"
+        },
+        {
+          "path": "repeatable-package/retained-bc8f6cda12aae3cbd20ece3148a0b1093f0cc31fd7033ab2784ccc8b0411cd5e",
+          "logical_bytes": 497,
+          "allocated_bytes": 4096,
+          "sha256": "3ec39267411048d9decd14e1d778153c4d5c236dd5c8e77f301b7543f9827948"
+        },
+        {
+          "path": "repeatable-package/retained-c358ff70465be86a70c592d1c1bfc906fc4ade10dde209bd526b69d7d199ac19",
+          "logical_bytes": 977,
+          "allocated_bytes": 4096,
+          "sha256": "7bae7380259b369d5f6cf0c90acb77fd3b5953779f12b6e70fa9b88d30549465"
+        },
+        {
+          "path": "repeatable-package/retained-db197df0b0a91534fb993e702454cb902cbb6da1ce463c252686aabcd32a09f2",
+          "logical_bytes": 238,
+          "allocated_bytes": 4096,
+          "sha256": "93297f20f5f8a279c4c4b0a1c06f28a1e672df914eb7ffd013c7074a9c9e6f16"
+        },
+        {
+          "path": "repeatable-package/retained-e49ad2c7c89b6613dd979ba1892f66204cf3bed8f341a515615ae3931ec3d2cd",
+          "logical_bytes": 25,
+          "allocated_bytes": 4096,
+          "sha256": "de1653b235fbcb2aa4355139e20e6e3d8ef8c34d77336c82a3e8d228b4557059"
+        },
+        {
+          "path": "repeatable-package/retained-ffa5b716b5a57837f7929dfcca4b4dfdeb97210a7fd5a12d2f1978846d6f1743",
+          "logical_bytes": 409,
+          "allocated_bytes": 4096,
+          "sha256": "e5cfd9582ed8bd0ee07890d933e4dac52dff15a80fc7345c8494e1b2baac1a5d"
+        }
+      ],
+      "ui": {
+        "reopened_status": "Saved",
+        "revision": 10,
+        "node": "example.review.inspect",
+        "position": {
+          "x": 77,
+          "y": 14
+        },
+        "close_exit_code": 0,
+        "pending_close_waited_for_acknowledgement": true
+      }
+    },
+    "fixture_standing_bytes": 4194304,
+    "fixture_requested_tip_preallocation_bytes": 4194304
+  },
+  "preserved_failed_attempt": {
+    "root": "/private/tmp/photara-ps2-remount-n5522myf",
+    "detached": true,
+    "reason": "pack allocated 2162688 > admitted 1310720; attempt/hold preserved without increasing its budget"
+  },
+  "limitations": [
+    "Private cfg(test) native host and ad-hoc standalone lab, no enabled production admission",
+    "Clean remount and process kill are not power-loss or hardware-fault proof",
+    "Fixture bounds are not production limits or physical free-space guarantees",
+    "ConflictPreserved semantic append requires independent host proof; unsupported cases freeze/preserve",
+    "Production session wiring, PS4, and LL2a remain open in that order"
+  ],
+  "sources": [
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/core.rs",
+      "sha256": "63cc3cac2619ec50114ae000c910dcc5efb891072434b344174976c124a8c0cd",
+      "bytes": 9872
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/journal.rs",
+      "sha256": "bda87a951e77c73a712833a9e1c1d417488a237b7add42fececc55a5435aeacb",
+      "bytes": 25575
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/journal_tests.rs",
+      "sha256": "5e1f4741d75c92c46ff2a49e77f4dc7520573dd313f7384a19be34dd2be48df0",
+      "bytes": 13563
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/mod.rs",
+      "sha256": "abf0b03401ead212a9b9fd6df0d735864e1b0ef727dcd9381e88c1a3f9e134b6",
+      "bytes": 3157
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/native_test.rs",
+      "sha256": "445be245fc726b5d0a53d7881bf4068d12e519c4350a2d8cfa54dca023cbe374",
+      "bytes": 60249
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/restart.rs",
+      "sha256": "fcb7a41f1fb10ff513fac9a19f91d0743ecc3dfda3264b96def06a7634e42ccd",
+      "bytes": 21982
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/tests.rs",
+      "sha256": "9e1bb3a71714584226459ae22179d973f0f2d63ffd8f42e411b39c42dd7b6881",
+      "bytes": 28827
+    },
+    {
+      "path": "crates/photara-store/tests/ps2_reader_support/native_bootstrap.py",
+      "sha256": "40c791c627e28feb9e9ac8acda5f53de3302211a6b940d64b650ac109cfa30f5",
+      "bytes": 6647
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/journal_ps3_tests.rs",
+      "sha256": "8f95462bc8d98c67a6ba5701cc365d55c9c36a1fd5fb12e8454efe24764cd0a2",
+      "bytes": 13976
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/journal_session.rs",
+      "sha256": "01ec57089a804a95522c4c2d8cde63067e6533a0ee878159c5904dda0309df2c",
+      "bytes": 47316
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/native_session.rs",
+      "sha256": "162f9d8745e646219d9bdaeb05823f478039b9a9160de9039ad23f3818b1c87f",
+      "bytes": 25789
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/session.rs",
+      "sha256": "9867cdaf699f489bdb316c1a7990cd5a08e0c6b10d68093464970784ac927d2e",
+      "bytes": 20465
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/session_tests.rs",
+      "sha256": "7ca41161b819fb473cbc88f97fe286f14ecd5d2bd52087c1ba980a1eb040b52f",
+      "bytes": 15405
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Sources/DisposableAutosaveLabApp.swift",
+      "sha256": "6d34808c01e2b6e9b3c94329ef7b52f84bcf9304a357d698061d1520d4a92567",
+      "bytes": 4593
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Sources/DisposableAutosaveProcess.swift",
+      "sha256": "c5b1764eb43f19277e48dd5a238423293388deea2577a4032e4bea57977d172e",
+      "bytes": 13822
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Sources/DisposableAutosaveProjection.swift",
+      "sha256": "aa4da911561bed100e3a84af551c879b545a613341ac802e3adfe50fd3c4e4ce",
+      "bytes": 6178
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Sources/DisposableAutosaveStatusView.swift",
+      "sha256": "d7cf929f0973004ba853e3c66319844e1250aa104f387d5d98f683edc9d6e6a9",
+      "bytes": 865
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Tests/DisposableAutosaveChecks.swift",
+      "sha256": "a4d1f0e1030e3acce1e9ea20dbbbee5699f170e7efc20a75466abedcdd85b71a",
+      "bytes": 5212
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Tests/DisposablePipeReadChecks.swift",
+      "sha256": "28f818f2066b4035b418485ef7d4b808a73e5998edfc9f9abda414236c8fcc7c",
+      "bytes": 1397
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/build-disposable-autosave.sh",
+      "sha256": "8a69f852768eb26fec902431e1da39c388fda2d7f25805de026fb46c4eb7b99a",
+      "bytes": 1352
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/run-disposable-autosave.py",
+      "sha256": "5ae6a40ae85ddd4e3b32272c470d457c0970250388e0687cae8366332ca0193e",
+      "bytes": 10571
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/verify-autosave-projection.sh",
+      "sha256": "854d3f6f435e9c90a5c5248842a6f0ad935bd92c8194733863d50e0a13537b44",
+      "bytes": 1087
+    }
+  ],
+  "logs": [
+    {
+      "path": "/private/tmp/ps3-final-regression.log",
+      "sha256": "a98ac05f0490d7a89258e6790f8cb7da6f5e62ed710f085629330a7f3b22702c",
+      "bytes": 3723
+    },
+    {
+      "path": "/private/tmp/ps3-replay-reuse-strict.log",
+      "sha256": "b15d44213502886e586a350a011d6c46a66aac5a7cc3a8a6bcf0ec413b29b934",
+      "bytes": 163
+    },
+    {
+      "path": "/private/tmp/ps3-native-presentation-tests.log",
+      "sha256": "e13caa1b63d2b23d109398e5eeb4923711c1819ae00acb4f4cf3305170e955d3",
+      "bytes": 201
+    },
+    {
+      "path": "/private/tmp/ps3-native-lab-build.log",
+      "sha256": "aca1a174082b92d5f14584753a28143752807c7b0525f2a91761cdabc779af4e",
+      "bytes": 328
+    },
+    {
+      "path": "/private/tmp/ps3-frozen-vector-check.json",
+      "sha256": "b4c8f94e72a000406d1485422fb610c16c5c83b1a7dcd7b4e54f8dad034d09e0",
+      "bytes": 37
+    },
+    {
+      "path": "/private/tmp/ps3-presentation-regression.log",
+      "sha256": "5cff287a1c08be1742ad1c069f828ac113327d0e46b999c6f647116c4031fd6d",
+      "bytes": 224
+    },
+    {
+      "path": "/private/tmp/ps3-native-prepaid-resume.log",
+      "sha256": "9cd344d20f0873a84c8b8c8a6c437371152ce19d489860d64e8cdaa9f57c0407",
+      "bytes": 130
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-cuc4usia/ps3-session-1-2e6142dd-bd97-4120-b76b-7269096af1e9.jsonl",
+      "sha256": "7dd63effc7b0957a0d99a23d987d020e28d85e264aec35fdcb44feb97a169927",
+      "bytes": 14440
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-cuc4usia/ps3-session-1-761a5607-e509-450b-af31-7b7c2aa9a75f.jsonl",
+      "sha256": "739f5dd7f0aefe1e7ec6411f579e5a5f9a1e78c270e478809ea81680e9f06246",
+      "bytes": 32304
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-cuc4usia/ps3-session-2-eba11d2b-f239-4900-a0ef-b056546ce9ff.jsonl",
+      "sha256": "f2a435d55b20e7fc25de3a4d780f9a916e5c791d77796f8bd40de3ddc13160eb",
+      "bytes": 4321
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-cuc4usia/ps3-final-observation.json",
+      "sha256": "1749f9a0d524476297ebd9a22260f36934cd5cda492878513329b7d6ecf5f9e7",
+      "bytes": 10844
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-cuc4usia/native-app-reopen-exit.json",
+      "sha256": "e89df0eae5ec7db81135aed16463968955c578bcc4f2ec43172eff351f080c17",
+      "bytes": 17
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-cuc4usia/repeatable-registration.json",
+      "sha256": "4ba235242a8713bc5b646384d402a88a8b854e0dfc7ac61aed05dab6d08afea7",
+      "bytes": 4342378
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-cuc4usia/binding-2.json",
+      "sha256": "1c72794d8973fb8e80b9b437699520dde568c1f27660e329a034378d83274322",
+      "bytes": 237
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-cuc4usia/detach-2.stdout",
+      "sha256": "e2e7e4de75aa32d2268acd6fb9074177fbb16c94025e0b863e444f72f183a2e4",
+      "bytes": 17
+    }
+  ],
+  "controller": {
+    "path": "/private/tmp/photara-repeatable-controller.py",
+    "sha256": "c7e2433d7a3f4dcfc8f84e5c14fcdff3ddb2b334fe681d32ea5aad837118cdda",
+    "bytes": 5394
+  }
+}

@@ -230,7 +230,7 @@ fn source_name(path: &str) -> String {
     clippy::too_many_lines,
     reason = "Explicit disposable bootstrap with captured native witnesses"
 )]
-fn prepare(scope: &Scope) -> IoResult<()> {
+fn prepare(scope: &Scope, session: bool) -> IoResult<()> {
     mkdirat(&scope.mount, EVIDENCE, Mode::RWXU)?;
     let evidence = File::from(openat(&scope.mount, EVIDENCE, DIRECTORY, Mode::empty())?);
     barrier(&evidence)?;
@@ -257,13 +257,81 @@ fn prepare(scope: &Scope) -> IoResult<()> {
     }
     barrier(&root)?;
     barrier(&scope.mount)?;
+    if session {
+        let requested = std::env::var("PHOTARA_PS3_PACK_RESERVE_BYTES")
+            .map_err(|_| invalid())?
+            .parse::<u64>()
+            .map_err(|_| invalid())?;
+        if requested == 0 || requested % 4096 != 0 || requested > i64::MAX as u64 {
+            return Err(invalid());
+        }
+        let root_pin = pin(&root)?;
+        let mut child = Command::new("python3")
+            .arg(
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("tests/ps2_reader_support/native_bootstrap.py"),
+            )
+            .arg("--preallocate")
+            .arg(&scope.path)
+            .arg(root_pin[0].to_string())
+            .arg(root_pin[1].to_string())
+            .arg(requested.to_string())
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()?;
+        child
+            .stdin
+            .take()
+            .ok_or_else(invalid)?
+            .write_all(&canonical(&captured))?;
+        let result = child.wait_with_output()?;
+        if !result.status.success() {
+            return Err(std::io::Error::other(
+                String::from_utf8_lossy(&result.stderr).into_owned(),
+            ));
+        }
+        captured["tip_charges"] = json!({});
+        for (id, file) in &handles {
+            if id == &aid(1) {
+                continue;
+            }
+            barrier(file)?;
+            let observed = file.metadata()?;
+            let allocated = observed.blocks().checked_mul(512).ok_or_else(invalid)?;
+            if observed.len() != 0
+                || allocated < requested
+                || witness(pin(file)?) != captured["allocations"][id]
+            {
+                return Err(invalid());
+            }
+            let charged = allocated
+                .checked_add(4095)
+                .map(|n| n / 4096 * 4096)
+                .ok_or_else(invalid)?;
+            captured["tip_charges"][id] = json!(charged.to_string());
+        }
+    }
     create(
         &scope.scratch,
         "repeatable-native-pins.json",
         &canonical(&captured),
     )?;
     barrier(&scope.scratch)?;
-    let output = Command::new("python3")
+    let standing = if session {
+        std::env::var("PHOTARA_PS3_STANDING_BYTES")
+            .map_err(|_| invalid())?
+            .parse::<u64>()
+            .map_err(|_| invalid())?
+    } else {
+        262_144
+    };
+    if standing == 0 || standing % 4096 != 0 {
+        return Err(invalid());
+    }
+    let mut command = Command::new("python3");
+    command.env("PHOTARA_PS3_STANDING_BYTES", standing.to_string());
+    let output = command
         .arg(
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("tests/ps2_reader_support/native_bootstrap.py"),
@@ -300,6 +368,16 @@ fn prepare(scope: &Scope) -> IoResult<()> {
         }
         f.write_all(&raw)?;
         barrier(&f)?;
+        if session && id != aid(1) {
+            let allocated = f
+                .metadata()?
+                .blocks()
+                .checked_mul(512)
+                .ok_or_else(invalid)?;
+            if allocated > number(&captured["tip_charges"][&id])? {
+                return Err(invalid());
+            }
+        }
     }
     for (sha, raw) in data["loose"].as_object().ok_or_else(invalid)? {
         create(
@@ -344,12 +422,12 @@ fn prepare(scope: &Scope) -> IoResult<()> {
     let checkpoint = create(
         &evidence,
         CHECKPOINT,
-        &journal::Journal::create(&journal_header, journal_limits(262_144))
+        &journal::Journal::create(&journal_header, journal_limits(standing))
             .map_err(|_| invalid())?,
     )?;
     barrier(&evidence)?;
     // Trusted experimental registration captured before any repeatable writer effect.
-    let registration = json!({"nonce":scope.nonce,"package_pin":pin(&root)?,"lock_pin":pin(&lock)?,"evidence_pin":pin(&evidence)?,"generation":scope.generation,"journal_header":journal_header,"journal_pin":pin(&checkpoint)?,"data":data});
+    let registration = json!({"nonce":scope.nonce,"package_pin":pin(&root)?,"lock_pin":pin(&lock)?,"evidence_pin":pin(&evidence)?,"generation":scope.generation,"journal_header":journal_header,"journal_pin":pin(&checkpoint)?,"session":session,"tip_charges":captured.get("tip_charges"),"data":data});
     create(
         &scope.scratch,
         "repeatable-registration.json",
@@ -378,6 +456,19 @@ struct Native {
     completed_head: Value,
     ceiling: Option<support::Fixture>,
     namespace_allowance: u64,
+    session_mode: bool,
+    session_project_limit: Option<u64>,
+    reserved_journal_extra: usize,
+}
+// Current observations preserve separately captured original highwaters. The
+// shared synthetic helper uses rounded logical lengths; native prepaid storage
+// must never lose its measured registration when assembling a current view.
+fn snapshot(base: &support::Fixture, p: &OriginalPackage) -> support::Fixture {
+    let mut observed = super::snapshot(base, p);
+    for (id, allocation) in &mut observed.allocations {
+        allocation.charge = allocation.charge.max(base.allocations[id].charge);
+    }
+    observed
 }
 fn journal_limits(standing: u64) -> journal::JournalLimits {
     let bytes = usize::try_from(standing).expect("bounded fixture standing pool");
@@ -403,6 +494,10 @@ fn record_identity(
 }
 type NativeLease = crate::package::planning::io::RegisteredCooperativeLease<File>;
 impl Native {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Keep independent captured registration and immutable session ceiling checks together"
+    )]
     fn load(scope: Scope) -> IoResult<Self> {
         let registration: Value =
             serde_json::from_slice(&read(&scope.scratch, "repeatable-registration.json")?)
@@ -440,12 +535,30 @@ impl Native {
         let journal_header = registration["journal_header"].clone();
         let root_pin = pin(&root)?;
         let lock_pin = pin(&lock)?;
-        Ok(Self {
+        let mut base = support::Fixture::from_value(registration["data"].clone());
+        if let Some(charges) = registration["tip_charges"].as_object() {
+            if charges.len() != 7 {
+                return Err(invalid());
+            }
+            for (id, amount) in charges {
+                let key = package::PackageUuid::parse(id).map_err(|_| invalid())?;
+                if id == &aid(1) {
+                    return Err(invalid());
+                }
+                let allocation = base.allocations.get_mut(&key).ok_or_else(invalid)?;
+                let charge = number(amount)?;
+                if charge < allocation.charge || charge % 4096 != 0 {
+                    return Err(invalid());
+                }
+                allocation.charge = charge;
+            }
+        }
+        let mut native = Self {
             scope,
             root,
             evidence,
             evidence_pin,
-            base: support::Fixture::from_value(registration["data"].clone()),
+            base,
             root_pin,
             lock_pin,
             interrupt: false,
@@ -461,7 +574,45 @@ impl Native {
             completed_head: Value::Null,
             ceiling: None,
             namespace_allowance: 0,
-        })
+            session_mode: registration["session"].as_bool().unwrap_or(false),
+            session_project_limit: None,
+            reserved_journal_extra: 0,
+        };
+        if native.session_mode {
+            // Configuration derives solely from the separately captured INITIAL
+            // ledger, never the later selected ledger. The first original records
+            // it before effects; every reopen checks that exact persisted value.
+            let initial: Value = native
+                .base
+                .loose
+                .values()
+                .filter_map(|b| serde_json::from_slice::<Value>(b).ok())
+                .find(|v| v["schema"]["id"] == "photara.storage.ledger")
+                .ok_or_else(invalid)?;
+            let limit = number(&initial["total_charge"])?
+                .checked_add(4096)
+                .ok_or_else(invalid)?;
+            let journal = native.checkpoint()?;
+            if journal
+                .records()
+                .iter()
+                .filter(|r| r.value()["kind"] == "CheckpointIntent")
+                .any(|r| r.value()["body"]["original"]["project_limit"] != json!(limit.to_string()))
+            {
+                return Err(std::io::Error::other(
+                    "existing original differs from immutable initial prepaid project ceiling",
+                ));
+            }
+            native.session_project_limit = Some(limit);
+        }
+        Ok(native)
+    }
+    fn attempt(&self, old: &VerifiedOriginal, n: u64) -> Attempt {
+        let mut candidate = super::attempt(old, n);
+        if let Some(limit) = self.session_project_limit {
+            candidate.project_limit = limit.to_string();
+        }
+        candidate
     }
     fn lease(&self, p: &OriginalPackage) -> IoResult<NativeLease> {
         self.scope.assessment.revalidate().map_err(|_| invalid())?;
@@ -696,14 +847,17 @@ impl Native {
         self.footprint(self.ceiling.as_ref().ok_or_else(invalid)?)
             .map(|_| ())
     }
+    fn journal_bounds(&self) -> journal::JournalLimits {
+        let mut limits = journal_limits(self.base.registration.standing_control);
+        if self.session_mode {
+            limits.max_records = budget().max_entries;
+        }
+        limits
+    }
     fn checkpoint(&self) -> IoResult<journal::Journal> {
         let bytes = read(&self.evidence, CHECKPOINT)?;
-        let parsed = journal::Journal::read(
-            &bytes,
-            &self.journal_header,
-            journal_limits(self.base.registration.standing_control),
-        )
-        .map_err(|_| invalid())?;
+        let parsed = journal::Journal::read(&bytes, &self.journal_header, self.journal_bounds())
+            .map_err(|_| invalid())?;
         if parsed.tail() != journal::JournalTail::Complete {
             return Err(invalid());
         }
@@ -739,11 +893,36 @@ impl Native {
         }
         self.check_effect_footprint()
     }
+    fn prepare_checkpoint(&mut self, plan: &RepeatablePlan) -> IoResult<()> {
+        self.prepare_checkpoint_with(plan, None)
+    }
     #[expect(
         clippy::too_many_lines,
         reason = "Keep exact journal preflight and original-bound append ordering together"
     )]
-    fn prepare_checkpoint(&mut self, plan: &RepeatablePlan) -> IoResult<()> {
+    fn prepare_checkpoint_with(
+        &mut self,
+        plan: &RepeatablePlan,
+        session: Option<(&VerifiedOriginal, &PlannerInputs)>,
+    ) -> IoResult<()> {
+        if self.session_mode {
+            if plan.original()["project_limit"]
+                != json!(self.session_project_limit.ok_or_else(invalid)?.to_string())
+            {
+                return Err(invalid());
+            }
+            // Only the independently registered prepaid native corridor is
+            // available to this bounded lab. No future Accepted can grow it.
+            for (id, file) in &selected(plan, 6).allocations {
+                let key = package::PackageUuid::parse(id).map_err(|_| invalid())?;
+                let captured = self.base.allocations.get(&key).ok_or_else(invalid)?;
+                if u64::try_from(file.bytes.len()).map_err(|_| invalid())? > captured.charge {
+                    return Err(std::io::Error::other(
+                        "native prepaid corridor exhausted before admission",
+                    ));
+                }
+            }
+        }
         let current = self.current()?;
         let observed = snapshot(&self.base, &current);
         let identity = identity(&current);
@@ -759,23 +938,30 @@ impl Native {
             frames: frames(),
             reader: &reader,
             planner: budget(),
-            max_originals: 2,
+            max_originals: self.journal_bounds().max_records,
         };
-        let limits = journal_limits(self.base.registration.standing_control);
+        let limits = self.journal_bounds();
         let parsed = self.checkpoint()?;
         let verified = parsed.verify(&current, &context).map_err(|_| invalid())?;
         let prior_intent = parsed
             .records()
             .iter()
-            .find(|r| r.value()["kind"] == "CheckpointIntent")
+            .find(|r| {
+                r.value()["kind"] == "CheckpointIntent"
+                    && r.value()["body"]["operation_receipt"]["operation_id"]
+                        == plan.prepared.receipt["operation_id"]
+            })
             .map(journal::JournalRecord::value);
-        let intent = verified
-            .prepare_intent(
-                plan,
-                record_identity(prior_intent, self.scope.generation)?,
-                limits,
-            )
-            .map_err(|_| invalid())?;
+        let identity = record_identity(prior_intent, self.scope.generation)?;
+        let intent = if let Some((base, inputs)) = session {
+            verified
+                .verify_session(base, inputs, budget())
+                .map_err(|_| invalid())?
+                .prepare_checkpoint_intent(&verified, plan, identity, limits)
+        } else {
+            verified.prepare_intent(plan, identity, limits)
+        }
+        .map_err(|_| invalid())?;
         let mut planned = read(&self.evidence, CHECKPOINT)?;
         planned.extend(intent.bytes());
         let intent_id = package::PackageUuid::parse(
@@ -790,7 +976,11 @@ impl Native {
         let prior_receipt = next
             .records()
             .iter()
-            .find(|r| r.value()["kind"] == "CheckpointReceipt")
+            .find(|r| {
+                r.value()["kind"] == "CheckpointReceipt"
+                    && r.value()["body"]["operation_receipt"]["operation_id"]
+                        == plan.prepared.receipt["operation_id"]
+            })
             .map(journal::JournalRecord::value);
         let receipt_identity = record_identity(prior_receipt, self.scope.generation)?;
         let completion = verified_next
@@ -799,10 +989,16 @@ impl Native {
         let header_len = journal::Journal::create(&self.journal_header, limits)
             .map_err(|_| invalid())?
             .len();
-        let intent_end = header_len
-            .checked_add(36)
-            .and_then(|n| n.checked_add(canonical(intent.record().value()).len()))
-            .ok_or_else(invalid)?;
+        let mut intent_end = header_len;
+        for record in next.records() {
+            intent_end = intent_end
+                .checked_add(36)
+                .and_then(|n| n.checked_add(canonical(record.value()).len()))
+                .ok_or_else(invalid)?;
+            if record.value()["record_id"] == intent.record().value()["record_id"] {
+                break;
+            }
+        }
         let prefix = journal::Journal::read(
             planned.get(..intent_end).ok_or_else(invalid)?,
             &self.journal_header,
@@ -823,8 +1019,10 @@ impl Native {
             )
             .map_err(|_| invalid())?;
         let extent = u64::try_from(
-            intent_end
+            planned
+                .len()
                 .checked_add(worst.bytes().len())
+                .and_then(|n| n.checked_add(self.reserved_journal_extra))
                 .ok_or_else(invalid)?,
         )
         .map_err(|_| invalid())?;
@@ -872,6 +1070,26 @@ impl Native {
                 self.base.registration.standing_control
             )));
         }
+        // Partition the already registered standing pool before effects. APFS
+        // can allocate more blocks than the requested logical append; a single
+        // slack block is not a physical bound. The exact logical worst case
+        // above must fit, and every actual measurement stays within this fixed
+        // remainder. Neither original R nor its aggregate cap changes.
+        let allowance = self.base.registration.standing_control.min(number(
+            &plan.original()["control_bounds"]["aggregate_control_bytes"],
+        )?);
+        let capacity = if self.session_mode {
+            allowance
+                .checked_sub(plan.control_peak())
+                .and_then(|n| n.checked_sub(namespace))
+                .map(|n| n / unit * unit)
+                .ok_or_else(invalid)?
+        } else {
+            capacity
+        };
+        if extent > capacity || self.journal_high_water > capacity {
+            return Err(invalid());
+        }
         self.footprint(&snapshot(&self.base, &selected(plan, 6)))?;
         self.namespace_allowance = namespace;
         self.ceiling = Some(snapshot(&self.base, &selected(plan, 6)));
@@ -905,7 +1123,10 @@ impl Native {
     }
 }
 fn uncertain<T>(r: IoResult<T>) -> Result<T, EffectFailure> {
-    r.map_err(|_| EffectFailure::OutcomeUnknown)
+    r.map_err(|error| {
+        eprintln!("native effect outcome unknown: {error}");
+        EffectFailure::OutcomeUnknown
+    })
 }
 impl RepeatableIo for Native {
     type Lease = File;
@@ -970,6 +1191,8 @@ impl RepeatableIo for Native {
             || intent["body"]["operation_receipt"] != p.prepared.receipt
             || checkpoint.records().iter().any(|r| {
                 r.value()["kind"] == "CheckpointReceipt"
+                    && r.value()["body"]["operation_receipt"]["operation_id"]
+                        == p.prepared.receipt["operation_id"]
                     && (stage != Some(6)
                         || self
                             .completion
@@ -1248,7 +1471,7 @@ fn run(mut io: Native, phase: &str) -> IoResult<()> {
             &original,
             &intent,
             &receipt,
-            attempt(&original, 1000),
+            io.attempt(&original, 1000),
             budget(),
         )
         .map_err(|_| invalid())?
@@ -1326,8 +1549,15 @@ fn native_repeatable_phase() {
     let scope = Scope::load().unwrap();
     let phase = std::env::var("PHOTARA_PS2_REPEATABLE_PHASE").unwrap();
     if phase == "prepare" {
-        prepare(&scope).unwrap();
+        prepare(&scope, false).unwrap();
+    } else if phase == "prepare-session" {
+        prepare(&scope, true).unwrap();
+    } else if phase == "session" {
+        session_host::run(Native::load(scope).unwrap()).unwrap();
     } else {
         run(Native::load(scope).unwrap(), &phase).unwrap();
     }
 }
+
+#[path = "native_session.rs"]
+mod session_host;

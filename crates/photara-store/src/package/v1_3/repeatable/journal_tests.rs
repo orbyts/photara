@@ -318,6 +318,37 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
     let j = Journal::read(&bytes, &h, limits()).unwrap();
     let checked = j.verify(&after2, &ctx2).unwrap();
     assert_eq!(checked.records().len(), 4);
+    // Invocation-local predecessor reuse preserves the exact chain depth bound.
+    let mut bounded = context(&observed2, &id, &reader);
+    bounded.max_originals = 1;
+    assert!(matches!(
+        j.verify(&after2, &bounded),
+        Err(crate::package::PackageError::Limit)
+    ));
+    bounded.max_originals = 2;
+    assert!(j.verify(&after2, &bounded).is_ok());
+    // A new verification must read current bytes again, never inherit the cache.
+    let mut changed = after2.clone();
+    changed.allocations.values_mut().next().unwrap().bytes[16] ^= 1;
+    assert!(j.verify(&changed, &ctx2).is_err());
+
+    // Checkpoint-only history advances the inherited PS3 coordinate without
+    // inventing local Mutation ownership or resetting to the header base.
+    let local = checked
+        .verify_session(&original, &attempt(&original, 1000).planner, budget())
+        .unwrap();
+    assert_eq!(local.coordinate(), intent2["expected"]);
+    assert!(local.through().is_none() && local.accepted_frame().is_none());
+    let owner = json!({"attachment_id":uid(93000),"attachment_generation":"1","principal":receipt["provenance"]["principal"]});
+    let barrier = local
+        .prepare_barrier(&owner, "flush", record(93001), limits())
+        .unwrap();
+    assert_eq!(
+        barrier.record().value()["body"]["target"],
+        local.coordinate()
+    );
+    assert!(barrier.record().value()["body"]["through"].is_null());
+
     assert!(
         checked
             .prepare_receipt(&p, record(92_001).record_id, record(92_002), limits())

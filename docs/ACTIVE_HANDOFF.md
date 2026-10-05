@@ -34,6 +34,25 @@ General real-library storage admission remains disabled; this scoped result is
 not a production release gate. LL1 remains parallel and cannot bypass PS3/PS4 or
 authorize LL2 production mutation.
 
+The shared PS3 implementation and native disposable autosave lab now pass:
+32 affected Rust tests, strict Clippy, Swift projection/pipe checks, consecutive
+edits, original retry, restart undo/redo, process interruption after Accepted,
+clean remount, and actual native edit → close while saving → reopen at exact
+Saved revision 10. All 50 frozen source/output hashes remain unchanged.
+[Evidence and the next review scope](architecture/PROJECT_SESSION_DURABILITY.md#ps3-disposable-implementation-and-next-review--2026-10-05).
+
+The successful private image `/private/tmp/photara-ps2-remount-cuc4usia` is cleanly
+detached and retained. An earlier allocation-overrun attempt remains preserved in
+`/private/tmp/photara-ps2-remount-n5522myf`. The correction registers measured
+preallocated tips before the first admission, preserving existing high-water
+semantics; no failed attempt was enlarged. These are fixture bounds.
+
+**Next boundary: separately reviewed production session wiring.** The concrete
+scope is in the session document: shared app/CLI lifecycle integration restricted
+to controlled disposable projects, with real-library writes still disabled.
+Do not call full PS3 complete or begin PS4/LL2a acceptance yet. Do not repeat the
+approved journal-format review or unchanged passing suites.
+
 ### Execution priority — 2026-09-29
 
 Reach PS2 → PS3 → PS4 → LL2a with minimum token use. Reuse committed evidence;
@@ -64,8 +83,8 @@ gap exposed by implementation.
 The approval does not authorize real-library writes, migration, deletion,
 deployment, automatic conversion, expiry, new product limits or weaker durability.
 Fixture bounds remain distinct from production limits. Clean-remount permission
-does not authorize abrupt interruption. PS2 remains active until implementation
-and storage qualification are complete.
+does not authorize abrupt interruption. The conditional disposable qualification
+below permits PS3 lab work; general real-library admission remains gated.
 
 ### Concrete implementation boundary — 2026-10-03
 
@@ -83,7 +102,7 @@ allowance before its first admission; the old 131,072-byte specimen correctly
 refuses the second operation's 151,552-byte coexistence requirement. This is not a
 production default or an automatic increase. Old corpus files/codecs remain unchanged.
 
-This is a bounded shared implementation, not PS2 exit or production enablement.
+This is a bounded shared implementation, not general production enablement.
 The repeatable mutation planner currently supports framed JSON Graph packages;
 whole-Blob mutation, newborn/retirement execution and pending-origin operation
 authority are not supplied by this path. Imported/unsupported variants must refuse
@@ -151,8 +170,9 @@ The [exact checkpoint-journal subset proposal](architecture/PROJECT_SESSION_DURA
 specifies the exact framing and two record bodies; the user approved both it and
 the conditional macOS profile direction on 2026-10-03 for implementation and
 disposable validation. Preserve nested AcceptedFrameV1 and original bindings.
-Remaining PS3 record kinds, production limits, rotation/compaction/expiry,
-automatic conversion and real-library enablement are not approved. Managed or
+The four bounded PS3 record kinds were subsequently approved on 2026-10-05.
+Production limits, rotation/compaction/expiry, automatic conversion and
+real-library enablement remain unapproved. Managed or
 unknown provider storage stays read-only. No weaker barriers or acknowledgements,
 APFS-only qualification, abrupt-power or hardware-fault experiments are authorized.
 Do not ask again for these approved format/profile decisions; finish the actual
@@ -402,8 +422,9 @@ These are disposable proofs and review documents, not production deletion.
   relocation are integrated with bounded useful fixed-budget reclamation;
   arbitrary-scale maintenance, qualified local binding and production admission
   remain unproven.
-- No shared Rust production session coordinator, writer queue or native
-  autosave status/recovery path (PS3).
+- Shared Rust session/undo/barrier code exists behind private admission. Native
+  disposable autosave acceptance passes; separately reviewed production session
+  wiring remains open (PS3).
 - No safe real project browse/reopen/switch flow on that durability boundary
   (PS4).
 - No production Library create/select/rename wiring or signed cross-Library
@@ -450,9 +471,11 @@ later gate before Layout becomes the first product node.
 
 ## Prohibited claims and actions
 
-- Do not call disposable fixture implementations production, a qualified
-  storage profile, or a user-visible `Saved` guarantee. Only the exact reviewed
-  wire variants have the narrow permanent-format approval recorded above.
+- Do not call disposable fixture implementations production or extend their
+  conditional storage qualification beyond the exact configuration and failure
+  model recorded above. Disposable `Saved` requires that qualified evidence;
+  it does not enable real-library writes. Preserve each recorded wire approval's
+  exact scope.
 - Do not patch Swift `Browse Projects`/`closeProject()` into apparent safe
   switching before the Rust session/durability boundary.
 - Do not perform live package writes/conversion, numbered migration, production

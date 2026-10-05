@@ -234,8 +234,35 @@ There is no weaker fallback and no power-loss claim.
 
 This closes the **configuration-scoped disposable storage qualification** for
 the approved checkpoint implementation. It supports progression toward disposable
-PS3 autosave after the separately unapproved mutation/undo journal amendment.
+PS3 autosave under the mutation/undo journal amendment subsequently approved on 2026-10-05.
 It does not qualify arbitrary APFS paths or enable production Accepted/Saved
 constructors, real-library writes or deployment. The native harness's general
 `qualified`/`saved_claim` flags remain false for that reason. The remaining real-path
 provider, authorization and local-root registrar work stays gated from enablement.
+
+## PS3 disposable sequence and prepaid allocation profile — 2026-10-05
+
+The longer PS3 workload exposed a concrete APFS allocation overrun: a pack
+reported 2,162,688 allocated bytes against 1,310,720 admitted bytes. The adapter
+froze and retained the original attempt/hold in detached image
+`/private/tmp/photara-ps2-remount-n5522myf`; its budget was not enlarged.
+
+A fresh instance of the same fixture explicitly registered 4,194,304 standing
+bytes and requested 4,194,304 bytes of native preallocation for each of seven
+growable tips **before initial HEAD/admission**. F_PREALLOCATE ALL/PERSIST leaves
+logical EOF unchanged; native barriers and measured st_blocks establish existing
+charged high-water fields. The native-only ceiling derives from the immutable
+initial ledger plus the existing 4,096-byte cleanup liability, is committed by
+the first original and checked on reopen. Later planned ends must fit that prepaid
+corridor; actual overruns still refuse. These values are fixture registration,
+not production limits, automatic expansion or physical free-space guarantees.
+
+The successful image `/private/tmp/photara-ps2-remount-cuc4usia` passed consecutive
+edits, undo/redo, exact retry, child-process interruption/recovery, clean remount,
+and actual UI autosave/close/reopen at Saved revision 10. It is cleanly detached
+at generation 2, with all files/logs retained. Final journal logical/allocated
+sizes were 313,402/335,872 bytes; seven tips each measured 4,194,304 allocated
+bytes. [Evidence](verification/ps3-disposable-session.json) captures file hashes,
+allocation observations and exact local logs. The prior same-device/full-sync,
+identity/provider checks and conditional failure model remain required. No weaker
+barrier fallback, arbitrary APFS qualification or power-loss claim follows.

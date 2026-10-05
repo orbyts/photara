@@ -826,5 +826,10 @@ fn native_evidence_charge_stays_inside_original_standing_allowance() {
     );
 }
 
+#[path = "journal_ps3_tests.rs"]
+mod journal_ps3_tests;
 #[path = "journal_tests.rs"]
 mod journal_tests;
+
+#[path = "session_tests.rs"]
+mod session_tests;

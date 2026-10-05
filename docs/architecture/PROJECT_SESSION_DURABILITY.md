@@ -584,6 +584,51 @@ old readers continue to refuse them, and portable single/null intent/receipt
 meaning and golden bytes remain unchanged. Gesture grouping requires a later
 explicit additive codec/dispatch proposal; it is not hidden in this amendment.
 
+### PS3 disposable implementation and next review — 2026-10-05
+
+The approved four-kind amendment is implemented. Core derives and validates
+patches; restart preserves original receipts, owner-scoped single-operation
+undo/redo and finite checkpoint coverage. Unsupported inverses refuse.
+Conflict-preserved records decode structurally but cannot be appended as semantic
+evidence without independent host proof; the host freezes and preserves instead.
+The old checkpoint vector remains unchanged. New six-record vector:
+`75b9ccd52e7adcc4599c1abdd9879fae46e094ce4a71ed404ee4d490285443ef`.
+
+[Machine evidence](verification/ps3-disposable-session.json) records 32 passing
+Rust tests (the native opt-in run separately), strict Clippy, Swift 6 build and
+projection/short-pipe checks, and all 50 unchanged frozen hashes. The private
+native sequence passed two edits, undo/redo, exact original retry, changed-request
+refusal, process interruption after Accepted, restart/checkpoint and clean remount.
+Actual native UI then saved a move from x=61 to x=77, kept Close pending through
+the acknowledgement/checkpoint, and reopened **Saved revision 10, x=77, y=14**.
+A second normal close exited 0. Both test images and logs are retained/detached.
+Clean remount and child-process interruption are not power-loss proof.
+
+The lab is a separate ad-hoc app with a private cfg(test) Rust child. It introduces
+no real-library registrar or production write route. Reopen the retained test on
+this Mac from the repository root with:
+
+```bash
+python3 platform/macos/photara-graph-lab/run-disposable-autosave.py \
+  --controller /private/tmp/photara-repeatable-controller.py \
+  --controller-sha256 c7e2433d7a3f4dcfc8f84e5c14fcdff3ddb2b334fe681d32ea5aad837118cdda \
+  --resume /private/tmp/photara-ps2-remount-cuc4usia
+```
+
+**Next approval requested: PS3 production session wiring, restricted to disposable
+admission.** Implement the shared app and CLI/headless session integration,
+authority/lease checks, truthful native statuses, final flush and failure/recovery
+lifecycle using this reviewed contract. Exercise only explicitly controlled
+disposable projects; keep real-library/provider-managed/unknown storage read-only.
+Prepare the integrated disposable hands-on build and acceptance evidence before
+advancing to PS4. This authorizes no new record meanings, grouped gestures,
+retention policy, product limits, real-library writes, migration, conversion,
+deletion, deployment or Library/project switching. Any additional format or
+security decision remains a separate boundary. PS4 and LL2a retain their order.
+This is the existing PS0 requirement below: “synthetic multi-client/session lab
+first, then separately reviewed production session wiring.” Full PS3 acceptance
+is still pending that integration; the disposable lab result alone does not close it.
+
 ## Coordinator and native lifecycle
 
 A Rust per-package authority owns ordered mutation admission, journal, package

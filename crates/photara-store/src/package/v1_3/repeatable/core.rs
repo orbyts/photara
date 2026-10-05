@@ -172,7 +172,7 @@ pub(super) fn replay(
     })
 }
 
-fn original_closure(
+pub(super) fn original_closure(
     old: &OriginalPackage,
     proof: &OriginalProof,
     inputs: &PlannerInputs,

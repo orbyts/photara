@@ -403,6 +403,7 @@ pub fn restore_plan<I: AllocationInspection>(
 /// Validate a persisted checkpoint intent before its first selected package
 /// effect. This restores the original recipe, not a proof of current suffixes
 /// or publication; execution must independently validate those before effects.
+#[cfg(test)]
 pub(crate) fn restore_intent_plan<I: AllocationInspection>(
     current: &OriginalPackage,
     original: &Value,
@@ -410,28 +411,114 @@ pub(crate) fn restore_intent_plan<I: AllocationInspection>(
     receipt: &Value,
     context: &RestartContext<'_, I>,
 ) -> Result<RepeatablePlan, PackageError> {
-    check(context.directory.inode != 0 && context.registration.charge_unit > 0)?;
-    check(context.max_originals > 0)?;
+    IntentReplay::new(current, context).restore(original, intent, receipt)
+}
+
+/// One journal inspection only. A completed prefix can be reused as the next
+/// original only after exact byte equality; no proof crosses snapshot boundaries.
+/// Retain one predecessor, rather than every historical allocation copy.
+pub(crate) struct IntentReplay<'a, 'b, I> {
+    current: &'a OriginalPackage,
+    context: &'a RestartContext<'b, I>,
+    completed: Option<(VerifiedOriginal, BTreeSet<String>)>,
+    lineage: BTreeSet<String>,
+    pending: Option<String>,
+}
+impl<'a, 'b, I: AllocationInspection> IntentReplay<'a, 'b, I> {
+    pub(crate) fn new(current: &'a OriginalPackage, context: &'a RestartContext<'b, I>) -> Self {
+        Self {
+            current,
+            context,
+            completed: None,
+            lineage: BTreeSet::new(),
+            pending: None,
+        }
+    }
+    pub(crate) fn restore(
+        &mut self,
+        original: &Value,
+        intent: &Value,
+        receipt: &Value,
+    ) -> Result<RepeatablePlan, PackageError> {
+        let context = self.context;
+        check(context.directory.inode != 0 && context.registration.charge_unit > 0)?;
+        check(context.max_originals > 0)?;
+        check(
+            original["scope"]
+                == serde_json::json!({"profile":context.registration.profile,"incarnation":context.registration.incarnation.to_string(),"directory":{"device":context.directory.device.to_string(),"inode":context.directory.inode.to_string()}}),
+        )?;
+        let key = wire::hash(&wire::encode(original));
+        let old = recovery::reconstruct_original(self.current, original, context.planner)?;
+        let mut replay = Replayer {
+            context,
+            seen: BTreeSet::from([key.clone()]),
+        };
+        let plan = if let Some((verified, ancestry)) = &self.completed {
+            // A matching HEAD alone cannot authorize reuse of altered controls,
+            // witnesses or payloads. Reconstruction checks actual current prefixes.
+            check(same_package(&old, verified.package()))?;
+            check(!ancestry.contains(&key))?;
+            if ancestry.len() >= context.max_originals {
+                return Err(PackageError::Limit);
+            }
+            replay.seen.extend(ancestry.iter().cloned());
+            recovery::recover(verified, original, intent, receipt, context.planner)?
+        } else {
+            let verified = replay.verified(old)?;
+            recovery::recover(&verified, original, intent, receipt, context.planner)?
+        };
+        self.lineage = replay.seen;
+        self.pending = Some(key);
+        Ok(plan)
+    }
+    pub(crate) fn complete(&mut self, plan: &RepeatablePlan) -> Result<(), PackageError> {
+        check(self.pending.as_ref() == Some(&wire::hash(&wire::encode(plan.original()))))?;
+        let verified = verify_completed_plan(self.current, plan, self.context)?;
+        self.completed = Some((verified, self.lineage.clone()));
+        self.pending = None;
+        Ok(())
+    }
+}
+fn same_package(a: &OriginalPackage, b: &OriginalPackage) -> bool {
+    a.manifest == b.manifest
+        && a.head == b.head
+        && a.commit == b.commit
+        && a.loose == b.loose
+        && a.allocations.len() == b.allocations.len()
+        && a.allocations
+            .iter()
+            .zip(&b.allocations)
+            .all(|((aid, a), (bid, b))| {
+                aid == bid && a.arena == b.arena && a.witness == b.witness && a.bytes == b.bytes
+            })
+}
+
+/// Private historical view for the session's authenticated journal header base.
+/// Actual current suffixes remain the executor's separate proof obligation.
+#[cfg(test)]
+pub(crate) fn verify_original_prefix<I: AllocationInspection>(
+    package: OriginalPackage,
+    context: &RestartContext<'_, I>,
+) -> Result<VerifiedOriginal, PackageError> {
     check(
-        original["scope"]
-            == serde_json::json!({"profile":context.registration.profile,"incarnation":context.registration.incarnation.to_string(),"directory":{"device":context.directory.device.to_string(),"inode":context.directory.inode.to_string()}}),
+        context.directory.inode != 0
+            && context.registration.charge_unit > 0
+            && context.max_originals > 0,
     )?;
-    let mut replay = Replayer {
+    Replayer {
         context,
-        seen: BTreeSet::from([wire::hash(&wire::encode(original))]),
-    };
-    let old = recovery::reconstruct_original(current, original, context.planner)?;
-    let verified = replay.verified(old)?;
-    recovery::recover(&verified, original, intent, receipt, context.planner)
+        seen: BTreeSet::new(),
+    }
+    .verified(package)
 }
 
 /// Verify a checkpoint receipt's completed historical closure using only actual
 /// retained prefixes. Later valid appends do not manufacture missing old bytes.
-pub(crate) fn verify_completed_plan<I: AllocationInspection>(
+fn verify_completed_plan<I: AllocationInspection>(
     current: &OriginalPackage,
     plan: &RepeatablePlan,
     context: &RestartContext<'_, I>,
-) -> Result<(), PackageError> {
+) -> Result<VerifiedOriginal, PackageError> {
     let stage = &plan.stages()[6];
     let mut package = plan.old.clone();
     package.head = stage.head.clone();
@@ -470,15 +557,15 @@ pub(crate) fn verify_completed_plan<I: AllocationInspection>(
         unit: context.registration.charge_unit,
         tip_charges,
     };
-    v1_3::reader::inspect_operation_package(
-        &package,
+    v1_3::reader::verify_operation_original(
+        package.clone(),
         identity(context.identity),
         &prefix,
         context.registration,
+        context.directory,
         context.frames,
         context.reader,
         plan,
         6,
     )
-    .map(|_| ())
 }

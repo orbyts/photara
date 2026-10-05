@@ -1,4 +1,4 @@
-//! Approved PHPSJ001 checkpoint subset. Byte validation and append preparation
+//! Approved PHPSJ001 checkpoints and PS3 local records. Append preparation
 //! never establish native durability or mint Accepted/Saved acknowledgements.
 use super::{OriginalPackage, RepeatablePlan, RestartContext, plan, restart, wire};
 use crate::package::v1_3::{AllocationInspection, selected, tree};
@@ -6,6 +6,10 @@ use crate::package::{JsonLimits, PackageError, PackageUuid, Sha256Hex, parse_can
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
+
+#[path = "journal_session.rs"]
+mod session;
+pub use session::VerifiedSession;
 
 const MAGIC: &[u8; 8] = b"PHPSJ001";
 #[derive(Clone, Copy)]
@@ -45,7 +49,8 @@ pub struct Journal {
     tail: JournalTail,
     verified_bytes: usize,
 }
-/// Shared-original-verified record set, not native permission or durability.
+/// Checkpoint-history-verified stream, not native permission or durability.
+/// Local Mutation/lifecycle evidence additionally requires `verify_session`.
 pub struct VerifiedJournal<'a> {
     journal: &'a Journal,
     plans: BTreeMap<String, RepeatablePlan>,
@@ -223,6 +228,9 @@ fn body(record: &Value, header: &Value) -> Result<(), PackageError> {
             digest(&body["original_sha256"])?;
             Ok(())
         }
+        Some("Mutation" | "UndoBoundary" | "SessionBarrier" | "RecoveryDecision") => {
+            session::shape(record, header)
+        }
         _ => Err(PackageError::UnsupportedVersion),
     }
 }
@@ -394,6 +402,8 @@ impl Journal {
     }
     /// Replays every supported original through shared Core/reader recovery and
     /// verifies completed checkpoint closures against actual historical prefixes.
+    /// Local records are framing/schema checked here; their authored replay and
+    /// lifecycle evidence require the returned proof's `verify_session`.
     /// # Errors
     /// Refuses unsupported originals, changed intent/receipt identities, false
     /// completed selectors, missing original bytes, or explicit recovery bounds.
@@ -408,6 +418,7 @@ impl Journal {
                 && self.header["bootstrap_sha256"] == context.identity.bootstrap_sha256.as_str()
                 && self.header["incarnation_id"] == context.registration.incarnation.to_string(),
         )?;
+        let mut replay = restart::IntentReplay::new(current, context);
         let mut plans = BTreeMap::new();
         let mut operations = BTreeSet::new();
         let mut receipts = BTreeSet::new();
@@ -423,12 +434,10 @@ impl Journal {
         for record in &self.records {
             let b = &record.value["body"];
             if record.value["kind"] == "CheckpointIntent" {
-                let p = restart::restore_intent_plan(
-                    current,
+                let p = replay.restore(
                     &b["original"],
                     &b["semantic_intent"],
                     &b["operation_receipt"],
-                    context,
                 )?;
                 if plans.is_empty() {
                     check(
@@ -452,7 +461,7 @@ impl Journal {
                         .to_owned(),
                     p,
                 );
-            } else {
+            } else if record.value["kind"] == "CheckpointReceipt" {
                 let target = b["intent_record_id"].as_str().ok_or(PackageError::Record)?;
                 let p = plans.get(target).ok_or(PackageError::Integrity)?;
                 let intent = self
@@ -465,7 +474,7 @@ impl Journal {
                         && receipts.insert(target.to_owned())
                         && *b == receipt_body(p, intent),
                 )?;
-                restart::verify_completed_plan(current, p, context)?;
+                replay.complete(p)?;
                 prior_head = p.stages[6].head.clone();
                 pending = None;
             }
@@ -503,6 +512,15 @@ impl VerifiedJournal<'_> {
         identity: JournalRecordIdentity,
         limits: JournalLimits,
     ) -> Result<JournalAppend, PackageError> {
+        check(!self.records().iter().any(|r| r.value["kind"] == "Mutation"))?;
+        self.prepare_intent_inner(p, identity, limits)
+    }
+    fn prepare_intent_inner(
+        &self,
+        p: &RepeatablePlan,
+        identity: JournalRecordIdentity,
+        limits: JournalLimits,
+    ) -> Result<JournalAppend, PackageError> {
         let b = intent_body(p);
         check(
             p.original["project_id"] == self.journal.header["project_id"]
@@ -514,7 +532,12 @@ impl VerifiedJournal<'_> {
                     == p.prepared.receipt["operation_id"]
         });
         if !existing {
-            if let Some(last) = self.records().last() {
+            if let Some(last) = self.records().iter().rev().find(|r| {
+                matches!(
+                    r.value["kind"].as_str(),
+                    Some("CheckpointIntent" | "CheckpointReceipt")
+                )
+            }) {
                 check(
                     last.value["kind"] == "CheckpointReceipt"
                         && p.old.head == last.value["body"]["selected_head"],
@@ -584,11 +607,13 @@ impl VerifiedJournal<'_> {
         id(&json!(record_id))?;
         for record in self.records() {
             let same_operation = record.value["kind"] == kind
-                && if kind == "CheckpointIntent" {
+                && if matches!(kind, "CheckpointIntent" | "Mutation") {
                     record.value["body"]["operation_receipt"]["operation_id"]
                         == b["operation_receipt"]["operation_id"]
-                } else {
+                } else if kind == "CheckpointReceipt" {
                     record.value["body"]["intent_record_id"] == b["intent_record_id"]
+                } else {
+                    false
                 };
             if record.value["record_id"] == record_id || same_operation {
                 check(
