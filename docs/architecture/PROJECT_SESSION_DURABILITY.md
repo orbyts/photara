@@ -481,15 +481,15 @@ It does not approve the remaining PS3 record kinds, production size/undo limits,
 retention changes, migrations, provider-unknown admission or real-library writes.
 
 
-### PS3 record-kind amendment — proposed, unapproved
+### PS3 record-kind amendment — approved 2026-10-05
 
-This is one proposed amendment for the four deferred kinds below; it is **not**
-covered by the checkpoint-subset approval. Keep `PHPSJ001`, its exact header,
+The user approved this exact bounded amendment on 2026-10-05 for implementation
+and disposable validation, separately from the checkpoint-subset approval. Keep `PHPSJ001`, its exact header,
 envelope/checksums, existing checkpoint bodies, intent/receipt encodings and all
 old golden bytes unchanged. Older decoders refuse these unsupported kinds. The
 new decoder must still refuse unknown kinds/versions/fields. This amendment adds
 no retention expiry, production size/undo limits, rotation, deletion, automatic
-conversion, real-library admission or cross-client undo authority. The proposed
+conversion, real-library admission or cross-client undo authority. The approved
 first disposable PS3 scope is **single-operation edits and durable single-operation
 undo**. Multi-transaction gesture grouping and its periodic gesture checkpoints
 remain deferred; do not expose those paths as implemented PS0 behavior.
@@ -510,7 +510,7 @@ from the verified base/prefix. No arbitrary JSON-pointer patch language is added
 earlier Mutation; its operation ID must equal that record's frozen intent/receipt.
 This is local undo evidence, not a portable receipt group or a new intent variant.
 
-| Kind | Exact proposed body |
+| Kind | Exact approved body |
 | --- | --- |
 | `Mutation` | `{semantic_intent:IntentV1,operation_receipt:ReceiptV1,accepted_frame:AcceptedFrameV1,owner:Owner,base_head:HeadV1,result:Coordinate,patch:Patch,action:Action,redo_invalidated:[Id]}`. `Action` is exactly `{kind:"edit"}` or `{kind:"undo",target:OperationTarget}` or `{kind:"redo",target:OperationTarget,undo:OperationTarget}`. The redo target is the original edit and undo names the exact intervening undo Mutation. `redo_invalidated` is the sorted unique set of this owner's previously redoable original operation IDs invalidated by this transaction. |
 | `UndoBoundary` | `{owner:Owner,target:OperationTarget,reason:"single-operation"}`. Confirms the already complete single-operation undo unit without changing authored state or joining operations. A durable single Mutation is undoable without this optional redundant marker; recovery never invents a group or requires appending a missing marker to recover that edit. |

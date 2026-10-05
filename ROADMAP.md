@@ -2,12 +2,12 @@
 
 ## Delivery path: cross-Library acceptance, then platform-ready vertical slice — 2026-09-17
 
-**Current position: PS2 disposable qualification passed; PS3 record review next.**
+**Current position: PS3 disposable autosave implementation.**
 PS0/BR0/PS1 are accepted. The shared reader/repeatable writer and approved PHPSJ001
 checkpoint subset pass consecutive-operation, persisted-restart and native
 clean-remount checks under the exact conditional disposable profile; see the
-[active handoff](docs/ACTIVE_HANDOFF.md). The PS3 mutation/undo journal amendment
-remains unapproved. General real-library admission and app autosave remain gated.
+[active handoff](docs/ACTIVE_HANDOFF.md). The bounded PS3 mutation/undo journal amendment
+was approved on 2026-10-05 for implementation and disposable validation. General real-library admission and app autosave remain gated.
 Move through the following bounded
 checkpoints, committing and fast-forward pushing verified slices to `main`
 periodically rather than carrying a long-lived dirty checkout. Preserve the

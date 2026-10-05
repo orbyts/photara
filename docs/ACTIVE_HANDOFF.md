@@ -11,7 +11,7 @@ experiment reports are reference material only.
   components now follow the narrow 2026-10-03 approval; production writes remain disabled.
 - The current `main` commit containing this file is the handoff publication;
   resolve it with `git rev-parse HEAD`. Remote synchronization was restored with
-  explicit user approval: verified history through `1fc5b67` was pushed normally
+  explicit user approval: verified history through `6290b74` was pushed normally
   to `github.com/orbyts/photara` on `origin/main`. Preserve that history; do not reset
   to the historical remote baseline or repeat the old access troubleshooting.
 - The working tree must be clean. Do not modify the unrelated dirty
@@ -27,9 +27,9 @@ The delivery path is:
 browse/reopen/switch → LL2a signed cross-Library acceptance.**
 
 The approved PS2 checkpoint implementation and **conditional disposable-image
-qualification** now pass. The next boundary for the disposable autosave route is
-the unapproved PS3 mutation/undo journal amendment in
-[Project session and durability](architecture/PROJECT_SESSION_DURABILITY.md#ps3-record-kind-amendment--proposed-unapproved).
+qualification** now pass. PS3 implementation is active: the user approved the bounded mutation/undo
+journal amendment on 2026-10-05 for implementation and disposable validation in
+[Project session and durability](architecture/PROJECT_SESSION_DURABILITY.md#ps3-record-kind-amendment--approved-2026-10-05).
 General real-library storage admission remains disabled; this scoped result is
 not a production release gate. LL1 remains parallel and cannot bypass PS3/PS4 or
 authorize LL2 production mutation.
@@ -128,10 +128,13 @@ not production limits or a promise of physical free-space reservation.
 All 28 library tests passed (one native opt-in invoked separately); strict Clippy,
 scoped Rustfmt and diff checks passed. The 50 frozen source/output hashes remain
 unchanged. Do not repeat this unchanged evidence.
-The immediate review is the PS3 record-kind amendment in the existing session
-document. It remains unapproved: no Mutation/undo/barrier/recovery kind, real
-library, migration, conversion, rotation/compaction/expiry or deployment is enabled.
-After that review, implement disposable PS3 autosave before PS4 and LL2a.
+The PS3 record-kind amendment in the existing session document was approved on
+2026-10-05: implement Mutation, single-operation undo/redo, finite SessionBarrier
+and evidence-only RecoveryDecision within its exact boundaries. Preserve old
+portable single/null grammar and golden bytes. No grouped gestures, real-library
+writes, migration, conversion, rotation/compaction/expiry or deployment follows.
+Implement disposable PS3 autosave before PS4 and LL2a; do not ask again for this
+record-kind approval.
 
 The native evidence accounting preflight now combines selected-control peak with
 all supplied retained/prospective journal/receipt allocations and explicit
