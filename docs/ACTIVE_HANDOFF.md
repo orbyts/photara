@@ -47,11 +47,14 @@ detached and retained. An earlier allocation-overrun attempt remains preserved i
 preallocated tips before the first admission, preserving existing high-water
 semantics; no failed attempt was enlarged. These are fixture bounds.
 
-**Next boundary: separately reviewed production session wiring.** The concrete
-scope is in the session document: shared app/CLI lifecycle integration restricted
-to controlled disposable projects, with real-library writes still disabled.
+**Approved 2026-10-07: production session wiring with disposable admission only.**
+The user approved the concrete scope in the session document: shared app/CLI
+lifecycle integration restricted to controlled disposable projects, with
+real-library writes still disabled. Proceed without repeating this approval.
 Do not call full PS3 complete or begin PS4/LL2a acceptance yet. Do not repeat the
 approved journal-format review or unchanged passing suites.
+Verified implementation commit `b39017f` is local; its prior SSH push failed.
+Normal origin/main push remains authorized.
 
 ### Execution priority — 2026-09-29
 

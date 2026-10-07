@@ -615,8 +615,8 @@ python3 platform/macos/photara-graph-lab/run-disposable-autosave.py \
   --resume /private/tmp/photara-ps2-remount-cuc4usia
 ```
 
-**Next approval requested: PS3 production session wiring, restricted to disposable
-admission.** Implement the shared app and CLI/headless session integration,
+**Approved 2026-10-07: PS3 production session wiring, restricted to disposable
+admission.** The user approved the following exact scope. Implement the shared app and CLI/headless session integration,
 authority/lease checks, truthful native statuses, final flush and failure/recovery
 lifecycle using this reviewed contract. Exercise only explicitly controlled
 disposable projects; keep real-library/provider-managed/unknown storage read-only.
@@ -628,6 +628,7 @@ security decision remains a separate boundary. PS4 and LL2a retain their order.
 This is the existing PS0 requirement below: “synthetic multi-client/session lab
 first, then separately reviewed production session wiring.” Full PS3 acceptance
 is still pending that integration; the disposable lab result alone does not close it.
+Do not ask again for this bounded integration approval.
 
 ## Coordinator and native lifecycle
 
