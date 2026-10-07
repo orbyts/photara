@@ -47,14 +47,28 @@ detached and retained. An earlier allocation-overrun attempt remains preserved i
 preallocated tips before the first admission, preserving existing high-water
 semantics; no failed attempt was enlarged. These are fixture bounds.
 
-**Approved 2026-10-07: production session wiring with disposable admission only.**
-The user approved the concrete scope in the session document: shared app/CLI
-lifecycle integration restricted to controlled disposable projects, with
-real-library writes still disabled. Proceed without repeating this approval.
-Do not call full PS3 complete or begin PS4/LL2a acceptance yet. Do not repeat the
-approved journal-format review or unchanged passing suites.
-Verified implementation commit `b39017f` is local; its prior SSH push failed.
-Normal origin/main push remains authorized.
+**PS3 controlled app/CLI integration verified — 2026-10-07.** The approved
+integration now uses the same Rust session/lease through UniFFI and a headless CLI,
+behind a default-off `controlled-disposable` feature. The native build branches
+before normal Library initialization and uses the existing Graph canvas. Position
+edit → pending Quit → checkpoint → reopen passed at **Saved revision 6,
+x=40,029, y=20,014**, independently through CLI and app. Competing writers and
+stale/missing bindings refuse; native failed-flush/quit cancellation tests pass.
+[Current integration evidence](architecture/verification/ps3-integrated-session.json).
+This closes the approved disposable integration scope, not general real-library
+admission or unsupported authoring commands.
+
+The latest image `/private/tmp/photara-ps2-remount-o812boh1` is detached and retained.
+The earlier `cuc4usia` image correctly refused a remount with a changed device
+number; all 40 package/evidence files were unchanged and no pin was rebound.
+Do not promise arbitrary remount/reboot identity continuity from this profile.
+
+**Next boundary: PS4 local activation format and disposable switching.** Review
+only the [concrete proposed mapping](architecture/PROJECT_SESSION_DURABILITY.md#ps4-local-activation-mapping--proposed-unapproved-2026-10-07),
+then implement after approval. No switching was performed. Keep LL2a afterward;
+LL1 create/rename and activation-authority mapping remain its later prerequisites.
+Do not repeat PS2/PS3 format approvals or unchanged passing suites. Normal
+origin/main push remains authorized; prior SSH attempts timed out.
 
 ### Execution priority — 2026-09-29
 
@@ -426,8 +440,8 @@ These are disposable proofs and review documents, not production deletion.
   arbitrary-scale maintenance, qualified local binding and production admission
   remain unproven.
 - Shared Rust session/undo/barrier code exists behind private admission. Native
-  disposable autosave acceptance passes; separately reviewed production session
-  wiring remains open (PS3).
+  disposable autosave and approved controlled app/CLI integration pass (PS3);
+  general real-library admission remains disabled.
 - No safe real project browse/reopen/switch flow on that durability boundary
   (PS4).
 - No production Library create/select/rename wiring or signed cross-Library

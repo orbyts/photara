@@ -403,7 +403,7 @@ pub fn restore_plan<I: AllocationInspection>(
 /// Validate a persisted checkpoint intent before its first selected package
 /// effect. This restores the original recipe, not a proof of current suffixes
 /// or publication; execution must independently validate those before effects.
-#[cfg(test)]
+#[cfg(any(test, feature = "controlled-disposable"))]
 pub(crate) fn restore_intent_plan<I: AllocationInspection>(
     current: &OriginalPackage,
     original: &Value,
@@ -495,7 +495,7 @@ fn same_package(a: &OriginalPackage, b: &OriginalPackage) -> bool {
 
 /// Private historical view for the session's authenticated journal header base.
 /// Actual current suffixes remain the executor's separate proof obligation.
-#[cfg(test)]
+#[cfg(any(test, feature = "controlled-disposable"))]
 pub(crate) fn verify_original_prefix<I: AllocationInspection>(
     package: OriginalPackage,
     context: &RestartContext<'_, I>,

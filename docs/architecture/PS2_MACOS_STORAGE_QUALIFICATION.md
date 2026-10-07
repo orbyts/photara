@@ -266,3 +266,19 @@ bytes. [Evidence](verification/ps3-disposable-session.json) captures file hashes
 allocation observations and exact local logs. The prior same-device/full-sync,
 identity/provider checks and conditional failure model remain required. No weaker
 barrier fallback, arbitrary APFS qualification or power-loss claim follows.
+
+## Controlled app/CLI qualification scope — 2026-10-07
+
+The default-off controlled entry reuses the qualified native checks/barriers and
+only opens pre-provisioned owned images. CLI and native Graph autosave acceptance
+passed on `/private/tmp/photara-ps2-remount-o812boh1`, generation 1, with the same
+explicit prepaid fixture registration; it is detached and retained. See the
+[integration evidence](verification/ps3-integrated-session.json).
+
+The older `cuc4usia` image remounted with device 16777244 instead of registered
+16777242. It correctly refused before session effects, preserving all 40 file
+hashes. This is a material scope limit: this profile does not establish identity
+continuity across arbitrary remounts/reboots, and no automatic physical-pin rebind
+is approved. Its generation-3 mount was cleanly detached without conversion.
+The fresh instance tests integration without rewriting that old registration.
+General APFS/provider-managed/unknown storage remains unqualified for writes.

@@ -67,10 +67,10 @@ pub enum AdmissionFailure {
 }
 
 /// Opaque, non-cloneable registered per-package admission plus the held OS lease.
-/// No production constructor exists: a future trusted registrar must establish
-/// host authorization, package registration, storage qualification, safe pins and
-/// lock ownership before minting this evidence. A path, profile, or raw lock cannot
-/// grant it. Synthetic unit tests alone can construct it in this slice.
+/// No general production constructor exists. The default-off controlled-disposable
+/// registrar independently checks controller scope, package registration, safe pins
+/// and lock ownership before minting this evidence. A path, profile, or raw lock
+/// cannot grant it; real-library admission remains unavailable.
 ///
 /// ```compile_fail
 /// use photara_store::package::planning::io::RegisteredCooperativeLease;
@@ -281,6 +281,35 @@ pub(crate) fn test_lease<L>(
             owner_epoch: OwnerEpoch::parse("10000000-0000-4000-8000-000000000002")
                 .expect("test UUID"),
             protocol_digest: super::super::digest(b"repeatable test protocol"),
+        },
+    }
+}
+
+/// Controlled disposable admission only. The unforgeable registrar token is
+/// minted after controller/image/profile checks; caller retains the flock.
+#[cfg(all(target_os = "macos", any(test, feature = "controlled-disposable")))]
+pub(crate) fn disposable_lease<L>(
+    platform_lease: L,
+    permit: &crate::package::v1_3::repeatable::disposable::DisposablePermit,
+    manifest: &[u8],
+    head: &[u8],
+    incarnation: super::IncarnationId,
+    revision: super::super::DecimalU64,
+) -> RegisteredCooperativeLease<L> {
+    RegisteredCooperativeLease {
+        platform_lease,
+        binding: AdmissionExpectation {
+            head: HeadToken {
+                incarnation,
+                manifest: manifest.into(),
+                head: head.into(),
+                manifest_digest: super::super::digest(manifest),
+                head_digest: super::super::digest(head),
+                revision,
+            },
+            volume_identity: permit.volume(),
+            owner_epoch: permit.epoch(),
+            protocol_digest: super::super::digest(b"photara controlled disposable PS3 session"),
         },
     }
 }

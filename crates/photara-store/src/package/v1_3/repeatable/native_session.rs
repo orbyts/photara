@@ -1,11 +1,18 @@
 //! Private stdio adapter for the explicitly controlled disposable-image lab.
 //! No production lease constructor, public filesystem path, or network service.
-use super::super::session::{
+use super::{
+    BTreeMap, CHECKPOINT, EffectFailure, IoResult, Native, NativeLease, PlannerInputs,
+    RepeatablePlan, RestartContext, Value, VerifiedOriginal, attempt, barrier, budget, canonical,
+    execute, frames, hash, identity, invalid, journal, json, number, package, plan, read,
+    record_identity, recovery, reference, regular, request, restart, restore_plan, snapshot,
+    support, uncertain, v1_3,
+};
+use crate::package::v1_3::repeatable::session::{
     AcceptedCoordinate, Session, SessionBinding, SessionError, SessionFailure, SessionIo,
     SessionSnapshot,
 };
-use super::*;
-use std::io::BufRead;
+#[cfg(test)]
+use std::io::{BufRead, Read, Write};
 
 #[track_caller]
 fn session_error(error: impl std::fmt::Debug) -> SessionError {
@@ -295,7 +302,7 @@ impl SessionIo for Host {
             &original,
             intent,
             receipt,
-            self.io.attempt(&original, n),
+            self.io.attempt(&original, n).map_err(session_error)?,
             budget(),
         )
         .map_err(session_error)?;
@@ -433,70 +440,73 @@ fn matches_request(req: &Value, intent: &Value, action: &Value) -> bool {
         _ => false,
     }
 }
-// Requests are private lab messages, not a package codec. One line is bounded by
-// the existing 1 MiB fixture control limit; no network listener is created.
-#[expect(
-    clippy::too_many_lines,
-    reason = "Private bounded stdio dispatch and projection kept together"
-)]
-pub(super) fn run(io: Native) -> IoResult<()> {
-    if !io.session_mode {
-        return Err(invalid());
-    }
-    let current = io.current()?;
-    let lease = io.lease(&current)?;
-    let registration: Value =
-        serde_json::from_slice(&read(&io.scope.scratch, "repeatable-registration.json")?)
-            .map_err(|_| invalid())?;
-    let binding = SessionBinding {
-        project_id: package::PackageUuid::parse(
-            io.journal_header["project_id"]
-                .as_str()
-                .ok_or_else(invalid)?,
-        )
-        .map_err(|_| invalid())?,
-        incarnation_id: package::PackageUuid::parse(
-            io.journal_header["incarnation_id"]
-                .as_str()
-                .ok_or_else(invalid)?,
-        )
-        .map_err(|_| invalid())?,
-        owner_epoch: package::PackageUuid::parse(&uuid::Uuid::new_v4().to_string())
-            .map_err(|_| invalid())?,
-        owner: json!({"attachment_id":io.journal_header["stream_id"],"attachment_generation":registration["generation"].as_u64().ok_or_else(invalid)?.to_string(),"principal":request().1["provenance"]["principal"]}),
-    };
-    let mut host = Host {
-        io,
-        lease,
-        binding: binding.clone(),
-        seed: None,
-    };
-    let base = host.header_original()?;
-    host.seed = Some(attempt(&base, 1000).planner);
-    let seed = host.seed.clone().expect("initialized header seed");
-    let header = host.io.journal_header.clone();
-    let limits = host.io.journal_bounds();
-    let generation = host.io.scope.generation;
-    let mut s = Session::open(host, base, seed, budget(), limits, header, binding)
-        .map_err(|e| std::io::Error::other(format!("session open {e:?}")))?;
-    let mut requests: BTreeMap<String, (Value, Value, Value, journal::JournalRecordIdentity)> =
-        BTreeMap::new();
-    let stdin = std::io::stdin();
-    let mut input = stdin.lock();
-    let start = std::time::Instant::now();
-    loop {
-        let mut bytes = Vec::new();
-        let count = input
-            .by_ref()
-            .take(1_048_577)
-            .read_until(b'\n', &mut bytes)?;
-        if count == 0 {
-            break;
-        }
-        if bytes.len() > 1_048_576 || !bytes.ends_with(b"\n") {
+/// The app, CLI and historical test host share this exact coordinator/adapter.
+pub(in crate::package::v1_3::repeatable::disposable) struct OpenSession {
+    session: Session<Host>,
+    requests: BTreeMap<String, (Value, Value, Value, journal::JournalRecordIdentity)>,
+    generation: u64,
+    start: std::time::Instant,
+}
+impl OpenSession {
+    pub(super) fn open(io: Native) -> IoResult<Self> {
+        if !io.session_mode {
             return Err(invalid());
         }
-        let req: Value = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
+        let current = io.current()?;
+        let lease = io.lease(&current)?;
+        let registration: Value =
+            serde_json::from_slice(&read(&io.scope.scratch, "repeatable-registration.json")?)
+                .map_err(|_| invalid())?;
+        let binding = SessionBinding {
+            project_id: package::PackageUuid::parse(
+                io.journal_header["project_id"]
+                    .as_str()
+                    .ok_or_else(invalid)?,
+            )
+            .map_err(|_| invalid())?,
+            incarnation_id: package::PackageUuid::parse(
+                io.journal_header["incarnation_id"]
+                    .as_str()
+                    .ok_or_else(invalid)?,
+            )
+            .map_err(|_| invalid())?,
+            owner_epoch: package::PackageUuid::parse(&uuid::Uuid::new_v4().to_string())
+                .map_err(|_| invalid())?,
+            owner: json!({"attachment_id":io.journal_header["stream_id"],"attachment_generation":registration["generation"].as_u64().ok_or_else(invalid)?.to_string(),"principal":request().1["provenance"]["principal"]}),
+        };
+        let mut host = Host {
+            io,
+            lease,
+            binding: binding.clone(),
+            seed: None,
+        };
+        let base = host.header_original()?;
+        host.seed = Some(attempt(&base, 1000)?.planner);
+        let seed = host.seed.clone().expect("initialized header seed");
+        let header = host.io.journal_header.clone();
+        let limits = host.io.journal_bounds();
+        let generation = host.io.scope.generation;
+        let s = Session::open(host, base, seed, budget(), limits, header, binding)
+            .map_err(|e| std::io::Error::other(format!("session open {e:?}")))?;
+        Ok(Self {
+            session: s,
+            requests: BTreeMap::new(),
+            generation,
+            start: std::time::Instant::now(),
+        })
+    }
+    #[expect(
+        clippy::too_many_lines,
+        reason = "One serialized request path shared by controlled app and CLI"
+    )]
+    pub(in crate::package::v1_3::repeatable::disposable) fn execute(
+        &mut self,
+        req: &Value,
+    ) -> Value {
+        let s = &mut self.session;
+        let requests = &mut self.requests;
+        let generation = self.generation;
+        let start = self.start;
         let mut ack = Value::Null;
         let mut response = (|| -> Result<(), SessionError> {
             let id = req["id"].as_str().ok_or(SessionError::InvalidRequest)?;
@@ -505,6 +515,16 @@ pub(super) fn run(io: Native) -> IoResult<()> {
             let command = req["command"]
                 .as_str()
                 .ok_or(SessionError::InvalidRequest)?;
+            if command != "snapshot"
+                && (req["expected_owner_epoch"] != s.snapshot().binding.owner_epoch.to_string()
+                    || req["expected_attachment_generation"]
+                        .as_u64()
+                        .map(|n| n.to_string())
+                        .as_deref()
+                        != s.snapshot().binding.owner["attachment_generation"].as_str())
+            {
+                return Err(SessionError::InvalidRequest);
+            }
             let prior_request = s
                 .io_mut()
                 .prior(id)
@@ -512,15 +532,20 @@ pub(super) fn run(io: Native) -> IoResult<()> {
                 .or_else(|| requests.get(id).cloned());
             if prior_request
                 .as_ref()
-                .is_some_and(|(intent, _, action, _)| !matches_request(&req, intent, action))
+                .is_some_and(|(intent, _, action, _)| !matches_request(req, intent, action))
             {
+                return Err(SessionError::InvalidRequest);
+            }
+            if s.snapshot().closed {
                 return Err(SessionError::InvalidRequest);
             }
             if s.snapshot().frozen {
                 s.retry()?;
             }
             match command {
-                "snapshot" => {}
+                "snapshot" | "revalidate" => {
+                    s.retry()?;
+                }
                 "submit" | "undo" | "redo" => {
                     let prior = s.io_mut().prior(id).map_err(session_error)?;
                     let (intent, receipt, action, record) = if let Some(v) =
@@ -555,7 +580,7 @@ pub(super) fn run(io: Native) -> IoResult<()> {
                         )?;
                         (intent, receipt, action, identity_new(generation))
                     };
-                    if !matches_request(&req, &intent, &action) {
+                    if !matches_request(req, &intent, &action) {
                         return Err(SessionError::InvalidRequest);
                     }
                     requests.insert(
@@ -583,19 +608,54 @@ pub(super) fn run(io: Native) -> IoResult<()> {
             }
             Ok(())
         })();
-        let displayed = if let Ok(value) = result(&s) {
+        let displayed = if s.snapshot().closed && response.is_ok() {
+            // Close already has a fully verified final snapshot. No extra graph
+            // inspection after the coordinator commits its closed state.
+            Value::Null
+        } else if let Ok(value) = result(s) {
             value
         } else {
             response = Err(s.freeze(SessionFailure::Journal));
             Value::Null
         };
         let output = json!({"id":req["id"],"snapshot":projection(s.snapshot()),"result":displayed,"error":response.err().map(|e|format!("{e:?}")),"acknowledgement":ack});
+        output
+    }
+}
+#[cfg(test)]
+pub(super) fn run(io: Native) -> IoResult<()> {
+    let mut session = OpenSession::open(io)?;
+    let stdin = std::io::stdin();
+    let mut input = stdin.lock();
+    loop {
+        let mut bytes = Vec::new();
+        let count = input
+            .by_ref()
+            .take(1_048_577)
+            .read_until(b'\n', &mut bytes)?;
+        if count == 0 {
+            break;
+        }
+        if bytes.len() > 1_048_576 || !bytes.ends_with(b"\n") {
+            return Err(invalid());
+        }
+        let mut req: Value = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
+        req["expected_owner_epoch"] =
+            json!(session.session.snapshot().binding.owner_epoch.to_string());
+        req["expected_attachment_generation"] = json!(
+            session.session.snapshot().binding.owner["attachment_generation"]
+                .as_str()
+                .ok_or_else(invalid)?
+                .parse::<u64>()
+                .map_err(|_| invalid())?
+        );
+        let output = session.execute(&req);
         println!(
             "\nPHOTARA_PS3 {}",
             serde_json::to_string(&output).map_err(|_| invalid())?
         );
         std::io::stdout().flush()?;
-        if s.snapshot().closed {
+        if output["snapshot"]["closed"] == true {
             break;
         }
     }

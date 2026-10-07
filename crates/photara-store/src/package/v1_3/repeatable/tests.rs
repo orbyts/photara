@@ -746,8 +746,13 @@ fn selector_outcome_unknown_reopens_the_exact_candidate_before_success() {
 }
 
 #[cfg(target_os = "macos")]
-#[path = "native_test.rs"]
-mod native_test;
+mod native_test {
+    #[test]
+    #[ignore = "explicit owned APFS manifest/binding only; no image or mount commands"]
+    fn native_repeatable_phase() {
+        super::super::disposable::run_test();
+    }
+}
 
 #[test]
 fn native_evidence_charge_stays_inside_original_standing_allowance() {

@@ -1,3 +1,14 @@
+#if CONTROLLED_DISPOSABLE
+import SwiftUI
+
+/// Explicit feature build: never instantiate the legacy library/application model.
+@main
+struct PhotaraMacApp: App {
+    @NSApplicationDelegateAdaptor(ControlledSessionApplicationDelegate.self) private var delegate
+    @StateObject private var model = makeControlledDisposableModel()
+    var body: some Scene { ControlledDisposableScene(delegate: delegate, model: model) }
+}
+#else
 import SwiftUI
 
 @main
@@ -102,3 +113,5 @@ private struct ThemedEditorRoot: View {
             }
     }
 }
+
+#endif

@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Opt-in composition component; no default app route or simulated Saved state.
-/// The private Rust-session process adapter owns the projection and retry closure.
+/// Controlled-session presentation; no simulated Saved state.
+/// The shared adapter owns the projection and exact retained-request retry.
 struct DisposableAutosaveStatusView: View {
     let projection: DisposableAutosaveProjection
     let retry: () -> Void

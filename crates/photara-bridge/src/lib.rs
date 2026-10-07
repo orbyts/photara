@@ -57,3 +57,8 @@ mod tests {
         assert_eq!(info.product_codename, "Photara");
     }
 }
+
+#[cfg(all(target_os = "macos", feature = "controlled-disposable"))]
+mod controlled_session;
+#[cfg(all(target_os = "macos", feature = "controlled-disposable"))]
+pub use controlled_session::*;

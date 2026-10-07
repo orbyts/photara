@@ -44,6 +44,8 @@ def main():
     parser.add_argument("--controller-sha256", required=True)
     parser.add_argument("--host-binary", type=Path)
     parser.add_argument("--build-only", action="store_true")
+    parser.add_argument("--integrated-app", action="store_true",
+                        help="build/run the controlled UniFFI app entry; Rust test host only prepares fresh registration")
     parser.add_argument("--standing-bytes", type=int,
                         help="fresh disposable registration only; positive 4096-aligned bytes (lab example: 4194304)")
     parser.add_argument("--pack-reserve-bytes", type=int,
@@ -101,13 +103,27 @@ def main():
     if args.pack_reserve_bytes is not None:
         environment["PHOTARA_PS3_PACK_RESERVE_BYTES"] = str(args.pack_reserve_bytes)
     environment["PHOTARA_PS3_LAB_BUILD"] = str(build / "app")
-    command(["zsh", str(HERE / "build-disposable-autosave.sh")], "app-build.log", environment)
-    executable = build / "app/Disposable Autosave.app/Contents/MacOS/DisposableAutosave"
+    if args.integrated_app:
+        environment["PHOTARA_APP_BUILD_ROOT"] = str(build / "integrated-app")
+        app_log = command(["zsh", str(HERE.parent / "photara-app/build-controlled-disposable.sh")],
+                          "app-build.log", environment)
+        app_bundle = Path(app_log.read_text().splitlines()[-1])
+        if not app_bundle.is_relative_to(build / "integrated-app") or app_bundle.suffix != ".app":
+            raise RuntimeError("Unexpected controlled app build output")
+        name = subprocess.check_output(["plutil", "-extract", "CFBundleExecutable", "raw",
+                                        str(app_bundle / "Contents/Info.plist")], text=True).strip()
+        if not name or "/" in name:
+            raise RuntimeError("Unexpected controlled executable name")
+        executable = app_bundle / "Contents/MacOS" / name
+    else:
+        command(["zsh", str(HERE / "build-disposable-autosave.sh")], "app-build.log", environment)
+        executable = build / "app/Disposable Autosave.app/Contents/MacOS/DisposableAutosave"
     regular(executable)
     print(json.dumps({"build": str(build), "host": str(host), "host_sha256": host_sha,
                       "controller_sha256": args.controller_sha256,
                       "fresh_standing_bytes": args.standing_bytes,
-                      "fresh_pack_reserve_bytes": args.pack_reserve_bytes, "installed": False}), flush=True)
+                      "fresh_pack_reserve_bytes": args.pack_reserve_bytes,
+                      "integrated_app": args.integrated_app, "installed": False}), flush=True)
     if args.build_only:
         return
 

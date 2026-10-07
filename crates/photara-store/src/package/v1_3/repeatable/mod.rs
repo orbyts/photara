@@ -89,3 +89,6 @@ pub use evidence_charge::{
 
 pub mod journal;
 pub mod session;
+
+#[cfg(all(target_os = "macos", any(test, feature = "controlled-disposable")))]
+pub mod disposable;

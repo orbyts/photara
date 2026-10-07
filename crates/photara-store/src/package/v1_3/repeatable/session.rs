@@ -1,10 +1,10 @@
 //! Serialized one-project disposable session. The private adapter is the native
 //! authority boundary; journal metadata and these DTOs never grant real-path IO.
 #![cfg_attr(
-    not(test),
+    not(any(test, feature = "controlled-disposable")),
     allow(
         dead_code,
-        reason = "PS0 requires separate production wiring review; only the private disposable host constructs sessions"
+        reason = "Only explicitly enabled controlled-disposable adapters construct sessions; real-library admission remains unavailable"
     )
 )]
 use super::{
@@ -459,6 +459,7 @@ impl<I: SessionIo> Session<I> {
     }
     /// Existing PS0 tuning only; no persisted deadline or durability guarantee.
     #[must_use]
+    #[cfg(test)]
     pub(crate) fn autosave_due(&self, now_ms: u64) -> bool {
         !self.snapshot.frozen
             && !self.snapshot.closed
@@ -499,7 +500,7 @@ impl<I: SessionIo> Session<I> {
             })
         })
     }
-    #[cfg(test)]
+    #[cfg(any(test, feature = "controlled-disposable"))]
     pub(crate) fn io_mut(&mut self) -> &mut I {
         &mut self.io
     }

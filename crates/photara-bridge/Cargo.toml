@@ -11,6 +11,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [features]
 bindgen = ["uniffi/cli"]
+controlled-disposable = ["photara-store/controlled-disposable"]
 
 [dependencies]
 tokio = { version = "1", features = ["rt", "time", "net"] }
@@ -36,3 +37,8 @@ required-features = ["bindgen"]
 
 [lints]
 workspace = true
+
+[[bin]]
+name = "photara-controlled-session"
+path = "src/bin/controlled-session.rs"
+required-features = ["controlled-disposable"]

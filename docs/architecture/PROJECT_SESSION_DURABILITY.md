@@ -626,9 +626,157 @@ retention policy, product limits, real-library writes, migration, conversion,
 deletion, deployment or Library/project switching. Any additional format or
 security decision remains a separate boundary. PS4 and LL2a retain their order.
 This is the existing PS0 requirement below: “synthetic multi-client/session lab
-first, then separately reviewed production session wiring.” Full PS3 acceptance
-is still pending that integration; the disposable lab result alone does not close it.
+first, then separately reviewed production session wiring.” The approved bounded integration is now verified as recorded below; general
+real-library enablement and broader authoring coverage remain outside it.
 Do not ask again for this bounded integration approval.
+
+### PS3 controlled app/CLI integration — verified 2026-10-07
+
+The default-off `controlled-disposable` feature exposes the existing Rust authority
+through typed UniFFI requests and `photara-controlled-session`. It opens only an
+already registered controller-owned image; it cannot provision or admit a general
+path. The same lease, journal, original retry and checkpoint checks serve both
+clients. A second writer refuses; post-open mutation/lifecycle requests require
+the current owner epoch and attachment generation. CLI EOF before explicit verified
+Close returns failure; dropping a handle never claims Saved.
+
+The isolated `Photara Disposable.app` uses the actual app entry and existing Graph
+canvas, branching before normal AppModel/Library initialization. It has a separate
+bundle ID, no normal document/URL handlers, and development/ad-hoc signing only.
+Unsupported authoring remains unavailable. Swift projects Rust evidence and retains
+the pending edit; the App-level termination delegate drains finite work before
+quitting and cancels quit on failure. Sleep flush and wake revalidation share that
+coordinator. The original standalone lab remains available.
+
+[Evidence](verification/ps3-integrated-session.json): malformed/general-path
+refusals, controlled strict Clippy, default-feature-off compile, Swift lifecycle
+and FFI checks pass. Real AppKit termination tests cover pending edits and failed
+flush/retry. Native CLI testing passes exclusive writer, stale/omitted binding
+refusal, edit/checkpoint/original retry and verified close. Actual Graph drag then
+Quit while pending recovered **Saved revision 6, x=40,029, y=20,014** in both CLI
+and the integrated app. The initial native test exposed and fixed a Scene-level
+termination adaptor that allowed an unacknowledged edit to be abandoned; its
+regression exercises the actual App entry/delegate. Generated-binding/library
+checksums are now exercised during the controlled build.
+
+The qualified scope is still the explicit disposable profile. An older image
+refused changed device pins after remount; all 40 files remained unchanged. No
+registration was rebound. A fresh instance of the same prepaid fixture supplied
+integration acceptance and is detached/retained at
+`/private/tmp/photara-ps2-remount-o812boh1`. Frozen fixture/output hashes remain
+unchanged; of the 50 prior packet entries, only the store Cargo manifest changed
+(to add the default-off feature). Existing PS2 evidence is reused, not reclassified
+as production qualification. No real-library writes, migration, deployment or
+project/Library switching occurred.
+
+Build the integrated artifact with
+`platform/macos/photara-app/build-controlled-disposable.sh`. The existing
+`run-disposable-autosave.py` launcher accepts `--integrated-app`, with the same
+explicit controller digest and fresh registration/resume arguments above. Resume
+never rewrites registration: changed pins refuse and preserve the image.
+
+### PS4 local activation mapping — proposed, unapproved 2026-10-07
+
+This amendment would implement preparation, confirmation, rollback and activation
+between explicitly registered disposable Projects in the same Library, through the
+shared Rust coordinator. It approves neither Library switching nor real-path
+admission, migration, deployment, new package/journal meanings or capsule disposal.
+The [PS0 inventory](proposals/ps0/CONTRACTS.md#unnumbered-local-schema-deltas-review-only)
+and [switch cases](proposals/ps0/VERIFICATION.md#switch-and-native-acceptance) remain
+the behavioral contract. This is a concrete first mapping, not PS4 acceptance.
+
+**Publication unit.** Choose one atomic canonical snapshot per registered
+`(device_id, workspace_slot_id)`, rather than SQLite: this bounded slice needs one
+slot and its receipt published together, and can reuse the qualified file/barrier/
+rename adapter without assuming that package qualification covers SQLite/WAL.
+The registrar separately pins a controller-owned local activation directory and
+stable cooperative lock; no filename or stored record grants access. Its explicit
+test budget covers old snapshot, candidate, retained records, directory and
+coexistence before effects. Capacity refusal retains current; no expiry,
+compaction, deletion or production count/size limit is introduced.
+
+The exact proposed file is canonical UTF-8 JSON, no trailing newline:
+`{format:"photara.local.activation-snapshot",version:1,body:B,body_sha256:Digest}`.
+Use the existing canonical JSON encoder; the digest is SHA-256 of canonical `B`,
+not of its enclosing file. `B` is exactly
+`{device_id:Id,workspace_slot_id:Id,revision:Decimal,request_generation:Decimal,
+committed_generation:Decimal,authority_scope_sha256:Digest,
+active:Ref|null,pending:Ref|null,records:[Record]}`.
+IDs/digests/decimal integers use the approved journal spellings. A `Record` is
+exactly `{id:Id,kind:String,version:1,body:Object}`; a `Ref` is
+`{id:Id,sha256:Digest}` over that complete canonical record. Records sort by ID,
+are unique, remain immutable, and all references resolve in this snapshot.
+Unknown snapshot/authority-record format, version, kind or fields, contradictory
+IDs, broken references or snapshot checksum refuse recovery; they are not preference fallback. All IDs
+are generated once and persisted before their first externally visible effect.
+
+The aliases below refer to storage/coordinator values, **not** the reduced native
+presentation DTOs. `SessionBinding` is exactly
+`{project_id:Id,incarnation_id:Id,owner_epoch:Id,owner:Owner}` from
+[`session::SessionBinding`](../../crates/photara-store/src/package/v1_3/repeatable/session.rs),
+with unchanged PS3 `Owner`/Principal spellings. `AcceptedCoordinate` is exactly
+`{coordinate:Coordinate,mutation:Link|null,accepted_frame:AcceptedFrameV1|null}`
+from that module's `AcceptedCoordinate`; `Coordinate` is the full PS1
+AuthoredCoordinate validated by
+[`journal_session::coordinate`](../../crates/photara-store/src/package/v1_3/repeatable/journal_session.rs),
+including its complete per-Graph digest/revision map. `Link` retains
+`record_checksum`, not the presentation alias `checksum`. `CoreGraph` means the
+exact canonical `graph` JSON member of the authenticated
+[`SavedGraph`](../../crates/photara-store/src/package/types.rs), validated by the
+existing [SavedGraph record validator](../../crates/photara-store/src/package/records.rs)
+and [`photara_core::GraphDocument`](../../crates/photara-core/src/graph.rs).
+Preserve its original fields and optional bytes; do not reconstruct it from the
+native position-node list. `CheckpointIntentRecord` and `CheckpointReceiptRecord`
+are exactly `{value:JournalEnvelopeV1,record_checksum:Digest}`, copying
+[`JournalRecord::value()` and `checksum()`](../../crates/photara-store/src/package/v1_3/repeatable/journal.rs).
+`value` is the unchanged complete PHPSJ001 envelope specified above and must have
+the corresponding checkpoint kind; it is not only the record body. Resolve and
+verify the checksum against the original registered journal before using it as
+Saved evidence. `HeadV1`,
+`CommitV1` and the nested intent/receipt/frame keep their existing checked package
+and PS1 encodings. `ProjectTarget` abbreviates exactly
+`{library_id:Id,project_id:Id,incarnation_id:Id,graph_id:Id,registration_sha256:Digest}`.
+
+| Kind | Exact proposed body / authority |
+| --- | --- |
+| `SessionView` | `{device_id,library_id,project_id,graph_id,pan_x:i64,pan_y:i64,zoom_ppm:Decimal,selected_node_ids:[Id],visible_panels:[String]}`. Pan uses existing Graph milliunits; zoom is positive millionths. Node IDs sort uniquely and must resolve; panels use existing editor IDs. Invalid optional view content/version selects deterministic defaults (zero pan, zoom `"1000000"`, empty selection, Graph panel), persisted as a new valid view before activation. It never changes authored bytes or selects a Project. |
+| `SavedProof` | `{binding:SessionBinding,accepted:AcceptedCoordinate,checkpoint_intent:CheckpointIntentRecord,checkpoint_receipt:CheckpointReceiptRecord,registration_sha256:Digest}`. Embed the unchanged complete PHPSJ001 records, not only an accepted operation receipt or revision. Shared verification checks original admission, journal coverage, selected HEAD/commit and the proof's recorded covered coordinate. It may be retained as historical checkpoint evidence; it represents current Saved only when that coordinate equals the current accepted target and live qualification/barriers are verified. Stored bytes alone cannot mint Saved or a lease. |
+| `RollbackCapsule` | `{source_active:Ref,source_saved:Ref,view:Ref,graph_snapshot:CoreGraph,registration_sha256:Digest}`. Capture the actual verified source Graph and view before detach; Graph bytes are an inert read-only recovery display, never write/reacquisition authority. Reacquisition uses the registrar and rechecks the exact source identity. |
+| `ConfirmationEvidence` | `{activation_id:Id,device_id,workspace_slot_id,request_generation,expected_committed_generation,authority_scope_sha256,source_active:Ref,source_binding:SessionBinding,accepted:AcceptedCoordinate,prior_saved:Ref|null,target:ProjectTarget}`. Captures the original source identity/current Accepted coordinate, the existing last-verified SavedProof and target/request shown for confirmation. `prior_saved` must identify that exact historical checkpoint proof, or be null only when none exists; it is not refreshed by flushing before the dialog. A historical checkpoint covering an older coordinate does not mean the dirty current prefix is Saved. This preserves PS0's prior saved-receipt binding without authorizing save or detach. Its copied fields must exactly match the referring ActivationIntent; it has no reference back to that intent, avoiding a hash cycle. |
+| `ActivationIntent` | `{device_id,workspace_slot_id,request_generation,expected_committed_generation,authority_scope_sha256,source_active:Ref|null,target:ProjectTarget,source_attachment:SessionBinding|null,confirmation_basis:Ref|null}`. Record ID is the activation ID. Null source/basis is allowed only for a genuinely empty slot. Confirmation binds this original intent plus its non-authorizing ConfirmationEvidence, including the prior checkpoint receipt and current Accepted coordinate. Target or request identity cannot be replaced once preparation starts; stale source attachment/request authority invalidates confirmation. A dirty current session does not need to become Saved before the user confirms. |
+| `ActivationProgress` | `{intent:Ref,stage:Preparing|Confirmed|Frozen|SourceSaved|TargetReady|Refused,source_saved:Ref|null,capsule:Ref|null,target_open:Ref|null}`. `pending` selects the latest validated stage. Only after confirmation and freeze does SourceSaved require a fresh SavedProof covering the frozen finite accepted prefix, independently of the historical pre-dialog checkpoint proof and covering any newer accepted work; capsule durability precedes detach. A genuinely empty source skips source save/detach with null proofs. No progress record changes the active pointer. |
+| `TargetOpenProof` | `{binding:SessionBinding,registration_sha256:Digest,selected_head:HeadV1,selected_commit:CommitV1,accepted:AcceptedCoordinate,graph_id:Id,view:Ref}`. Resolve through the actual target session after recovery, closure/identity checks and view restoration. This is target-open evidence, not the source flush proof. Refresh live access/lease/attachment evidence before publication; no stored access generation is a reusable grant. |
+| `ActiveSession` | `{device_id,workspace_slot_id,committed_generation,authority_scope_sha256,library_id,project_id,incarnation_id,graph_id,activation_id,view:Ref,target_open:Ref}`. Describes the committed selection; restart must reacquire authority. It is not a persistent live-writer grant. |
+| `ActivationReceipt` | `{intent:Ref,outcome:Activated|RetainedCurrent|RetainedReadOnlyRecovery,old_committed_generation,new_committed_generation,source_saved:Ref|null,capsule:Ref|null,target_open:Ref|null,active:Ref|null}`. Activated increments committed generation exactly once and binds the exact new ActiveSession. Refused outcomes preserve generation and active identity; retain the source capsule for explicit recovery. |
+
+Under the stable local lock, admission compares authority scope and expected
+committed generation, advances request generation once, and refuses an existing
+pending preparation. Each snapshot replacement advances `revision` by one and
+compares the exact prior snapshot digest. The successful replacement includes the
+original activation receipt, new active pointer and cleared pending pointer
+**together**. Prepare, dialogs, package IO and restoration occur outside that
+publication; freeze/recheck prevents a stale callback from publishing. Same-Project
+activation is idempotent. Failure before publication retains/reacquires current or
+its read-only capsule; visible title/Graph never changes early.
+
+Use exclusive candidate creation, complete-file barrier, atomic replace and
+registered-directory barrier. On an unknown result, inspect only the exact old or
+candidate bytes, reestablish barriers and query the original activation ID; never
+issue a replacement activation. Before a committed receipt restart selects source;
+afterward it selects target or explicit recovery with the source capsule retained.
+Keep all original receipts and capsules in this first bounded implementation,
+including after successful establishment; their later disposal remains unapproved.
+Growth must refuse before effects when the registered snapshot/coexistence budget
+cannot fit. This finite snapshot codec makes no lifetime scalability claim.
+
+Minimum acceptance: real local snapshot publication with every before/after barrier
+and rename cut; exact retry/CAS/stale scope; canceled/double activation; failed
+source flush, target open/restore, local publication and source reacquisition;
+view fallback isolated from authority corruption; original source/target evidence
+separation; native title/Graph preservation and restart on both sides of commit.
+No durable snapshot, native dialog or passing model test alone closes PS4. LL2a's
+later SQL selection integration remains a separate reviewed mapping; this amendment
+does not assign its migration numbers or make a cross-store atomicity claim.
 
 ## Coordinator and native lifecycle
 

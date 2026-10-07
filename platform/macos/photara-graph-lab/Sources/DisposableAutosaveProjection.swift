@@ -1,7 +1,7 @@
 import Foundation
 
-// Presentation DTOs only. The private Rust host constructs these from the
-// private Rust SessionSnapshot; these values never authorize storage or mutation.
+// Presentation DTOs only. The shared Rust coordinator constructs these from its
+// SessionSnapshot; these values never authorize storage or mutation.
 struct DisposableAutosaveBinding: Codable, Equatable, Sendable {
     let projectID: UUID
     let incarnationID: UUID
@@ -106,7 +106,7 @@ enum DisposableAutosaveStatus: Equatable {
 }
 
 /// No timer, dirty flag, successful call, or locally persisted JSON can mint Saved.
-/// This reducer is not wired to GraphLab's synthetic graph or to real libraries.
+/// Shared by the controlled app and standalone lab; never authorizes real-library writes.
 struct DisposableAutosaveProjection {
     let binding: DisposableAutosaveBinding
     private(set) var snapshot: DisposableSessionSnapshot?

@@ -1,16 +1,25 @@
 //! Opt-in disposable APFS adapter for the existing repeatable test path.
 //! No mount commands, production admission, storage qualification, or Saved claim.
-use super::*;
-use rustix::fs::{
-    AtFlags, FlockOperation, Mode, OFlags, fcntl_fullfsync, flock, fstatfs, fsync, mkdirat, open,
-    openat, renameat, unlinkat,
+use super::{
+    Attempt, BTreeMap, DisposablePermit, EffectFailure, ExecutionError, Observation,
+    OriginalPackage, PlannerInputs, RepeatableIo, RepeatablePlan, RestartContext, SelectedStage,
+    Value, VerifiedOriginal, aid, attempt, budget, encode, execute, frames, hash, identity,
+    journal, json, package, plan, recovery, reference, request, restart, restore_plan, selected,
+    support, v1_3,
 };
+#[cfg(test)]
+use rustix::fs::mkdirat;
+use rustix::fs::{
+    AtFlags, FlockOperation, Mode, OFlags, fcntl_fullfsync, flock, fstatfs, fsync, open, openat,
+    renameat, unlinkat,
+};
+#[cfg(test)]
+use std::process::Command;
 use std::{
     fs::File,
     io::{Read, Seek, SeekFrom, Write},
     os::unix::fs::{MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
-    process::Command,
 };
 type IoResult<T> = std::io::Result<T>;
 type Pin = [u64; 2];
@@ -138,11 +147,20 @@ struct Scope {
     nonce: String,
     generation: u64,
     assessment: v1_3::native_profile::DisposableAssessment,
+    permit: DisposablePermit,
 }
 impl Scope {
+    #[cfg(test)]
     fn load() -> IoResult<Self> {
         let path =
             PathBuf::from(std::env::var("PHOTARA_PS2_REMOUNT_MANIFEST").map_err(|_| invalid())?);
+        let binding = serde_json::from_str(
+            &std::env::var("PHOTARA_PS2_REMOUNT_BINDING").map_err(|_| invalid())?,
+        )
+        .map_err(|_| invalid())?;
+        Self::load_explicit(&path, binding)
+    }
+    fn load_explicit(path: &Path, binding: Value) -> IoResult<Self> {
         let parent = path.parent().ok_or_else(invalid)?;
         if parent.parent() != Some(Path::new("/private/tmp"))
             || !parent
@@ -159,10 +177,6 @@ impl Scope {
         }
         let raw = read(&scratch, "manifest.json")?;
         let manifest: Value = serde_json::from_slice(&raw).map_err(|_| invalid())?;
-        let binding: Value = serde_json::from_str(
-            &std::env::var("PHOTARA_PS2_REMOUNT_BINDING").map_err(|_| invalid())?,
-        )
-        .map_err(|_| invalid())?;
         let nonce = manifest["nonce"].as_str().ok_or_else(invalid)?.to_owned();
         if manifest["fixture_version"] != 1
             || manifest["trial"] != "disk-image-remount"
@@ -202,8 +216,9 @@ impl Scope {
             .as_u64()
             .filter(|n| *n > 0)
             .ok_or_else(invalid)?;
+        let volume = package::digest(&canonical(&binding));
         let assessment = v1_3::native_profile::assess_disposable_image(
-            &path,
+            path,
             serde_json::from_value(binding).map_err(|_| invalid())?,
         )
         .map_err(|_| invalid())?;
@@ -214,9 +229,15 @@ impl Scope {
             nonce,
             generation,
             assessment,
+            permit: DisposablePermit {
+                volume,
+                epoch: package::planning::OwnerEpoch::parse(&uuid::Uuid::new_v4().to_string())
+                    .map_err(|_| invalid())?,
+            },
         })
     }
 }
+#[cfg(test)]
 fn witness(p: Pin) -> Value {
     json!({"device":p[0].to_string(),"inode":p[1].to_string()})
 }
@@ -230,6 +251,7 @@ fn source_name(path: &str) -> String {
     clippy::too_many_lines,
     reason = "Explicit disposable bootstrap with captured native witnesses"
 )]
+#[cfg(test)]
 fn prepare(scope: &Scope, session: bool) -> IoResult<()> {
     mkdirat(&scope.mount, EVIDENCE, Mode::RWXU)?;
     let evidence = File::from(openat(&scope.mount, EVIDENCE, DIRECTORY, Mode::empty())?);
@@ -408,13 +430,13 @@ fn prepare(scope: &Scope, session: bool) -> IoResult<()> {
             .as_bytes(),
     )?;
     barrier(&root)?;
-    let initial: OriginalPackage = package(&support::Fixture::from_value(data.clone()));
+    let initial: OriginalPackage = package(&support::Fixture::from_value(data.clone())?);
     let (_, receipt) = request();
     let journal_header = json!({"format_version":1,"stream_id":uuid::Uuid::new_v4().to_string(),"journal_id":receipt["journal_id"],"device_id":uuid::Uuid::new_v4().to_string(),"project_id":initial.manifest["project_id"],"library_id":initial.commit["root_set"]["library_id"],"incarnation_id":initial.commit["root_set"]["placement"]["incarnation"],"bootstrap_sha256":hash(&canonical(&initial.manifest)),"base_head":initial.head,"base_package_revision":initial.commit["package_revision"]});
     // Incarnation is selected by accounting, not the portable placement selector.
     let mut journal_header = journal_header;
     journal_header["incarnation_id"] = serde_json::to_value(
-        support::Fixture::from_value(data.clone())
+        support::Fixture::from_value(data.clone())?
             .registration
             .incarnation,
     )
@@ -535,7 +557,7 @@ impl Native {
         let journal_header = registration["journal_header"].clone();
         let root_pin = pin(&root)?;
         let lock_pin = pin(&lock)?;
-        let mut base = support::Fixture::from_value(registration["data"].clone());
+        let mut base = support::Fixture::from_value(registration["data"].clone())?;
         if let Some(charges) = registration["tip_charges"].as_object() {
             if charges.len() != 7 {
                 return Err(invalid());
@@ -607,19 +629,20 @@ impl Native {
         }
         Ok(native)
     }
-    fn attempt(&self, old: &VerifiedOriginal, n: u64) -> Attempt {
-        let mut candidate = super::attempt(old, n);
+    fn attempt(&self, old: &VerifiedOriginal, n: u64) -> IoResult<Attempt> {
+        let mut candidate = super::attempt(old, n)?;
         if let Some(limit) = self.session_project_limit {
             candidate.project_limit = limit.to_string();
         }
-        candidate
+        Ok(candidate)
     }
     fn lease(&self, p: &OriginalPackage) -> IoResult<NativeLease> {
         self.scope.assessment.revalidate().map_err(|_| invalid())?;
         let lock = regular(&self.root, ".writer-lock", false)?;
         flock(&lock, FlockOperation::NonBlockingLockExclusive)?;
-        Ok(crate::package::planning::io::test_lease(
+        Ok(crate::package::planning::io::disposable_lease(
             lock,
+            &self.scope.permit,
             &encode(&p.manifest),
             &encode(&p.head),
             crate::package::planning::IncarnationId::parse(
@@ -721,6 +744,8 @@ impl Native {
                 if hash(&bytes) != sha {
                     return Err(invalid());
                 }
+                package::parse_canonical_json(&bytes, support::limits().json)
+                    .map_err(|_| invalid())?;
                 p.loose.insert(sha.into(), bytes);
             }
         }
@@ -743,6 +768,14 @@ impl Native {
         for (id, a) in &mut p.allocations {
             a.bytes = read(&self.root, &pack_name(id))?;
         }
+        package::PackageUuid::parse(
+            p.commit["root_set"]["library_id"]
+                .as_str()
+                .ok_or_else(invalid)?,
+        )
+        .map_err(|_| invalid())?;
+        package::DecimalU64::parse(p.commit["package_revision"].as_str().ok_or_else(invalid)?)
+            .map_err(|_| invalid())?;
         Ok(p)
     }
     fn check(
@@ -893,6 +926,7 @@ impl Native {
         }
         self.check_effect_footprint()
     }
+    #[cfg(test)]
     fn prepare_checkpoint(&mut self, plan: &RepeatablePlan) -> IoResult<()> {
         self.prepare_checkpoint_with(plan, None)
     }
@@ -1410,6 +1444,7 @@ impl RepeatableIo for Native {
     clippy::too_many_lines,
     reason = "Keep the existing disposable phase dispatcher and persisted-retry checks together"
 )]
+#[cfg(test)]
 fn run(mut io: Native, phase: &str) -> IoResult<()> {
     let actual = io.current()?;
     let original_record = actual
@@ -1471,7 +1506,7 @@ fn run(mut io: Native, phase: &str) -> IoResult<()> {
             &original,
             &intent,
             &receipt,
-            io.attempt(&original, 1000),
+            io.attempt(&original, 1000)?,
             budget(),
         )
         .map_err(|_| invalid())?
@@ -1543,9 +1578,8 @@ fn run(mut io: Native, phase: &str) -> IoResult<()> {
     }
     Ok(())
 }
-#[test]
-#[ignore = "explicit owned APFS manifest/binding only; no image or mount commands"]
-fn native_repeatable_phase() {
+#[cfg(test)]
+pub(super) fn native_repeatable_phase() {
     let scope = Scope::load().unwrap();
     let phase = std::env::var("PHOTARA_PS2_REPEATABLE_PHASE").unwrap();
     if phase == "prepare" {
@@ -1560,4 +1594,12 @@ fn native_repeatable_phase() {
 }
 
 #[path = "native_session.rs"]
-mod session_host;
+pub(super) mod session_host;
+
+pub(super) fn open_controlled(path: &Path, binding: Value) -> IoResult<session_host::OpenSession> {
+    let scope = Scope::load_explicit(path, binding)
+        .map_err(|e| std::io::Error::new(e.kind(), format!("controller scope: {e}")))?;
+    let native = Native::load(scope)
+        .map_err(|e| std::io::Error::new(e.kind(), format!("captured registration: {e}")))?;
+    session_host::OpenSession::open(native)
+}

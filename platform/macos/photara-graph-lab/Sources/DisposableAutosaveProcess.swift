@@ -26,7 +26,7 @@ func readDisposablePipe(_ descriptor: Int32) -> DisposablePipeRead {
     return .failed(failure)
 }
 
-struct DisposablePositionNode: Decodable, Identifiable {
+struct DisposablePositionNode: Decodable, Identifiable, Equatable, Sendable {
     let id: String
     let title: String
     let x: Int64
@@ -39,24 +39,26 @@ struct DisposablePendingPosition {
     let x: Int64
     let y: Int64
 }
-private struct DisposableHostResult: Decodable {
+struct DisposableHostResult: Decodable, Sendable {
     let nodes: [DisposablePositionNode]?
     let undo_available: Bool?
     let redo_available: Bool?
 }
-private struct DisposableHostResponse: Decodable {
+struct DisposableHostResponse: Decodable, Sendable {
     let id: UUID
     let snapshot: DisposableSessionSnapshot?
     let result: DisposableHostResult?
     let acknowledgement: DisposableOperationAcknowledgement?
     let error: String?
 }
-private struct DisposableHostRequest: Encodable {
+struct DisposableHostRequest: Encodable, Sendable {
     let id: UUID
     let command: String
     var node_id: String? = nil
     var x: Int64? = nil
     var y: Int64? = nil
+    var expectedOwnerEpoch: UUID? = nil
+    var expectedAttachmentGeneration: UInt64? = nil
     enum CodingKeys: String, CodingKey { case id, command, node_id, x, y }
     func encode(to encoder: Encoder) throws {
         var values = encoder.container(keyedBy: CodingKeys.self)
@@ -68,8 +70,14 @@ private struct DisposableHostRequest: Encodable {
     }
 }
 
-/// Private, bounded stdio to the explicitly selected cfg(test) Rust native host.
-/// No production registrar, network endpoint, or persistent transport format.
+/// In-process implementations invoke only the typed shared Rust authority.
+/// The original standalone lab keeps its private stdio transport.
+protocol DisposableSessionBridge: Sendable {
+    func execute(_ request: DisposableHostRequest) async throws -> DisposableHostResponse
+}
+
+/// Presentation and retained-request lifecycle shared by the controlled app and
+/// original standalone lab. Neither path can construct storage authority.
 @MainActor
 final class DisposableAutosaveProcess: ObservableObject {
     @Published private(set) var projection: DisposableAutosaveProjection?
@@ -80,6 +88,11 @@ final class DisposableAutosaveProcess: ObservableObject {
     @Published private(set) var closed = false
     @Published private(set) var undoAvailable = false
     @Published private(set) var redoAvailable = false
+    @Published private(set) var checkingStorage = false
+    private var barrierRequested = false
+    private let bridge: (any DisposableSessionBridge)?
+    private var bridgeStarted = false
+    init(bridge: (any DisposableSessionBridge)? = nil) { self.bridge = bridge }
     private var process: Process?
     private var input: FileHandle?
     private var outputPipe: Pipe?
@@ -95,9 +108,15 @@ final class DisposableAutosaveProcess: ObservableObject {
     private static let frameLimit = 1_048_576
     private static let prefix = Data("PHOTARA_PS3 ".utf8)
 
-    var canEdit: Bool { !busy && closeCompletion == nil && transportFailure == nil && !closed && projection?.canSubmit == true }
+    var canEdit: Bool { !checkingStorage && !busy && closeCompletion == nil && transportFailure == nil && !closed && projection?.canSubmit == true }
 
     func start(environment: [String: String] = ProcessInfo.processInfo.environment) {
+        if bridge != nil {
+            guard !bridgeStarted else { return }
+            bridgeStarted = true
+            send(.init(id: UUID(), command: "snapshot"))
+            return
+        }
         guard process == nil else { return }
         guard let executable = environment["PHOTARA_PS3_HOST"], executable.hasPrefix("/"),
               environment["PHOTARA_PS2_REMOUNT_MANIFEST"] != nil,
@@ -164,6 +183,11 @@ final class DisposableAutosaveProcess: ObservableObject {
         let (x, overflowX) = node.x.addingReportingOverflow(dx)
         let (y, overflowY) = node.y.addingReportingOverflow(dy)
         guard !overflowX, !overflowY else { return }
+        move(node, x: x, y: y)
+    }
+
+    func move(_ node: DisposablePositionNode, x: Int64, y: Int64) {
+        guard canEdit else { return }
         let id = UUID()
         guard projection?.begin(id) == true else { return }
         pendingPosition = .init(operationID: id, nodeID: node.id, title: node.title, x: x, y: y)
@@ -192,9 +216,29 @@ final class DisposableAutosaveProcess: ObservableObject {
         }
     }
 
+    /// Sleep is a best-effort flush; already synced acceptance owns durability.
+    func prepareForSleep() {
+        guard bridge != nil, !closed else { return }
+        barrierRequested = true
+        drainLifecycle()
+    }
+
+    func revalidateAfterWake() {
+        guard bridge != nil, !closed else { return }
+        checkingStorage = true
+        drainLifecycle()
+    }
+
+    private func drainLifecycle() {
+        guard !busy, transportFailure == nil, !closed, closeCompletion == nil,
+              projection?.pendingOperationID == nil else { return }
+        if checkingStorage { send(.init(id: UUID(), command: "revalidate")) }
+        else if barrierRequested { send(.init(id: UUID(), command: "barrier")) }
+    }
+
     func close(_ completion: @escaping (Bool) -> Void) {
         if closed { completion(true); return }
-        if projection == nil && process?.isRunning != true {
+        if projection == nil && !busy && process?.isRunning != true {
             closed = true; completion(true); return // No editable project was attached.
         }
         guard closeCompletion == nil else { completion(false); return }
@@ -210,8 +254,21 @@ final class DisposableAutosaveProcess: ObservableObject {
         send(.init(id: UUID(), command: "close"))
     }
 
-    private func send(_ request: DisposableHostRequest) {
+    private func send(_ originalRequest: DisposableHostRequest) {
         guard pending == nil else { return }
+        var request = originalRequest
+        if bridge != nil, request.expectedOwnerEpoch == nil {
+            request.expectedOwnerEpoch = projection?.binding.ownerEpoch
+            request.expectedAttachmentGeneration = projection?.binding.attachmentGeneration
+        }
+        if let bridge {
+            pending = request; busy = true
+            Task {
+                do { accept(try await bridge.execute(request)) }
+                catch { fail("Session outcome is unknown: \(error.localizedDescription). Retain the original request for retry.") }
+            }
+            return
+        }
         do {
             var data = try JSONEncoder().encode(request)
             guard data.count < Self.frameLimit else { throw CocoaError(.fileWriteInapplicableStringEncoding) }
@@ -274,6 +331,8 @@ final class DisposableAutosaveProcess: ObservableObject {
             return
         }
         failedRequest = nil; transportFailure = nil
+        if request.command == "revalidate" { checkingStorage = false }
+        if request.command == "barrier" { barrierRequested = false }
         if request.command == "close" {
             guard projection?.status == .saved, projection?.snapshot?.closed == true else {
                 fail("Close did not verify the current saved coordinate and closed session"); return
@@ -289,7 +348,7 @@ final class DisposableAutosaveProcess: ObservableObject {
             send(.init(id: UUID(), command: "complete"))
         } else if closeCompletion != nil {
             send(.init(id: UUID(), command: "close"))
-        }
+        } else { drainLifecycle() }
     }
 
     private func finishExit() {

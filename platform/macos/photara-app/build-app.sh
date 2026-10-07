@@ -2,6 +2,35 @@
 set -euo pipefail
 
 SCRIPT_ROOT="${0:A:h}"
+CONTROLLED_DISPOSABLE="${PHOTARA_CONTROLLED_DISPOSABLE_BUILD:-0}"
+if [[ "$CONTROLLED_DISPOSABLE" != 0 && "$CONTROLLED_DISPOSABLE" != 1 ]]; then
+  print -u2 -- "Invalid controlled-disposable build selection"; exit 2
+fi
+if [[ "$CONTROLLED_DISPOSABLE" == 1 && ( -n "${PHOTARA_MACOS_PROVISIONING_PROFILE:-}" || "${PHOTARA_RELEASE_CHANNEL:-development}" != development ) ]]; then
+  print -u2 -- "Controlled disposable build requires development channel and ad-hoc signing"; exit 2
+fi
+RUST_FEATURE_ARGS=()
+RUST_PROFILE_ARGS=()
+RUST_PROFILE=debug
+BINDGEN_FEATURES=bindgen
+CONTROLLED_SWIFT_ARGS=()
+if [[ "$CONTROLLED_DISPOSABLE" == 1 ]]; then
+  RUST_FEATURE_ARGS=(--features controlled-disposable)
+  RUST_PROFILE_ARGS=(--release)
+  RUST_PROFILE=release
+  # Keep host proc-macro symbols/debug sections: this SDK's dyld rejects a
+  # stripped sqlx-macros LINKEDIT string pool. Target/runtime stays optimized.
+  export CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_DEBUG=2
+  export CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_STRIP=none
+  BINDGEN_FEATURES=bindgen,controlled-disposable
+  CONTROLLED_SWIFT_ARGS=(-D CONTROLLED_DISPOSABLE
+    "$SCRIPT_ROOT/Sources/ControlledDisposableSession.swift"
+    "$SCRIPT_ROOT/Sources/ControlledSessionLifecycle.swift"
+    "$SCRIPT_ROOT/Sources/ControlledDisposableConfiguration.swift"
+    "$SCRIPT_ROOT/../photara-graph-lab/Sources/DisposableAutosaveProjection.swift"
+    "$SCRIPT_ROOT/../photara-graph-lab/Sources/DisposableAutosaveStatusView.swift"
+    "$SCRIPT_ROOT/../photara-graph-lab/Sources/DisposableAutosaveProcess.swift")
+fi
 REPOSITORY_ROOT="${SCRIPT_ROOT:h:h:h}"
 # Verification callers must be able to isolate every generated artifact, not
 # merely Cargo's output. The default remains the interactive development app.
@@ -17,6 +46,9 @@ export SWIFTPM_MODULECACHE_OVERRIDE="$MODULE_CACHE"
 PRODUCT_CHANNEL="${PHOTARA_RELEASE_CHANNEL:-development}"
 PRODUCT_NAME="$(python3 "$REPOSITORY_ROOT/scripts/generate_product_configuration.py" \
   --channel "$PRODUCT_CHANNEL" --output "$GENERATED_ROOT")"
+if [[ "$CONTROLLED_DISPOSABLE" == 1 ]]; then
+  PRODUCT_NAME="Photara Disposable"
+fi
 SIGNING_PROFILE="${PHOTARA_MACOS_PROVISIONING_PROFILE:-}"
 SIGNING_ENTITLEMENTS="$GENERATED_ROOT/Photara.entitlements"
 SIGNING_IDENTITY="-"
@@ -34,6 +66,22 @@ mkdir -p "$GENERATED_ROOT" "$MODULE_CACHE" "$MACOS" "$FRAMEWORKS" "$RESOURCES"
 cp -p "$REPOSITORY_ROOT/platform/macos/photara-shell/Resources/photara-application-presentation-v1.json" "$RESOURCES/"
 python3 "$REPOSITORY_ROOT/scripts/generate_product_configuration.py" \
   --channel "$PRODUCT_CHANNEL" --output "$GENERATED_ROOT" --plist "$CONTENTS/Info.plist" >/dev/null
+if [[ "$CONTROLLED_DISPOSABLE" == 1 ]]; then
+  python3 - "$CONTENTS/Info.plist" <<'PLIST'
+import plistlib, sys
+path = sys.argv[1]
+with open(path, 'rb') as source:
+    value = plistlib.load(source)
+value.update(CFBundleIdentifier='com.photara.controlled-disposable',
+             CFBundleName='Photara Disposable', CFBundleDisplayName='Photara Disposable',
+             CFBundleExecutable='PhotaraDisposable')
+# This scoped build must not claim normal project/URL handlers in LaunchServices.
+for key in ('CFBundleDocumentTypes', 'CFBundleURLTypes', 'UTExportedTypeDeclarations', 'UTImportedTypeDeclarations'):
+    value.pop(key, None)
+with open(path, 'wb') as output:
+    plistlib.dump(value, output)
+PLIST
+fi
 EXECUTABLE="$MACOS/$(plutil -extract CFBundleExecutable raw "$CONTENTS/Info.plist")"
 PRODUCT_BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw "$CONTENTS/Info.plist")"
 if [[ -n "$SIGNING_PROFILE" ]]; then
@@ -61,19 +109,19 @@ cp -p "$PROXY_HELPER_BUILD/debug/photara-proxy-imageio" "$PROXY_HELPER"
 
 CARGO_TARGET_DIR="$RUST_TARGET" cargo build \
   --manifest-path "$REPOSITORY_ROOT/Cargo.toml" \
-  -p photara-bridge
+  -p photara-bridge "${RUST_FEATURE_ARGS[@]}" "${RUST_PROFILE_ARGS[@]}"
 
 CARGO_TARGET_DIR="$RUST_TARGET" cargo run \
   --manifest-path "$REPOSITORY_ROOT/Cargo.toml" \
-  -p photara-bridge \
-  --features bindgen \
+  -p photara-bridge "${RUST_PROFILE_ARGS[@]}" \
+  --features "$BINDGEN_FEATURES" \
   --bin photara-uniffi-bindgen \
   -- generate \
-  --library "$RUST_TARGET/debug/libphotara_bridge.dylib" \
+  --library "$RUST_TARGET/$RUST_PROFILE/libphotara_bridge.dylib" \
   --language swift \
   --out-dir "$GENERATED_ROOT"
 
-cp -p "$RUST_TARGET/debug/libphotara_bridge.dylib" "$FRAMEWORKS/libphotara_bridge.dylib"
+cp -p "$RUST_TARGET/$RUST_PROFILE/libphotara_bridge.dylib" "$FRAMEWORKS/libphotara_bridge.dylib"
 
 PHOTARA_SHARED_UI_GENERATED_ROOT="$GENERATED_ROOT"
 source "$REPOSITORY_ROOT/platform/macos/shared-ui-sources.sh"
@@ -94,6 +142,7 @@ xcrun swiftc \
   "$SCRIPT_ROOT/Sources/ProductionOpeningCloudDriver.swift" \
   "$SCRIPT_ROOT/Sources/EditorSessionView.swift" \
   "$SCRIPT_ROOT/Sources/PhotaraMacApp.swift" \
+  "${CONTROLLED_SWIFT_ARGS[@]}" \
   -Xcc "-fmodule-map-file=$GENERATED_ROOT/PhotaraBridgeFFI.modulemap" \
   -L "$FRAMEWORKS" \
   -lphotara_bridge \
@@ -105,7 +154,7 @@ xcrun swiftc \
   -o "$EXECUTABLE"
 
 install_name_tool \
-  -change "$RUST_TARGET/debug/deps/libphotara_bridge.dylib" \
+  -change "$RUST_TARGET/$RUST_PROFILE/deps/libphotara_bridge.dylib" \
   "@rpath/libphotara_bridge.dylib" \
   "$EXECUTABLE"
 install_name_tool \
@@ -127,5 +176,9 @@ else
   codesign --force --sign - "$APP_BUNDLE"
 fi
 codesign --verify --strict --verbose=2 "$APP_BUNDLE"
+
+if [[ "$CONTROLLED_DISPOSABLE" == 1 ]]; then
+  zsh "$SCRIPT_ROOT/verify-controlled-bridge.sh" "$GENERATED_ROOT" "$FRAMEWORKS" "$BUILD_ROOT"
+fi
 
 print -r -- "$APP_BUNDLE"

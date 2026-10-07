@@ -6,6 +6,9 @@ license.workspace = true
 repository.workspace = true
 description = "Persistence boundaries and adapters for Photara Core."
 
+[features]
+controlled-disposable = []
+
 [dependencies]
 photara-core = { path = "../photara-core" }
 photara-node-sdk = { path = "../photara-node-sdk" }
