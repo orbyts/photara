@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[path = "journal_session.rs"]
-mod session;
+pub(crate) mod session;
 pub use session::VerifiedSession;
 
 const MAGIC: &[u8; 8] = b"PHPSJ001";
@@ -670,4 +670,20 @@ impl VerifiedJournal<'_> {
             existing: false,
         })
     }
+}
+
+/// Checks an embedded checkpoint envelope's exact existing shape. Its checksum
+/// still requires resolution in the original registered journal, by the caller.
+pub(crate) fn validate_detached_checkpoint(value: &Value) -> Result<(), PackageError> {
+    if !matches!(
+        value["kind"].as_str(),
+        Some("CheckpointIntent" | "CheckpointReceipt")
+    ) {
+        return Err(PackageError::UnsupportedVersion);
+    }
+    let receipt = &value["body"]["operation_receipt"];
+    let header = json!({"project_id":value["project_id"],"incarnation_id":value["incarnation_id"],"library_id":receipt["library_id"],"bootstrap_sha256":receipt["bootstrap_sha256"],"journal_id":receipt["journal_id"]});
+    let sequence = n(&value["sequence"])?;
+    check(sequence > 0)?;
+    envelope(value, &header, sequence)
 }

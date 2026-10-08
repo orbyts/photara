@@ -261,7 +261,17 @@ fn prepare(scope: &Scope, session: bool) -> IoResult<()> {
     let root = File::from(openat(&scope.mount, PACKAGE, DIRECTORY, Mode::empty())?);
     create(&root, ".owner", scope.nonce.as_bytes())?;
     let lock = create(&root, ".writer-lock", b"")?;
-    let base = support::Fixture::load("integrated");
+    let base = if let Ok(seed) = std::env::var("PHOTARA_PS4_SEED_ROOT") {
+        let bytes = std::fs::read(
+            Path::new(&seed).join("docs/architecture/proposals/ps2/integrated/linked.json"),
+        )?;
+        if bytes.len() > 64 * 1024 * 1024 {
+            return Err(invalid());
+        }
+        support::Fixture::from_value(serde_json::from_slice(&bytes).map_err(|_| invalid())?)?
+    } else {
+        support::Fixture::load("integrated")
+    };
     let mut captured = json!({"allocations":{},"retained":{}});
     let mut handles = BTreeMap::new();
     for id in base.allocations.keys() {
@@ -432,7 +442,10 @@ fn prepare(scope: &Scope, session: bool) -> IoResult<()> {
     barrier(&root)?;
     let initial: OriginalPackage = package(&support::Fixture::from_value(data.clone())?);
     let (_, receipt) = request();
-    let journal_header = json!({"format_version":1,"stream_id":uuid::Uuid::new_v4().to_string(),"journal_id":receipt["journal_id"],"device_id":uuid::Uuid::new_v4().to_string(),"project_id":initial.manifest["project_id"],"library_id":initial.commit["root_set"]["library_id"],"incarnation_id":initial.commit["root_set"]["placement"]["incarnation"],"bootstrap_sha256":hash(&canonical(&initial.manifest)),"base_head":initial.head,"base_package_revision":initial.commit["package_revision"]});
+    let device_id =
+        std::env::var("PHOTARA_PS4_DEVICE_ID").unwrap_or_else(|_| uuid::Uuid::new_v4().to_string());
+    package::PackageUuid::parse(&device_id).map_err(|_| invalid())?;
+    let journal_header = json!({"format_version":1,"stream_id":uuid::Uuid::new_v4().to_string(),"journal_id":receipt["journal_id"],"device_id":device_id,"project_id":initial.manifest["project_id"],"library_id":initial.commit["root_set"]["library_id"],"incarnation_id":initial.commit["root_set"]["placement"]["incarnation"],"bootstrap_sha256":hash(&canonical(&initial.manifest)),"base_head":initial.head,"base_package_revision":initial.commit["package_revision"]});
     // Incarnation is selected by accounting, not the portable placement selector.
     let mut journal_header = journal_header;
     journal_header["incarnation_id"] = serde_json::to_value(
@@ -1166,7 +1179,9 @@ impl RepeatableIo for Native {
     type Lease = File;
     fn authorize(&mut self, l: &NativeLease, o: &Value, r: &Value) -> Result<(), ExecutionError> {
         self.lease_ok(l)?;
-        let (_, expected) = request();
+        let (_, mut expected) = request();
+        expected["provenance"]["effective_scope"]["project_id"] =
+            self.journal_header["project_id"].clone();
         if r["provenance"] != expected["provenance"] || o["request"]["receipt"] != reference(r) {
             return Err(ExecutionError::Authorization);
         }
@@ -1446,6 +1461,13 @@ impl RepeatableIo for Native {
 )]
 #[cfg(test)]
 fn run(mut io: Native, phase: &str) -> IoResult<()> {
+    if phase == "complete"
+        && io.session_mode
+        && io.journal_header["project_id"] != request().0["project_id"]
+        && io.checkpoint()?.records().is_empty()
+    {
+        return session_host::bootstrap(io);
+    }
     let actual = io.current()?;
     let original_record = actual
         .loose
@@ -1593,6 +1615,8 @@ pub(super) fn native_repeatable_phase() {
     }
 }
 
+#[path = "native_activation.rs"]
+pub(super) mod activation_host;
 #[path = "native_session.rs"]
 pub(super) mod session_host;
 

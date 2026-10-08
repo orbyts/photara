@@ -26,64 +26,54 @@ The delivery path is:
 **PS2 production durability → PS3 one-project session/autosave → PS4 project
 browse/reopen/switch → LL2a signed cross-Library acceptance.**
 
-The approved PS2 checkpoint implementation and **conditional disposable-image
-qualification** now pass. PS3 implementation is active: the user approved the bounded mutation/undo
-journal amendment on 2026-10-05 for implementation and disposable validation in
-[Project session and durability](architecture/PROJECT_SESSION_DURABILITY.md#ps3-record-kind-amendment--approved-2026-10-05).
-General real-library storage admission remains disabled; this scoped result is
-not a production release gate. LL1 remains parallel and cannot bypass PS3/PS4 or
-authorize LL2 production mutation.
+**PS2, PS3 and PS4 approved disposable scopes pass; LL2a is the active next gate.**
+General real-library storage admission remains disabled. LL1 remains parallel.
+Do not rerun historical PS2/PS3 suites without a concrete regression or expand the
+approved fixture scope.
 
-The shared PS3 implementation and native disposable autosave lab now pass:
-32 affected Rust tests, strict Clippy, Swift projection/pipe checks, consecutive
-edits, original retry, restart undo/redo, process interruption after Accepted,
-clean remount, and actual native edit → close while saving → reopen at exact
-Saved revision 10. All 50 frozen source/output hashes remain unchanged.
-[Evidence and the next review scope](architecture/PROJECT_SESSION_DURABILITY.md#ps3-disposable-implementation-and-next-review--2026-10-05).
+**PS4 native switching verified — 2026-10-08.** Shared Rust implements the approved
+activation snapshot, immutable references, original IDs, SavedProof/capsule
+validation, generation checks, atomic publication and restart reconciliation.
+The default-off native app uses registered disposable Projects in one Library.
+PS0's current source Saved barrier runs before the past-tense confirmation;
+post-confirmation freeze/flush/recheck remains separate.
 
-The successful private image `/private/tmp/photara-ps2-remount-cuc4usia` is cleanly
-detached and retained. An earlier allocation-overrun attempt remains preserved in
-`/private/tmp/photara-ps2-remount-n5522myf`. The correction registers measured
-preallocated tips before the first admission, preserving existing high-water
-semantics; no failed attempt was enlarged. These are fixture bounds.
+All 13 native matrix cases and five additional refusal/retry guards pass, including
+process interruption on both sides of activation commit. The actual signed app
+passed pending drag → verified Saved confirmation → Cancel, failed target open,
+switch A/B, read-only Graph recovery, canceled Quit and explicit Retry. Final B
+state is Saved revision 5, x=40,013, y=20,014. A is Saved4, x=13, y=14.
+The final affected Rust suite passed 36 tests (one opt-in ignored), strict Clippy,
+default-off compile, Swift/AppKit lifecycle and actual generated FFI checks.
+[Exact evidence and validation provenance](architecture/verification/ps4-disposable-switching.json).
+This satisfies the user-required native PS4 gates within the approved disposable
+scope; it does not enable real libraries or cross-Library switching.
 
-**PS3 controlled app/CLI integration verified — 2026-10-07.** The approved
-integration now uses the same Rust session/lease through UniFFI and a headless CLI,
-behind a default-off `controlled-disposable` feature. The native build branches
-before normal Library initialization and uses the existing Graph canvas. Position
-edit → pending Quit → checkpoint → reopen passed at **Saved revision 6,
-x=40,029, y=20,014**, independently through CLI and app. Competing writers and
-stale/missing bindings refuse; native failed-flush/quit cancellation tests pass.
-[Current integration evidence](architecture/verification/ps3-integrated-session.json).
-This closes the approved disposable integration scope, not general real-library
-admission or unsupported authoring commands.
+Both private images are cleanly detached and retained:
+`/private/tmp/photara-ps2-remount-sysgwzuu` and
+`/private/tmp/photara-ps2-remount-fi7qydft`. Their original fixture budgets were not
+increased. Keep all retained files; do not rebind identity pins. The controlled
+app is stopped and was never installed/deployed.
 
-The latest image `/private/tmp/photara-ps2-remount-o812boh1` is detached and retained.
-The earlier `cuc4usia` image correctly refused a remount with a changed device
-number; all 40 package/evidence files were unchanged and no pin was rebound.
-Do not promise arbitrary remount/reboot identity continuity from this profile.
+**LL2a remains a separate review boundary.** The existing
+[LL2a field/authority review](architecture/verification/LL2A_FIELD_AUTHORITY_REVIEW.md#2026-10-08-narrow-amendment--unapproved)
+now records proposed create/rename envelopes and three unresolved decisions:
+publication authority (SQLite unit versus file authority with SQL projection),
+versioned Library-only/cross-Library selection with principal binding, and exact
+existing create authority/grants. It is unapproved and not yet a complete codec/DDL
+freeze packet. Do not treat PS4 approval as LL2a authority. Reuse PS4 proofs and
+complete only those specific missing mappings; no new product policies by inference.
 
-**Approved 2026-10-08: PS4 activation format and bounded disposable switching.**
-Implement the [approved mapping](architecture/PROJECT_SESSION_DURABILITY.md#ps4-local-activation-mapping--approved-2026-10-08)
-for registered Projects within the same Library. Preserve PS0's verified pre-dialog
-Saved barrier and the separate post-confirmation freeze/flush/recheck; a historical
-receipt cannot justify the past-tense confirmation. No format fields changed.
-PS4 is not accepted until actual native switching and failure/recovery pass.
-No cross-Library switching, general workspace management, SQLite/Neon coordination,
-retention/deletion, real-library writes, migration, conversion or deployment.
-LL2a remains the next separate milestone; do not repeat this approval.
-
-First action on 2026-10-08 was read-only `git ls-remote origin refs/heads/main`
-through the unchanged SSH remote. It timed out after 35 seconds: whether
-`a776a53` reached GitHub is still unverified. Authentication/remotes were not changed.
-Normal verified origin/main push remains authorized.
+The first requested `git ls-remote origin refs/heads/main` timed out after 35s;
+a bounded second SSH attempt failed. Whether `a776a53` reached GitHub remains
+unverified. Authentication and remotes were unchanged. Normal verified origin/main
+push remains authorized; do not change authentication or reset history.
 
 ### Execution priority — 2026-09-29
 
 Reach PS2 → PS3 → PS4 → LL2a with minimum token use. Reuse committed evidence;
 do not create another fixture family or repeat broad verification unless a
-specific exit requirement lacks evidence. Finish the current Blob integration,
-then consolidate one exact-wire review package and identify only concrete
+specific exit requirement lacks evidence. Finish the LL2a field/authority review and identify only concrete
 remaining blockers. Each further patch must close a named roadmap requirement.
 Run focused checks once, with affected regression checks after shared changes.
 Keep updates to completed gates, material findings or required decisions.
@@ -527,11 +517,13 @@ stop condition above is reached.
 
 ## Minimal reading order
 
-1. This file.
+1. This file (current gate above; historical evidence below is reference only).
 2. [Root roadmap — delivery path only](../ROADMAP.md#delivery-path-cross-library-acceptance-then-platform-ready-vertical-slice--2026-09-17).
 3. [Project session and durability](architecture/PROJECT_SESSION_DURABILITY.md).
-4. [PS2 production codec/publication contract](architecture/PS2_PRODUCTION_CODEC_AND_PUBLICATION_CONTRACT.md).
-5. [PS2 consolidated engineering evidence](architecture/PS2_CONSOLIDATED_ENGINEERING_EVIDENCE.md).
+4. [LL2a field/authority amendment](architecture/verification/LL2A_FIELD_AUTHORITY_REVIEW.md#2026-10-08-narrow-amendment--unapproved).
+5. Follow only the focused LL1/schema links needed by those unresolved mappings.
+   PS2 format and qualification documents are reference material unless a concrete
+   implementation gap requires them.
 
 For parallel LL1 work only, additionally read
 [Library lifecycle](architecture/LIBRARY_LIFECYCLE.md),

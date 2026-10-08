@@ -51,3 +51,4 @@ pub use reader::{
 
 #[cfg(target_os = "macos")]
 pub mod native_profile;
+pub mod activation;

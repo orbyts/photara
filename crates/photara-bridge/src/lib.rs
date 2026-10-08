@@ -62,3 +62,7 @@ mod tests {
 mod controlled_session;
 #[cfg(all(target_os = "macos", feature = "controlled-disposable"))]
 pub use controlled_session::*;
+#[cfg(all(target_os = "macos", feature = "controlled-disposable"))]
+mod controlled_workspace;
+#[cfg(all(target_os = "macos", feature = "controlled-disposable"))]
+pub use controlled_workspace::*;

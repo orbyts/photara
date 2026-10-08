@@ -838,3 +838,5 @@ mod journal_tests;
 
 #[path = "session_tests.rs"]
 mod session_tests;
+#[path = "activation_tests.rs"]
+mod activation_tests;

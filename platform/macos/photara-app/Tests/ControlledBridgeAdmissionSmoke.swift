@@ -14,5 +14,14 @@ struct ControlledBridgeAdmissionSmoke {
         } catch {
             preconditionFailure("Unexpected controlled admission result: \(error)")
         }
+        do {
+            _ = try ControlledDisposableWorkspace.open(
+                manifestPath: "/not-an-approved-disposable/manifest.json", bindingJson: "{}", targetBindingsJson: "{}")
+            preconditionFailure("Unregistered activation scope unexpectedly admitted")
+        } catch ControlledSessionError.AdmissionRefused {
+            print("PASS: typed unregistered workspace-scope refusal")
+        } catch {
+            preconditionFailure("Unexpected controlled workspace result: \(error)")
+        }
     }
 }

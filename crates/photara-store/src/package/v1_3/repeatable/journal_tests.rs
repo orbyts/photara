@@ -2,7 +2,7 @@
 use super::super::journal::*;
 use super::*;
 
-fn limits() -> JournalLimits {
+pub(super) fn limits() -> JournalLimits {
     JournalLimits {
         json: support::limits().json,
         max_file_bytes: 262_144,
@@ -10,16 +10,16 @@ fn limits() -> JournalLimits {
         max_work_bytes: 262_144,
     }
 }
-fn record(n: u64) -> JournalRecordIdentity {
+pub(super) fn record(n: u64) -> JournalRecordIdentity {
     JournalRecordIdentity {
         record_id: package::PackageUuid::parse(&uid(n)).unwrap(),
         session_generation: 1,
     }
 }
-fn header(p: &OriginalPackage) -> Value {
+pub(super) fn header(p: &OriginalPackage) -> Value {
     json!({"format_version":1,"stream_id":uid(90_001),"journal_id":"50000000-0000-4000-8000-000000000090","device_id":uid(90_002),"project_id":p.manifest["project_id"],"library_id":p.commit["root_set"]["library_id"],"incarnation_id":"96000000-0000-4000-8000-000000000001","bootstrap_sha256":hash(&encode(&p.manifest)),"base_head":p.head,"base_package_revision":p.commit["package_revision"]})
 }
-fn context<'a>(
+pub(super) fn context<'a>(
     observed: &'a support::Fixture,
     id: &'a v1_3::SelectionIdentity,
     reader: &'a v1_3::ReaderLimits,

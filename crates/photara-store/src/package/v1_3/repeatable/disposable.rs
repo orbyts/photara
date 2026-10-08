@@ -18,6 +18,57 @@ use std::collections::BTreeMap;
 mod native;
 #[path = "disposable_support.rs"]
 mod support;
+/// One explicitly registered disposable workspace. Stored activation metadata
+/// never grants a package lease; every attachment passes the native registrar.
+pub struct ControlledWorkspace {
+    inner: native::activation_host::Coordinator,
+}
+impl ControlledWorkspace {
+    /// # Errors
+    /// Refuses unregistered namespaces, scope mismatch and competing writers.
+    pub fn open(
+        manifest: &std::path::Path,
+        binding: Value,
+        target_bindings: Value,
+    ) -> std::io::Result<Self> {
+        Ok(Self {
+            inner: native::activation_host::Coordinator::open(manifest, binding, target_bindings)?,
+        })
+    }
+    #[must_use]
+    pub fn state(&self) -> Value {
+        self.inner.snapshot()
+    }
+    pub fn execute(&mut self, request: ControlledRequest) -> Value {
+        match serde_json::to_value(request) {Ok(value)=>self.inner.execute(&value),Err(_)=>json!({"error":"invalid request"})}
+    }
+    pub fn prepare(
+        &mut self,
+        id: &str,
+        target: &str,
+        view: Value,
+        epoch: Option<&str>,
+        generation: Option<u64>,
+    ) -> Value {
+        self.inner.prepare(id, target, view, epoch, generation)
+    }
+    pub fn confirm(&mut self, id: &str) -> Value {
+        self.inner.confirm(id)
+    }
+    pub fn cancel(&mut self, id: &str) -> Value {
+        self.inner.cancel(id)
+    }
+    pub fn retry(&mut self, id: &str) -> Value {
+        self.inner.retry(id)
+    }
+    /// One-shot failure cuts, available only when the independent disposable
+    /// registrar explicitly enabled them before admission.
+    /// # Errors
+    /// Refuses unregistered fault injection and unknown cut names.
+    pub fn inject_faults(&mut self, points: &[String]) -> std::io::Result<()> {
+        self.inner.inject_faults(points)
+    }
+}
 /// Not constructible outside this registrar module. Minted only after profile,
 /// controller namespace and pinned image verification.
 pub(crate) struct DisposablePermit {

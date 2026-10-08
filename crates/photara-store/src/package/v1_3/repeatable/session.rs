@@ -500,6 +500,35 @@ impl<I: SessionIo> Session<I> {
             })
         })
     }
+    /// Fresh full journal evidence for the controlled activation coordinator.
+    /// The returned bytes are historical evidence, never an IO capability.
+    #[cfg(all(target_os = "macos", any(test, feature = "controlled-disposable")))]
+    pub(crate) fn activation_evidence(
+        &self,
+        registration: &str,
+        graph_id: &str,
+    ) -> Result<Value, SessionError> {
+        self.live()?;
+        self.io.authorize(&self.snapshot.binding, None)?;
+        let head = self.io.selected_head()?;
+        let saved = self
+            .snapshot
+            .saved
+            .as_ref()
+            .ok_or(SessionError::Failure(SessionFailure::Checkpoint))?;
+        if self.snapshot.dirty || saved.target != self.snapshot.accepted || saved.head != head {
+            return Err(SessionError::Failure(SessionFailure::Checkpoint));
+        }
+        self.inspect(|journal, view| {
+            if AcceptedCoordinate::current(view) != self.snapshot.accepted || view.base_head() != &head || view.completed_checkpoint() != Some(&saved.checkpoint_receipt) {
+                return Err(SessionError::Failure(SessionFailure::Checkpoint));
+            }
+            let receipt = journal.records().iter().find(|r| r.value()["record_id"] == saved.checkpoint_receipt["record_id"] && r.checksum() == saved.checkpoint_receipt["record_checksum"]).ok_or(SessionError::InvalidRequest)?;
+            let intent = journal.records().iter().find(|r| r.value()["record_id"] == receipt.value()["body"]["intent_record_id"] && r.checksum() == receipt.value()["body"]["intent_record_checksum"]).ok_or(SessionError::InvalidRequest)?;
+            let graph = view.graph_objects()?.into_iter().find(|v| v["graph"]["id"] == graph_id).ok_or(SessionError::InvalidRequest)?;
+            Ok(json!({"saved":{"binding":self.snapshot.binding,"accepted":self.snapshot.accepted,"checkpoint_intent":{"value":intent.value(),"record_checksum":intent.checksum()},"checkpoint_receipt":{"value":receipt.value(),"record_checksum":receipt.checksum()},"registration_sha256":registration},"graph":graph["graph"],"head":head,"commit":receipt.value()["body"]["selected_commit"]}))
+        })
+    }
     #[cfg(any(test, feature = "controlled-disposable"))]
     pub(crate) fn io_mut(&mut self) -> &mut I {
         &mut self.io

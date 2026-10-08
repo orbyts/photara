@@ -890,3 +890,33 @@ autosave side effect. Existing 1.1 UI1 packages remain read-only until exact clo
 editing and reader compatibility pass. No hidden upgrade or catalog reassociation.
 COV work, Graph rendering, live SQLite/Neon/Auth0/Keychain, archives, photographs,
 services and app installation remain outside this checkpoint.
+
+## PS4 disposable native implementation verified — 2026-10-08
+
+The approved same-Library registered-disposable implementation now passes the
+required native switching and failure/recovery gates. Shared Rust owns the frozen
+activation snapshot, immutable references, original activation IDs, SavedProof
+validation, rollback capsules, generation checks and durable atomic publication.
+Authored Graph state remains distinct from device-local activation state.
+
+The actual signed app drains pending input and verifies the current source Saved
+before showing PS0's past-tense confirmation, then separately freezes/flushes and
+rechecks after confirmation. Cancel preserves the source; target failure restores
+it; failed source reacquisition shows its full verified Graph read-only. Explicit
+Retry restores editing after fresh admission. Quit is canceled while that recovery
+is unresolved. Successful activation exposes the target only after durable commit.
+
+[Evidence](verification/ps4-disposable-switching.json) records 13 native matrix
+cases, five additional guards, restart on both sides of activation commit, actual
+native confirmation/switch/recovery observations, 36 passing affected Rust tests,
+strict Clippy, Swift/AppKit lifecycle checks and real generated FFI validation.
+The final UI restored B at Saved5, x=40,013, y=20,014; both private images are
+cleanly detached and retained. The evidence distinguishes intermediate test builds
+from the final signed artifact rather than claiming one executable ran every case.
+
+PS4's approved disposable acceptance scope is complete. This is not cross-Library
+or real-library enablement. Conditional storage assumptions and fixture budgets
+remain unchanged; no power-loss proof, deletion, conversion, migration, production
+writes or deployment is implied. LL2a is the next separate milestone; its
+[unapproved field/authority amendment](verification/LL2A_FIELD_AUTHORITY_REVIEW.md#2026-10-08-narrow-amendment--unapproved)
+identifies the remaining publication, target/scope and create-authority decisions.

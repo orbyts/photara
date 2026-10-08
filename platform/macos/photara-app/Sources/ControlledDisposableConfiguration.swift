@@ -5,6 +5,7 @@ import Foundation
 struct ControlledDisposableConfiguration: Sendable {
     let manifestPath: String
     let bindingJSON: String
+    let targetBindingsJSON: String?
 
     static func load(_ environment: [String: String]) throws -> Self {
         guard let manifest = environment["PHOTARA_PS2_REMOUNT_MANIFEST"],
@@ -17,7 +18,14 @@ struct ControlledDisposableConfiguration: Sendable {
               let data = binding.data(using: .utf8),
               (try? JSONSerialization.jsonObject(with: data)) is [String: Any]
         else { throw ConfigurationError.missingOrInvalid }
-        return .init(manifestPath: manifest, bindingJSON: binding)
+        let targets = environment["PHOTARA_PS4_TARGET_BINDINGS"]
+        if let targets {
+            guard !targets.isEmpty, targets.utf8.count <= 65_536,
+                  let data = targets.data(using: .utf8),
+                  (try? JSONSerialization.jsonObject(with: data)) is [String: Any]
+            else { throw ConfigurationError.missingOrInvalid }
+        }
+        return .init(manifestPath: manifest, bindingJSON: binding, targetBindingsJSON: targets)
     }
 
     enum ConfigurationError: LocalizedError {

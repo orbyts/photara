@@ -46,12 +46,16 @@ def main():
     parser.add_argument("--build-only", action="store_true")
     parser.add_argument("--integrated-app", action="store_true",
                         help="build/run the controlled UniFFI app entry; Rust test host only prepares fresh registration")
+    parser.add_argument("--target-bindings", type=Path,
+                        help="existing controller-produced same-Library target bindings JSON; integrated app only, other images remain caller-owned")
     parser.add_argument("--standing-bytes", type=int,
                         help="fresh disposable registration only; positive 4096-aligned bytes (lab example: 4194304)")
     parser.add_argument("--pack-reserve-bytes", type=int,
                         help="fresh native tip reserve only; positive 4096-aligned bytes (lab example: 4194304)")
     parser.add_argument("--resume", type=Path, help="exact detached controller-owned scratch to reopen")
     args = parser.parse_args()
+    if args.target_bindings and not args.integrated_app:
+        parser.error("--target-bindings requires --integrated-app")
     if args.resume and (args.standing_bytes is not None or args.pack_reserve_bytes is not None):
         parser.error("--resume preserves registration; omit --standing-bytes and --pack-reserve-bytes")
     for name, value in [("--standing-bytes", args.standing_bytes),
@@ -96,6 +100,18 @@ def main():
         host = hosts[0]
     host_pin, host_sha = regular(host), digest(host)
     environment = os.environ.copy()
+    environment.pop("PHOTARA_PS4_TARGET_BINDINGS", None)
+    if args.target_bindings:
+        bindings_path = args.target_bindings.absolute()
+        bindings_pin = regular(bindings_path)
+        if bindings_path.stat().st_size > 65_536:
+            raise RuntimeError("Target binding input exceeded the controller bound")
+        bindings_bytes = bindings_path.read_bytes()
+        if regular(bindings_path) != bindings_pin or len(bindings_bytes) > 65_536:
+            raise RuntimeError("Target binding input changed while opening")
+        if not isinstance(json.loads(bindings_bytes), dict):
+            raise RuntimeError("Target bindings must be an explicit controller object")
+        environment["PHOTARA_PS4_TARGET_BINDINGS"] = bindings_bytes.decode("utf-8")
     environment.pop("PHOTARA_PS3_STANDING_BYTES", None)
     environment.pop("PHOTARA_PS3_PACK_RESERVE_BYTES", None)
     if args.standing_bytes is not None:

@@ -448,6 +448,55 @@ pub(in crate::package::v1_3::repeatable::disposable) struct OpenSession {
     start: std::time::Instant,
 }
 impl OpenSession {
+    pub(super) fn activation_device(&mut self) -> Value {
+        self.session.io_mut().io.journal_header["device_id"].clone()
+    }
+    pub(super) fn activation_target(&mut self) -> IoResult<Value> {
+        let io = &self.session.io_mut().io;
+        let current = io.current()?;
+        let authored = &current.commit["root_set"];
+        let graph = request().0["command"]["envelope"]["graph_id"].clone();
+        Ok(
+            json!({"library_id":authored["library_id"],"project_id":io.journal_header["project_id"],"incarnation_id":io.journal_header["incarnation_id"],"graph_id":graph,"registration_sha256":hash(&read(&io.scope.scratch,"repeatable-registration.json")?)}),
+        )
+    }
+    pub(super) fn activation_binding(&self) -> Value {
+        serde_json::to_value(&self.session.snapshot().binding).expect("typed binding")
+    }
+    pub(super) fn activation_display(&self) -> IoResult<Value> {
+        Ok(
+            json!({"snapshot":projection(self.session.snapshot()),"result":result(&self.session).map_err(|_|invalid())?,"error":null,"acknowledgement":null}),
+        )
+    }
+    pub(super) fn activation_flush(&mut self, target: &Value) -> IoResult<Value> {
+        if self.activation_target()? != *target {
+            return Err(invalid());
+        }
+        self.session.retry().map_err(|_| invalid())?;
+        let flush = self
+            .session
+            .begin_flush("flush", identity_new(self.generation))
+            .map_err(|_| invalid())?;
+        self.session.finish_flush(&flush).map_err(|_| invalid())?;
+        self.activation_observe(target)
+    }
+    pub(super) fn activation_observe(&mut self, target: &Value) -> IoResult<Value> {
+        if self.activation_target()? != *target {
+            return Err(invalid());
+        }
+        let evidence = self
+            .session
+            .activation_evidence(
+                target["registration_sha256"].as_str().ok_or_else(invalid)?,
+                target["graph_id"].as_str().ok_or_else(invalid)?,
+            )
+            .map_err(|_| invalid())?;
+        let actual = self.session.io_mut().io.current()?;
+        if evidence["head"] != actual.head || evidence["commit"] != actual.commit {
+            return Err(invalid());
+        }
+        Ok(evidence)
+    }
     pub(super) fn open(io: Native) -> IoResult<Self> {
         if !io.session_mode {
             return Err(invalid());
@@ -571,11 +620,14 @@ impl OpenSession {
                         core["envelope"]["command"]["node_id"] = req["node_id"].clone();
                         core["envelope"]["command"]["x"] = req["x"].clone();
                         core["envelope"]["command"]["y"] = req["y"].clone();
+                        let mut provenance = request().1["provenance"].clone();
+                        provenance["effective_scope"]["project_id"] =
+                            json!(s.snapshot().binding.project_id);
                         let (intent, receipt) = s.prepare_graph(
                             core,
                             operation,
                             "2026-10-05T00:00:00.000Z",
-                            &request().1["provenance"],
+                            &provenance,
                             &action,
                         )?;
                         (intent, receipt, action, identity_new(generation))
@@ -621,6 +673,19 @@ impl OpenSession {
         let output = json!({"id":req["id"],"snapshot":projection(s.snapshot()),"result":displayed,"error":response.err().map(|e|format!("{e:?}")),"acknowledgement":ack});
         output
     }
+}
+#[cfg(test)]
+pub(super) fn bootstrap(io: Native) -> IoResult<()> {
+    let mut host = OpenSession::open(io)?;
+    let b = host.activation_binding();
+    for command in ["submit", "complete"] {
+        let response=host.execute(&json!({"id":uuid::Uuid::new_v4().to_string(),"command":command,"node_id":request().0["command"]["envelope"]["command"]["node_id"],"x":13,"y":14,"expected_owner_epoch":b["owner_epoch"],"expected_attachment_generation":number(&b["owner"]["attachment_generation"])?}));
+        if !response["error"].is_null() {
+            return Err(std::io::Error::other(response.to_string()));
+        }
+        println!("{response}");
+    }
+    Ok(())
 }
 #[cfg(test)]
 pub(super) fn run(io: Native) -> IoResult<()> {

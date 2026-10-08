@@ -13,8 +13,47 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[4]
 GENERATOR = ROOT / 'docs/architecture/proposals/ps2/integrated/generate.py'
 
+def seed_project(project_id, destination):
+    """Rebuild this same specimen under a distinct ID before native registration."""
+    import shutil
+    import subprocess
+    import uuid
+    if str(uuid.UUID(project_id)) != project_id:
+        raise ValueError('canonical fixture Project ID')
+    destination = Path(destination)
+    if not destination.is_absolute() or destination.parent.resolve() != Path('/private/tmp'):
+        raise ValueError('fresh private temporary seed directory')
+    destination.mkdir(mode=0o700, exist_ok=False)
+    relative = Path('docs/architecture/proposals/ps2')
+    scripts = ['operations/generate.py', 'resource-conversion/generate.py',
+               'resource-factored/generate.py', 'integrated/generate.py']
+    files = [relative / name for name in scripts] + [
+        relative / 'sealed-wire-golden.json',
+        Path('docs/fixtures/generation-two/d19-package-specimen.json')]
+    for name in files:
+        target = destination / name
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if name.suffix == '.py':
+            # Change the input constant before any dependency hashes are made.
+            target.write_text((ROOT / name).read_text().replace(
+                '10000000-0000-4000-8000-000000000001', project_id))
+        else:
+            shutil.copyfile(ROOT / name, target)
+    for name in scripts[:2]:
+        subprocess.run([sys.executable, str(destination / relative / name)],
+                       check=True, stdout=subprocess.DEVNULL)
+    path = destination / relative / 'integrated/generate.py'
+    spec = importlib.util.spec_from_file_location('seed_integrated', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    result = module.build()
+    path.with_name('linked.json').write_text(json.dumps(result, sort_keys=True, separators=(',', ':')))
+    print(destination)
+
 def build(registration):
-    spec = importlib.util.spec_from_file_location('native_integrated', GENERATOR)
+    seed = os.environ.get('PHOTARA_PS4_SEED_ROOT')
+    generator = Path(seed) / GENERATOR.relative_to(ROOT) if seed else GENERATOR
+    spec = importlib.util.spec_from_file_location('native_integrated', generator)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     if set(registration) not in ({'allocations', 'retained'}, {'allocations', 'retained', 'tip_charges'}):
@@ -108,6 +147,9 @@ def preallocate(directory, device, inode, requested):
         os.close(root)
 
 if __name__ == '__main__':
+    if len(sys.argv) == 4 and sys.argv[1] == '--seed-project':
+        seed_project(sys.argv[2], sys.argv[3])
+        raise SystemExit(0)
     if len(sys.argv) == 6 and sys.argv[1] == '--preallocate':
         preallocate(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5]))
         raise SystemExit(0)

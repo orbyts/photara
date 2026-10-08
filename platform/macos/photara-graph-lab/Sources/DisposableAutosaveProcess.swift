@@ -76,6 +76,53 @@ protocol DisposableSessionBridge: Sendable {
     func execute(_ request: DisposableHostRequest) async throws -> DisposableHostResponse
 }
 
+struct DisposableProjectChoice: Decodable, Identifiable, Equatable, Sendable {
+    let id: UUID
+    let title: String
+}
+struct DisposableSessionView: Codable, Equatable, Sendable {
+    let device_id: String
+    let library_id: String
+    let project_id: String
+    let graph_id: String
+    var pan_x: Int64
+    var pan_y: Int64
+    var zoom_ppm: String
+    var selected_node_ids: [String]
+    var visible_panels: [String]
+}
+struct DisposableSessionDisplay: Decodable, Sendable {
+    let snapshot: DisposableSessionSnapshot?
+    let result: DisposableHostResult?
+    let error: String?
+}
+struct DisposableWorkspaceState: Sendable {
+    let current: DisposableSessionDisplay?
+    let projects: [DisposableProjectChoice]
+    let activeProjectID: UUID?
+    let view: DisposableSessionView?
+    let confirmationRequired: Bool
+    let readOnly: Bool
+    var error: String? = nil
+    var recoveryNodes: [DisposablePositionNode]? = nil
+    var pendingTarget: UUID? = nil
+}
+struct DisposableActivationResponse: Sendable {
+    let status: String
+    let activationID: UUID?
+    let state: DisposableWorkspaceState
+}
+protocol DisposableWorkspaceBridge: DisposableSessionBridge {
+    func workspace() async throws -> DisposableActivationResponse
+    func prepare(activationID: UUID, target: UUID, view: DisposableSessionView?, binding: DisposableAutosaveBinding?) async throws -> DisposableActivationResponse
+    func respond(activationID: UUID, command: String) async throws -> DisposableActivationResponse
+}
+struct DisposableSwitchPrompt: Equatable, Sendable {
+    let id: UUID
+    let sourceTitle: String
+    let targetTitle: String
+}
+
 /// Presentation and retained-request lifecycle shared by the controlled app and
 /// original standalone lab. Neither path can construct storage authority.
 @MainActor
@@ -89,6 +136,16 @@ final class DisposableAutosaveProcess: ObservableObject {
     @Published private(set) var undoAvailable = false
     @Published private(set) var redoAvailable = false
     @Published private(set) var checkingStorage = false
+    @Published private(set) var projects: [DisposableProjectChoice] = []
+    @Published private(set) var activeProjectID: UUID?
+    @Published private(set) var restoredView: DisposableSessionView?
+    @Published private(set) var switchPrompt: DisposableSwitchPrompt?
+    @Published private(set) var switching = false
+    @Published private(set) var switchFailure: String?
+    @Published private(set) var readOnly = false
+    private var switchRequest: (id: UUID, target: UUID, view: DisposableSessionView?)?
+    private var switchInFlight = false
+    var projectTitle: String { projects.first { $0.id == activeProjectID }?.title ?? "Disposable Project" }
     private var barrierRequested = false
     private let bridge: (any DisposableSessionBridge)?
     private var bridgeStarted = false
@@ -108,13 +165,28 @@ final class DisposableAutosaveProcess: ObservableObject {
     private static let frameLimit = 1_048_576
     private static let prefix = Data("PHOTARA_PS3 ".utf8)
 
-    var canEdit: Bool { !checkingStorage && !busy && closeCompletion == nil && transportFailure == nil && !closed && projection?.canSubmit == true }
+    var canEdit: Bool { !switching && !readOnly && !checkingStorage && !busy && closeCompletion == nil && transportFailure == nil && !closed && projection?.canSubmit == true }
 
     func start(environment: [String: String] = ProcessInfo.processInfo.environment) {
         if bridge != nil {
             guard !bridgeStarted else { return }
             bridgeStarted = true
-            send(.init(id: UUID(), command: "snapshot"))
+            if let workspace = bridge as? any DisposableWorkspaceBridge {
+                busy = true
+                Task {
+                    do {
+                        let response = try await workspace.workspace()
+                        busy = false
+                        try installWorkspace(response.state, replace: true)
+                        if let id = response.activationID,
+                           let target = response.state.pendingTarget ?? (response.state.readOnly ? response.state.activeProjectID : nil) {
+                            switchRequest = (id, target, response.state.view)
+                            switching = response.state.pendingTarget != nil
+                            switchFailure = "A Project switch needs recovery. Retry the original switch."
+                        }
+                    } catch { busy = false; transportFailure = error.localizedDescription }
+                }
+            } else { send(.init(id: UUID(), command: "snapshot")) }
             return
         }
         guard process == nil else { return }
@@ -203,6 +275,8 @@ final class DisposableAutosaveProcess: ObservableObject {
     }
 
     func retry() {
+        if readOnly, switchRequest != nil { switching = true; retrySwitch(); return }
+        if switching { retrySwitch(); return }
         guard !busy, !closed else { return }
         if let failedRequest {
             transportFailure = nil
@@ -230,6 +304,7 @@ final class DisposableAutosaveProcess: ObservableObject {
     }
 
     private func drainLifecycle() {
+        if switching { drainSwitch(); return }
         guard !busy, transportFailure == nil, !closed, closeCompletion == nil,
               projection?.pendingOperationID == nil else { return }
         if checkingStorage { send(.init(id: UUID(), command: "revalidate")) }
@@ -238,10 +313,18 @@ final class DisposableAutosaveProcess: ObservableObject {
 
     func close(_ completion: @escaping (Bool) -> Void) {
         if closed { completion(true); return }
-        if projection == nil && !busy && process?.isRunning != true {
+        guard !switching else {
+            switchFailure = "Close canceled. Finish or cancel the Project switch first."
+            completion(false); return
+        }
+        if projection == nil && !readOnly && !busy && process?.isRunning != true {
             closed = true; completion(true); return // No editable project was attached.
         }
         guard closeCompletion == nil else { completion(false); return }
+        guard !readOnly else {
+            switchFailure = "Close canceled. Retry recovery before closing this read-only Project."
+            completion(false); return
+        }
         guard transportFailure == nil else {
             transportFailure = "Close canceled. Retry the original request before closing."
             completion(false); return
@@ -252,6 +335,149 @@ final class DisposableAutosaveProcess: ObservableObject {
             fail("Close canceled. An edit still needs recovery before closing."); return
         }
         send(.init(id: UUID(), command: "close"))
+    }
+
+    func beginSwitch(to target: UUID, view: DisposableSessionView?) {
+        guard bridge is any DisposableWorkspaceBridge, !closed, !switching,
+              closeCompletion == nil, projects.contains(where: { $0.id == target }) else { return }
+        guard target != activeProjectID else { return }
+        switchRequest = (UUID(), target, view)
+        switching = true; switchFailure = nil
+        drainSwitch()
+    }
+
+    private func drainSwitch() {
+        guard switching, !busy, !switchInFlight, switchPrompt == nil,
+              switchFailure == nil, let request = switchRequest,
+              let workspace = bridge as? any DisposableWorkspaceBridge else { return }
+        guard transportFailure == nil, projection?.pendingOperationID == nil else {
+            switchFailure = "The current edit could not be saved. Retry it before switching."
+            // Preparation never reached Rust; return to the original edit's retry.
+            switching = false; switchRequest = nil
+            return
+        }
+        switchInFlight = true
+        Task {
+            do {
+                let response = try await workspace.prepare(activationID: request.id,
+                    target: request.target, view: request.view, binding: projection?.binding)
+                switchInFlight = false
+                try acceptActivation(response, expected: request.id)
+            } catch {
+                switchInFlight = false
+                switchDiagnostic(error.localizedDescription)
+                switchFailure = "The switch outcome is unknown. Retry the original switch before editing or closing."
+            }
+        }
+    }
+
+    func answerSwitch(_ id: UUID, confirmed: Bool) {
+        guard switchPrompt?.id == id, !switchInFlight else { return }
+        switchPrompt = nil
+        sendSwitch(id, command: confirmed ? "confirm" : "cancel")
+    }
+
+    func retrySwitch() {
+        guard let request = switchRequest, !switchInFlight, !busy else { return }
+        switchFailure = nil
+        sendSwitch(request.id, command: "retry")
+    }
+
+    private func sendSwitch(_ id: UUID, command: String) {
+        guard switchRequest?.id == id,
+              let workspace = bridge as? any DisposableWorkspaceBridge else { return }
+        switchInFlight = true
+        Task {
+            do {
+                let response = try await workspace.respond(activationID: id, command: command)
+                switchInFlight = false
+                try acceptActivation(response, expected: id)
+            } catch {
+                switchInFlight = false
+                switchDiagnostic(error.localizedDescription)
+                switchFailure = "The switch outcome is unknown. Retry the original switch before editing or closing."
+            }
+        }
+    }
+
+    private func acceptActivation(_ response: DisposableActivationResponse, expected: UUID) throws {
+        guard response.activationID == expected, let request = switchRequest,
+              request.id == expected else { throw CocoaError(.coderInvalidValue) }
+        switch response.status {
+        case "Prepared":
+            try installWorkspace(response.state, replace: false)
+            if response.state.confirmationRequired {
+                guard projection?.status == .saved, pendingPosition == nil,
+                      let target = projects.first(where: { $0.id == request.target }) else {
+                    throw CocoaError(.coderInvalidValue)
+                }
+                switchPrompt = .init(id: expected, sourceTitle: projectTitle, targetTitle: target.title)
+            } else { sendSwitch(expected, command: "confirm") }
+        case "Activated":
+            guard response.state.activeProjectID == request.target,
+                  response.state.current?.snapshot != nil else { throw CocoaError(.coderInvalidValue) }
+            try installWorkspace(response.state, replace: true)
+            switchRequest = nil; switching = false; switchFailure = nil
+            drainLifecycle()
+        case "RetainedCurrent", "RetainedReadOnlyRecovery", "Refused":
+            if response.state.pendingTarget != nil {
+                readOnly = response.state.readOnly
+                switchDiagnostic(response.state.error)
+                switchFailure = response.state.readOnly
+                    ? "The previous Project is read-only. Retry recovery before editing or closing."
+                    : "The switch needs recovery. Retry the original switch before editing or closing."
+                return
+            }
+            guard response.state.activeProjectID == activeProjectID else { throw CocoaError(.coderInvalidValue) }
+            // A failed activation may reacquire the same source under a new
+            // Rust owner epoch. This explicit outcome can replace its binding.
+            try installWorkspace(response.state, replace: response.state.current != nil)
+            if !readOnly { switchRequest = nil }
+            switching = false
+            switchDiagnostic(response.state.error)
+            if readOnly {
+                switchFailure = "The previous Project is read-only. Retry recovery before editing or closing."
+            } else if response.state.error != nil {
+                switchFailure = projection?.status == .saved
+                    ? "Could not switch Projects. The previous Project is still open. Check that the selected Project is available, then try again."
+                    : "The current Project could not be saved. Retry saving before switching."
+            } else { switchFailure = nil }
+            if !readOnly { drainLifecycle() }
+        case "Pending":
+            switchDiagnostic(response.state.error)
+            switchFailure = "The switch outcome is unknown. Retry the original switch before editing or closing."
+        default: throw CocoaError(.coderInvalidValue)
+        }
+    }
+
+    private func switchDiagnostic(_ raw: String?) {
+        guard let raw else { return }
+        // Preserve bounded native diagnostics in the process log, never in the
+        // Project workflow or as a claim about current write authority.
+        let bytes = Array(raw.utf8.prefix(4096))
+        try? FileHandle.standardError.write(contentsOf: Data("Project switch diagnostic: ".utf8) + Data(bytes) + Data([10]))
+    }
+
+    private func installWorkspace(_ state: DisposableWorkspaceState, replace: Bool) throws {
+        guard Set(state.projects.map(\.id)).count == state.projects.count,
+              replace || state.activeProjectID == activeProjectID else { throw CocoaError(.coderInvalidValue) }
+        if let current = state.current {
+            guard let snapshot = current.snapshot, current.error == nil,
+                  state.activeProjectID == snapshot.binding.projectID else { throw CocoaError(.coderInvalidValue) }
+            var next = replace ? DisposableAutosaveProjection(binding: snapshot.binding) : projection
+            guard next?.snapshot == snapshot || next?.receive(snapshot) == true else { throw CocoaError(.coderInvalidValue) }
+            projection = next
+            if let value = current.result?.nodes { nodes = value }
+            undoAvailable = current.result?.undo_available ?? false
+            redoAvailable = current.result?.redo_available ?? false
+        } else if state.readOnly {
+            // Only the shared authority can enter capsule/read-only retention.
+            // Keep the already visible graph; no synthetic editable snapshot.
+            if nodes.isEmpty, let capsuleNodes = state.recoveryNodes { nodes = capsuleNodes }
+        } else if state.activeProjectID != nil || projection != nil { throw CocoaError(.coderInvalidValue) }
+        projects = state.projects; activeProjectID = state.activeProjectID; readOnly = state.readOnly
+        if replace { restoredView = state.view }
+        if state.readOnly { undoAvailable = false; redoAvailable = false }
     }
 
     private func send(_ originalRequest: DisposableHostRequest) {
@@ -328,6 +554,7 @@ final class DisposableAutosaveProcess: ObservableObject {
             projection?.submissionFailed(request.id, message: error)
             transportFailure = error
             closeCompletion?(false); closeCompletion = nil
+            if switching { drainSwitch() }
             return
         }
         failedRequest = nil; transportFailure = nil
@@ -361,6 +588,10 @@ final class DisposableAutosaveProcess: ObservableObject {
         if let pending { failedRequest = pending }
         if let id = projection?.pendingOperationID { projection?.submissionFailed(id, message: message) }
         pending = nil; busy = false; transportFailure = message
+        if switching && !switchInFlight && switchPrompt == nil {
+            switching = false; switchRequest = nil
+            switchFailure = "The current edit could not be saved. Retry it before switching."
+        }
         closeCompletion?(false); closeCompletion = nil
     }
 }

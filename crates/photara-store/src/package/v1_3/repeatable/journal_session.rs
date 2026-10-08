@@ -16,7 +16,7 @@ type Objects = BTreeMap<wire::Key, Value>;
 fn checked<T>(result: wire::Result<T>) -> Result<T, PackageError> {
     result.map_err(|_| PackageError::Integrity)
 }
-fn owner(value: &Value) -> Result<(), PackageError> {
+pub(crate) fn owner(value: &Value) -> Result<(), PackageError> {
     fields(
         value,
         &["attachment_id", "attachment_generation", "principal"],
@@ -37,7 +37,7 @@ fn owner(value: &Value) -> Result<(), PackageError> {
     }
     Ok(())
 }
-fn link(value: &Value) -> Result<(), PackageError> {
+pub(crate) fn link(value: &Value) -> Result<(), PackageError> {
     fields(value, &["record_id", "record_checksum"])?;
     id(&value["record_id"])?;
     digest(&value["record_checksum"])
@@ -48,7 +48,7 @@ fn target(value: &Value) -> Result<(), PackageError> {
     id(&value["operation_id"])?;
     link(&value["mutation"])
 }
-fn coordinate(value: &Value) -> Result<(), PackageError> {
+pub(crate) fn coordinate(value: &Value) -> Result<(), PackageError> {
     fields(value, &["revision", "authored_digest", "graphs"])?;
     n(&value["revision"])?;
     digest(&value["authored_digest"])?;

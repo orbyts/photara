@@ -1,0 +1,633 @@
+{
+  "date": "2026-10-08",
+  "approval_commit": "2d62319",
+  "scope": "Approved same-Library explicitly registered disposable PS4 implementation and native validation; no real-library enablement",
+  "native_matrix": [
+    {
+      "name": "stale-owner",
+      "passed": true
+    },
+    {
+      "name": "stale-generation",
+      "passed": true
+    },
+    {
+      "name": "cancellation-double-activation-original-cancel-retry",
+      "passed": true,
+      "activation_id": "09cb58a7-2ded-4598-98b7-47969362cf45"
+    },
+    {
+      "name": "pre-dialog-save-failure",
+      "passed": true
+    },
+    {
+      "name": "post-confirmation-save-failure",
+      "passed": true,
+      "activation_id": "4ac30df4-6528-477c-b040-3ce382f716c5"
+    },
+    {
+      "name": "failed-target-open",
+      "passed": true,
+      "activation_id": "c885bc4c-53c3-4725-bb2b-7e7afe210e52"
+    },
+    {
+      "name": "failed-target-restore",
+      "passed": true,
+      "activation_id": "5339af2d-456d-4d0f-8617-63c9583d2b40"
+    },
+    {
+      "name": "failed-reacquisition-exact-read-only-graph-and-retry",
+      "passed": true,
+      "activation_id": "b1c4c73d-9141-47dd-8913-c0ef10c9c2e3"
+    },
+    {
+      "name": "failed-snapshot-publication",
+      "passed": true,
+      "activation_id": "eb5fbb7e-9c60-41a9-8af5-071f217938b1"
+    },
+    {
+      "name": "successful-switch-original-id-idempotence-and-changed-target-refusal",
+      "passed": true,
+      "activation_id": "95f82c35-594d-43b8-af8c-5e14b2c5f31f",
+      "generation": "2"
+    },
+    {
+      "name": "source-view-restoration",
+      "passed": true
+    },
+    {
+      "name": "restart-before-activation-commit",
+      "passed": true,
+      "activation_id": "8f727757-b2d6-4b9d-a113-ed90fc853390",
+      "active": "10000000-0000-4000-8000-000000000001",
+      "generation": "3"
+    },
+    {
+      "name": "restart-after-activation-commit",
+      "passed": true,
+      "activation_id": "6d0dc001-8fd9-420d-8937-38b6c5c12fd6",
+      "active": "10000000-0000-4000-8000-000000000003",
+      "generation": "4"
+    }
+  ],
+  "native_guards": [
+    "unknown-retry-no-owner-rotation",
+    "same-original-prepare-freshness-and-terminal-cancel",
+    "original-preparing-candidate-exact-byte-retry",
+    "restart-refuses-stale-original-confirmation",
+    "missing-selected-snapshot-refuses-without-reset"
+  ],
+  "checks": {
+    "store_release": "36 passed, 1 ignored",
+    "store_strict_clippy": "passed",
+    "controlled_bridge_cli_strict_clippy": "passed",
+    "default_off_bridge_compile": "passed",
+    "swift_model_and_AppKit_quit_success_failure_retry": "passed",
+    "signed_build_and_actual_generated_FFI_admission": "passed"
+  },
+  "native_ui": {
+    "pre_dialog_pending_drag": "B revision4 pending edit drained; exact Saved revision5 independently verified while confirmation displayed",
+    "cancel": "B remains editable at Saved5, x40013 y20014",
+    "target_writer_lock_failure": "B retained with exact Graph",
+    "switch_and_return": "A Saved4 x13 y14, then B Saved5 x40013 y20014",
+    "readonly_recovery": "Full B Graph displayed with editing disabled; Quit canceled; lock release plus explicit Retry restored exact Saved5",
+    "final_artifact_spot_check": "Recovery required label, explicit Retry and Close exit0",
+    "final_exit": {
+      "pid": 85839,
+      "exit": 0
+    }
+  },
+  "final_snapshot": {
+    "revision": "103",
+    "committed_generation": "6",
+    "request_generation": "20",
+    "pending": null,
+    "records": 228,
+    "active": {
+      "id": "828fa552-e35c-4d22-859a-68a43cdf8e99",
+      "sha256": "fefbe43632069050e46e951d873773ea78951bf87264a59a8073f62bdff3d4b3"
+    },
+    "body_sha256": "4c79126d0591456d02f091dabfdecaa2b240f15b3ca01676811c22aa94f3cd45"
+  },
+  "storage": {
+    "roots": [
+      "/private/tmp/photara-ps2-remount-sysgwzuu",
+      "/private/tmp/photara-ps2-remount-fi7qydft"
+    ],
+    "generation": 1,
+    "detached": true,
+    "registration_bounds": "Fixture only: 16MiB activation budget, 64KiB namespace allowance, 4MiB snapshot, 256 records; no increase during run"
+  },
+  "validation_provenance": "First seven matrix cases passed before recovery correction; remaining six and five guards passed after targeted fixes. Final affected Rust regression passed. Native UI used the integrated implementation; final signed artifact spot-checked read-only recovery, Retry and Close. No claim that every case ran on the identical executable.",
+  "corrections": [
+    "Removed duplicate automatic source reacquisition hiding read-only recovery",
+    "Refused stale original confirmation after owner restart and missing selected snapshot reset",
+    "Mapped native diagnostics to actionable UI messages while preserving stderr detail"
+  ],
+  "limitations": [
+    "Conditional macOS same-device full-sync/atomic-rename qualification only",
+    "Process cuts and clean detach are not power-loss proof",
+    "No cross-Library, SQL coordination, migration, deletion, conversion, production writes or deployment",
+    "Retained candidate accounting and finite test bounds are not production limits"
+  ],
+  "sources": [
+    {
+      "path": "crates/photara-bridge/src/bin/controlled-session.rs",
+      "bytes": 4489,
+      "sha256": "d07010b306819957c5e16c1320fb117053065c978d44f4ce7b70db710fc42ed6"
+    },
+    {
+      "path": "crates/photara-bridge/src/controlled_workspace.rs",
+      "bytes": 7240,
+      "sha256": "162673241681a7844a3b32efdb621c37e9f4e0ac7d48cf71d2465f9d6eca8d8e"
+    },
+    {
+      "path": "crates/photara-bridge/src/lib.rs",
+      "bytes": 1999,
+      "sha256": "e7b05377309082665474d91ee3a8c2132fbf0b297e51d35304d8fa1d5bf78e8b"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/activation/mod.rs",
+      "bytes": 11015,
+      "sha256": "54ea38f818754c36ea6eda9d9ea447a006faa26eec0034220810d85f8249109a"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/activation/records.rs",
+      "bytes": 26978,
+      "sha256": "faf15135253f56daa3694801714591269de363e2d765288e88c28b34c3374be8"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/activation/transition.rs",
+      "bytes": 7960,
+      "sha256": "7f266cbd698b470391150d58307536eb1f6c919a8796b224067793733454505b"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/mod.rs",
+      "bytes": 1707,
+      "sha256": "e44635888eff88a5a38e48a1e12fd2771814b4509455028c528cbae4ed8a4c88"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/activation_tests.rs",
+      "bytes": 17476,
+      "sha256": "25408f5f26fb01e9e65b8e4883bb407c10f79b7b1dda603aa974e0544efe051b"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/disposable.rs",
+      "bytes": 16452,
+      "sha256": "4ff4c7a32e2ece324197247700c9761f870bb2d8f2db810b2a141d3aed8c1761"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/journal.rs",
+      "bytes": 26392,
+      "sha256": "e2a6ffe027847ea6b61d87cb5ec9d768cb95b5cb6a07150cb1606aa88ac51308"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/journal_session.rs",
+      "bytes": 47349,
+      "sha256": "dbadd689812c01e8cbc90c8e15890d3c23765971915febe730c9ae326baf4bf0"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/journal_tests.rs",
+      "bytes": 13607,
+      "sha256": "65de51732cada78f96659b65175a4748d564dbcc9eca6c4d8feb2522972f9be6"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/native_activation.rs",
+      "bytes": 51017,
+      "sha256": "83052c45da2a710986603c3352163ee59ba8b504038a02348688b49862e4098b"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/native_session.rs",
+      "bytes": 31524,
+      "sha256": "a7094657d26656a02c853a05f232e8ffcb92ae6e740d2ff3186d67dd3c02d646"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/native_test.rs",
+      "bytes": 63046,
+      "sha256": "b4b9f8f83783685ca4abb8b181374c1d742b7d5edd6292fcadef06ebe94a34fc"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/session.rs",
+      "bytes": 22736,
+      "sha256": "fc1e961942dee9e9e55661025ad11a4c739bb2fb6ff00a96d1b0a663fe4895b3"
+    },
+    {
+      "path": "crates/photara-store/src/package/v1_3/repeatable/tests.rs",
+      "bytes": 29044,
+      "sha256": "91a6e8ca3a7355e5303acd5dcd16e080447735e48ba1b7273d4ba9e858c6e6b0"
+    },
+    {
+      "path": "crates/photara-store/tests/ps2_reader_support/native_bootstrap.py",
+      "bytes": 8814,
+      "sha256": "86e6a64bd1c00df952302ebe8ed836ce5f3183ed5871482c73d3ff817000fc6d"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/ControlledDisposableConfiguration.swift",
+      "bytes": 1747,
+      "sha256": "1b15da7bad14ecb3edb3679053f9b6913f49cbfa4978bc890dd79cfbbfc4f1b7"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/ControlledDisposableSession.swift",
+      "bytes": 18361,
+      "sha256": "a5744a4a7682e3933faeab16891fbf1a79e046c74548ced4eeaa75758d783b01"
+    },
+    {
+      "path": "platform/macos/photara-app/Sources/ControlledSwitchConfirmation.swift",
+      "bytes": 2680,
+      "sha256": "8b7c6633e794efe93ec2d567b354dc5543279acd2b2045d9ee15e58a4d630740"
+    },
+    {
+      "path": "platform/macos/photara-app/Tests/ControlledBridgeAdmissionSmoke.swift",
+      "bytes": 1274,
+      "sha256": "dae50d78386c2b5f5d712d61f900f89c7594ead7286234d6878efc20526cd6ae"
+    },
+    {
+      "path": "platform/macos/photara-app/Tests/ControlledSessionChecks.swift",
+      "bytes": 16754,
+      "sha256": "a560e10b33cb286473156de9ea8f13dcb15247d77531beb2917df0c87d7a9c99"
+    },
+    {
+      "path": "platform/macos/photara-app/build-app.sh",
+      "bytes": 8735,
+      "sha256": "f84fe86a74b203e9b4f61f38bbdd3924ea174ba35d1620ed1f87fa91fd491262"
+    },
+    {
+      "path": "platform/macos/photara-app/verify-controlled-session.sh",
+      "bytes": 1525,
+      "sha256": "0c88a0b7b4f2d9597f4df94ca0b69a42e0a251c5244a25702778d638751502a5"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/Sources/DisposableAutosaveProcess.swift",
+      "bytes": 28274,
+      "sha256": "54a5970c243efbc0fde487f6d97ac2770447aa30caf0a4996032fbdc77a13d04"
+    },
+    {
+      "path": "platform/macos/photara-graph-lab/run-disposable-autosave.py",
+      "bytes": 12793,
+      "sha256": "bbbea26cdf92964c81bcf6fd4bfb2934b8ad2c976fbe65593df4a4dc09baca4e"
+    },
+    {
+      "path": "platform/macos/photara-graph/Sources/GraphInteraction.swift",
+      "bytes": 21734,
+      "sha256": "f2a8cd27293438e538cf9439af5c711dee917d53586ffa00169c42fb2be2fbe6"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/activation-registration.json",
+      "bytes": 1137,
+      "sha256": "03354879913a4c7255b8c1d28345af7d50d4ebc9a9fa3c8653244725f9c83c86"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/activation-target-bindings.json",
+      "bytes": 556,
+      "sha256": "dc77487f3d3fea9daeb96072d24a728b84a6f57c65a952d68c4196393e296d84"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/mount/activation/activation.json",
+      "bytes": 1227443,
+      "sha256": "887ed8fcc584730cc333fa8e5f285e10f132609dfe1b879942784131a95f76ba"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-crash-after.jsonl",
+      "bytes": 13586,
+      "sha256": "a5688364617d0d6231381085ae4fc273032dbed3f686baf0e61dd070e879d186"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-crash-after.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-crash-before.jsonl",
+      "bytes": 13587,
+      "sha256": "f4e7b76b5723d9e18548b8f8df85e1a5c5bf5f119d181a64b6e52bf248c7b745"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-crash-before.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-guard-results.json",
+      "bytes": 249,
+      "sha256": "87f7e5e13620bfb488eb46f5c4c0065f44c4b778ebbeeba5f04e40b708643296"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-guards.jsonl",
+      "bytes": 65055,
+      "sha256": "0e984e08468a177357b2458e15ad280ca3f60754b9cc7b27e185aa8dc6e4e40e"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-guards.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-initial.jsonl",
+      "bytes": 13007,
+      "sha256": "772490bd8cd3ab2cad7ed5573e8e1f32a4cf01c0c620aaaf218b2091904331b5"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-initial.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-matrix-remaining.jsonl",
+      "bytes": 78198,
+      "sha256": "6a6f656f8dabcbb56d66df9c36ad3b373dd9a67be92030e57d2b5e5fa798f21e"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-matrix-remaining.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-matrix-results.json",
+      "bytes": 1704,
+      "sha256": "cc088b0e62ad06922c5c2bc78b8116cdf1d534ea50b13d44094a81ce097809c0"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-matrix.jsonl",
+      "bytes": 107026,
+      "sha256": "c43f438a38517ab87498305e9a55f9d035d6835b1f0a47678fe864d27f933f7f"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-matrix.stderr",
+      "bytes": 65,
+      "sha256": "73b36bd936509d15deae450715b116ed008d40b7ab40ff7f07d2de62953910a5"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-missing-snapshot.stderr",
+      "bytes": 76,
+      "sha256": "4a4d3759cbff626df0fa07f9349b9a7de58ccfaa96fbbffbbffc939d55a4d5c8"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-readonly-ui-setup.jsonl",
+      "bytes": 18944,
+      "sha256": "af1bcb54b1c1ec50002109da5f5af6a238045b7f7a35f29eb83f4c47d23a6e5b"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-readonly-ui-setup.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-restart-after.jsonl",
+      "bytes": 15675,
+      "sha256": "9344d79305f1c6482fd32c7a101f2028785f4e6b5a99db5ef5b34fb6a1a20565"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-restart-after.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-restart-before.jsonl",
+      "bytes": 14645,
+      "sha256": "b6983535a7f8895a70e19b54d52967892d85c6e7ee045114f287fc16dd87acd9"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-restart-before.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-stale-prompt-restart.jsonl",
+      "bytes": 21518,
+      "sha256": "6908d4d0e3f20ea1e9e45df3182286d7eea756f8d7b88b515e7ce0664bd0877f"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-stale-prompt-restart.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-ui-before-confirmation.json",
+      "bytes": 2552,
+      "sha256": "7617fa4ecefbaf254c1723fd45a4ea20a196bb0439f7fdc4944b3e55effb7fe9"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-ui-final-labels.app.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-ui-final-labels.exit.json",
+      "bytes": 25,
+      "sha256": "1d9574b94024058894039a81efc5acb4fe3e87697ea641dd5255a5fcec8f1439"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-ui-final-labels.pid",
+      "bytes": 5,
+      "sha256": "ccb14750fd2a80a4c041438d59c7b6b389c6f2465192e504a94bab7f38e9de82"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-ui-main.app.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-ui-main.exit.json",
+      "bytes": 25,
+      "sha256": "1b11432cafe292f10352a7fe85f59dfb7b4b60156229252cb9babf339ef507f6"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-ui-main.pid",
+      "bytes": 5,
+      "sha256": "e357b26dd66bcf84c32087faca399c3cc164e4213cbb66bb74d631ef874d1b64"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-ui-recovery-setup.json",
+      "bytes": 246,
+      "sha256": "2254b75b573ac3f3f46081d8082422b2899a53bb9b29fb46369624fe988bd431"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-ui-recovery.app.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-ui-recovery.exit.json",
+      "bytes": 25,
+      "sha256": "f48408615f92bf9ac8cd005dc3368cb41b3e383b698e574928899281ff2f464c"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/ps4-ui-recovery.pid",
+      "bytes": 5,
+      "sha256": "0eba6a44ca20496516b4ac4b30e05d21b7be8b6a9e6a4faf3682a50de490c136"
+    },
+    {
+      "path": "/private/tmp/photara-ps4-driver.py",
+      "bytes": 3051,
+      "sha256": "16ab02881f2cd86614b79b1502e54bef55c53681aced9ceba461dc6373dbcd9b"
+    },
+    {
+      "path": "/private/tmp/photara-ps4-guards.py",
+      "bytes": 3146,
+      "sha256": "54355a581c54c44e654692e4a9ebfbf265db0726a83e4255b57d5c6acc79d5ce"
+    },
+    {
+      "path": "/private/tmp/photara-ps4-hold-lock.py",
+      "bytes": 476,
+      "sha256": "2dca1094a49e930c19da575846f827d45164cd9d448d5d89fff0284f50622fac"
+    },
+    {
+      "path": "/private/tmp/photara-ps4-integrated-app/Photara Disposable.app/Contents/Frameworks/libphotara_bridge.dylib",
+      "bytes": 14735888,
+      "sha256": "7c4dfaaa3e73933e5d208c3b3200d6cbcba0a05747e8dea46b6635a8d26cb964"
+    },
+    {
+      "path": "/private/tmp/photara-ps4-integrated-app/Photara Disposable.app/Contents/MacOS/PhotaraDisposable",
+      "bytes": 13167216,
+      "sha256": "bcebf96b90247780dd36a7e0fab5bf7a9062adb4ba1f253fec4c1946434a1b60"
+    },
+    {
+      "path": "/private/tmp/photara-ps4-launch.py",
+      "bytes": 956,
+      "sha256": "1c6602f05db81a6e451ad36e27833d0c5e4cf26bb2f8f8e0722754c01b75c27d"
+    },
+    {
+      "path": "/private/tmp/photara-ps4-matrix-remaining.py",
+      "bytes": 2988,
+      "sha256": "57dd13996639e39b104efb9659f1d5233d00ee8976ad14115f80e0d73cc3e042"
+    },
+    {
+      "path": "/private/tmp/photara-ps4-matrix.py",
+      "bytes": 4246,
+      "sha256": "57eaa2fff5812b3b1fb40028871c7818928a06b92b2888f5bd75a7c1f5ced92c"
+    },
+    {
+      "path": "/private/tmp/photara-ps4-prepare.py",
+      "bytes": 1151,
+      "sha256": "89bbfb786acdfb2230b0cca85b5d5d54444b939dca8c02ad75969b91d7cba3cd"
+    },
+    {
+      "path": "/private/tmp/photara-ps4-readonly-setup.py",
+      "bytes": 1052,
+      "sha256": "bc088a36c79a9e3d8e8152f78dee53d4c2f615fdee654627f97558d28ec400cb"
+    },
+    {
+      "path": "/private/tmp/photara-ps4-register.py",
+      "bytes": 3266,
+      "sha256": "24c1813283c4e58210380caddb294a45dfefe19850ade78b342df6964c05536e"
+    },
+    {
+      "path": "/private/tmp/ps4-bridge-default-check.log",
+      "bytes": 468,
+      "sha256": "7f3f2ed566e2b1221f81bbfb317ced1a7c2d2bbad0d04717362e7e4f93fdc397"
+    },
+    {
+      "path": "/private/tmp/ps4-codec-check.log",
+      "bytes": 202,
+      "sha256": "6d34f29201cd99d7abbf4e28d33533d9bb786c0b5c922c3f13af30143e22e560"
+    },
+    {
+      "path": "/private/tmp/ps4-codec-clippy.log",
+      "bytes": 10264,
+      "sha256": "298464ee5c290fd576c679438da0518e6138c6cf8fc8066ee2f84fdb483d16b5"
+    },
+    {
+      "path": "/private/tmp/ps4-codec-evidence-tests.log",
+      "bytes": 1101,
+      "sha256": "4085958d98f1b7b1493560fce146e6be06c7e208b7c2aa0f366bcc5dbf99608f"
+    },
+    {
+      "path": "/private/tmp/ps4-codec-tests.log",
+      "bytes": 675,
+      "sha256": "50dd09bd9bd3e083cce4b66f428aecee0edd75fa626d68b0a7348fc4c9375a53"
+    },
+    {
+      "path": "/private/tmp/ps4-guards-run.log",
+      "bytes": 236,
+      "sha256": "6855a14e4edc07ecca4408e2bd90cf8ba3f76890a2fe894afe72bc074ef557dd"
+    },
+    {
+      "path": "/private/tmp/ps4-initial-run.log",
+      "bytes": 427,
+      "sha256": "716b029b82b0b41410caa1a53145fdadeb34f76c098cb4caec8d724ca74e85d7"
+    },
+    {
+      "path": "/private/tmp/ps4-integrated-build.log",
+      "bytes": 2418,
+      "sha256": "adc20186f596253b578e62df71349a02413907a3d152c3d3262c0cd20e0c0142"
+    },
+    {
+      "path": "/private/tmp/ps4-integrated-final-build.log",
+      "bytes": 2445,
+      "sha256": "6402ef0c976ddaa7f2d3e50c967978223da93784d811b91a2c5ca7b85386d024"
+    },
+    {
+      "path": "/private/tmp/ps4-matrix-remaining-run.log",
+      "bytes": 333,
+      "sha256": "ec44bc7e09cbbfef62432baee160138093a8af7f3b28688860df5dc20b402fec"
+    },
+    {
+      "path": "/private/tmp/ps4-matrix-run.log",
+      "bytes": 4671,
+      "sha256": "40769d949d6b39d0fcf28b1cb97eb8d141ea6f0e255305fae22e167875be4d15"
+    },
+    {
+      "path": "/private/tmp/ps4-native-lifecycle-checks.log",
+      "bytes": 585,
+      "sha256": "4e33b9ad05f827a7d5a206f4d1993ccc3060e745c7be1945b1c03f363de56ba5"
+    },
+    {
+      "path": "/private/tmp/ps4-native-session-checks.log",
+      "bytes": 718,
+      "sha256": "f75c2358c8141a37124ba852da61342b3f2978d33d35801c5035a6ebfaf8f0b9"
+    },
+    {
+      "path": "/private/tmp/ps4-store-clippy.log",
+      "bytes": 202,
+      "sha256": "86c7c68060efdca57843f8c4251d478fe23b86db6a3ab58a4e8e486beeee2408"
+    },
+    {
+      "path": "/private/tmp/ps4-store-regression.log",
+      "bytes": 4516,
+      "sha256": "13519d82b16fa060101804a1d6217902225e00030023854460f893a3eb9bb9ba"
+    },
+    {
+      "path": "/private/tmp/ps4-swift-label-refresh.log",
+      "bytes": 1480,
+      "sha256": "8c3748ba3486d6bc5fe4d136cf6556ff68097e1786069fc68fab6724f08f41c4"
+    },
+    {
+      "path": "/private/tmp/ps4-swift-message-refresh.log",
+      "bytes": 1480,
+      "sha256": "8c3748ba3486d6bc5fe4d136cf6556ff68097e1786069fc68fab6724f08f41c4"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/detach-1.stdout",
+      "bytes": 17,
+      "sha256": "e2e7e4de75aa32d2268acd6fb9074177fbb16c94025e0b863e444f72f183a2e4"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-sysgwzuu/detach-1.stderr",
+      "bytes": 95,
+      "sha256": "dd2e6d5d2227b9d3236b0a0f6cfe0fb59d68b9c29c990f4763c4a19ca9f7ae44"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-fi7qydft/detach-1.stdout",
+      "bytes": 17,
+      "sha256": "f59c5b9c87d2d2a8296cafde47dfb9fe6c5786aefdd74814caa663f62152d92d"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-fi7qydft/detach-1.stderr",
+      "bytes": 95,
+      "sha256": "dd2e6d5d2227b9d3236b0a0f6cfe0fb59d68b9c29c990f4763c4a19ca9f7ae44"
+    }
+  ],
+  "frozen_packet": {
+    "entries": 50,
+    "unchanged": 49,
+    "changed": [
+      {
+        "path": "crates/photara-store/Cargo.toml",
+        "current_sha256": "4cdbfccaf50ed1622acb855661994730791b89142ab13d217397870e5493f610"
+      }
+    ],
+    "reason": "Preexisting default-off controlled-disposable Cargo feature; frozen fixtures and golden outputs unchanged"
+  }
+}

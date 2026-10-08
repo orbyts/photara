@@ -25,6 +25,7 @@ if [[ "$CONTROLLED_DISPOSABLE" == 1 ]]; then
   BINDGEN_FEATURES=bindgen,controlled-disposable
   CONTROLLED_SWIFT_ARGS=(-D CONTROLLED_DISPOSABLE
     "$SCRIPT_ROOT/Sources/ControlledDisposableSession.swift"
+    "$SCRIPT_ROOT/Sources/ControlledSwitchConfirmation.swift"
     "$SCRIPT_ROOT/Sources/ControlledSessionLifecycle.swift"
     "$SCRIPT_ROOT/Sources/ControlledDisposableConfiguration.swift"
     "$SCRIPT_ROOT/../photara-graph-lab/Sources/DisposableAutosaveProjection.swift"

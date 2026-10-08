@@ -424,6 +424,16 @@ final class PhotaraGraphInteractionController {
         self.document = document
         if case .node(let id) = selection, !document.nodes.contains(where: { $0.id == id }) { selection = nil }
     }
+    /// Restore presentation state only after the session authority has selected
+    /// and validated the destination Graph. No authored data is changed.
+    func restoreSessionView(pan: CGSize, zoom: Double, selectedNode: String?) {
+        guard pan.width.isFinite, pan.height.isFinite,
+              PhotaraGraphCamera.zoomRange.contains(zoom),
+              selectedNode == nil || document.nodes.contains(where: { $0.id == selectedNode }) else { return }
+        cancel(resetTool: true)
+        camera = .init(pan: pan, zoom: zoom)
+        selection = selectedNode.map(PhotaraGraphSelection.node)
+    }
     func center(positions: [String: PhotaraGraphPoint], selectedNode: String?) {
         cancel(resetTool: true)
         camera = .init()
