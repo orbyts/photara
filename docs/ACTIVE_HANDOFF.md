@@ -63,12 +63,20 @@ The earlier `cuc4usia` image correctly refused a remount with a changed device
 number; all 40 package/evidence files were unchanged and no pin was rebound.
 Do not promise arbitrary remount/reboot identity continuity from this profile.
 
-**Next boundary: PS4 local activation format and disposable switching.** Review
-only the [concrete proposed mapping](architecture/PROJECT_SESSION_DURABILITY.md#ps4-local-activation-mapping--proposed-unapproved-2026-10-07),
-then implement after approval. No switching was performed. Keep LL2a afterward;
-LL1 create/rename and activation-authority mapping remain its later prerequisites.
-Do not repeat PS2/PS3 format approvals or unchanged passing suites. Normal
-origin/main push remains authorized; prior SSH attempts timed out.
+**Approved 2026-10-08: PS4 activation format and bounded disposable switching.**
+Implement the [approved mapping](architecture/PROJECT_SESSION_DURABILITY.md#ps4-local-activation-mapping--approved-2026-10-08)
+for registered Projects within the same Library. Preserve PS0's verified pre-dialog
+Saved barrier and the separate post-confirmation freeze/flush/recheck; a historical
+receipt cannot justify the past-tense confirmation. No format fields changed.
+PS4 is not accepted until actual native switching and failure/recovery pass.
+No cross-Library switching, general workspace management, SQLite/Neon coordination,
+retention/deletion, real-library writes, migration, conversion or deployment.
+LL2a remains the next separate milestone; do not repeat this approval.
+
+First action on 2026-10-08 was read-only `git ls-remote origin refs/heads/main`
+through the unchanged SSH remote. It timed out after 35 seconds: whether
+`a776a53` reached GitHub is still unverified. Authentication/remotes were not changed.
+Normal verified origin/main push remains authorized.
 
 ### Execution priority — 2026-09-29
 

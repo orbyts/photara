@@ -675,15 +675,28 @@ Build the integrated artifact with
 explicit controller digest and fresh registration/resume arguments above. Resume
 never rewrites registration: changed pins refuse and preserve the image.
 
-### PS4 local activation mapping — proposed, unapproved 2026-10-07
+### PS4 local activation mapping — approved 2026-10-08
 
-This amendment would implement preparation, confirmation, rollback and activation
+The user approved the exact format reviewed at `a776a53` on 2026-10-08,
+with the confirmation-order reconciliation below. Implement preparation, confirmation, rollback and activation
 between explicitly registered disposable Projects in the same Library, through the
 shared Rust coordinator. It approves neither Library switching nor real-path
 admission, migration, deployment, new package/journal meanings or capsule disposal.
 The [PS0 inventory](proposals/ps0/CONTRACTS.md#unnumbered-local-schema-deltas-review-only)
 and [switch cases](proposals/ps0/VERIFICATION.md#switch-and-native-acceptance) remain
 the behavioral contract. This is a concrete first mapping, not PS4 acceptance.
+
+**Confirmation-order reconciliation — approved behavior preserved.** PS0's
+past-tense “Changes have been saved automatically” remains unchanged. Preparation
+finishes pending input and establishes a verified save barrier before showing the
+sheet; failure shows Save Failed on the current Project instead. Block GUI mutation
+while the sheet is present. Confirmation still requires the separate post-confirmation
+freeze/flush barrier and revision/run/attachment recheck. Cancellation releases no
+source ownership and does not undo already accepted autosave work. An older saved
+receipt alone cannot justify the message. This corrects the proposal's contrary
+pre-dialog prose without changing any approved record fields or interaction.
+Do not ask again for PS4 format/scope approval. PS4 acceptance remains pending the
+real native switching and failure-recovery gates; LL2a is separate.
 
 **Publication unit.** Choose one atomic canonical snapshot per registered
 `(device_id, workspace_slot_id)`, rather than SQLite: this bounded slice needs one
@@ -695,7 +708,7 @@ test budget covers old snapshot, candidate, retained records, directory and
 coexistence before effects. Capacity refusal retains current; no expiry,
 compaction, deletion or production count/size limit is introduced.
 
-The exact proposed file is canonical UTF-8 JSON, no trailing newline:
+The exact approved file is canonical UTF-8 JSON, no trailing newline:
 `{format:"photara.local.activation-snapshot",version:1,body:B,body_sha256:Digest}`.
 Use the existing canonical JSON encoder; the digest is SHA-256 of canonical `B`,
 not of its enclosing file. `B` is exactly
@@ -737,14 +750,14 @@ Saved evidence. `HeadV1`,
 and PS1 encodings. `ProjectTarget` abbreviates exactly
 `{library_id:Id,project_id:Id,incarnation_id:Id,graph_id:Id,registration_sha256:Digest}`.
 
-| Kind | Exact proposed body / authority |
+| Kind | Exact approved body / authority |
 | --- | --- |
 | `SessionView` | `{device_id,library_id,project_id,graph_id,pan_x:i64,pan_y:i64,zoom_ppm:Decimal,selected_node_ids:[Id],visible_panels:[String]}`. Pan uses existing Graph milliunits; zoom is positive millionths. Node IDs sort uniquely and must resolve; panels use existing editor IDs. Invalid optional view content/version selects deterministic defaults (zero pan, zoom `"1000000"`, empty selection, Graph panel), persisted as a new valid view before activation. It never changes authored bytes or selects a Project. |
 | `SavedProof` | `{binding:SessionBinding,accepted:AcceptedCoordinate,checkpoint_intent:CheckpointIntentRecord,checkpoint_receipt:CheckpointReceiptRecord,registration_sha256:Digest}`. Embed the unchanged complete PHPSJ001 records, not only an accepted operation receipt or revision. Shared verification checks original admission, journal coverage, selected HEAD/commit and the proof's recorded covered coordinate. It may be retained as historical checkpoint evidence; it represents current Saved only when that coordinate equals the current accepted target and live qualification/barriers are verified. Stored bytes alone cannot mint Saved or a lease. |
 | `RollbackCapsule` | `{source_active:Ref,source_saved:Ref,view:Ref,graph_snapshot:CoreGraph,registration_sha256:Digest}`. Capture the actual verified source Graph and view before detach; Graph bytes are an inert read-only recovery display, never write/reacquisition authority. Reacquisition uses the registrar and rechecks the exact source identity. |
-| `ConfirmationEvidence` | `{activation_id:Id,device_id,workspace_slot_id,request_generation,expected_committed_generation,authority_scope_sha256,source_active:Ref,source_binding:SessionBinding,accepted:AcceptedCoordinate,prior_saved:Ref|null,target:ProjectTarget}`. Captures the original source identity/current Accepted coordinate, the existing last-verified SavedProof and target/request shown for confirmation. `prior_saved` must identify that exact historical checkpoint proof, or be null only when none exists; it is not refreshed by flushing before the dialog. A historical checkpoint covering an older coordinate does not mean the dirty current prefix is Saved. This preserves PS0's prior saved-receipt binding without authorizing save or detach. Its copied fields must exactly match the referring ActivationIntent; it has no reference back to that intent, avoiding a hash cycle. |
-| `ActivationIntent` | `{device_id,workspace_slot_id,request_generation,expected_committed_generation,authority_scope_sha256,source_active:Ref|null,target:ProjectTarget,source_attachment:SessionBinding|null,confirmation_basis:Ref|null}`. Record ID is the activation ID. Null source/basis is allowed only for a genuinely empty slot. Confirmation binds this original intent plus its non-authorizing ConfirmationEvidence, including the prior checkpoint receipt and current Accepted coordinate. Target or request identity cannot be replaced once preparation starts; stale source attachment/request authority invalidates confirmation. A dirty current session does not need to become Saved before the user confirms. |
-| `ActivationProgress` | `{intent:Ref,stage:Preparing|Confirmed|Frozen|SourceSaved|TargetReady|Refused,source_saved:Ref|null,capsule:Ref|null,target_open:Ref|null}`. `pending` selects the latest validated stage. Only after confirmation and freeze does SourceSaved require a fresh SavedProof covering the frozen finite accepted prefix, independently of the historical pre-dialog checkpoint proof and covering any newer accepted work; capsule durability precedes detach. A genuinely empty source skips source save/detach with null proofs. No progress record changes the active pointer. |
+| `ConfirmationEvidence` | `{activation_id:Id,device_id,workspace_slot_id,request_generation,expected_committed_generation,authority_scope_sha256,source_active:Ref,source_binding:SessionBinding,accepted:AcceptedCoordinate,prior_saved:Ref|null,target:ProjectTarget}`. Captures the original source identity/current Accepted coordinate, the existing last-verified SavedProof and target/request shown for confirmation. `prior_saved` binds the verified pre-dialog checkpoint proof. PS0 preparation finishes pending input and establishes current Saved before displaying the past-tense confirmation; an older historical checkpoint or null cannot justify that message. The nullable format is retained, but preparation must refuse to present confirmation without current proof. This preserves PS0's saved-receipt binding without authorizing detach. Its copied fields must exactly match the referring ActivationIntent; it has no reference back to that intent, avoiding a hash cycle. |
+| `ActivationIntent` | `{device_id,workspace_slot_id,request_generation,expected_committed_generation,authority_scope_sha256,source_active:Ref|null,target:ProjectTarget,source_attachment:SessionBinding|null,confirmation_basis:Ref|null}`. Record ID is the activation ID. Null source/basis is allowed only for a genuinely empty slot. Confirmation binds this original intent plus its non-authorizing ConfirmationEvidence, including the prior checkpoint receipt and current Accepted coordinate. Target or request identity cannot be replaced once preparation starts; stale source attachment/request authority invalidates confirmation. A dirty current session must reach verified Saved before the approved confirmation is presented; failure retains the source and shows Save Failed instead. |
+| `ActivationProgress` | `{intent:Ref,stage:Preparing|Confirmed|Frozen|SourceSaved|TargetReady|Refused,source_saved:Ref|null,capsule:Ref|null,target_open:Ref|null}`. `pending` selects the latest validated stage. Only after confirmation and freeze does SourceSaved require a fresh SavedProof covering the frozen finite accepted prefix, independently rechecking the pre-dialog checkpoint proof and covering any newer accepted work; capsule durability precedes detach. A genuinely empty source skips source save/detach with null proofs. No progress record changes the active pointer. |
 | `TargetOpenProof` | `{binding:SessionBinding,registration_sha256:Digest,selected_head:HeadV1,selected_commit:CommitV1,accepted:AcceptedCoordinate,graph_id:Id,view:Ref}`. Resolve through the actual target session after recovery, closure/identity checks and view restoration. This is target-open evidence, not the source flush proof. Refresh live access/lease/attachment evidence before publication; no stored access generation is a reusable grant. |
 | `ActiveSession` | `{device_id,workspace_slot_id,committed_generation,authority_scope_sha256,library_id,project_id,incarnation_id,graph_id,activation_id,view:Ref,target_open:Ref}`. Describes the committed selection; restart must reacquire authority. It is not a persistent live-writer grant. |
 | `ActivationReceipt` | `{intent:Ref,outcome:Activated|RetainedCurrent|RetainedReadOnlyRecovery,old_committed_generation,new_committed_generation,source_saved:Ref|null,capsule:Ref|null,target_open:Ref|null,active:Ref|null}`. Activated increments committed generation exactly once and binds the exact new ActiveSession. Refused outcomes preserve generation and active identity; retain the source capsule for explicit recovery. |

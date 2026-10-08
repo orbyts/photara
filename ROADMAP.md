@@ -2,7 +2,7 @@
 
 ## Delivery path: cross-Library acceptance, then platform-ready vertical slice — 2026-09-17
 
-**Current position: PS3 controlled app/CLI integration verified; PS4 mapping review next.**
+**Current position: PS3 controlled integration verified; approved PS4 implementation active.**
 PS0/BR0/PS1 are accepted. The shared reader/repeatable writer and approved PHPSJ001
 checkpoint subset pass consecutive-operation, persisted-restart and native
 clean-remount checks under the exact conditional disposable profile; see the
@@ -11,8 +11,9 @@ was approved on 2026-10-05 and now passes shared/native disposable validation,
 including actual autosave, close/reopen and exact Saved restoration. The user approved
 app/CLI session wiring on 2026-10-07 with disposable admission only; real-library
 admission remains disabled. The integrated Graph canvas now passes autosave,
-pending Quit and exact Saved reopen through both app and CLI. PS4 requires the
-proposed local activation-format/switching approval before implementation.
+pending Quit and exact Saved reopen through both app and CLI. PS4 activation format and same-Library disposable switching were approved on
+2026-10-08; native workflow/failure acceptance is still required. Preserve verified
+pre-dialog Saved and post-confirmation freeze/flush barriers. LL2a remains separate.
 Move through the following bounded
 checkpoints, committing and fast-forward pushing verified slices to `main`
 periodically rather than carrying a long-lived dirty checkout. Preserve the
