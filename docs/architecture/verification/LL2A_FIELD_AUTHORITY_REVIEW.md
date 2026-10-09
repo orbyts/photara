@@ -1,6 +1,6 @@
 # LL2a field, authority and session dependency review
 
-Status: **UNAPPROVED review amendment, 2026-10-08**. The original mapping below
+Status: **UNAPPROVED concrete local-first review packet, 2026-10-09**. The original mapping below
 is retained; the dated amendment identifies where approved PS4 now supersedes
 its assumptions. No schema, codec,
 production endpoint, local pointer or default is changed. This narrows the
@@ -12,7 +12,7 @@ Inputs are the accepted [LL0 behavior](../LIBRARY_LIFECYCLE.md),
 [current R4 recommendation](../LL1_TYPED_CONTRACT_AND_SCHEMA_DELTA.md#r4--one-device-activation-receipt-with-ps3ps4),
 [physical proposal](../LL1_PHYSICAL_SCHEMA_AND_PRIVILEGE_REVIEW.md), and accepted
 [PS0 coordinator behavior](../PROJECT_SESSION_DURABILITY.md#coordinator-and-native-lifecycle).
-This table maps their semantics; it does not allocate new schema fields.
+The original tables map semantics; the final dated proposal supplies unapproved exact fields.
 
 ## Commands and durable ownership
 
@@ -192,31 +192,193 @@ handoff/restart rule. Retaining PS4 file authority and making SQL only a recover
 projection is an alternative, but would amend R4 and require exact projection
 reconciliation; this packet does not choose it by accident.
 
-### Three decisions that still block a complete LL2a packet
+## 2026-10-09 recommended decision — fresh local SQL slots
 
-1. **Publication authority:** approve the single SQLite snapshot/selection unit
-   above, including database/WAL registration and durability, or explicitly retain
-   file authority with a nonauthoritative SQL projection. Two independent commits
-   cannot meet R4. No migration of existing PS4 slots is included.
-2. **Cross-Library target/scope:** approved PS4 `ProjectTarget`, `ActiveSession`
-   and authority scope are same-Library and always name a Project. LL0 selects a
-   Library without auto-opening a Project. Review a versioned Library-only target
-   and selected-state variant plus explicit source/target authority-principal
-   binding; do not encode it with nulls under the existing strict v1 schema or
-   replace a stored authority-scope hash. Confirm which local/cloud principal
-   transitions the first acceptance permits. A Library-only destination still
-   flushes an existing source Project, but has no invented target Graph/SavedProof.
-3. **Create authority/security:** pin the existing service create-entitlement
-   check and initial contract policy source, and the verified local additional-
-   Library controller grant. Bootstrap/default creation evidence alone cannot
-   authorize these. Review exact facade privileges and account inventory field
-   exposure with the proposed request/receipt fields. No new billing, ownership,
-   offline-cloud or default policy is proposed.
+This recommendation supersedes the open alternatives in the 2026-10-08 mapping
+for the initial local-first slice; those paragraphs remain review history.
 
-After those decisions, only the corresponding exact versioned selection fields,
-DDL/grants and their focused SQL rollback/unknown-commit proofs remain to freeze.
-Reuse PS4's passed source-save, capsule, original-ID, stale callback, target failure,
-view and restart cases; do not repeat the entire storage furnace. Add proofs for
-the actual SQL publication boundary, authoritative create/rename retry/CAS and
-the approved cross-Library scope transition. Removal, general paths, another Mac,
-new Project codecs and capsule expiry remain outside this amendment.
+**Recommendation, not implementation approval:** choose SQLite as the sole
+selection publisher for a fresh registered slot. Implement two genuine local
+Libraries, one disposable Project each, under the current verified local
+controller. Use the **normal signed app shell and avatar Library menu**, with the
+same Rust durable session as PS3/PS4. A separate controlled scene or manual
+`project.save()`/context-clear route does not satisfy this acceptance. Signing is
+not cloud authorization. Cloud create/rename/selection, account changes, existing
+slot migration and real-library writes are outside this initial packet.
+
+This recommendation resolves the publication alternative above in favor of R4.
+Frozen PS4 file snapshot v1, its reader and all package/journal bytes remain
+unchanged. No v1 file is imported, overwritten or simultaneously maintained as an
+active pointer. The SQL slot is independently registered before its first use.
+
+### Proposed exact selection snapshot v2
+
+Use the existing canonical JSON/hash/ref/UUID conventions and bounded parser.
+The envelope is exactly `{format:"photara.local.activation-snapshot",version:2,
+body:B,body_sha256:Digest}`. `B` is exactly
+`{device_id,workspace_slot_id,revision,request_generation,committed_generation,
+slot_scope_sha256,active:Ref|null,pending:Ref|null,records:[Record]}`.
+`slot_scope_sha256` binds the immutable independently registered database/slot
+scope, **not the selected Library**. Changing Library changes selected records,
+never this registration hash. Records retain `{id,kind,version,body}`, unique ID
+sorting, complete Ref resolution and immutable bytes. Counters fit signed SQL
+bigint. Unknown fields/versions refuse. No numeric product limit is introduced:
+parser, retained-record and database/coexistence budgets are explicitly registered
+for the disposable instance and checked before effects, without growth or pruning.
+
+Aliases below are exact field-set definitions, not permission to accept additional
+members. `Authority`/`Principal` retain the proposed lifecycle definitions above;
+this initial selection decoder admits only local authority for the registered
+`database_id`/epoch and the verified local principal. Cloud/account variants refuse
+before preparation. Existing v1 `SessionView`, `SavedProof` and `TargetOpenProof`
+records keep their exact bytes/meaning. All other kinds in this table are **v2**;
+no old authority record is reinterpreted.
+
+| Type / record | Exact proposed body |
+| --- | --- |
+| `Context` (inline) | `{authority:Authority,principal:Principal,library_id:Id}`. Source context is read from selected state, never supplied as a replacement by the request. |
+| `Target` Library (inline) | `{kind:"library",context:Context}`. No remembered Project, Graph or fake target SavedProof. |
+| `Target` Project (inline) | `{kind:"project",context:Context,project:ProjectTargetV1}`. `project.library_id` must equal `context.library_id`; all original registration/Graph identity checks apply. |
+| `LocalContextProof` | `{context:Context,library_revision:Decimal,contract_revision:Decimal,authorization_generation:Decimal}`. Values come from actual active Library and local-only contract rows under transaction. Historical observation only; publication/reopen checks live controller equality again. |
+| `ConfirmationEvidence` | `{activation_id,device_id,workspace_slot_id,request_generation,expected_committed_generation,slot_scope_sha256,source_active:Ref,source_binding:SessionBinding,accepted:AcceptedCoordinate,prior_saved:Ref,target:Target}`. Exact current pre-dialog Saved is mandatory. |
+| `ActivationIntent` | `{device_id,workspace_slot_id,request_generation,expected_committed_generation,slot_scope_sha256,source_active:Ref|null,target:Target,source_attachment:SessionBinding|null,confirmation_basis:Ref|null}`. ID is original activation ID. Null attachment means the actual source has no Project; it does not bypass a source Project barrier. |
+| `RollbackCapsule` | `{source_active:Ref,source_saved:Ref,view:Ref,graph_snapshot:CoreGraph,registration_sha256:Digest}`; same full Graph preservation as PS4, but source points to v2 ActiveSelection. |
+| `SelectionReady` | `{intent:Ref,context_proof:Ref,project_open:Ref|null}`. Project targets require actual v1 TargetOpenProof and fresh Project access/registration/lease checks; Library-only targets require null. |
+| `ActivationProgress` | `{intent:Ref,stage:Preparing|Confirmed|Frozen|SourceSaved|TargetReady|Refused,source_saved:Ref|null,capsule:Ref|null,target_ready:Ref|null}`. References remain monotone through the same original attempt; no stage publishes selection. |
+| `ActiveSelection` | `{device_id,workspace_slot_id,committed_generation,slot_scope_sha256,activation_id,target:Target,ready:Ref}`. Project view resolves through ready→project_open→view; Library target has no Project view. |
+| `ActivationReceipt` | `{intent:Ref,outcome:Activated|RetainedCurrent|RetainedReadOnlyRecovery,old_committed_generation,new_committed_generation,source_saved:Ref|null,capsule:Ref|null,target_ready:Ref|null,active:Ref|null}`. Activated increments once; retained outcomes preserve selection/generation. “Activated” includes Library-only selection; it does not grant package authority. |
+
+Context access is **not** authorized by these stored versions. Reuse live
+`local_authority` for the exact target controller, and existing `project_authority`
+for the requested Project access, active ownership/association and package
+registration. Recheck actual grant/policy state inside final SQL publication;
+reacquire through the registrar on reopen. No caller eligibility boolean, scalar
+generation or saved proof can supply authority. Same selected Library is a no-op
+that leaves its current Project open; same exact Project is also idempotent.
+
+### Transition and interaction rule
+
+Project→Project follows PS4 exactly: resolve pending work; pre-dialog current
+Saved; block editing through confirmation; then Confirmed→Frozen→SourceSaved→
+TargetReady→atomic activation. Both source barriers, exact attachment/accepted
+recheck and durable full capsule remain required. Stale repeated prepare refuses
+its original confirmation instead of rebinding to a new owner epoch.
+
+Library menu selection obeys LL0: **no generic Library Save or clean-switch
+confirmation**. With a source Project, drain pending work and reach verified Saved;
+unsaved/run resolution uses its existing owner, and failure retains source. Then
+Preparing→Frozen→SourceSaved→TargetReady, with no ConfirmationEvidence. The
+post-freeze finite barrier/recheck and capsule still precede detach. The target
+kind supplies this stage distinction; it is not a caller “skip confirmation” flag.
+With an empty or Library-only source, there is no Project barrier/capsule:
+Preparing→TargetReady after live target validation. These no-Project stages also
+apply when opening a Project from a selected Library-only context. No automatic
+remembered-Project activation follows Library selection.
+
+In all routes, TargetReady requires validated/restored target and source dependency
+checks; no visible title/Library/Graph changes early. Before commit, cancel/error
+recovers old selection or its explicit read-only capsule. After commit, recover
+target or explicit recovery, never rewind to source. Preserve every immutable
+receipt/capsule; unknown outcome queries original ID. Unknown IDs cannot reacquire
+or rotate ownership. A terminal ID with changed target conflicts. Dirty work and
+failed Close retain the existing PS3 Retry behavior; no discard/expiry policy.
+
+### Exact fresh SQLite publication proposal
+
+Add one STRICT relation `local_activation_slots` with the following columns;
+this is an **unnumbered schema specification**, not executed DDL:
+
+| Columns | Type / constraint |
+| --- | --- |
+| `device_id`, `workspace_slot_id` | BLOB16 nonnil; composite PK; device FK to registered `local_device(device_id)` RESTRICT. |
+| `slot_scope_sha256` | BLOB32, immutable and equal independent registration. |
+| `revision`, `request_generation`, `committed_generation` | INTEGER >=0; equal exact parsed B values; overflow refuses. |
+| `snapshot_canonical`, `snapshot_sha256` | BLOB canonical complete v2 envelope and BLOB32 SHA-256 of those complete bytes. Body digest is separately validated. Byte bound comes from registered fixture limits. |
+| `active_library_id`, `active_project_id` | Nullable BLOB16; null/null only when active=null; Project implies Library. Exact checked projection of active.target, never separately writable. FK Library→libraries RESTRICT; paired Project FK→project_ownership(library_id,project_id) RESTRICT. |
+
+No separate mutable activation-receipt or scoped selection row is needed: complete
+immutable receipts and authority/principal live in the canonical graph. The slot
+PK deliberately excludes principal so two authority-scoped rows cannot both claim
+the GUI. Existing `onboarding_library_selection` remains bootstrap evidence,
+not a second current pointer; the new normal-app route reads only this slot.
+Registration provisions exact empty v2 bytes once. Missing selected row is an
+error, never implicit initialization. No ordinary delete/reset API is exposed.
+
+Use a pinned local SQLite connection with foreign keys enabled; for the first
+fresh disposable proof recommend DELETE rollback journal, `synchronous=FULL` and
+macOS full-fsync enabled and checked. This avoids assuming the existing package
+adapter qualifies WAL. Register database/directory/lock identity and explicit
+coexistence allowance separately; refuse unsupported storage or settings. No
+SQLite/native global durability theorem is claimed by selecting these pragmas.
+
+Rust owns `BEGIN IMMEDIATE`; compare exact old revision/hash and slot registration,
+validate the full v2 transition and current controller/Project authority, then
+replace canonical snapshot and both derived IDs in **one UPDATE/COMMIT**. All
+package IO, UI and provisional target open occur outside this short transaction.
+A database writer cannot bypass the shared Rust facade to publish a session; SQL
+columns/triggers are integrity checks, not an OS security boundary. No remote
+service transaction participates and no file-active pointer is updated.
+
+On COMMIT error or lost reply, retain the exact attempted candidate and original
+ID. Reopen through the pinned registrar and compare selected bytes: exact old
+means no selection change; exact candidate means reestablish durable database
+state and recover its original outcome; different bytes refuse. Process restart
+reads selected state and original receipts, then independently opens the selected
+context. An interrupted rollback journal must be recovered by SQLite before
+selection is read. Qualification must exercise this actual database boundary;
+never report Activated merely because UPDATE or COMMIT returned success.
+
+### Local create/rename authority and remaining cloud boundary
+
+The initial local create policy proposed for **explicit approval** is: authenticate
+the current controller of the verified bootstrap-default **local-only** Library
+in this registered database, under the same write transaction; assign that exact
+principal as the new local-only Library controller. Read the stored current
+controller, not the deterministic bootstrap principal (controller transfer already
+exists). If the default is no longer local-only or actor no longer controls it,
+refuse; cloud identity cannot supply or change this grant. New Library name follows
+LL0, ID comes from original request, revision is1, term policy version1 and existing
+contract version/schema/auth-generation/revision are1. No default is reassigned.
+Reuse current admitted normalization-policy row1, not arbitrary caller policy.
+Rename requires the target's current controller and exact revision CAS; it never
+changes controller or contract authorization. Source:
+[`local.rs`](../../../crates/photara-library/src/gen2/local.rs) `ensure_default_library`,
+`local_authority` and controller transfer; existing `put_library` is not an
+authoritative replacement because it has no actor/atomic contract+receipt contract.
+
+Add only the local lifecycle authority/intent/receipt relations specified above,
+restricted to create/rename, plus this slot relation. Create/rename preserve their
+original request/hash and publish Library/contract changes+receipt atomically;
+no cloud stream or account inventory row is fabricated for a local Library.
+Fresh local schema floor6/6 is proposed; historical migrations/checksums and
+existing database upgrades remain untouched. No PostgreSQL DDL or API-floor change
+is needed for this local-first acceptance. Service API4 remains a future proposal.
+
+Actual service `claim_library` has no additional-Library create-entitlement check;
+existing capability lookup presupposes a Library. Do not invent a capability key,
+paid entitlement, free quota or eligibility default. Cloud create and local↔cloud
+selection remain refused in this slice. Their eligibility/authority mapping is a
+separate concrete policy gate, not a reason to block the recommended local proof.
+
+### One bounded approval and readiness handoff
+
+Proposed approval text:
+
+> Approve the exact proposed v2 selection records and fresh SQLite publication
+> mapping above, plus local additional-Library creation by the current verified
+> bootstrap-default local controller. Implement and qualify this in the normal
+> signed app shell using two registered disposable local Libraries and one Project
+> each, with shared Rust autosave/activation, avatar create/select/rename and exact
+> original retry. Preserve PS4 v1 and all existing package/journal bytes. No cloud
+> lifecycle policy, real-library writes, existing-database/slot migration, removal,
+> capsule disposal or new production size/count limit is included.
+
+After approval: implement the bounded codec/fresh schema/facade and normal-shell
+bridge; run focused actual SQL rollback/unknown-commit, CAS/authority and original
+retry tests; then signed native two-Library acceptance. Exercise avatar creation,
+rename, Library-only selection and explicit Project open, edit/autosave, failed
+save/target-open/publication recovery, close/quit and exact relaunch. Reuse prior
+PS3/PS4 behavior evidence rather than another storage furnace. Root then hands the
+user the signed normal-shell app and its two disposable Projects for autosave
+review. Until this passes, the existing separate controlled scene is not that
+handoff. Review remains unapproved; this document changes no code or database.

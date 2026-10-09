@@ -55,19 +55,36 @@ Both private images are cleanly detached and retained:
 increased. Keep all retained files; do not rebind identity pins. The controlled
 app is stopped and was never installed/deployed.
 
-**LL2a remains a separate review boundary.** The existing
-[LL2a field/authority review](architecture/verification/LL2A_FIELD_AUTHORITY_REVIEW.md#2026-10-08-narrow-amendment--unapproved)
-now records proposed create/rename envelopes and three unresolved decisions:
-publication authority (SQLite unit versus file authority with SQL projection),
-versioned Library-only/cross-Library selection with principal binding, and exact
-existing create authority/grants. It is unapproved and not yet a complete codec/DDL
-freeze packet. Do not treat PS4 approval as LL2a authority. Reuse PS4 proofs and
-complete only those specific missing mappings; no new product policies by inference.
+**LL2a is at a concrete approval boundary.** The existing
+[2026-10-09 review packet](architecture/verification/LL2A_FIELD_AUTHORITY_REVIEW.md#2026-10-09-recommended-decision--fresh-local-sql-slots)
+recommends two genuine disposable local Libraries/one Project each in the normal
+signed shell, exact v2 Library/Project selection records, one fresh SQLite slot
+publication transaction, and new-Library controller assignment from the verified
+current bootstrap-default local controller. It includes one bounded approval text.
+Cloud lifecycle/selection, existing database/slot migration and real-library writes
+remain excluded. This packet is **unapproved**: user's general request to proceed
+does not by itself freeze these new security/format decisions. SQLite durability
+still requires its own disposable qualification before native acceptance.
 
-The first requested `git ls-remote origin refs/heads/main` timed out after 35s;
-a bounded second SSH attempt failed. Whether `a776a53` reached GitHub remains
-unverified. Authentication and remotes were unchanged. Normal verified origin/main
-push remains authorized; do not change authentication or reset history.
+**2026-10-09 continuation:** user requested LL2a and a clear signal when autosave
+is ready to test in the main application. The ordinary `PhotaraMacApp` branch
+still uses `AppModel` manual save/close; the verified controlled scene is separate.
+Do not claim normal-app readiness until its actual shell and Library menu use the
+shared durable session and the signed two-Library/two-Project gates pass.
+
+Read-only source review found no additional-cloud-Library create-entitlement rule;
+`claim_library` bootstrap/claim behavior does not supply one. Additional local
+Library controller assignment also needs an explicit reviewed mapping: existing
+controllers can transfer, so do not regenerate a historical bootstrap principal.
+The bounded recommendation recorded in the existing LL2a packet is two local
+Libraries under one verified controller; cloud creation stays disabled. This is a
+proposal, not an inferred expansion of the user's approval.
+
+SSH verification still cannot reach `origin/main`: the 2026-10-09 read-only retry
+hit its 20-second deadline. The previous normal push also stalled. Whether
+`a776a53` or local implementation `d907f24` reached GitHub remains unverified.
+Authentication and remotes were unchanged. Normal verified origin/main push
+remains authorized; do not change authentication or reset history.
 
 ### Execution priority — 2026-09-29
 
@@ -520,7 +537,7 @@ stop condition above is reached.
 1. This file (current gate above; historical evidence below is reference only).
 2. [Root roadmap — delivery path only](../ROADMAP.md#delivery-path-cross-library-acceptance-then-platform-ready-vertical-slice--2026-09-17).
 3. [Project session and durability](architecture/PROJECT_SESSION_DURABILITY.md).
-4. [LL2a field/authority amendment](architecture/verification/LL2A_FIELD_AUTHORITY_REVIEW.md#2026-10-08-narrow-amendment--unapproved).
+4. [LL2a field/authority amendment](architecture/verification/LL2A_FIELD_AUTHORITY_REVIEW.md#2026-10-09-recommended-decision--fresh-local-sql-slots).
 5. Follow only the focused LL1/schema links needed by those unresolved mappings.
    PS2 format and qualification documents are reference material unless a concrete
    implementation gap requires them.

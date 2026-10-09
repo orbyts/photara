@@ -2,7 +2,7 @@
 
 ## Delivery path: cross-Library acceptance, then platform-ready vertical slice — 2026-09-17
 
-**Current position: PS3 controlled integration verified; approved PS4 implementation active.**
+**Current position: PS2–PS4 approved disposable scopes verified; LL2a active.**
 PS0/BR0/PS1 are accepted. The shared reader/repeatable writer and approved PHPSJ001
 checkpoint subset pass consecutive-operation, persisted-restart and native
 clean-remount checks under the exact conditional disposable profile; see the
@@ -12,8 +12,9 @@ including actual autosave, close/reopen and exact Saved restoration. The user ap
 app/CLI session wiring on 2026-10-07 with disposable admission only; real-library
 admission remains disabled. The integrated Graph canvas now passes autosave,
 pending Quit and exact Saved reopen through both app and CLI. PS4 activation format and same-Library disposable switching were approved on
-2026-10-08; native workflow/failure acceptance is still required. Preserve verified
-pre-dialog Saved and post-confirmation freeze/flush barriers. LL2a remains separate.
+2026-10-08; native switching, failure/recovery and restart gates now pass in that
+exact disposable scope (implementation `d907f24`). Preserve verified pre-dialog Saved
+and post-confirmation freeze/flush barriers. LL2a remains separate.
 Move through the following bounded
 checkpoints, committing and fast-forward pushing verified slices to `main`
 periodically rather than carrying a long-lived dirty checkout. Preserve the
@@ -66,6 +67,12 @@ must not override the later RESTRICT-preserving evidence.
    verify each state restores correctly. Preserve unknown/failure context. This
    consolidates PS3/PS4 acceptance; it does not require two projects per Library,
    final Gallery polish, second-machine acceptance or Library removal.
+   **Human-test readiness:** the ordinary main-app shell must use the shared Rust
+   session for the admitted disposable Projects, including the native Library menu,
+   truthful save status and close/quit/relaunch barriers. Passing only the separate
+   controlled scene does not make the normal app ready. Provide the exact signed
+   build and a short two-Library edit/relaunch/switch checklist when these gates
+   pass; personal libraries remain excluded until their separate admission approval.
    Then wire guarded Remove (**LL2b**): owner authorization, impact review,
    exact-name confirmation, no database orphans, and no package/source-file
    deletion. LL2b is required for the complete lifecycle/platform-ready gate,
