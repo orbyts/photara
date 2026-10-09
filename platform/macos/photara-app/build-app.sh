@@ -13,6 +13,9 @@ fi
 if [[ "$CONTROLLED_DISPOSABLE" == 1 && ( -n "${PHOTARA_MACOS_PROVISIONING_PROFILE:-}" || "${PHOTARA_RELEASE_CHANNEL:-development}" != development ) ]]; then
   print -u2 -- "Controlled disposable build requires development channel and ad-hoc signing"; exit 2
 fi
+# Every app compile runs the supported interaction gate; no opt-out/cache bypass.
+zsh "$SCRIPT_ROOT/verify-autosave-interactions.sh"
+
 RUST_FEATURE_ARGS=()
 RUST_PROFILE_ARGS=()
 RUST_PROFILE=debug
@@ -37,7 +40,7 @@ if [[ "$CONTROLLED_DISPOSABLE" == 1 ]]; then
     "$SCRIPT_ROOT/../photara-graph-lab/Sources/DisposableAutosaveProcess.swift")
 fi
 if [[ "$LOCAL_LIBRARIES" == 1 ]]; then
-  CONTROLLED_SWIFT_ARGS+=(-D LOCAL_LIBRARY_DISPOSABLE "$SCRIPT_ROOT/Sources/LocalLibrarySession.swift" "$SCRIPT_ROOT/Sources/LocalLibraryNameSheet.swift")
+  CONTROLLED_SWIFT_ARGS+=(-D LOCAL_LIBRARY_DISPOSABLE "$SCRIPT_ROOT/Sources/LocalLibrarySession.swift" "$SCRIPT_ROOT/Sources/LocalLibraryNameSheet.swift" "$SCRIPT_ROOT/Sources/LocalLibraryGraphAdmission.swift")
 fi
 REPOSITORY_ROOT="${SCRIPT_ROOT:h:h:h}"
 # Verification callers must be able to isolate every generated artifact, not

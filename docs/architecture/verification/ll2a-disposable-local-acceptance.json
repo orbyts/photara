@@ -4,7 +4,7 @@
     "version": 1
   },
   "date": "2026-10-09",
-  "status": "approved disposable local engineering acceptance passed; user hands-on review ready",
+  "status": "durability checks retained; responsive move correction verified for human re-review; full add/delete/connect autosave remains incomplete",
   "native_ui": {
     "status": "passed; app left open on Project A for user review",
     "executable_sha256": "ad559233fb0f2a4a9325263f252a7a932ca312da60b60f4e576a5410e70f2cb4",
@@ -472,5 +472,112 @@
     "pending": null,
     "integrity": "ok",
     "foreign_key_violations": []
+  },
+  "human_review": {
+    "date": "2026-10-09",
+    "result": "changes_requested",
+    "finding": "Node snaps to prior acknowledged position after drop, then returns to desired position after slow admission. User requires immediate visual editing with background persistence.",
+    "prior_evidence": "Recorded durability/recovery checks remain valid; they did not validate satisfactory interactive responsiveness."
+  },
+  "responsive_autosave_followup": {
+    "status": "responsive correction and queued Quit/reopen verified; full authoring acceptance blocked by explicit capability gaps",
+    "base_commit": "bc4e9ad",
+    "fixes": [
+      "visible volatile FIFO overlays acknowledged Graph; exact original IDs serialized unchanged",
+      "later drag remains interactive during submit/checkpoint; older response cannot erase newer draft",
+      "failures retain visible drafts and exact retry; close and selection drain queue",
+      "stable status layout removes canvas shift and technical coordinate banner",
+      "per immutable allocation frame decode memo; all authority and durability barriers retained"
+    ],
+    "native_checks": [
+      "first drop immediately remains at new position while Saving",
+      "second drop during Saving immediately remains at its new position",
+      "third drop restores user original position; requested Quit while queued",
+      "Quit completed exit0 after all three queued moves; no forced termination",
+      "rebuilt shared session reopens exact user x109095 y-218529 after three queued moves, then verified Close; open+state15.11s"
+    ],
+    "original_user_position": {
+      "project": "B",
+      "x": 109095,
+      "y": -218529,
+      "saved_revision": 7
+    },
+    "launcher": "/private/tmp/photara-ll2a-responsive-final/Open Photara Autosave.app",
+    "executable_sha256": "07a426deacbd9e01513ec37f7c1a3802b980c3ef5a07716979d4f04689e6465e",
+    "timing_limit": "Full-sync checkpoint latency remains; decode microbenchmark is not end-to-end save timing.",
+    "logs": [
+      {
+        "path": "/private/tmp/ll2a-visible-draft-checks.log",
+        "sha256": "336e0fc86e58ada541400d222393f61ad36ee2abd6b527dc65f8b751babe38ce"
+      },
+      {
+        "path": "/private/tmp/ll2a-responsive-app-build.log",
+        "sha256": "323a55ca26edb55341420ca8883d1ebffd7deff0d9bec0d2b5449c4a57b8662c"
+      },
+      {
+        "path": "/private/tmp/ll2a-frame-memo-test.log",
+        "sha256": "61138362ba900164c28250345e54c685f8daa698ba0346831ff8674c801de862"
+      },
+      {
+        "path": "/private/tmp/ll2a-frame-memo-repeatable.log",
+        "sha256": "8a7e8402fa52ec74bda80c98cd5147d20e9bc8952b3cf4df8a1ec0333643dfe8"
+      },
+      {
+        "path": "/private/tmp/ll2a-frame-memo-clippy.log",
+        "sha256": "9b61706b25df33c72ee85252b5f9915229d462ed410b11561476b703baa4410a"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-responsive-native.exit.json",
+        "sha256": "6c916498714a84d18c60257e058140453ec37e9a0a9ccf620fabde8d099645ac"
+      },
+      {
+        "path": "/private/tmp/ll2a-autosave-interaction-gate.log",
+        "sha256": "2531f05f58f39b0ef8cf783f4e6cd844193c4ff8727e91acaab27398bfefff91"
+      },
+      {
+        "path": "/private/tmp/ll2a-session-response-tests.log",
+        "sha256": "7a05c1df91adf023acd7dde53d57146f2045222d4cc1e52cab86d7f8649c802c"
+      },
+      {
+        "path": "/private/tmp/ll2a-session-response-clippy.log",
+        "sha256": "0ce41fddbda36e560713b3266bea1353da3b60099eeac184ab9542dfc7b68fbb"
+      },
+      {
+        "path": "/private/tmp/ll2a-responsive-final-build.log",
+        "sha256": "a783b2b56a54c6258744da4240df232294a2045aefe597c3d4b8ba30a59e6380"
+      },
+      {
+        "path": "/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-responsive-final-check-result.json",
+        "sha256": "dd6e731327e48f8244f46f2404b777d7c355ea1678e8aba5631227d86fbdbfb0"
+      }
+    ],
+    "final_executable_sha256": "667e35aa758404fe8ba0b8aec53ea879ba3e89dd349dd9f61df7a41b5953002c",
+    "compile_gate": {
+      "script": "platform/macos/photara-app/verify-autosave-interactions.sh",
+      "runs_on": "every build-app.sh invocation, including build-local-libraries.sh; no skip flag",
+      "strict_mode": "--full-autosave",
+      "strict_result": "fails explicitly for missing add-node/delete-node/native-connect persistence",
+      "coverage": [
+        "actual controller local insertion/connection/wire deletion and node-delete refusal",
+        "actual shared Swift model delayed FIFO, MainActor heartbeat, failure/exact retry/stale acknowledgement/lifecycle drain with scripted backend",
+        "5 Rust session tests: accepted/Saved, ordered flush, reopen/retry, no-effects unsupported commands, counted verification reuse; synthetic IO explicitly scoped",
+        "real native consecutive drag + queued Quit + exact disk reopen evidence above"
+      ]
+    },
+    "response_optimization": "reuse final verified presentation only within same request; clear before effects/freeze/next request; finite flush coverage shares final proof; no authority or barrier removal",
+    "source_hashes": {
+      "crates/photara-store/src/package/v1_3/packed.rs": "4fe5a0b8c6859c611dd0916ed87894cc7da16d5d14ba0be6881d2c33c4bc89fb",
+      "crates/photara-store/src/package/v1_3/repeatable/native_session.rs": "fdfd8785c7c8b81422a2f6633d46df0bf9d56e533130034c6e87085a059a0c2c",
+      "crates/photara-store/src/package/v1_3/repeatable/session.rs": "0c65a7bc5fffd46dfd2feccd9f874521f61c08ea76bdb0779b92aa7abb62c0fc",
+      "crates/photara-store/src/package/v1_3/repeatable/session_tests.rs": "9c4f64e677077a488f44424ef8d0581b7382835fee0e8f2a499345a2532c4dd7",
+      "platform/macos/photara-app/Sources/LocalLibrarySession.swift": "625e8a4dd71011e5cd77b666309255f759df79a6a4bf483fa8dd54f810e768cc",
+      "platform/macos/photara-app/Tests/ControlledSessionChecks.swift": "acc32e9d9f5e7fe33f48eab8ab9a13661f2e4e155a3a9d80b196dd93764da601",
+      "platform/macos/photara-app/build-app.sh": "58acc2f59c9d5559ea6ee75318551e2680661d8c2260922fa7312838652559d7",
+      "platform/macos/photara-app/verify-controlled-session.sh": "4c5f3f789f3f524c71bf58be36b75261d5936e5b5874692d9f63c4f78267254b",
+      "platform/macos/photara-graph-lab/Sources/DisposableAutosaveProcess.swift": "50a9fcc13a8c4909976ec4304d8da1a28bdad8ff054fed7dd6bdbfc9cec81ed6",
+      "platform/macos/photara-app/Sources/LocalLibraryGraphAdmission.swift": "716a26b773fddd7646c5070ee783e339f1bd588665450944755700ea6b371710",
+      "platform/macos/photara-app/Tests/AutosaveInteractionChecks.swift": "8725ca0b0ef5bbf9d5d315b0a8a25b3df2f141d26bc22430a6743aba8246289d",
+      "platform/macos/photara-app/verify-autosave-interactions.sh": "155d76c93e636a6460f4fd9a46933632fbf99222471270cb0001e9700f04c098"
+    }
   }
 }

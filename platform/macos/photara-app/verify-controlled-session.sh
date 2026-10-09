@@ -10,6 +10,12 @@ xcrun swiftc -swift-version 6 -warnings-as-errors -parse-as-library \
   "$SCRIPT_ROOT/Sources/ControlledDisposableConfiguration.swift" \
   "$SCRIPT_ROOT/Sources/ControlledSwitchConfirmation.swift" \
   "$SCRIPT_ROOT/Sources/LocalLibraryNameSheet.swift" \
+  "$LAB/../photara-graph/Sources/GraphDocument.swift" \
+  "$LAB/../photara-graph/Sources/GraphGeometry.swift" \
+  "$LAB/../photara-graph/Sources/GraphOverview.swift" \
+  "$LAB/../photara-graph/Sources/GraphInteraction.swift" \
+  "$SCRIPT_ROOT/Sources/LocalLibraryGraphAdmission.swift" \
+  "$SCRIPT_ROOT/Tests/AutosaveInteractionChecks.swift" \
   "$SCRIPT_ROOT/Tests/ControlledSessionChecks.swift" -o "$BUILD_ROOT/checks"
 python3 - "$BUILD_ROOT/checks" "$SCRIPT_ROOT" <<'PY'
 import os, pathlib, subprocess, sys

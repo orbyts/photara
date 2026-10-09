@@ -34,6 +34,7 @@ struct Backend {
     fail_after_append: bool,
     checkpoint_fail: bool,
     omit_checkpoint: bool,
+    verifications: std::rc::Rc<std::cell::Cell<usize>>,
 }
 impl Backend {
     fn context<'a>(
@@ -135,6 +136,7 @@ impl SessionIo for Backend {
         Ok(self.bytes.clone())
     }
     fn verify<'a>(&self, j: &'a Journal) -> Result<VerifiedJournal<'a>, SessionError> {
+        self.verifications.set(self.verifications.get() + 1);
         let observed = snapshot(&self.mock.base, &self.mock.current);
         let id = identity(&self.mock.current);
         let reader = support::limits();
@@ -281,6 +283,7 @@ fn open() -> Session<Backend> {
         fail_after_append: false,
         checkpoint_fail: false,
         omit_checkpoint: false,
+        verifications: std::rc::Rc::new(std::cell::Cell::new(0)),
     };
     Session::open(
         backend,
@@ -409,4 +412,140 @@ fn session_unknown_append_freezes_reopens_and_requires_saved_evidence() {
     let target = session.begin_flush("save-now", rid(106_002)).unwrap();
     session.finish_flush(&target).unwrap();
     assert!(!session.snapshot().dirty && session.snapshot().saved.is_some());
+}
+
+#[test]
+fn response_projection_consumes_same_request_proof_and_failure_rechecks() {
+    let mut session = open();
+    let calls = std::rc::Rc::clone(&session.io_mut().verifications);
+    let (intent, receipt) = edit(&session, 107_001, 53);
+    session.begin_response();
+    session
+        .submit(&intent, &receipt, &json!({"kind":"edit"}), rid(108_001), 0)
+        .unwrap();
+    let before = calls.get();
+    let projected = session.finish_response().unwrap();
+    assert_eq!(
+        calls.get(),
+        before,
+        "reply must not replay the history again"
+    );
+    let fresh = session.presentation().unwrap();
+    assert_eq!(calls.get(), before + 1);
+    assert_eq!(
+        (projected.graphs, projected.undo, projected.redo),
+        (fresh.graphs, fresh.undo, fresh.redo)
+    );
+
+    session.begin_response();
+    let target = session.begin_flush("save-now", rid(108_002)).unwrap();
+    session.finish_flush(&target).unwrap();
+    let before = calls.get();
+    session.finish_response().unwrap();
+    assert_eq!(
+        calls.get(),
+        before,
+        "Saved and reply share the just-verified completed prefix"
+    );
+    session.begin_response();
+    session.finish_response().unwrap();
+    assert_eq!(
+        calls.get(),
+        before + 1,
+        "a new request cannot reuse presentation"
+    );
+
+    let (intent, receipt) = edit(&session, 107_002, 63);
+    session
+        .submit(&intent, &receipt, &json!({"kind":"edit"}), rid(108_003), 1)
+        .unwrap();
+    session.io_mut().checkpoint_fail = true;
+    session.begin_response();
+    let target = session.begin_flush("save-now", rid(108_004)).unwrap();
+    assert!(session.finish_flush(&target).is_err());
+    assert!(session.snapshot().frozen);
+    let before = calls.get();
+    let failure = session.finish_response().unwrap();
+    assert_eq!(
+        calls.get(),
+        before + 1,
+        "failure must freshly verify presentation"
+    );
+    assert!(failure.undo.is_empty() && failure.redo.is_empty());
+    session.io_mut().checkpoint_fail = false;
+    session.begin_response();
+    session.retry().unwrap();
+    let before = calls.get();
+    session.finish_response().unwrap();
+    assert_eq!(calls.get(), before);
+}
+
+#[test]
+fn generic_graph_batch_reopens_exactly_and_unavailable_edits_have_no_effects() {
+    // Real Core, journal, planner and replay; this Backend models IO and is not a native durability proof.
+    let mut session = open();
+    let node = request().0["command"]["envelope"]["command"]["node_id"].clone();
+    let mut command = request().0["command"].clone();
+    command["envelope"]["command"] = json!({"kind":"batch","commands":[
+        {"kind":"set-node-position","node_id":node,"x":17,"y":18},
+        {"kind":"set-node-position","node_id":node,"x":71,"y":81}
+    ]});
+    let (intent, receipt) = session
+        .prepare_graph(
+            command.clone(),
+            package::PackageUuid::parse(&uid(109_001)).unwrap(),
+            "2026-10-09T00:00:00.000Z",
+            &request().1["provenance"],
+            &json!({"kind":"edit"}),
+        )
+        .unwrap();
+    let ack = session
+        .submit(&intent, &receipt, &json!({"kind":"edit"}), rid(110_001), 0)
+        .unwrap();
+    let target = session.begin_flush("save-now", rid(110_002)).unwrap();
+    session.finish_flush(&target).unwrap();
+    let expected = session.presentation().unwrap().graphs;
+    assert_eq!(
+        expected[0]["graph"]["nodes"][0]["photara.graph-position"],
+        json!({"x":71,"y":81})
+    );
+    let backend = session.into_io();
+    let base = verify(&backend.mock.base);
+    let seed = attempt(&base, 1000).planner;
+    let header = backend.header.clone();
+    let mut reopened =
+        Session::open(backend, base, seed, budget(), limits(), header, binding()).unwrap();
+    assert_eq!(reopened.presentation().unwrap().graphs, expected);
+    let retry = reopened
+        .submit(&intent, &receipt, &json!({"kind":"edit"}), rid(110_001), 1)
+        .unwrap();
+    assert_eq!(retry.receipt(), ack.receipt());
+    assert_eq!(reopened.presentation().unwrap().graphs, expected);
+    let before_journal = reopened.io_mut().bytes.clone();
+    let before_head = reopened.io_mut().mock.current.head.clone();
+    let before_effects = reopened.io_mut().mock.effects;
+    let mut instance = expected[0]["graph"]["nodes"][0].clone();
+    instance["id"] = json!(uid(109_099));
+    for unsupported in [
+        json!({"kind":"add-node","instance":instance}),
+        json!({"kind":"delete-node","node_id":node}),
+        json!({"kind":"connect","connection":{"id":uid(109_098),"output":{"node_id":node,"port_id":"out"},"input":{"node_id":node,"port_id":"in"}}}),
+        json!({"kind":"disconnect","connection_ids":[uid(109_098)]}),
+    ] {
+        command["envelope"]["command"] = unsupported;
+        assert!(
+            reopened
+                .prepare_graph(
+                    command.clone(),
+                    package::PackageUuid::parse(&uid(109_002)).unwrap(),
+                    "2026-10-09T00:00:00.000Z",
+                    &request().1["provenance"],
+                    &json!({"kind":"edit"})
+                )
+                .is_err()
+        );
+    }
+    assert_eq!(reopened.io_mut().bytes, before_journal);
+    assert_eq!(reopened.io_mut().mock.current.head, before_head);
+    assert_eq!(reopened.io_mut().mock.effects, before_effects);
 }

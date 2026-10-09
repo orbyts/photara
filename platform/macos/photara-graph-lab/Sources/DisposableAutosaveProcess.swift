@@ -32,7 +32,7 @@ struct DisposablePositionNode: Decodable, Identifiable, Equatable, Sendable {
     let x: Int64
     let y: Int64
 }
-struct DisposablePendingPosition {
+struct DisposablePendingPosition: Codable, Equatable {
     let operationID: UUID
     let nodeID: String
     let title: String
@@ -176,6 +176,8 @@ final class DisposableAutosaveProcess: ObservableObject {
     @Published private(set) var projection: DisposableAutosaveProjection?
     @Published private(set) var nodes: [DisposablePositionNode] = []
     @Published private(set) var pendingPosition: DisposablePendingPosition?
+    @Published private(set) var queuedPositions: [DisposablePendingPosition] = []
+    @Published private(set) var moveRefusal: String?
     @Published private(set) var transportFailure: String?
     @Published private(set) var busy = false
     @Published private(set) var closed = false
@@ -222,7 +224,31 @@ final class DisposableAutosaveProcess: ObservableObject {
     private static let frameLimit = 1_048_576
     private static let prefix = Data("PHOTARA_PS3 ".utf8)
 
-    var canEdit: Bool { libraryPending == nil && !libraryWorking && !switching && !readOnly && !checkingStorage && !busy && closeCompletion == nil && transportFailure == nil && !closed && projection?.canSubmit == true }
+    var visibleNodes: [DisposablePositionNode] {
+        var values = Dictionary(uniqueKeysWithValues: nodes.map { ($0.id, $0) })
+        for draft in (pendingPosition.map { [$0] } ?? []) + queuedPositions {
+            if let node = values[draft.nodeID] {
+                values[draft.nodeID] = .init(id: node.id, title: node.title, x: draft.x, y: draft.y)
+            }
+        }
+        return nodes.compactMap { values[$0.id] }
+    }
+    var visualStatus: DisposableAutosaveStatus {
+        if transportFailure != nil { return .failed("Changes could not be saved") }
+        if case .failed = projection?.status { return .failed("Changes could not be saved") }
+        if pendingPosition != nil || !queuedPositions.isEmpty { return .saving }
+        return projection?.status ?? .unavailable
+    }
+    /// Extra drops remain explicitly volatile drafts until their original FIFO
+    /// request is acknowledged. Only position edits can queue across a checkpoint.
+    var canMove: Bool {
+        guard libraryPending == nil, !libraryWorking, !switching, !readOnly, !checkingStorage,
+              closeCompletion == nil, transportFailure == nil, !closed,
+              let snapshot = projection?.snapshot, !snapshot.frozen, !snapshot.closed,
+              snapshot.failure == nil, projection?.submissionFailure == nil else { return false }
+        return !busy || pending.map { ["submit", "complete"].contains($0.command) } == true
+    }
+    var canEdit: Bool { queuedPositions.isEmpty && libraryPending == nil && !libraryWorking && !switching && !readOnly && !checkingStorage && !busy && closeCompletion == nil && transportFailure == nil && !closed && projection?.canSubmit == true }
 
     func start(environment: [String: String] = ProcessInfo.processInfo.environment) {
         if bridge != nil {
@@ -315,19 +341,34 @@ final class DisposableAutosaveProcess: ObservableObject {
     }
 
     func move(_ node: DisposablePositionNode, dx: Int64, dy: Int64) {
-        guard canEdit else { return }
-        let (x, overflowX) = node.x.addingReportingOverflow(dx)
-        let (y, overflowY) = node.y.addingReportingOverflow(dy)
+        guard canMove, let visible = visibleNodes.first(where: { $0.id == node.id }) else { return }
+        let (x, overflowX) = visible.x.addingReportingOverflow(dx)
+        let (y, overflowY) = visible.y.addingReportingOverflow(dy)
         guard !overflowX, !overflowY else { return }
         move(node, x: x, y: y)
     }
 
     func move(_ node: DisposablePositionNode, x: Int64, y: Int64) {
-        guard canEdit else { return }
-        let id = UUID()
-        guard projection?.begin(id) == true else { return }
-        pendingPosition = .init(operationID: id, nodeID: node.id, title: node.title, x: x, y: y)
-        send(.init(id: id, command: "submit", node_id: node.id, x: x, y: y))
+        guard canMove, nodes.contains(where: { $0.id == node.id }) else { return }
+        let draft = DisposablePendingPosition(operationID: UUID(), nodeID: node.id, title: node.title, x: x, y: y)
+        let proposed = (pendingPosition.map { [$0] } ?? []) + queuedPositions + [draft]
+        guard let bytes = try? JSONEncoder().encode(proposed), bytes.count <= Self.frameLimit else {
+            moveRefusal = "This move could not be queued. Let saving finish, then try again."
+            return
+        }
+        moveRefusal = nil
+        queuedPositions.append(draft)
+        _ = drainMoves()
+    }
+
+    @discardableResult private func drainMoves() -> Bool {
+        guard !busy, !closed, !readOnly, !checkingStorage, transportFailure == nil,
+              pendingPosition == nil, let draft = queuedPositions.first,
+              projection?.begin(draft.operationID) == true else { return false }
+        queuedPositions.removeFirst()
+        pendingPosition = draft
+        send(.init(id: draft.operationID, command: "submit", node_id: draft.nodeID, x: draft.x, y: draft.y))
+        return true
     }
 
     func action(_ command: String) {
@@ -370,6 +411,7 @@ final class DisposableAutosaveProcess: ObservableObject {
 
     private func drainLifecycle() {
         if switching { drainSwitch(); return }
+        if drainMoves() { return }
         guard !busy, transportFailure == nil, !closed, closeCompletion == nil,
               projection?.pendingOperationID == nil else { return }
         if checkingStorage { send(.init(id: UUID(), command: "revalidate")) }
@@ -400,7 +442,9 @@ final class DisposableAutosaveProcess: ObservableObject {
         }
         closeCompletion = completion
         if busy { return } // Drain this finite in-flight request and its checkpoint first.
-        guard projection?.pendingOperationID == nil else {
+        if checkingStorage { send(.init(id: UUID(), command: "revalidate")); return }
+        if drainMoves() { return }
+        guard projection?.pendingOperationID == nil, queuedPositions.isEmpty else {
             fail("Close canceled. An edit still needs recovery before closing."); return
         }
         send(.init(id: UUID(), command: "close"))
@@ -497,7 +541,9 @@ final class DisposableAutosaveProcess: ObservableObject {
         guard switching, !busy, !switchInFlight, switchPrompt == nil,
               switchFailure == nil, let request = switchRequest,
               let workspace = bridge as? any DisposableWorkspaceBridge else { return }
-        guard transportFailure == nil, projection?.pendingOperationID == nil else {
+        if checkingStorage { send(.init(id: UUID(), command: "revalidate")); return }
+        if drainMoves() { return }
+        guard transportFailure == nil, projection?.pendingOperationID == nil, queuedPositions.isEmpty else {
             switchFailure = "The current edit could not be saved. Retry it before switching."
             // Preparation never reached Rust; return to the original edit's retry.
             switching = false; switchRequest = nil
@@ -563,7 +609,7 @@ final class DisposableAutosaveProcess: ObservableObject {
             try installWorkspace(response.state, replace: false)
             if response.state.confirmationRequired {
                 guard !request.library else { throw CocoaError(.coderInvalidValue) }
-                guard projection?.status == .saved, pendingPosition == nil,
+                guard projection?.status == .saved, pendingPosition == nil, queuedPositions.isEmpty,
                       let target = projects.first(where: { $0.id == request.target }) else {
                     throw CocoaError(.coderInvalidValue)
                 }
@@ -643,6 +689,7 @@ final class DisposableAutosaveProcess: ObservableObject {
             // Keep the already visible graph; no synthetic editable snapshot.
             if nodes.isEmpty, let capsuleNodes = state.recoveryNodes { nodes = capsuleNodes }
         } else if libraryOnly && replace && state.selectedLibraryID != nil && state.activeProjectID == nil {
+            guard pendingPosition == nil, queuedPositions.isEmpty else { throw CocoaError(.coderInvalidValue) }
             projection = nil; nodes = []; pendingPosition = nil
             undoAvailable = false; redoAvailable = false
         } else if state.activeProjectID != nil || projection != nil { throw CocoaError(.coderInvalidValue) }
@@ -735,8 +782,11 @@ final class DisposableAutosaveProcess: ObservableObject {
         if let available = response.result?.undo_available { undoAvailable = available }
         if let available = response.result?.redo_available { redoAvailable = available }
         if let acknowledgement = response.acknowledgement,
-           acknowledgement.operationID == pendingPosition?.operationID,
+           let draft = pendingPosition, acknowledgement.operationID == draft.operationID,
            projection?.pendingOperationID == nil {
+            guard response.result?.nodes?.contains(where: { $0.id == draft.nodeID && $0.x == draft.x && $0.y == draft.y }) == true else {
+                fail("The acknowledged move needs an exact current Graph response before continuing."); return
+            }
             pendingPosition = nil
         }
         if let error = response.error {
@@ -763,7 +813,12 @@ final class DisposableAutosaveProcess: ObservableObject {
             send(.init(id: UUID(), command: "complete"))
         } else if request.command == "retry", projection?.status == .saving {
             send(.init(id: UUID(), command: "complete"))
+        } else if checkingStorage {
+            send(.init(id: UUID(), command: "revalidate"))
+        } else if drainMoves() {
+            // Every original move completes in FIFO order before lifecycle work.
         } else if closeCompletion != nil {
+            guard queuedPositions.isEmpty else { fail("Queued edits still need recovery before closing."); return }
             send(.init(id: UUID(), command: "close"))
         } else { drainLifecycle() }
     }

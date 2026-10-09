@@ -2,7 +2,7 @@
 
 ## Delivery path: cross-Library acceptance, then platform-ready vertical slice — 2026-09-17
 
-**Current position: PS2–PS4 verified; LL2a disposable local native build ready for human review.**
+**Current position: PS2–PS4 verified; LL2a responsive-autosave correction awaits human re-review.**
 PS0/BR0/PS1 are accepted. The shared reader/repeatable writer and approved PHPSJ001
 checkpoint subset pass consecutive-operation, persisted-restart and native
 clean-remount checks under the exact conditional disposable profile; see the

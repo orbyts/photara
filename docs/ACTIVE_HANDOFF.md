@@ -21,12 +21,33 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
+**Human review finding — 2026-10-09:** LL2a interaction acceptance remains open.
+The user observed a dropped node snap back to its acknowledged position, then
+jump to the draft after admission. Fix immediate draft rendering and background
+interaction; investigate save latency without weakening Accepted/Saved or barriers.
+The recorded durability tests remain valid; they did not establish acceptable
+interactive autosave behavior. The correction now uses an immediate volatile
+position overlay and exact FIFO originals, with continued dragging during
+background checkpoints. Focused delay/failure/retry/close/selection checks pass.
+Native rapid-drag verification passes; human re-review remains required.
+
+The user additionally requested compile-gated incremental autosave coverage.
+Every `build-app.sh` invocation (including `build-local-libraries.sh`) now runs
+`verify-autosave-interactions.sh`: real controller/model regressions and the
+shared Rust session tests. Strict full acceptance is:
+`zsh platform/macos/photara-app/verify-autosave-interactions.sh --full-autosave`.
+It intentionally fails for missing durable add-node, delete-node and native
+connection support. Controller-local insertion/connection tests and synthetic
+session IO are labeled; neither claims native persistence. New authoring command
+and definition/asset mappings require their own implementation/contract review.
+
+
 The delivery path is:
 
 **PS2 production durability → PS3 one-project session/autosave → PS4 project
 browse/reopen/switch → LL2a signed cross-Library acceptance.**
 
-**PS2–PS4 approved disposable scopes pass; LL2a local native implementation is ready for final human review.**
+**PS2–PS4 approved disposable scopes pass; LL2a interaction corrections are active after human review.**
 General real-library storage admission remains disabled. LL1 remains parallel.
 Do not rerun historical PS2/PS3 suites without a concrete regression or expand the
 approved fixture scope.
@@ -77,9 +98,10 @@ activation-commit failure/unknown/process-cut cases. Native UI verification
 covers Create, Rename, cross-Library selection, pending autosave Quit/relaunch,
 and Close Project/reopen. Human review remains the next gate.
 
-The development app is `/private/tmp/photara-ll2a-app/Photara Local Libraries.app`;
+The development app is `/private/tmp/photara-ll2a-responsive-final/Photara Local Libraries.app`;
 use only the pinned launcher
-`/private/tmp/photara-ll2a-app/final/Open Photara Autosave.app`.
+`/private/tmp/photara-ll2a-responsive-final/Open Photara Autosave.app`.
+The earlier bundle/launcher remain retained but have the rejected snap-back UI.
 The two private images at `/private/tmp/photara-ps2-remount-34iyzxfo` and
 `/private/tmp/photara-ps2-remount-b5oucref` remain mounted intentionally for that
 review. Quit does not detach them. Do not rebind pins, discard files, install the

@@ -8,8 +8,8 @@ use super::{
     support, uncertain, v1_3,
 };
 use crate::package::v1_3::repeatable::session::{
-    AcceptedCoordinate, Session, SessionBinding, SessionError, SessionFailure, SessionIo,
-    SessionSnapshot,
+    AcceptedCoordinate, Presentation, Session, SessionBinding, SessionError, SessionFailure,
+    SessionIo, SessionSnapshot,
 };
 #[cfg(test)]
 use std::io::{BufRead, Read, Write};
@@ -402,7 +402,9 @@ fn identity_new(generation: u64) -> journal::JournalRecordIdentity {
     record_identity(None, generation).expect("fresh UUID")
 }
 fn result(s: &Session<Host>) -> Result<Value, SessionError> {
-    let view = s.presentation()?;
+    result_from(s.presentation()?)
+}
+fn result_from(view: Presentation) -> Result<Value, SessionError> {
     let mut nodes = Vec::new();
     for g in view.graphs {
         for n in g["graph"]["nodes"]
@@ -553,6 +555,7 @@ impl OpenSession {
         req: &Value,
     ) -> Value {
         let s = &mut self.session;
+        s.begin_response();
         let requests = &mut self.requests;
         let generation = self.generation;
         let start = self.start;
@@ -669,7 +672,7 @@ impl OpenSession {
             // Close already has a fully verified final snapshot. No extra graph
             // inspection after the coordinator commits its closed state.
             Value::Null
-        } else if let Ok(value) = result(s) {
+        } else if let Ok(value) = s.finish_response().and_then(result_from) {
             value
         } else {
             response = Err(s.freeze(SessionFailure::Journal));

@@ -185,6 +185,8 @@ pub(crate) struct Session<I: SessionIo> {
     flight: Option<FlushTarget>,
     first_dirty: Option<u64>,
     last_edit: Option<u64>,
+    capture_response: bool,
+    response_presentation: Option<Presentation>,
 }
 impl<I: SessionIo> Session<I> {
     pub(crate) fn open(
@@ -229,6 +231,8 @@ impl<I: SessionIo> Session<I> {
             flight: None,
             first_dirty: None,
             last_edit: None,
+            capture_response: false,
+            response_presentation: None,
         };
         session.refresh()?;
         Ok(session)
@@ -247,28 +251,72 @@ impl<I: SessionIo> Session<I> {
         f(&journal, &view)
     }
     fn refresh(&mut self) -> Result<(), SessionError> {
+        self.refresh_with(|_, _| Ok(()))
+    }
+    fn refresh_with<T>(
+        &mut self,
+        checked: impl FnOnce(&Journal, Option<&SavedEvidence>) -> Result<T, SessionError>,
+    ) -> Result<T, SessionError> {
+        self.response_presentation = None;
         let head = self.io.selected_head()?;
-        let (accepted, checkpoint, saved) = self.inspect(|_, view| {
-            if &head != view.base_head() {
-                return Err(SessionError::Failure(SessionFailure::Conflict));
-            }
-            let checkpoint = AcceptedCoordinate::checkpoint(view);
-            let saved = view.completed_checkpoint().map(|receipt| SavedEvidence {
-                target: checkpoint.clone(),
-                commit_sha256: head["commit_sha256"].as_str().unwrap_or("").to_owned(),
-                head: head.clone(),
-                checkpoint_receipt: receipt.clone(),
-            });
-            Ok((AcceptedCoordinate::current(view), checkpoint, saved))
-        })?;
+        let (accepted, checkpoint, saved, presentation, output) =
+            self.inspect(|journal, view| {
+                if &head != view.base_head() {
+                    return Err(SessionError::Failure(SessionFailure::Conflict));
+                }
+                let checkpoint = AcceptedCoordinate::checkpoint(view);
+                let saved = view.completed_checkpoint().map(|receipt| SavedEvidence {
+                    target: checkpoint.clone(),
+                    commit_sha256: head["commit_sha256"].as_str().unwrap_or("").to_owned(),
+                    head: head.clone(),
+                    checkpoint_receipt: receipt.clone(),
+                });
+                let output = checked(journal, saved.as_ref())?;
+                let presentation = self
+                    .capture_response
+                    .then(|| {
+                        Ok::<_, SessionError>(Presentation {
+                            graphs: view.graph_objects()?,
+                            undo: view.undo_targets(&self.snapshot.binding.owner),
+                            redo: view.redo_targets(&self.snapshot.binding.owner),
+                        })
+                    })
+                    .transpose()?;
+                Ok((
+                    AcceptedCoordinate::current(view),
+                    checkpoint,
+                    saved,
+                    presentation,
+                    output,
+                ))
+            })?;
         self.snapshot.accepted = accepted;
         self.snapshot.dirty = self.snapshot.accepted != checkpoint;
         self.snapshot.saved = saved;
+        self.response_presentation = presentation;
         if !self.snapshot.dirty {
             self.first_dirty = None;
             self.last_edit = None;
         }
-        Ok(())
+        Ok(output)
+    }
+    /// Response projection is captured only from a fresh proof in this request.
+    pub(crate) fn begin_response(&mut self) {
+        self.capture_response = true;
+        self.response_presentation = None;
+    }
+    pub(crate) fn finish_response(&mut self) -> Result<Presentation, SessionError> {
+        self.capture_response = false;
+        self.io.authorize(&self.snapshot.binding, None)?;
+        if let Some(mut presentation) = self.response_presentation.take() {
+            if self.snapshot.frozen || self.snapshot.closed {
+                presentation.undo.clear();
+                presentation.redo.clear();
+            }
+            Ok(presentation)
+        } else {
+            self.presentation()
+        }
     }
     fn next_event(&self) -> Result<u64, SessionError> {
         self.snapshot
@@ -286,6 +334,7 @@ impl<I: SessionIo> Session<I> {
         self.io.authorize(&self.snapshot.binding, None)
     }
     pub(crate) fn freeze(&mut self, failure: SessionFailure) -> SessionError {
+        self.response_presentation = None;
         self.snapshot.frozen = true;
         self.snapshot.failure = Some(failure);
         self.snapshot.event_sequence = self.snapshot.event_sequence.saturating_add(1);
@@ -303,6 +352,7 @@ impl<I: SessionIo> Session<I> {
         identity: JournalRecordIdentity,
         now_ms: u64,
     ) -> Result<Accepted, SessionError> {
+        self.response_presentation = None;
         self.live()?;
         if self.flight.as_ref().is_some_and(|f| f.closing) {
             return Err(SessionError::Busy);
@@ -360,6 +410,7 @@ impl<I: SessionIo> Session<I> {
         reason: &str,
         identity: JournalRecordIdentity,
     ) -> Result<FlushTarget, SessionError> {
+        self.response_presentation = None;
         self.live()?;
         if self.flight.is_some() {
             return Err(SessionError::Busy);
@@ -407,6 +458,7 @@ impl<I: SessionIo> Session<I> {
         &mut self,
         target: &FlushTarget,
     ) -> Result<FlushReceipt, SessionError> {
+        self.response_presentation = None;
         self.live()?;
         let flight = self.flight.as_ref().ok_or(SessionError::InvalidRequest)?;
         if flight.link != target.link
@@ -420,18 +472,14 @@ impl<I: SessionIo> Session<I> {
         if self.io.checkpoint(&target.target).is_err() {
             return Err(self.freeze(SessionFailure::Checkpoint));
         }
-        if self.refresh().is_err() {
-            return Err(self.freeze(SessionFailure::Journal));
-        }
-        let Some(saved) = self.snapshot.saved.clone() else {
-            return Err(self.freeze(SessionFailure::Checkpoint));
-        };
-        let Ok(covered) = self.inspect(|journal, _| Ok(covers(journal, target, &saved))) else {
+        let Ok(covered) = self.refresh_with(|journal, saved| {
+            Ok(saved.is_some_and(|saved| covers(journal, target, saved)))
+        }) else {
             return Err(self.freeze(SessionFailure::Journal));
         };
-        if !covered {
+        let Some(saved) = self.snapshot.saved.clone().filter(|_| covered) else {
             return Err(self.freeze(SessionFailure::Checkpoint));
-        }
+        };
         self.flight = None;
         self.snapshot.closed = target.closing;
         self.snapshot.event_sequence = event;
@@ -441,6 +489,7 @@ impl<I: SessionIo> Session<I> {
         })
     }
     pub(crate) fn retry(&mut self) -> Result<(), SessionError> {
+        self.response_presentation = None;
         if self.snapshot.closed {
             return Err(SessionError::Closed);
         }
@@ -531,6 +580,7 @@ impl<I: SessionIo> Session<I> {
     }
     #[cfg(any(test, feature = "controlled-disposable"))]
     pub(crate) fn io_mut(&mut self) -> &mut I {
+        self.response_presentation = None;
         &mut self.io
     }
     #[cfg(test)]

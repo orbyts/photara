@@ -54,9 +54,9 @@ private struct LocalLibrarySessionView: View {
         !model.switching && !model.readOnly && !model.libraryWorking && model.libraryRequestDescription == nil
     }
     private var document: PhotaraGraphDocument {
-        .init(nodes: model.nodes.map { node in
+        .init(nodes: model.visibleNodes.map { node in
             .init(id: node.id, kind: "controlled-position", title: node.title,
-                subtitle: "x \(node.x) · y \(node.y)", ports: [],
+                subtitle: "", ports: [],
                 position: .init(x: Double(node.x) / 1_000, y: Double(node.y) / 1_000))
         }, connections: [])
     }
@@ -88,15 +88,15 @@ private struct LocalLibrarySessionView: View {
             .onAppear {
                 controller.configure(.init(portOffset: PhotaraGraphPresentationPreset.shipped.portOffset, noodleStyle: .curved))
                 controller.commitMutation = { mutation in
-                    if case let .moveNode(id, position) = mutation,
-                       let node = model.nodes.first(where: { $0.id == id }), position.x.isFinite, position.y.isFinite,
-                       let x = Int64(exactly: (position.x * 1_000).rounded()),
-                       let y = Int64(exactly: (position.y * 1_000).rounded()) { model.move(node, x: x, y: y) }
+                    if let move = LocalLibraryGraphAdmission.position(mutation),
+                       let node = model.nodes.first(where: { $0.id == move.id }) {
+                        model.move(node, x: move.x, y: move.y)
+                    }
                     return document
                 }
                 synchronize()
             }
-            .onChange(of: model.nodes) { synchronize() }
+            .onChange(of: model.visibleNodes) { synchronize() }
             .onChange(of: model.activeProjectID) {
                 showsProjects = model.activeProjectID == nil; didCenter = false; synchronize()
             }
@@ -185,28 +185,36 @@ private struct LocalLibrarySessionView: View {
                     PhotaraGraphNodeView(node: node, presentation: .init(category: .utilitiesControl, iconResource: "node-metadata"),
                         selected: selected, connectedInputs: inputs, connectedOutputs: outputs, preset: preset)
                 }) { EmptyView() }
-                .allowsHitTesting(model.canEdit).accessibilityIdentifier("local-library-graph")
+                .allowsHitTesting(model.canMove).accessibilityIdentifier("local-library-graph")
         }
     }
     private var status: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 if model.readOnly { Text("Recovery required"); Button("Retry Recovery", action: model.retry).disabled(model.switching) }
-                else if let projection = model.projection { DisposableAutosaveStatusView(projection: projection, retry: model.retry) }
-                else { Text(model.selectedLibraryID == nil ? "Local Libraries" : "Choose a Project to open") }
+                else if model.projection != nil {
+                    Text(model.visualStatus.label).accessibilityIdentifier("disposable-autosave-status")
+                    if case .failed = model.visualStatus { Button("Retry", action: model.retry).disabled(model.busy) }
+                } else { Text(model.selectedLibraryID == nil ? "Local Libraries" : "Choose a Project to open") }
                 Spacer()
                 if model.checkingStorage { Text("Checking Project…") }
                 if model.switching { Text(model.switchPrompt == nil ? "Preparing selection…" : "Waiting for confirmation…") }
-            }
-            if let error = model.transportFailure { HStack { Text(error); Button("Retry", action: model.retry).disabled(model.busy) }.foregroundStyle(.red) }
-            if let error = model.switchFailure { HStack { Text(error); if model.switching { Button("Retry Selection", action: model.retrySwitch) } }.foregroundStyle(.red) }
-            if let error = model.libraryFailure { HStack { Text(error); if model.libraryRequestDescription != nil { Button("Retry Library Request", action: model.retry).disabled(model.libraryWorking) } }.foregroundStyle(.red) }
-            if let pending = model.libraryRequestDescription { Text(pending).font(.caption) }
-            if let pending = model.pendingPosition {
-                Text("Pending move: \(pending.title) to x \(pending.x), y \(pending.y). This draft has not been acknowledged.")
-                    .accessibilityIdentifier("controlled-pending-position")
-            }
+            }.frame(height: 20)
+            HStack {
+                if let error = model.libraryFailure {
+                    Text(error)
+                    if model.libraryRequestDescription != nil { Button("Retry Library Request", action: model.retry).disabled(model.libraryWorking) }
+                } else if let error = model.switchFailure {
+                    Text(error)
+                    if model.switching { Button("Retry Selection", action: model.retrySwitch) }
+                } else if model.transportFailure != nil {
+                    Text("Changes could not be saved. Your edits remain visible; retry to keep working.")
+                } else if let refusal = model.moveRefusal { Text(refusal) }
+                else if let pending = model.libraryRequestDescription { Text(pending) }
+                Spacer(minLength: 0)
+            }.font(.caption).foregroundStyle(.secondary).lineLimit(1).frame(height: 20)
         }.padding(12)
+        // Keep the canvas origin stable as Saving/failed/draft states change.
     }
     private func shellAction(_ action: ApplicationAction) {
         switch action {

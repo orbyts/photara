@@ -10,6 +10,7 @@ private actor ScriptedBridge: DisposableSessionBridge {
     var accepted = DisposableAcceptedCoordinate(revision: 1, authoredDigest: "old", coordinateSHA256: "old",
         mutation: nil, acceptedFrameSHA256: nil, operationID: nil)
     var blockSubmit: CheckedContinuation<Void, Never>?
+    var positionX: Int64 = 0, positionY: Int64 = 0
     var failComplete = true
 
     func execute(_ request: DisposableHostRequest) async throws -> DisposableHostResponse {
@@ -22,7 +23,8 @@ private actor ScriptedBridge: DisposableSessionBridge {
         sequence += 1
         var acknowledgement: DisposableOperationAcknowledgement?
         if request.command == "submit" {
-            accepted = .init(revision: 2, authoredDigest: "new", coordinateSHA256: "new",
+            positionX = request.x!; positionY = request.y!
+            accepted = .init(revision: accepted.revision + 1, authoredDigest: "new", coordinateSHA256: "new",
                 mutation: .init(recordID: request.id, checksum: "mutation"), acceptedFrameSHA256: "frame", operationID: request.id)
             acknowledgement = .init(binding: binding, operationID: request.id, accepted: accepted, operationReceiptSHA256: "receipt")
         }
@@ -31,11 +33,17 @@ private actor ScriptedBridge: DisposableSessionBridge {
             ? .init(target: accepted, headSHA256: "head", commitSHA256: "commit", checkpointReceipt: .init(recordID: UUID(), checksum: "checkpoint")) : nil
         return .init(id: request.id, snapshot: .init(binding: binding, eventSequence: sequence,
             accepted: accepted, saved: saved, frozen: failure, closed: request.command == "close", failure: failure ? "flush refused" : nil),
-            result: .init(nodes: [.init(id: "node", title: "Node", x: accepted.revision == 1 ? 0 : 16, y: 0)],
+            result: .init(nodes: [.init(id: "node", title: "Node", x: positionX, y: positionY)],
                           undo_available: true, redo_available: false), acknowledgement: acknowledgement,
             error: failure ? "flush refused" : nil)
     }
-    func releaseSubmit() { blockSubmit?.resume(); blockSubmit = nil }
+    func releaseSubmit() async {
+        for _ in 0..<500 {
+            if let blockSubmit { self.blockSubmit = nil; blockSubmit.resume(); return }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        preconditionFailure("submit was not waiting")
+    }
     func allowComplete() { failComplete = false }
     func commands() -> [String] { calls.map(\.command) }
     func completeIDs() -> [UUID] { calls.filter { $0.command == "complete" }.map(\.id) }
@@ -194,6 +202,59 @@ private actor ScriptedLibraries: DisposableLibraryBridge {
     }
 }
 
+private actor QueuedMoveBridge: DisposableSessionBridge {
+    enum Reply { case good, fail, stale }
+    let binding = DisposableAutosaveBinding(projectID: UUID(), incarnationID: UUID(), ownerEpoch: UUID(),
+        attachmentID: UUID(), attachmentGeneration: 1, principalSHA256: "test")
+    let title: String
+    init(title: String = "Node") { self.title = title }
+    var sequence: UInt64 = 0
+    var accepted = DisposableAcceptedCoordinate(revision: 1, authoredDigest: "old", coordinateSHA256: "old",
+        mutation: nil, acceptedFrameSHA256: nil, operationID: nil)
+    var x: Int64 = 0, y: Int64 = 0
+    var calls: [DisposableHostRequest] = []
+    var waiting: CheckedContinuation<Reply, Never>?
+    var waitingCommand: String?
+    var originals: [UUID: DisposableHostRequest] = [:]
+    var receipts: [UUID: DisposableAcceptedCoordinate] = [:]
+    func execute(_ request: DisposableHostRequest) async throws -> DisposableHostResponse {
+        calls.append(request)
+        var reply = Reply.good
+        if ["submit", "complete"].contains(request.command) {
+            waitingCommand = request.command
+            reply = await withCheckedContinuation { waiting = $0 }
+            waitingCommand = nil
+        }
+        sequence += 1
+        var acknowledgement: DisposableOperationAcknowledgement?
+        if request.command == "submit", reply == .good {
+            if let old = originals[request.id] {
+                precondition(old.node_id == request.node_id && old.x == request.x && old.y == request.y)
+            } else {
+                originals[request.id] = request; x = request.x!; y = request.y!
+                accepted = .init(revision: accepted.revision + 1, authoredDigest: "a\(x)", coordinateSHA256: "c\(x)",
+                    mutation: .init(recordID: request.id, checksum: "mutation"), acceptedFrameSHA256: "frame", operationID: request.id)
+                receipts[request.id] = accepted
+            }
+            acknowledgement = .init(binding: binding, operationID: request.id, accepted: receipts[request.id]!, operationReceiptSHA256: "receipt")
+        }
+        let saved: DisposableSavedEvidence? = reply == .good && request.command != "submit"
+            ? .init(target: accepted, headSHA256: "head", commitSHA256: "commit", checkpointReceipt: .init(recordID: UUID(), checksum: "checkpoint")) : nil
+        return .init(id: request.id, snapshot: .init(binding: binding, eventSequence: reply == .stale ? 0 : sequence,
+            accepted: accepted, saved: saved, frozen: reply == .fail, closed: request.command == "close",
+            failure: reply == .fail ? "flush refused" : nil),
+            result: .init(nodes: [.init(id: "node", title: title, x: x, y: y)], undo_available: true, redo_available: false),
+            acknowledgement: acknowledgement, error: reply == .fail ? "flush refused" : nil)
+    }
+    func release(_ command: String, _ reply: Reply = .good) async {
+        while waiting == nil { await Task.yield() }
+        precondition(waitingCommand == command)
+        let continuation = waiting; waiting = nil; continuation?.resume(returning: reply)
+    }
+    func waitingFor(_ command: String) -> Bool { waitingCommand == command && waiting != nil }
+    func requests() -> [DisposableHostRequest] { calls }
+}
+
 @main
 struct ControlledSessionChecks {
     @MainActor static func wait(_ condition: @MainActor () -> Bool) async {
@@ -258,6 +319,8 @@ struct ControlledSessionChecks {
         precondition(closeResult == true)
         try await switchingChecks()
         try await libraryChecks()
+        try await queuedMoveChecks()
+        try await AutosaveInteractionChecks.run()
         print("PASS: controlled configuration, visible pending move, close queues, failed flush retains graph, exact retry, wake revalidation, sleep barrier, verified close")
     }
     @MainActor static func switchingChecks() async throws {
@@ -417,6 +480,83 @@ struct ControlledSessionChecks {
         await wait { empty.closed }; precondition(emptyClosed == true)
         print("PASS: Close Project publishes same-Library browser without Quit or a generic dialog; empty SQL slot verifies Close without fake Saved")
         print("PASS: Library original create/rename retry and revision CAS, current-Library no-op, pending input drain, no-sheet Library selection, Project clears only after activation, verified Library-only lifecycle")
+    }
+
+    @MainActor static func queuedMoveChecks() async throws {
+        let bridge = QueuedMoveBridge()
+        let actual = DisposableAutosaveProcess(bridge: bridge)
+        actual.start(); await wait { actual.canMove }
+        let node = actual.nodes[0]
+        actual.move(node, x: 10, y: 1)
+        let firstID = actual.pendingPosition!.operationID
+        actual.move(node, x: 20, y: 2); actual.move(node, x: 30, y: 3)
+        let secondID = actual.queuedPositions[0].operationID
+        precondition(actual.visibleNodes[0].x == 30 && actual.nodes[0].x == 0 && actual.visualStatus == .saving)
+        precondition(actual.canMove && !actual.canEdit)
+        // Real model remains on MainActor; held backend acknowledgement must not
+        // block scheduled UI work or admission of the next visible draft.
+        var beats = 0
+        let heartbeat = Task { @MainActor in
+            for _ in 0..<8 { try await Task.sleep(for: .milliseconds(5)); beats += 1 }
+        }
+        try await heartbeat.value
+        precondition(beats == 8 && actual.pendingPosition?.operationID == firstID)
+        precondition(actual.visibleNodes[0].x == 30 && actual.visualStatus == .saving)
+        await bridge.release("submit")
+        while !(await bridge.waitingFor("complete")) { await Task.yield() }
+        precondition(actual.nodes[0].x == 10 && actual.visibleNodes[0].x == 30 && actual.canMove)
+        actual.move(node, x: 40, y: 4)
+        precondition(actual.visibleNodes[0].x == 40)
+        await bridge.release("complete", .fail)
+        await wait { actual.transportFailure != nil }
+        precondition(!actual.canMove && actual.visibleNodes[0].x == 40 && actual.queuedPositions.count == 3)
+        var closed: Bool?
+        actual.close { closed = $0 }; precondition(closed == false && !actual.closed)
+        actual.retry(); await bridge.release("complete")
+        while !(await bridge.waitingFor("submit")) { await Task.yield() }
+        precondition(actual.pendingPosition?.operationID == secondID && actual.visibleNodes[0].x == 40)
+        // A matching request carrying stale snapshot evidence cannot erase drafts.
+        await bridge.release("submit", .stale)
+        await wait { actual.transportFailure != nil }
+        precondition(actual.pendingPosition?.operationID == secondID && actual.visibleNodes[0].x == 40)
+        actual.retry()
+        actual.close { closed = $0 } // Drains every already queued original before closing.
+        await bridge.release("submit"); await bridge.release("complete")
+        await bridge.release("submit"); await bridge.release("complete")
+        await bridge.release("submit"); await bridge.release("complete")
+        await wait { actual.closed }
+        precondition(closed == true && actual.nodes[0].x == 40 && actual.visibleNodes[0].x == 40)
+        precondition(actual.queuedPositions.isEmpty && actual.pendingPosition == nil && actual.visualStatus == .saved)
+        let calls = await bridge.requests()
+        precondition(calls.map(\.command) == ["snapshot", "submit", "complete", "complete", "submit", "submit", "complete", "submit", "complete", "submit", "complete", "close"])
+        precondition(calls[1].id == firstID && calls[2].id == calls[3].id && calls[4].id == secondID && calls[4].id == calls[5].id)
+        let switchingBridge = ScriptedWorkspace()
+        let switching = DisposableAutosaveProcess(bridge: switchingBridge)
+        switching.start(); await wait { switching.canMove }
+        await switchingBridge.permitSave()
+        switching.move(switching.nodes[0], x: 16, y: 0)
+        switching.move(switching.nodes[0], x: 32, y: 0)
+        switching.beginSwitch(to: switching.projects[1].id, view: nil)
+        precondition(switching.switchPrompt == nil && switching.visibleNodes[0].x == 32)
+        let beforeDrain = await switchingBridge.preparedCount(); precondition(beforeDrain == 0)
+        await switchingBridge.releaseSubmit(); await switchingBridge.releaseSubmit()
+        await wait { switching.switchPrompt != nil }
+        precondition(switching.nodes[0].x == 32 && switching.pendingPosition == nil && switching.queuedPositions.isEmpty)
+        precondition(switching.visualStatus == .saved)
+        switching.answerSwitch(switching.switchPrompt!.id, confirmed: false)
+        await wait { !switching.switching }
+        precondition(switching.nodes[0].x == 32)
+        let boundBridge = QueuedMoveBridge(title: String(repeating: "x", count: 530_000))
+        let bound = DisposableAutosaveProcess(bridge: boundBridge)
+        bound.start(); await wait { bound.canMove }
+        bound.move(bound.nodes[0], x: 1, y: 0)
+        let admitted = bound.pendingPosition!.operationID
+        bound.move(bound.nodes[0], x: 2, y: 0)
+        precondition(bound.moveRefusal != nil && bound.pendingPosition?.operationID == admitted)
+        precondition(bound.queuedPositions.isEmpty && bound.visibleNodes[0].x == 1)
+        await boundBridge.release("submit"); await boundBridge.release("complete")
+        await wait { bound.canEdit }
+        print("PASS: immediate overlay survives delayed/stale replies and failed checkpoint retry; subsequent drops remain ordered originals; Quit drains all; bounded rejection retains prior visible draft")
     }
 
 }
