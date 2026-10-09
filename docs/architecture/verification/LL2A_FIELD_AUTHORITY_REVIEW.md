@@ -197,7 +197,7 @@ reconciliation; this packet does not choose it by accident.
 This recommendation supersedes the open alternatives in the 2026-10-08 mapping
 for the initial local-first slice; those paragraphs remain review history.
 
-**Recommendation, not implementation approval:** choose SQLite as the sole
+**Approved 2026-10-09:** choose SQLite as the sole
 selection publisher for a fresh registered slot. Implement two genuine local
 Libraries, one disposable Project each, under the current verified local
 controller. Use the **normal signed app shell and avatar Library menu**, with the
@@ -381,4 +381,5 @@ save/target-open/publication recovery, close/quit and exact relaunch. Reuse prio
 PS3/PS4 behavior evidence rather than another storage furnace. Root then hands the
 user the signed normal-shell app and its two disposable Projects for autosave
 review. Until this passes, the existing separate controlled scene is not that
-handoff. Review remains unapproved; this document changes no code or database.
+handoff. This bounded implementation is approved; acceptance remains pending the stated
+SQL qualification and normal-shell native gates.

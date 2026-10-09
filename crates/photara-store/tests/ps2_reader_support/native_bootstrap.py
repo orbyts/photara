@@ -13,13 +13,14 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[4]
 GENERATOR = ROOT / 'docs/architecture/proposals/ps2/integrated/generate.py'
 
-def seed_project(project_id, destination):
+def seed_project(project_id, destination, library_id=None):
     """Rebuild this same specimen under a distinct ID before native registration."""
     import shutil
     import subprocess
     import uuid
-    if str(uuid.UUID(project_id)) != project_id:
-        raise ValueError('canonical fixture Project ID')
+    for identity in [project_id] + ([library_id] if library_id is not None else []):
+        if str(uuid.UUID(identity)) != identity or not uuid.UUID(identity).int:
+            raise ValueError('canonical nonnil fixture identity')
     destination = Path(destination)
     if not destination.is_absolute() or destination.parent.resolve() != Path('/private/tmp'):
         raise ValueError('fresh private temporary seed directory')
@@ -35,8 +36,11 @@ def seed_project(project_id, destination):
         target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if name.suffix == '.py':
             # Change the input constant before any dependency hashes are made.
-            target.write_text((ROOT / name).read_text().replace(
-                '10000000-0000-4000-8000-000000000001', project_id))
+            source = (ROOT / name).read_text().replace(
+                '10000000-0000-4000-8000-000000000001', project_id)
+            if library_id is not None:
+                source = source.replace('10000000-0000-4000-8000-000000000002', library_id)
+            target.write_text(source)
         else:
             shutil.copyfile(ROOT / name, target)
     for name in scripts[:2]:
@@ -147,6 +151,9 @@ def preallocate(directory, device, inode, requested):
         os.close(root)
 
 if __name__ == '__main__':
+    if len(sys.argv) == 5 and sys.argv[1] == '--seed-project-library':
+        seed_project(sys.argv[2], sys.argv[4], sys.argv[3])
+        raise SystemExit(0)
     if len(sys.argv) == 4 and sys.argv[1] == '--seed-project':
         seed_project(sys.argv[2], sys.argv[3])
         raise SystemExit(0)

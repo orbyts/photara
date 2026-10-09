@@ -55,15 +55,15 @@ Both private images are cleanly detached and retained:
 increased. Keep all retained files; do not rebind identity pins. The controlled
 app is stopped and was never installed/deployed.
 
-**LL2a is at a concrete approval boundary.** The existing
+**LL2a implementation approved — 2026-10-09.** The existing
 [2026-10-09 review packet](architecture/verification/LL2A_FIELD_AUTHORITY_REVIEW.md#2026-10-09-recommended-decision--fresh-local-sql-slots)
-recommends two genuine disposable local Libraries/one Project each in the normal
+approves two genuine disposable local Libraries/one Project each in the normal
 signed shell, exact v2 Library/Project selection records, one fresh SQLite slot
 publication transaction, and new-Library controller assignment from the verified
 current bootstrap-default local controller. It includes one bounded approval text.
 Cloud lifecycle/selection, existing database/slot migration and real-library writes
-remain excluded. This packet is **unapproved**: user's general request to proceed
-does not by itself freeze these new security/format decisions. SQLite durability
+remain excluded. The user explicitly approved the packet at `2794db8`; do not
+ask again for its security/format decisions. SQLite durability
 still requires its own disposable qualification before native acceptance.
 
 **2026-10-09 continuation:** user requested LL2a and a clear signal when autosave
@@ -74,11 +74,11 @@ shared durable session and the signed two-Library/two-Project gates pass.
 
 Read-only source review found no additional-cloud-Library create-entitlement rule;
 `claim_library` bootstrap/claim behavior does not supply one. Additional local
-Library controller assignment also needs an explicit reviewed mapping: existing
+Library controller assignment uses the approved explicit mapping: existing
 controllers can transfer, so do not regenerate a historical bootstrap principal.
 The bounded recommendation recorded in the existing LL2a packet is two local
-Libraries under one verified controller; cloud creation stays disabled. This is a
-proposal, not an inferred expansion of the user's approval.
+Libraries under one verified controller; cloud creation stays disabled. Implement
+only this approved slice, then qualify and perform native acceptance.
 
 SSH verification still cannot reach `origin/main`: the 2026-10-09 read-only retry
 hit its 20-second deadline. The previous normal push also stalled. Whether
