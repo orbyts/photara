@@ -3,6 +3,10 @@ set -euo pipefail
 
 SCRIPT_ROOT="${0:A:h}"
 CONTROLLED_DISPOSABLE="${PHOTARA_CONTROLLED_DISPOSABLE_BUILD:-0}"
+LOCAL_LIBRARIES="${PHOTARA_LOCAL_LIBRARY_DISPOSABLE_BUILD:-0}"
+if [[ "$LOCAL_LIBRARIES" != 0 && "$LOCAL_LIBRARIES" != 1 || "$LOCAL_LIBRARIES" == 1 && "$CONTROLLED_DISPOSABLE" != 1 ]]; then
+  print -u2 -- "Local Library disposable build requires explicit controlled configuration"; exit 2
+fi
 if [[ "$CONTROLLED_DISPOSABLE" != 0 && "$CONTROLLED_DISPOSABLE" != 1 ]]; then
   print -u2 -- "Invalid controlled-disposable build selection"; exit 2
 fi
@@ -32,6 +36,9 @@ if [[ "$CONTROLLED_DISPOSABLE" == 1 ]]; then
     "$SCRIPT_ROOT/../photara-graph-lab/Sources/DisposableAutosaveStatusView.swift"
     "$SCRIPT_ROOT/../photara-graph-lab/Sources/DisposableAutosaveProcess.swift")
 fi
+if [[ "$LOCAL_LIBRARIES" == 1 ]]; then
+  CONTROLLED_SWIFT_ARGS+=(-D LOCAL_LIBRARY_DISPOSABLE "$SCRIPT_ROOT/Sources/LocalLibrarySession.swift" "$SCRIPT_ROOT/Sources/LocalLibraryNameSheet.swift")
+fi
 REPOSITORY_ROOT="${SCRIPT_ROOT:h:h:h}"
 # Verification callers must be able to isolate every generated artifact, not
 # merely Cargo's output. The default remains the interactive development app.
@@ -49,6 +56,7 @@ PRODUCT_NAME="$(python3 "$REPOSITORY_ROOT/scripts/generate_product_configuration
   --channel "$PRODUCT_CHANNEL" --output "$GENERATED_ROOT")"
 if [[ "$CONTROLLED_DISPOSABLE" == 1 ]]; then
   PRODUCT_NAME="Photara Disposable"
+  [[ "$LOCAL_LIBRARIES" == 1 ]] && PRODUCT_NAME="Photara Local Libraries"
 fi
 SIGNING_PROFILE="${PHOTARA_MACOS_PROVISIONING_PROFILE:-}"
 SIGNING_ENTITLEMENTS="$GENERATED_ROOT/Photara.entitlements"
@@ -68,7 +76,7 @@ cp -p "$REPOSITORY_ROOT/platform/macos/photara-shell/Resources/photara-applicati
 python3 "$REPOSITORY_ROOT/scripts/generate_product_configuration.py" \
   --channel "$PRODUCT_CHANNEL" --output "$GENERATED_ROOT" --plist "$CONTENTS/Info.plist" >/dev/null
 if [[ "$CONTROLLED_DISPOSABLE" == 1 ]]; then
-  python3 - "$CONTENTS/Info.plist" <<'PLIST'
+  python3 - "$CONTENTS/Info.plist" "$LOCAL_LIBRARIES" <<'PLIST'
 import plistlib, sys
 path = sys.argv[1]
 with open(path, 'rb') as source:
@@ -76,6 +84,10 @@ with open(path, 'rb') as source:
 value.update(CFBundleIdentifier='com.photara.controlled-disposable',
              CFBundleName='Photara Disposable', CFBundleDisplayName='Photara Disposable',
              CFBundleExecutable='PhotaraDisposable')
+if sys.argv[2] == '1':
+    value.update(CFBundleIdentifier='com.photara.local-libraries-disposable',
+                 CFBundleName='Photara Local Libraries', CFBundleDisplayName='Photara Local Libraries',
+                 CFBundleExecutable='PhotaraLocalLibraries')
 # This scoped build must not claim normal project/URL handlers in LaunchServices.
 for key in ('CFBundleDocumentTypes', 'CFBundleURLTypes', 'UTExportedTypeDeclarations', 'UTImportedTypeDeclarations'):
     value.pop(key, None)

@@ -6,6 +6,7 @@ struct ControlledDisposableConfiguration: Sendable {
     let manifestPath: String
     let bindingJSON: String
     let targetBindingsJSON: String?
+    let databaseRegistrationPath: String?
 
     static func load(_ environment: [String: String]) throws -> Self {
         guard let manifest = environment["PHOTARA_PS2_REMOUNT_MANIFEST"],
@@ -25,7 +26,13 @@ struct ControlledDisposableConfiguration: Sendable {
                   (try? JSONSerialization.jsonObject(with: data)) is [String: Any]
             else { throw ConfigurationError.missingOrInvalid }
         }
-        return .init(manifestPath: manifest, bindingJSON: binding, targetBindingsJSON: targets)
+        let database = environment["PHOTARA_LL2A_DATABASE_REGISTRATION"]
+        if let database {
+            guard targets != nil, database.hasPrefix("/private/tmp/"), database.utf8.count <= 4096,
+                  !database.contains("/../"), !database.contains("/./") else { throw ConfigurationError.missingOrInvalid }
+        }
+        return .init(manifestPath: manifest, bindingJSON: binding, targetBindingsJSON: targets,
+                     databaseRegistrationPath: database)
     }
 
     enum ConfigurationError: LocalizedError {

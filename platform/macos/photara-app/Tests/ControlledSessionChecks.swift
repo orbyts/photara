@@ -118,6 +118,82 @@ private actor ScriptedWorkspace: DisposableWorkspaceBridge {
     func preparedCount() -> Int { prepareIDs.count }
 }
 
+private actor ScriptedLibraries: DisposableLibraryBridge {
+    let initiallyEmpty: Bool
+    init(initiallyEmpty: Bool = false) { self.initiallyEmpty = initiallyEmpty }
+    let source = ScriptedBridge()
+    let first = UUID(), second = UUID()
+    var libraries: [DisposableLibraryChoice] = []
+    var selected: UUID?
+    var current: DisposableHostResponse?
+    var selection: CheckedContinuation<Void, Never>?
+    var selections: [UUID] = []
+    var requests: [DisposableLibraryRequest] = []
+    var failLibrary = true
+    func workspace() async throws -> DisposableActivationResponse {
+        await source.allowComplete()
+        current = try await source.execute(.init(id: UUID(), command: "snapshot"))
+        libraries = [.init(id: first, name: "Library A", revision: 1)]; selected = first
+        if initiallyEmpty { selected = nil; current = nil }
+        return response("Current", nil)
+    }
+    func response(_ status: String, _ id: UUID?) -> DisposableActivationResponse {
+        .init(status: status, activationID: id, state: .init(
+            current: current.map { .init(snapshot: $0.snapshot, result: $0.result, error: $0.error) },
+            projects: current.map { [.init(id: $0.snapshot!.binding.projectID, title: "Project A")] } ?? [],
+            activeProjectID: current?.snapshot?.binding.projectID, view: nil,
+            confirmationRequired: false, readOnly: false, libraries: libraries,
+            selectedLibraryID: selected, creatableLibraryIDs: libraries.count == 1 ? [second] : [], localLibraryContext: true))
+    }
+    func execute(_ request: DisposableHostRequest) async throws -> DisposableHostResponse {
+        if current == nil {
+            precondition(request.expectedOwnerEpoch == nil && request.expectedAttachmentGeneration == nil)
+            return .init(id: request.id, snapshot: nil,
+                result: .init(nodes: nil, undo_available: nil, redo_available: nil, context_closed: request.command == "close", context_verified: request.command != "close"),
+                acknowledgement: nil, error: nil)
+        }
+        current = try await source.execute(request); return current!
+    }
+    func selectLibrary(activationID: UUID, libraryID: UUID, view: DisposableSessionView?, binding: DisposableAutosaveBinding?) async throws -> DisposableActivationResponse {
+        precondition(libraryID == second && binding == current?.snapshot?.binding)
+        selections.append(activationID)
+        await withCheckedContinuation { selection = $0 }
+        selected = second; current = nil
+        return response("Activated", activationID)
+    }
+    func closeProject(activationID: UUID, view: DisposableSessionView?, binding: DisposableAutosaveBinding?) async throws -> DisposableActivationResponse {
+        precondition(current != nil && binding == current?.snapshot?.binding)
+        current = nil
+        return response("Activated", activationID)
+    }
+    func libraryCommand(_ request: DisposableLibraryRequest) async throws -> DisposableLibraryResponse {
+        requests.append(request)
+        if failLibrary { throw CocoaError(.fileWriteUnknown) }
+        if let revision = request.expectedRevision {
+            precondition(libraries.first { $0.id == request.libraryID }?.revision == revision)
+            libraries = libraries.map { $0.id == request.libraryID ? .init(id: $0.id, name: request.name, revision: revision + 1) : $0 }
+        } else {
+            precondition(request.libraryID == second)
+            libraries.append(.init(id: second, name: request.name, revision: 1))
+        }
+        return .init(receipt: .init(operationID: request.operationID, libraryID: request.libraryID,
+            action: request.expectedRevision == nil ? "create" : "rename"), state: response("Current", nil).state)
+    }
+    func prepare(activationID: UUID, target: UUID, view: DisposableSessionView?, binding: DisposableAutosaveBinding?) throws -> DisposableActivationResponse { throw CocoaError(.featureUnsupported) }
+    func respond(activationID: UUID, command: String) throws -> DisposableActivationResponse { throw CocoaError(.featureUnsupported) }
+    func allowLibrary() { failLibrary = false }
+    func originalRequests() -> [DisposableLibraryRequest] { requests }
+    func selectionCount() -> Int { selections.count }
+    func releaseSelection() async {
+        while selection == nil { await Task.yield() }
+        selection?.resume(); selection = nil
+    }
+    func releaseSubmit() async {
+        while await source.commands().filter({ $0 == "submit" }).isEmpty { await Task.yield() }
+        await source.releaseSubmit()
+    }
+}
+
 @main
 struct ControlledSessionChecks {
     @MainActor static func wait(_ condition: @MainActor () -> Bool) async {
@@ -181,6 +257,7 @@ struct ControlledSessionChecks {
         await wait { model.closed }
         precondition(closeResult == true)
         try await switchingChecks()
+        try await libraryChecks()
         print("PASS: controlled configuration, visible pending move, close queues, failed flush retains graph, exact retry, wake revalidation, sleep barrier, verified close")
     }
     @MainActor static func switchingChecks() async throws {
@@ -277,6 +354,69 @@ struct ControlledSessionChecks {
         precondition(recoveryClose == true)
         print("PASS: failed reacquisition retains graph read-only, Quit cancels, original Retry reacquires then verified Close succeeds")
         print("PASS: pending input drains before confirmation, failed pre-save suppresses dialog, current activation is idempotent, stale/double callbacks refused, cancel retains graph, title changes only after Activated")
+    }
+
+    @MainActor static func libraryChecks() async throws {
+        let named = DisposableLibraryChoice(id: UUID(), name: "My Library", revision: 7)
+        let rename = LocalLibraryNameRequest(mode: .rename(named))
+        precondition(rename.title == "Rename Library" && rename.buttonTitle == "Rename" && rename.initialName == "My Library")
+        if case let .rename(target) = rename.mode { precondition(target == named) } else { preconditionFailure("Wrong sheet action") }
+        let reserved = UUID(), create = LocalLibraryNameRequest(mode: .create(UUID()))
+        precondition(create.title == "Create Library" && create.buttonTitle == "Create" && create.initialName.isEmpty)
+        let originalCreate = LocalLibraryNameRequest(mode: .create(reserved))
+        if case let .create(id) = originalCreate.mode { precondition(id == reserved) } else { preconditionFailure("Wrong sheet action") }
+        precondition(rename.id != create.id)
+        print("PASS: sheet item carries exact immutable Create or Rename action, original Library/revision, title, button and initial name")
+        let bridge = ScriptedLibraries()
+        // A single coordinator supplies both Library receipts and Project state.
+        let actual = DisposableAutosaveProcess(bridge: bridge)
+        actual.start(); await wait { actual.canEdit }
+        let first = actual.selectedLibraryID!, originalProject = actual.activeProjectID
+        actual.selectLibrary(first, view: nil)
+        precondition(!actual.switching)
+        let count = await bridge.selectionCount(); precondition(count == 0)
+        actual.createLibrary(name: "Library B")
+        await wait { actual.libraryFailure != nil && !actual.libraryWorking }
+        let original = await bridge.originalRequests()
+        precondition(original.count == 1 && original[0].libraryID == actual.creatableLibraryIDs.first)
+        var close: Bool?
+        actual.close { close = $0 }; precondition(close == false && !actual.closed)
+        await bridge.allowLibrary(); actual.retry()
+        await wait { actual.libraries.count == 2 && !actual.libraryWorking }
+        let repeated = await bridge.originalRequests(); precondition(repeated.count == 2 && repeated[0] == repeated[1])
+        precondition(actual.selectedLibraryID == first && actual.activeProjectID == originalProject)
+        actual.renameLibrary(actual.libraries[1], name: "Renamed B")
+        await wait { actual.libraries[1].revision == 2 }
+        let renamed = await bridge.originalRequests()
+        precondition(renamed.last?.expectedRevision == 1 && actual.libraries[1].name == "Renamed B")
+        actual.move(actual.nodes[0], dx: 16, dy: 0)
+        actual.selectLibrary(actual.libraries[1].id, view: nil)
+        precondition(actual.switching && actual.switchPrompt == nil && actual.activeProjectID == originalProject)
+        await bridge.releaseSubmit()
+        while await bridge.selectionCount() == 0 { await Task.yield() }
+        precondition(actual.selectedLibraryID == first && actual.activeProjectID == originalProject && !actual.nodes.isEmpty)
+        await bridge.releaseSelection(); await wait { !actual.switching }
+        precondition(actual.selectedLibraryID != first && actual.activeProjectID == nil && actual.nodes.isEmpty && actual.projection == nil)
+        precondition(actual.switchPrompt == nil)
+        actual.revalidateAfterWake(); await wait { !actual.checkingStorage }
+        precondition(actual.projection == nil && actual.transportFailure == nil)
+        actual.prepareForSleep(); await wait { !actual.busy }
+        actual.close { close = $0 }; await wait { actual.closed }; precondition(close == true)
+        let closing = DisposableAutosaveProcess(bridge: ScriptedLibraries())
+        closing.start(); await wait { closing.canEdit }
+        let originalLibrary = closing.selectedLibraryID
+        closing.closeProject(view: nil); await wait { !closing.switching }
+        precondition(closing.selectedLibraryID == originalLibrary && closing.activeProjectID == nil && !closing.closed)
+        precondition(closing.nodes.isEmpty && closing.switchPrompt == nil)
+        let empty = DisposableAutosaveProcess(bridge: ScriptedLibraries(initiallyEmpty: true))
+        empty.start(); await wait { empty.localLibraryContext && !empty.busy }
+        precondition(empty.selectedLibraryID == nil && empty.projection == nil)
+        var emptyClosed: Bool?
+        empty.close { emptyClosed = $0 }
+        precondition(emptyClosed == nil) // Empty SQL slot still revalidates in shared authority.
+        await wait { empty.closed }; precondition(emptyClosed == true)
+        print("PASS: Close Project publishes same-Library browser without Quit or a generic dialog; empty SQL slot verifies Close without fake Saved")
+        print("PASS: Library original create/rename retry and revision CAS, current-Library no-op, pending input drain, no-sheet Library selection, Project clears only after activation, verified Library-only lifecycle")
     }
 
 }

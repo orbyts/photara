@@ -43,6 +43,8 @@ struct DisposableHostResult: Decodable, Sendable {
     let nodes: [DisposablePositionNode]?
     let undo_available: Bool?
     let redo_available: Bool?
+    var context_closed: Bool? = nil
+    var context_verified: Bool? = nil
 }
 struct DisposableHostResponse: Decodable, Sendable {
     let id: UUID
@@ -91,6 +93,45 @@ struct DisposableSessionView: Codable, Equatable, Sendable {
     var selected_node_ids: [String]
     var visible_panels: [String]
 }
+struct DisposableLibraryChoice: Decodable, Identifiable, Equatable, Sendable {
+    let id: UUID
+    let name: String
+    let revision: UInt64
+    init(id: UUID, name: String, revision: UInt64) { self.id = id; self.name = name; self.revision = revision }
+    private enum CodingKeys: String, CodingKey { case id, name, revision }
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        name = try values.decode(String.self, forKey: .name)
+        let value = try values.decode(String.self, forKey: .revision)
+        guard let parsed = UInt64(value), parsed > 0, String(parsed) == value else {
+            throw DecodingError.dataCorruptedError(forKey: .revision, in: values, debugDescription: "Invalid Library revision")
+        }
+        revision = parsed
+    }
+}
+struct DisposableLibraryRequest: Equatable, Sendable {
+    let operationID: UUID
+    let libraryID: UUID
+    let name: String
+    let expectedRevision: UInt64?
+}
+struct DisposableLibraryReceipt: Sendable {
+    let operationID: UUID
+    let libraryID: UUID
+    let action: String
+    var rejected = false
+}
+struct DisposableLibraryResponse: Sendable {
+    let receipt: DisposableLibraryReceipt
+    let state: DisposableWorkspaceState
+}
+protocol DisposableLibraryBridge: DisposableWorkspaceBridge {
+    func selectLibrary(activationID: UUID, libraryID: UUID, view: DisposableSessionView?, binding: DisposableAutosaveBinding?) async throws -> DisposableActivationResponse
+    func closeProject(activationID: UUID, view: DisposableSessionView?, binding: DisposableAutosaveBinding?) async throws -> DisposableActivationResponse
+    func libraryCommand(_ request: DisposableLibraryRequest) async throws -> DisposableLibraryResponse
+}
+
 struct DisposableSessionDisplay: Decodable, Sendable {
     let snapshot: DisposableSessionSnapshot?
     let result: DisposableHostResult?
@@ -106,6 +147,11 @@ struct DisposableWorkspaceState: Sendable {
     var error: String? = nil
     var recoveryNodes: [DisposablePositionNode]? = nil
     var pendingTarget: UUID? = nil
+    var libraries: [DisposableLibraryChoice] = []
+    var selectedLibraryID: UUID? = nil
+    var creatableLibraryIDs: [UUID] = []
+    var pendingIsLibrary = false
+    var localLibraryContext = false
 }
 struct DisposableActivationResponse: Sendable {
     let status: String
@@ -136,6 +182,17 @@ final class DisposableAutosaveProcess: ObservableObject {
     @Published private(set) var undoAvailable = false
     @Published private(set) var redoAvailable = false
     @Published private(set) var checkingStorage = false
+    @Published private(set) var libraries: [DisposableLibraryChoice] = []
+    @Published private(set) var localLibraryContext = false
+    @Published private(set) var selectedLibraryID: UUID?
+    @Published private(set) var creatableLibraryIDs: [UUID] = []
+    @Published private(set) var libraryFailure: String?
+    @Published private(set) var libraryWorking = false
+    private var libraryPending: DisposableLibraryRequest?
+    var libraryRequestDescription: String? {
+        libraryPending.map { "\($0.expectedRevision == nil ? "Create" : "Rename") Library: \($0.name)" }
+    }
+    var libraryTitle: String { libraries.first { $0.id == selectedLibraryID }?.name ?? "Local Libraries" }
     @Published private(set) var projects: [DisposableProjectChoice] = []
     @Published private(set) var activeProjectID: UUID?
     @Published private(set) var restoredView: DisposableSessionView?
@@ -143,7 +200,7 @@ final class DisposableAutosaveProcess: ObservableObject {
     @Published private(set) var switching = false
     @Published private(set) var switchFailure: String?
     @Published private(set) var readOnly = false
-    private var switchRequest: (id: UUID, target: UUID, view: DisposableSessionView?)?
+    private var switchRequest: (id: UUID, target: UUID, view: DisposableSessionView?, library: Bool, closeProject: Bool)?
     private var switchInFlight = false
     var projectTitle: String { projects.first { $0.id == activeProjectID }?.title ?? "Disposable Project" }
     private var barrierRequested = false
@@ -165,7 +222,7 @@ final class DisposableAutosaveProcess: ObservableObject {
     private static let frameLimit = 1_048_576
     private static let prefix = Data("PHOTARA_PS3 ".utf8)
 
-    var canEdit: Bool { !switching && !readOnly && !checkingStorage && !busy && closeCompletion == nil && transportFailure == nil && !closed && projection?.canSubmit == true }
+    var canEdit: Bool { libraryPending == nil && !libraryWorking && !switching && !readOnly && !checkingStorage && !busy && closeCompletion == nil && transportFailure == nil && !closed && projection?.canSubmit == true }
 
     func start(environment: [String: String] = ProcessInfo.processInfo.environment) {
         if bridge != nil {
@@ -180,11 +237,18 @@ final class DisposableAutosaveProcess: ObservableObject {
                         try installWorkspace(response.state, replace: true)
                         if let id = response.activationID,
                            let target = response.state.pendingTarget ?? (response.state.readOnly ? response.state.activeProjectID : nil) {
-                            switchRequest = (id, target, response.state.view)
+                            switchRequest = (id, target, response.state.view, response.state.pendingIsLibrary, false)
                             switching = response.state.pendingTarget != nil
                             switchFailure = "A Project switch needs recovery. Retry the original switch."
                         }
-                    } catch { busy = false; transportFailure = error.localizedDescription }
+                        if let completion = closeCompletion {
+                            closeCompletion = nil
+                            close(completion)
+                        } else { drainLifecycle() }
+                    } catch {
+                        busy = false; transportFailure = error.localizedDescription
+                        closeCompletion?(false); closeCompletion = nil
+                    }
                 }
             } else { send(.init(id: UUID(), command: "snapshot")) }
             return
@@ -275,6 +339,7 @@ final class DisposableAutosaveProcess: ObservableObject {
     }
 
     func retry() {
+        if libraryPending != nil { retryLibraryCommand(); return }
         if readOnly, switchRequest != nil { switching = true; retrySwitch(); return }
         if switching { retrySwitch(); return }
         guard !busy, !closed else { return }
@@ -313,11 +378,15 @@ final class DisposableAutosaveProcess: ObservableObject {
 
     func close(_ completion: @escaping (Bool) -> Void) {
         if closed { completion(true); return }
+        guard libraryPending == nil, !libraryWorking else {
+            libraryFailure = "Close canceled. Retry the original Library request first."
+            completion(false); return
+        }
         guard !switching else {
             switchFailure = "Close canceled. Finish or cancel the Project switch first."
             completion(false); return
         }
-        if projection == nil && !readOnly && !busy && process?.isRunning != true {
+        if projection == nil && !localLibraryContext && selectedLibraryID == nil && !readOnly && !busy && process?.isRunning != true {
             closed = true; completion(true); return // No editable project was attached.
         }
         guard closeCompletion == nil else { completion(false); return }
@@ -338,12 +407,90 @@ final class DisposableAutosaveProcess: ObservableObject {
     }
 
     func beginSwitch(to target: UUID, view: DisposableSessionView?) {
-        guard bridge is any DisposableWorkspaceBridge, !closed, !switching,
+        guard bridge is any DisposableWorkspaceBridge, !closed, !switching, libraryPending == nil,
               closeCompletion == nil, projects.contains(where: { $0.id == target }) else { return }
         guard target != activeProjectID else { return }
-        switchRequest = (UUID(), target, view)
+        switchRequest = (UUID(), target, view, false, false)
         switching = true; switchFailure = nil
         drainSwitch()
+    }
+
+    func selectLibrary(_ id: UUID, view: DisposableSessionView?) {
+        guard bridge is any DisposableLibraryBridge, !closed, !switching, libraryPending == nil,
+              closeCompletion == nil, libraries.contains(where: { $0.id == id }) else { return }
+        guard id != selectedLibraryID else { return } // Preserve its current Project.
+        switchRequest = (UUID(), id, view, true, false)
+        switching = true; switchFailure = nil
+        drainSwitch()
+    }
+
+    func closeProject(view: DisposableSessionView?) {
+        guard bridge is any DisposableLibraryBridge, let library = selectedLibraryID,
+              activeProjectID != nil, !readOnly, !closed, !switching, libraryPending == nil,
+              closeCompletion == nil else { return }
+        switchRequest = (UUID(), library, view, true, true)
+        switching = true; switchFailure = nil
+        drainSwitch()
+    }
+
+    func createLibrary(name: String) {
+        guard let id = creatableLibraryIDs.first else {
+            libraryFailure = "No additional disposable Library is registered for this session."; return
+        }
+        createLibrary(id: id, name: name)
+    }
+
+    func createLibrary(id: UUID, name: String) {
+        guard creatableLibraryIDs.contains(id) else {
+            libraryFailure = "The original disposable Library is no longer available for creation."
+            return
+        }
+        beginLibraryCommand(.init(operationID: UUID(), libraryID: id, name: name, expectedRevision: nil))
+    }
+
+    func renameLibrary(_ library: DisposableLibraryChoice, name: String) {
+        beginLibraryCommand(.init(operationID: UUID(), libraryID: library.id, name: name, expectedRevision: library.revision))
+    }
+
+    static func libraryNameIsValid(_ name: String) -> Bool {
+        let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !normalized.isEmpty && normalized.utf8.count <= 128
+            && normalized.unicodeScalars.allSatisfy { $0.properties.generalCategory != .control }
+    }
+
+    private func beginLibraryCommand(_ request: DisposableLibraryRequest) {
+        guard !busy, !closed, !switching, !readOnly, !checkingStorage, transportFailure == nil,
+              closeCompletion == nil, !libraryWorking, libraryPending == nil else { return }
+        guard Self.libraryNameIsValid(request.name) else {
+            libraryFailure = "Choose a shorter Library name without control characters."
+            return
+        }
+        libraryPending = request; libraryFailure = nil
+        retryLibraryCommand()
+    }
+
+    func retryLibraryCommand() {
+        guard let request = libraryPending, !libraryWorking,
+              let local = bridge as? any DisposableLibraryBridge else { return }
+        libraryWorking = true; libraryFailure = nil
+        Task {
+            do {
+                let response = try await local.libraryCommand(request)
+                guard response.receipt.operationID == request.operationID,
+                      response.receipt.libraryID == request.libraryID,
+                      response.receipt.action == (request.expectedRevision == nil ? "create" : "rename") else {
+                    throw CocoaError(.coderInvalidValue)
+                }
+                try installWorkspace(response.state, replace: false)
+                libraryPending = nil; libraryWorking = false
+                if response.receipt.rejected {
+                    libraryFailure = "The Library request was refused. Check the name and current Library access, then try again."
+                }
+            } catch {
+                libraryWorking = false; switchDiagnostic(error.localizedDescription)
+                libraryFailure = "The Library request could not be completed. Retry the original request."
+            }
+        }
     }
 
     private func drainSwitch() {
@@ -359,8 +506,16 @@ final class DisposableAutosaveProcess: ObservableObject {
         switchInFlight = true
         Task {
             do {
-                let response = try await workspace.prepare(activationID: request.id,
-                    target: request.target, view: request.view, binding: projection?.binding)
+                let response: DisposableActivationResponse
+                if request.closeProject, let local = workspace as? any DisposableLibraryBridge {
+                    response = try await local.closeProject(activationID: request.id, view: request.view, binding: projection?.binding)
+                } else if request.library, let local = workspace as? any DisposableLibraryBridge {
+                    response = try await local.selectLibrary(activationID: request.id, libraryID: request.target,
+                        view: request.view, binding: projection?.binding)
+                } else {
+                    response = try await workspace.prepare(activationID: request.id,
+                        target: request.target, view: request.view, binding: projection?.binding)
+                }
                 switchInFlight = false
                 try acceptActivation(response, expected: request.id)
             } catch {
@@ -407,6 +562,7 @@ final class DisposableAutosaveProcess: ObservableObject {
         case "Prepared":
             try installWorkspace(response.state, replace: false)
             if response.state.confirmationRequired {
+                guard !request.library else { throw CocoaError(.coderInvalidValue) }
                 guard projection?.status == .saved, pendingPosition == nil,
                       let target = projects.first(where: { $0.id == request.target }) else {
                     throw CocoaError(.coderInvalidValue)
@@ -414,9 +570,14 @@ final class DisposableAutosaveProcess: ObservableObject {
                 switchPrompt = .init(id: expected, sourceTitle: projectTitle, targetTitle: target.title)
             } else { sendSwitch(expected, command: "confirm") }
         case "Activated":
-            guard response.state.activeProjectID == request.target,
-                  response.state.current?.snapshot != nil else { throw CocoaError(.coderInvalidValue) }
-            try installWorkspace(response.state, replace: true)
+            if request.library {
+                guard response.state.selectedLibraryID == request.target, response.state.activeProjectID == nil,
+                      response.state.current == nil else { throw CocoaError(.coderInvalidValue) }
+            } else {
+                guard response.state.activeProjectID == request.target,
+                      response.state.current?.snapshot != nil else { throw CocoaError(.coderInvalidValue) }
+            }
+            try installWorkspace(response.state, replace: true, libraryOnly: request.library)
             switchRequest = nil; switching = false; switchFailure = nil
             drainLifecycle()
         case "RetainedCurrent", "RetainedReadOnlyRecovery", "Refused":
@@ -438,9 +599,13 @@ final class DisposableAutosaveProcess: ObservableObject {
             if readOnly {
                 switchFailure = "The previous Project is read-only. Retry recovery before editing or closing."
             } else if response.state.error != nil {
-                switchFailure = projection?.status == .saved
-                    ? "Could not switch Projects. The previous Project is still open. Check that the selected Project is available, then try again."
-                    : "The current Project could not be saved. Retry saving before switching."
+                if request.library && activeProjectID == nil {
+                    switchFailure = "Could not select the Library. The previous Library is still selected. Try again."
+                } else {
+                    switchFailure = projection?.status == .saved
+                        ? "Could not switch Projects. The previous Project is still open. Check that the selected Project is available, then try again."
+                        : "The current Project could not be saved. Retry saving before switching."
+                }
             } else { switchFailure = nil }
             if !readOnly { drainLifecycle() }
         case "Pending":
@@ -458,8 +623,11 @@ final class DisposableAutosaveProcess: ObservableObject {
         try? FileHandle.standardError.write(contentsOf: Data("Project switch diagnostic: ".utf8) + Data(bytes) + Data([10]))
     }
 
-    private func installWorkspace(_ state: DisposableWorkspaceState, replace: Bool) throws {
+    private func installWorkspace(_ state: DisposableWorkspaceState, replace: Bool, libraryOnly: Bool = false) throws {
         guard Set(state.projects.map(\.id)).count == state.projects.count,
+              Set(state.libraries.map(\.id)).count == state.libraries.count,
+              Set(state.creatableLibraryIDs).count == state.creatableLibraryIDs.count,
+              state.selectedLibraryID == nil || state.libraries.contains(where: { $0.id == state.selectedLibraryID }),
               replace || state.activeProjectID == activeProjectID else { throw CocoaError(.coderInvalidValue) }
         if let current = state.current {
             guard let snapshot = current.snapshot, current.error == nil,
@@ -474,7 +642,13 @@ final class DisposableAutosaveProcess: ObservableObject {
             // Only the shared authority can enter capsule/read-only retention.
             // Keep the already visible graph; no synthetic editable snapshot.
             if nodes.isEmpty, let capsuleNodes = state.recoveryNodes { nodes = capsuleNodes }
+        } else if libraryOnly && replace && state.selectedLibraryID != nil && state.activeProjectID == nil {
+            projection = nil; nodes = []; pendingPosition = nil
+            undoAvailable = false; redoAvailable = false
         } else if state.activeProjectID != nil || projection != nil { throw CocoaError(.coderInvalidValue) }
+        localLibraryContext = state.localLibraryContext
+        libraries = state.libraries; selectedLibraryID = state.selectedLibraryID
+        creatableLibraryIDs = state.creatableLibraryIDs
         projects = state.projects; activeProjectID = state.activeProjectID; readOnly = state.readOnly
         if replace { restoredView = state.view }
         if state.readOnly { undoAvailable = false; redoAvailable = false }
@@ -537,6 +711,22 @@ final class DisposableAutosaveProcess: ObservableObject {
             guard unchanged || projection?.receive(snapshot, acknowledgement: response.acknowledgement) == true else {
                 fail("Rust response has stale or inconsistent session coordinates"); return
             }
+        }
+        if request.command == "close", response.error == nil, response.result?.context_closed == true,
+           activeProjectID == nil, localLibraryContext, !readOnly {
+            failedRequest = nil; transportFailure = nil; closed = true
+            closeCompletion?(true); closeCompletion = nil
+            return
+        }
+        if ["snapshot", "revalidate", "barrier"].contains(request.command), response.error == nil,
+           response.result?.context_verified == true, activeProjectID == nil,
+           localLibraryContext, projection == nil, !readOnly {
+            failedRequest = nil; transportFailure = nil
+            if request.command == "revalidate" { checkingStorage = false }
+            if request.command == "barrier" { barrierRequested = false }
+            if closeCompletion != nil { send(.init(id: UUID(), command: "close")) }
+            else { drainLifecycle() }
+            return
         }
         guard response.snapshot != nil else {
             fail(response.error ?? "Session response omitted save evidence"); return

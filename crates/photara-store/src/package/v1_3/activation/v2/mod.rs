@@ -1,11 +1,12 @@
-//! Approved device-local PS4 snapshots. Structural consistency is not live
+//! Approved fresh `SQLite` selection v2; frozen PS4 v1 remains independent. Structural consistency is not live
 //! storage qualification, authorization, journal verification, or Saved evidence.
-use super::{selected, tree};
+use super::super::{selected, tree};
 use crate::package::{JsonLimits, PackageError, PackageUuid, Sha256Hex, parse_canonical_json};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 mod records;
-pub mod v2;
+#[cfg(test)]
+mod tests;
 mod transition;
 pub use records::{default_view, validate_view};
 pub use transition::{Transition, validate_transition};
@@ -36,7 +37,9 @@ fn digest(value: &Value) -> Result<(), PackageError> {
     Sha256Hex::parse(value.as_str().ok_or(PackageError::Record)?).map(|_| ())
 }
 fn number(value: &Value) -> Result<u64, PackageError> {
-    tree::number(value)
+    let n = tree::number(value)?;
+    check(i64::try_from(n).is_ok())?;
+    Ok(n)
 }
 fn fields(value: &Value, names: &[&str]) -> Result<(), PackageError> {
     tree::fields(value, names)
@@ -111,7 +114,7 @@ impl Snapshot {
         }
         let value = parse_canonical_json(bytes, limits.json)?;
         fields(&value, &["format", "version", "body", "body_sha256"])?;
-        if value["format"] != "photara.local.activation-snapshot" || value["version"] != 1 {
+        if value["format"] != "photara.local.activation-snapshot" || value["version"] != 2 {
             return Err(PackageError::UnsupportedVersion);
         }
         digest(&value["body_sha256"])?;
@@ -125,7 +128,7 @@ impl Snapshot {
                 "revision",
                 "request_generation",
                 "committed_generation",
-                "authority_scope_sha256",
+                "slot_scope_sha256",
                 "active",
                 "pending",
                 "records",
@@ -133,7 +136,7 @@ impl Snapshot {
         )?;
         id(&body["device_id"])?;
         id(&body["workspace_slot_id"])?;
-        digest(&body["authority_scope_sha256"])?;
+        digest(&body["slot_scope_sha256"])?;
         for key in ["revision", "request_generation", "committed_generation"] {
             number(&body[key])?;
         }
@@ -185,7 +188,7 @@ impl Snapshot {
         if raw.len() > limits.max_snapshot_bytes || raw.len() > limits.json.max_bytes {
             return Err(PackageError::Limit);
         }
-        let mut value = json!({"format":"photara.local.activation-snapshot","version":1,"body_sha256":hash(&raw),"body":null});
+        let mut value = json!({"format":"photara.local.activation-snapshot","version":2,"body_sha256":hash(&raw),"body":null});
         value["body"] = body;
         Self::parse(&encode(&value)?, limits)
     }
@@ -241,12 +244,12 @@ impl Snapshot {
     }
     fn pointers(&self) -> Result<(), PackageError> {
         if let Some(active) = self.active() {
-            let body = self.kind(active, "ActiveSession")?;
+            let body = self.kind(active, "ActiveSelection")?;
             check(
                 body["device_id"] == self.body()["device_id"]
                     && body["workspace_slot_id"] == self.body()["workspace_slot_id"]
                     && body["committed_generation"] == self.body()["committed_generation"]
-                    && body["authority_scope_sha256"] == self.body()["authority_scope_sha256"],
+                    && body["slot_scope_sha256"] == self.body()["slot_scope_sha256"],
             )?;
             let receipt = self
                 .receipt(body["activation_id"].as_str().ok_or(PackageError::Record)?)
@@ -267,7 +270,7 @@ impl Snapshot {
                     && intent["source_active"] == self.body()["active"]
                     && intent["device_id"] == self.body()["device_id"]
                     && intent["workspace_slot_id"] == self.body()["workspace_slot_id"]
-                    && intent["authority_scope_sha256"] == self.body()["authority_scope_sha256"]
+                    && intent["slot_scope_sha256"] == self.body()["slot_scope_sha256"]
                     && self
                         .receipt(
                             progress["intent"]["id"]
@@ -293,4 +296,37 @@ impl Snapshot {
         }
         Ok(())
     }
+}
+
+/// Independently registered fresh local SQL authority. Implementations must check
+/// live controller/project access and commit the snapshot plus derived selection
+/// together; this interface grants no native package access.
+pub trait SelectionStore: Send {
+    /// # Errors
+    /// Refuses invalid scope, authority, bounds or uncertain storage.
+    fn inject_fault(&mut self, _point: &str) -> std::io::Result<()> {
+        Err(std::io::Error::other("fault injection unavailable"))
+    }
+    fn registration(&self) -> Value;
+    /// # Errors
+    /// Refuses invalid scope, authority, bounds or uncertain storage.
+    fn load(&self) -> std::io::Result<Vec<u8>>;
+    /// # Errors
+    /// Refuses invalid scope, authority, bounds or uncertain storage.
+    fn publish(&mut self, expected_sha256: &str, candidate: &[u8]) -> std::io::Result<()>;
+    /// # Errors
+    /// Refuses invalid scope, authority, bounds or uncertain storage.
+    fn context(&self, target: &Value) -> std::io::Result<Value>;
+    /// # Errors
+    /// Refuses invalid scope, authority, bounds or uncertain storage.
+    fn provenance(&self, target: &Value) -> std::io::Result<Value>;
+    /// # Errors
+    /// Refuses invalid scope, authority, bounds or uncertain storage.
+    fn libraries(&self) -> std::io::Result<Vec<Value>>;
+    /// # Errors
+    /// Refuses invalid scope, authority, bounds or uncertain storage.
+    fn create(&mut self, request: &Value) -> std::io::Result<Value>;
+    /// # Errors
+    /// Refuses invalid scope, authority, bounds or uncertain storage.
+    fn rename(&mut self, request: &Value) -> std::io::Result<Value>;
 }

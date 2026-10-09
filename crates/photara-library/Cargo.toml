@@ -6,8 +6,13 @@ license.workspace = true
 repository.workspace = true
 description = "Backend-neutral user Library contracts and local SQLite adapter for Photara."
 
+[features]
+default = []
+disposable-ll2a = ["dep:rustix"]
+
 [dependencies]
 rusqlite.workspace = true
+rustix = { version = "1.1.4", features = ["fs"], optional = true }
 sha2.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -28,3 +33,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
 
 [lints]
 workspace = true
+
+[[example]]
+name = "disposable_authority"
+required-features = ["disposable-ll2a"]

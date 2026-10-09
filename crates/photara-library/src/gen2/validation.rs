@@ -6,7 +6,7 @@ use caseless::Caseless as _;
 use std::collections::{BTreeMap, BTreeSet};
 use unicode_normalization::UnicodeNormalization as _;
 
-pub(super) const POLICY: &str = "photara.term-policy.v1;unicode=16.0.0;NFC;full-default-casefold;NFC;UCD-White_Space-collapse;groups=beach,beaches|studio,studios";
+pub(crate) const POLICY: &str = "photara.term-policy.v1;unicode=16.0.0;NFC;full-default-casefold;NFC;UCD-White_Space-collapse;groups=beach,beaches|studio,studios";
 const _: () = assert!(
     unicode_normalization::UNICODE_VERSION.0 == 16
         && unicode_normalization::UNICODE_VERSION.1 == 0

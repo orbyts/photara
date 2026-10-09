@@ -8,6 +8,10 @@ pub use creation::*;
 mod context;
 pub use context::{DeviceContextCapture, DeviceContextEvidence};
 mod local;
+#[cfg(feature = "disposable-ll2a")]
+pub(crate) use local::{LOCAL_AUTHORITY_SQL, PROJECT_AUTHORITY_SQL};
+#[cfg(feature = "disposable-ll2a")]
+pub(crate) use validation::POLICY;
 mod onboarding;
 pub use onboarding::*;
 mod recovery;

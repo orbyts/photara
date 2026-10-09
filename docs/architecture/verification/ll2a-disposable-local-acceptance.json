@@ -1,0 +1,476 @@
+{
+  "schema": {
+    "id": "photara.verification.ll2a-disposable-local-acceptance",
+    "version": 1
+  },
+  "date": "2026-10-09",
+  "status": "approved disposable local engineering acceptance passed; user hands-on review ready",
+  "native_ui": {
+    "status": "passed; app left open on Project A for user review",
+    "executable_sha256": "ad559233fb0f2a4a9325263f252a7a932ca312da60b60f4e576a5410e70f2cb4",
+    "dylib_sha256": "2a5bb6791b29b7fa2d6392aee23efaca52620fabf835aeaf96e456c2c17c8d37",
+    "passed": [
+      "native Create Library B through avatar menu on earlier build; original receipt subsequently verified",
+      "fixed native Rename A to Autosave Review A; correct Rename sheet and SQL renamed receipt revision2",
+      "open Project A restores Saved5 x1013 y2014",
+      "drag shows Saving and unacknowledged x51013 y27014; Quit during pending move exits0",
+      "relaunch restores Saved6 x51013 y27014 without manual Save",
+      "avatar selection of Library B ends at Library-only browser, no automatic Project open or generic save dialog",
+      "open Project B restores Saved5 x3013 y4014",
+      "native drag B shows pending/Saving then Saved6 x-36987 y24014",
+      "Editor > Close Project retains Library B browser and live app window; distinct from Quit",
+      "Project B reopened after Close Project at exact Saved6 x-36987 y24014",
+      "return B to A through avatar menu and reopen A restores exact Saved6 x51013 y27014"
+    ],
+    "launcher": "/private/tmp/photara-ll2a-app/final/Open Photara Autosave.app",
+    "scope": "normal ApplicationShell development build; installed personal app unchanged",
+    "observed_limitations": [
+      "Disposable image opening, switching and checkpoints can take tens of seconds or longer; no barriers skipped to improve timing.",
+      "Only registered node moves/undo/redo are enabled; general authoring and real-library admission remain disabled."
+    ],
+    "fixed_during_validation": [
+      "native Rename sheet initially displayed Create labels; canceled without submission, fixed immutable request/sheet-local state; focused checks and actual Rename passed"
+    ],
+    "signing": "macOS ad-hoc development signature; codesign --verify --deep --strict passed",
+    "final_projects": {
+      "A": {
+        "saved_revision": 6,
+        "x": 51013,
+        "y": 27014
+      },
+      "B": {
+        "saved_revision": 6,
+        "x": -36987,
+        "y": 24014
+      }
+    },
+    "process_id_at_handoff": 76906,
+    "launcher_all_pins_verified": true
+  },
+  "scope": {
+    "approval_packet_commit": "2794db8",
+    "fresh_disposable_only": true,
+    "sqlite_floor": "6/6",
+    "sqlite_profile": {
+      "journal_mode": "DELETE",
+      "synchronous": "FULL",
+      "fullfsync": true,
+      "qualification": "conditional controller-owned local writable APFS image, pinned database/directory/lock and registered finite budgets"
+    },
+    "production_authority": false,
+    "existing_database_upgrade": false,
+    "power_interruption_proof": false,
+    "remount_pin_rebinding": false,
+    "limits_are_fixture_registration_not_product_defaults": true
+  },
+  "registration": {
+    "allow_faults": true,
+    "coexistence_bytes": 67174400,
+    "database_id": "10000000-0000-4000-8000-000000000020",
+    "device_id": "10000000-0000-4000-8000-000000000010",
+    "epoch": "10000000-0000-4000-8000-000000000021",
+    "max_database_bytes": 33554432,
+    "max_records": 512,
+    "max_snapshot_bytes": 4194304,
+    "namespace_bytes": 65536,
+    "principal_id": "d52bb5d6-9d3f-5c3f-c998-600e5dc8e8d9",
+    "slot_scope_sha256": "e0982d72625eb9cabcf9743684238e134c4f2fd6243b568b343d3630d085326c",
+    "workspace_slot_id": "526cef06-29cc-4a8a-a999-3c58a345dee5"
+  },
+  "registration_artifacts": [
+    {
+      "path": "/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-registration-input.json",
+      "bytes": 502,
+      "sha256": "8a79592efaa03f92223a669d60f05a953cdf0a4971a74fc1a9a294eff16b60d2"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-independent-scope.json",
+      "bytes": 1507,
+      "sha256": "e0982d72625eb9cabcf9743684238e134c4f2fd6243b568b343d3630d085326c"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-database-registration.json",
+      "bytes": 680,
+      "sha256": "9b3f58e787082849b0d0e4f6c8be3dbe140ecf48a9a72023a911a07bb1bb679c"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-34iyzxfo/selection-registration.json",
+      "bytes": 1134,
+      "sha256": "1d6ecc5fe896be0c4ab7adbe48b8fe61cec743aed42dbb78f92c8b9c8c7eefb8"
+    }
+  ],
+  "images": [
+    {
+      "label": "A",
+      "scratch": "/private/tmp/photara-ps2-remount-34iyzxfo",
+      "binding": {
+        "generation": 1,
+        "image_association_asserted_by_controller": true,
+        "image_pin": [
+          16777232,
+          358452700
+        ],
+        "manifest_digest": "aa2676b0293a579412cf2a03cddf62341adb4cc86f71c50e1492467d57f4b807",
+        "mount_pin": [
+          16777244,
+          2
+        ],
+        "mount_source": "/dev/disk8s1"
+      },
+      "registration_artifact": {
+        "path": "/private/tmp/photara-ps2-remount-34iyzxfo/repeatable-registration.json",
+        "bytes": 4349038,
+        "sha256": "4040ed10125d73afcd6159071b381778846734bcc5414533418ce13192f20e5d"
+      },
+      "initial_control_charge": "28672",
+      "initial_total_charge": "33665024",
+      "initial_tip_charges": {
+        "96000000-0000-4000-8000-000000001002": "4194304",
+        "96000000-0000-4000-8000-000000001003": "4194304",
+        "96000000-0000-4000-8000-000000001004": "4194304",
+        "96000000-0000-4000-8000-000000001005": "4194304",
+        "96000000-0000-4000-8000-000000001006": "4194304",
+        "96000000-0000-4000-8000-000000001007": "4194304",
+        "96000000-0000-4000-8000-000000001008": "4194304"
+      },
+      "status": "intentionally mounted for user testing"
+    },
+    {
+      "label": "B",
+      "scratch": "/private/tmp/photara-ps2-remount-b5oucref",
+      "binding": {
+        "generation": 1,
+        "image_association_asserted_by_controller": true,
+        "image_pin": [
+          16777232,
+          358452785
+        ],
+        "manifest_digest": "1d6bd8f6006e8100fa838fd6f736319e439f431a52fe26b59014ea8da71530f5",
+        "mount_pin": [
+          16777248,
+          2
+        ],
+        "mount_source": "/dev/disk10s1"
+      },
+      "registration_artifact": {
+        "path": "/private/tmp/photara-ps2-remount-b5oucref/repeatable-registration.json",
+        "bytes": 4342492,
+        "sha256": "4c3ec9a5bca748aa435b0bfa5c720307097a1bcebf43eae44a558f54cec47aeb"
+      },
+      "initial_control_charge": "28672",
+      "initial_total_charge": "33665024",
+      "initial_tip_charges": {
+        "96000000-0000-4000-8000-000000001002": "4194304",
+        "96000000-0000-4000-8000-000000001003": "4194304",
+        "96000000-0000-4000-8000-000000001004": "4194304",
+        "96000000-0000-4000-8000-000000001005": "4194304",
+        "96000000-0000-4000-8000-000000001006": "4194304",
+        "96000000-0000-4000-8000-000000001007": "4194304",
+        "96000000-0000-4000-8000-000000001008": "4194304"
+      },
+      "status": "intentionally mounted for user testing"
+    }
+  ],
+  "native_matrix": {
+    "passed": 9,
+    "cases": [
+      {
+        "name": "native-create-original-replay-and-conflict",
+        "passed": true
+      },
+      {
+        "name": "rename-after-commit-unknown-exact-original-retry",
+        "passed": true,
+        "operation_id": "3a25ffc1-1ed7-4ae7-907b-e16018bd26b2"
+      },
+      {
+        "name": "rename-stale-revision-refused",
+        "passed": true
+      },
+      {
+        "name": "same-library-preserves-project",
+        "passed": true
+      },
+      {
+        "name": "explicit-close-project-keeps-library",
+        "passed": true
+      },
+      {
+        "name": "local-controller-project-a-autosave",
+        "passed": true
+      },
+      {
+        "name": "cross-library-project-b-autosave",
+        "passed": true
+      },
+      {
+        "name": "exact-cross-library-project-restoration",
+        "passed": true,
+        "nodes_a": [
+          {
+            "id": "62000000-0000-4000-8000-000000020103",
+            "title": "example.review.inspect",
+            "x": 1013,
+            "y": 2014
+          }
+        ],
+        "nodes_b": [
+          {
+            "id": "62000000-0000-4000-8000-000000020103",
+            "title": "example.review.inspect",
+            "x": 3013,
+            "y": 4014
+          }
+        ]
+      },
+      {
+        "name": "verified-matrix-close",
+        "passed": true
+      }
+    ],
+    "artifact": {
+      "path": "/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-matrix-results.json",
+      "bytes": 1119,
+      "sha256": "67aee4cc205840bfe8921cccc7c9b88de43fe625f35c5cc6cda760ac6056c6c9"
+    }
+  },
+  "final_activation_sql_cuts": {
+    "passed": 4,
+    "cases": [
+      {
+        "name": "failed-final-sql-publication-retains-exact-source",
+        "passed": true,
+        "activation_id": "3f364644-9e16-4d90-9780-c829966e65aa"
+      },
+      {
+        "name": "unknown-final-sql-commit-rebarrier-original-receipt",
+        "passed": true,
+        "activation_id": "67516d4f-4064-4985-8549-5b24b19559d4"
+      },
+      {
+        "name": "restart-before-final-activation-commit",
+        "passed": true,
+        "activation_id": "2bee25ec-ba69-4bbd-9faa-32c57eb62eb9",
+        "selected_library": "10000000-0000-4000-8000-000000000004",
+        "generation": "9"
+      },
+      {
+        "name": "restart-after-final-activation-commit",
+        "passed": true,
+        "activation_id": "00a38d8d-4877-42a7-9e97-d4fc6133a138",
+        "selected_library": "fa35a365-4631-02d9-8856-60dfa07fe0d9",
+        "generation": "10"
+      }
+    ],
+    "artifact": {
+      "path": "/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-commit-results.json",
+      "bytes": 773,
+      "sha256": "a6123042977015a4983d0c891a76323d17ca462c0e3c7124924ced7b24a51ddc"
+    },
+    "crash_scope": "process exit at actual final activation SQLite COMMIT; no OS or power interruption"
+  },
+  "post_cuts_observation": {
+    "value": {
+      "revision": 48,
+      "request_generation": 12,
+      "committed_generation": 10,
+      "snapshot_bytes": 426701,
+      "snapshot_sha256": "f9170ac1c3024609024b2c2c599a64f1097fe2659dda4250fb7f47c2cd34f4cf",
+      "computed_sha256": "f9170ac1c3024609024b2c2c599a64f1097fe2659dda4250fb7f47c2cd34f4cf",
+      "active_library_id": "fa35a365-4631-02d9-8856-60dfa07fe0d9",
+      "active_project_id": null,
+      "records": 122,
+      "pending": null,
+      "database_bytes": 2170880,
+      "integrity": "ok",
+      "foreign_key_violations": []
+    },
+    "artifact": {
+      "path": "/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-post-cuts-observation.json",
+      "bytes": 496,
+      "sha256": "e6105aa0238f35661818488fbd67f21cd6bd910baa61fe8f180977044a0a1e67"
+    }
+  },
+  "checks": [
+    {
+      "name": "affected store library regression",
+      "passed": 39,
+      "ignored": 1,
+      "log": "ll2a-store-regression.log"
+    },
+    {
+      "name": "disposable SQLite tests",
+      "passed": 4,
+      "log": "ll2a-library-tests.log"
+    },
+    {
+      "name": "activation v2 focused",
+      "passed": 3,
+      "log": "ll2a-v2-tests.log"
+    },
+    {
+      "name": "frozen activation v1 exact bytes",
+      "passed": 1,
+      "expected_sha256": "77ae2a1b78ad0f0e037dcc57d3384175f3f9788388b61db2ac902d29b19a6596",
+      "log": "ll2a-v1-unchanged.log"
+    },
+    {
+      "name": "strict lint store/library/bridge",
+      "status": "passed",
+      "note": "individual captured logs reflect their respective completed source checks; final bridge check includes library integration"
+    },
+    {
+      "name": "default-off library and bridge",
+      "status": "passed"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "/private/tmp/ll2a-store-regression.log",
+      "bytes": 4857,
+      "sha256": "5420f06a8132c327b8e7c840d16d486fd425ce8a6c1cef1410c448a015aedc74"
+    },
+    {
+      "path": "/private/tmp/ll2a-library-tests.log",
+      "bytes": 835,
+      "sha256": "075d338d0be9fa4bbd8e14c8cfdadc6634124ecc555d837affc553e5fc1917b1"
+    },
+    {
+      "path": "/private/tmp/ll2a-v2-tests.log",
+      "bytes": 771,
+      "sha256": "5ed8ae5d039b3a0038457dd47edf46cd164a736aa80a3282e77059695f0cdd07"
+    },
+    {
+      "path": "/private/tmp/ll2a-v1-unchanged.log",
+      "bytes": 236,
+      "sha256": "05ca1ecb415de6ec6d44ac7b59262ed5533428c6199f9571fbc9d9da7eb65dfd"
+    },
+    {
+      "path": "/private/tmp/ll2a-store-clippy.log",
+      "bytes": 202,
+      "sha256": "add541755bfaba164a4788fbc1b7a4e4e0948040acc4f5c70c6f798159ddb09f"
+    },
+    {
+      "path": "/private/tmp/ll2a-library-clippy-own.log",
+      "bytes": 336,
+      "sha256": "efa6843db5b10ad20aed13aba2bcf607ce95bfb56126d57a7277284d5eec63d5"
+    },
+    {
+      "path": "/private/tmp/ll2a-bridge-clippy.log",
+      "bytes": 469,
+      "sha256": "803c9abc2b5948884bb099a61761b00ec02f700417e380c02a42552e9ec63250"
+    },
+    {
+      "path": "/private/tmp/ll2a-library-default-off.log",
+      "bytes": 336,
+      "sha256": "8ecd79337c3539ca4bf14b299ee6e91bfedfea1bac17c8ad9508c8b81d968309"
+    },
+    {
+      "path": "/private/tmp/ll2a-bridge-default-check.log",
+      "bytes": 468,
+      "sha256": "4d9924b3e27075d496663f88c4328da9c108148b798f619883ecbb4a9fdb9832"
+    },
+    {
+      "path": "/private/tmp/ll2a-native-matrix.log",
+      "bytes": 321,
+      "sha256": "ab5c65b198352dd7ee523c8e20875d1ebf0fca5c2b8bce0084c5916ce40f48a6"
+    },
+    {
+      "path": "/private/tmp/ll2a-native-cuts.log",
+      "bytes": 179,
+      "sha256": "274bb23b740a767e0f5b7545c71c8f0a1a58830877f0b5ba25c62436b6db5086"
+    },
+    {
+      "path": "/private/tmp/ll2a-name-sheet-checks.log",
+      "bytes": 1236,
+      "sha256": "1e67b45b622f1592b4ba29a24a85f0f35c7c3775661063fa77e8b44157e26f47"
+    },
+    {
+      "path": "/private/tmp/ll2a-name-sheet-build.log",
+      "bytes": 1478,
+      "sha256": "f69427b0b53f6d3b25a8516b37e341534697546bd2dfef80c799122534274a6e"
+    },
+    {
+      "path": "/private/tmp/ll2a-registrar-clippy.log",
+      "bytes": 336,
+      "sha256": "ea811e4cf306d32bb7d7edc755c5b697e7d041e3e0ece72a37137471172f61d8"
+    },
+    {
+      "path": "/private/tmp/ll2a-final-abi-smoke.log",
+      "bytes": 179,
+      "sha256": "f669947bc552d2e8cf132e1e56060c478bd4e0e4b9ecde5d655223a545de8cfd"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-ui-final.exit.json",
+      "bytes": 25,
+      "sha256": "61597a7e5a9464d7fd5090933aa1ba4c3be2ddbb381d4f73f16b0b38aa037636"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-ui-final.app.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-ui-create-original.json",
+      "bytes": 524,
+      "sha256": "859b3f5a5c6c1540f3a08f4f9a565a5d3df70a75153fd26d6f4cc3d02ce1755e"
+    },
+    {
+      "path": "/private/tmp/photara-ll2a-app/final/Open Photara Autosave.app/Contents/Resources/launch.json",
+      "bytes": 1432,
+      "sha256": "196d8d3171c1417b12fde21d861b57d759ce208ded47c66b72843555253174fc"
+    }
+  ],
+  "source_hashes": {
+    "Cargo.lock": "ff5be494a0d524ba40a154c005af078123e590c6270a6bd0ae1b37a280a87221",
+    "crates/photara-bridge/Cargo.toml": "796136ca79d858fad82b466ed275b39e266343ec46428fdd3aab97281b4126ed",
+    "crates/photara-bridge/src/bin/controlled-session.rs": "22a168f64248a465df2654aab54f3db376230b88a9746942469b7997fb881aa3",
+    "crates/photara-bridge/src/controlled_workspace.rs": "f1bca5321323f43b20ab78a7889a8a7db4d08976d52536e879cf10153f523a44",
+    "crates/photara-library/Cargo.toml": "d4bdff6c67d34753238fc537cbbba65b687dbda5345593d954b6bb74a41e4f10",
+    "crates/photara-library/examples/disposable_authority.rs": "f78ca49944fd38c6cbf81ab8041b68a1eb72f575a1186c9c45e2d3c0cc1e3bc7",
+    "crates/photara-library/src/disposable/lifecycle.rs": "d93149570ecf11bfb111961c5b58b52f3e816ea7a9e1ddea77f550045150b563",
+    "crates/photara-library/src/disposable/mod.rs": "5b9a9e58426369c336a2b65dfe100cc8c71bb5340a4432f8728aa82c1bd9d3c9",
+    "crates/photara-library/src/disposable/schema.sql": "9dcefaf04c6dd3661088925fc8635bd78a4875430d4af3d827dd1929ed02b84d",
+    "crates/photara-library/src/disposable/slots.rs": "1943ce20085637246b3ba4b0ac8d82d51fe54a09cbc4335707c5301911a8e4e6",
+    "crates/photara-library/src/disposable/tests.rs": "c1ee9aa7f31d6d85c080832088a02ee8247384d58cbdd1e9c82009091710882f",
+    "crates/photara-library/src/gen2/local.rs": "a6648ca5d96566b5f4aa13ee781a31ae4900b941e1decd6e7007e1b1bab499e2",
+    "crates/photara-library/src/gen2/mod.rs": "ec3c057d25e9ddf19b9f96ea7717f9619f93211a0931c4951170148b21028ccd",
+    "crates/photara-library/src/gen2/validation.rs": "dd04852998033a6cea192a106fb6fc079c0bd82ef653ee68e7b33f59a3307d0f",
+    "crates/photara-library/src/lib.rs": "88e1d40222c0bf3fa0dd541332eb467340952517eea2c2b6009eb663dc7a5ae6",
+    "crates/photara-store/src/package/v1_3/activation/mod.rs": "141f7e52c4f4057279a3f7a95b3101e5ce4766af6cbd57449539f11adfcda5b4",
+    "crates/photara-store/src/package/v1_3/activation/records.rs": "4828c3aa3210c22fae7ff3effe3ae749fc047845ba26d78d5fa395bd501ef3e9",
+    "crates/photara-store/src/package/v1_3/activation/v2/mod.rs": "86ee0905f86f4f44fe00271eb471c4cde71753fd3d4ce3c6f7207731ca473915",
+    "crates/photara-store/src/package/v1_3/activation/v2/records.rs": "a464998b71880b075da1b4f73b2ae9d6cb4986ead2c4a0dae83843c8841195b3",
+    "crates/photara-store/src/package/v1_3/activation/v2/tests.rs": "91dbf733b3e08cfd3caad64a6ebda55b4668c85f2b5a23d97bff29186b8982bc",
+    "crates/photara-store/src/package/v1_3/activation/v2/transition.rs": "978823f457d727703ccf153201a0575fb6630e3a6bd406bd0eb861bd41ef2a0e",
+    "crates/photara-store/src/package/v1_3/operations.rs": "a8bd96fa9aa30ac42b53aee47bb7559f82f2c91fcbe66dc3afd9407c2c4fb919",
+    "crates/photara-store/src/package/v1_3/repeatable/disposable.rs": "f8c05587d273076c8ada4245c28fb26668646ca79158425dd87aa19bb19c97f5",
+    "crates/photara-store/src/package/v1_3/repeatable/native_selection.rs": "70e0f5a5df94f0eeed71550c1744ce0abbc66b2da2feb5fd9c2f8f3ad22bee0a",
+    "crates/photara-store/src/package/v1_3/repeatable/native_session.rs": "bd782252bb21582d24cae2b1ad771db0ec39d1d489f630a048723c76dcfc279a",
+    "crates/photara-store/src/package/v1_3/repeatable/native_test.rs": "a44bc3055e943c30f5b0d061b7bd7750b342fe7683804a4a02cd249b04e08c11",
+    "platform/macos/photara-app/Sources/ControlledDisposableConfiguration.swift": "15264abe752256287b2512967430ed83ff5665b4246360f0f3e0775b9f2f039d",
+    "platform/macos/photara-app/Sources/ControlledDisposableSession.swift": "e50a19d45458d3af64f13c0932540f786c4b495abdf19b3cef22b3eceb9f9aa7",
+    "platform/macos/photara-app/Sources/LocalLibraryNameSheet.swift": "4985fd375c909c9107187639af42446a2244a9c39bb4f38faf8f11c8d6af99c0",
+    "platform/macos/photara-app/Sources/LocalLibrarySession.swift": "b2fefb7bc410f82104c1eb67f621d1e447cb81d78a2c6680b53f8636e9f999fb",
+    "platform/macos/photara-app/Sources/PhotaraMacApp.swift": "7b1f3eb8011f975e32c0ef9458bcc317e18828f178c68956b04c159f2bd110ff",
+    "platform/macos/photara-app/Tests/ControlledBridgeAdmissionSmoke.swift": "2f73c047f4b9cb679a77b99c235a14defe858a7e70eeb582a7aa359d24b99df7",
+    "platform/macos/photara-app/Tests/ControlledSessionChecks.swift": "70f8cf16e79bbe84d2c55b82b1a61a8325b7d6759dec12f7a7669fad10e82688",
+    "platform/macos/photara-app/build-app.sh": "f45a007460fc141eea5dc166f5770cb3f586e21b47f4e69cc9b286640e0aa4a0",
+    "platform/macos/photara-app/build-local-libraries.sh": "c6447fddb1a3e5107ea6d5b72fd94ff1549990f43c5976a1e2d069c10a60e422",
+    "platform/macos/photara-app/make-local-library-launcher.py": "6b498dd891d87cfef11f24730f40ff5b2368aad623103028076b4c3a6f54e729",
+    "platform/macos/photara-app/verify-controlled-session.sh": "b885cfc561a839bf5bdd71fe03ce2ac5e1a95a19fddc949f2cb575b51658ddb6",
+    "platform/macos/photara-graph-lab/Sources/DisposableAutosaveProcess.swift": "0efd1d987ef2cda89319a73332acf70dfe5aa630a7eacc5d34c9fa81ac8ce3a7",
+    "platform/macos/photara-shell/Sources/ApplicationShell.swift": "e4a2b4cd47ac55f4ba0cd78313db60eac17d4306a25b6846ef051af2078dbd5c"
+  },
+  "final_observation": {
+    "revision": 75,
+    "request_generation": 19,
+    "committed_generation": 17,
+    "snapshot_bytes": 700915,
+    "snapshot_sha256": "1c02a1ff77fc611bb8755897d0b6d70acdcde5856e33376a8cf92ad6e4b7a9ab",
+    "records": 197,
+    "pending": null,
+    "integrity": "ok",
+    "foreign_key_violations": []
+  }
+}

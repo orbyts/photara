@@ -1,4 +1,15 @@
-#if CONTROLLED_DISPOSABLE
+#if LOCAL_LIBRARY_DISPOSABLE
+import SwiftUI
+
+/// Uses the normal shell with the explicitly registered disposable authority.
+/// The legacy AppModel and its personal database are never initialized here.
+@main
+struct PhotaraMacApp: App {
+    @NSApplicationDelegateAdaptor(ControlledSessionApplicationDelegate.self) private var delegate
+    @StateObject private var model = makeLocalLibrarySessionModel()
+    var body: some Scene { LocalLibrarySessionScene(delegate: delegate, model: model) }
+}
+#elseif CONTROLLED_DISPOSABLE
 import SwiftUI
 
 /// Explicit feature build: never instantiate the legacy library/application model.

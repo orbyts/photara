@@ -8,7 +8,8 @@ use crate::controlled_session::{
     ControlledSessionResponse,
 };
 use photara_store::package::v1_3::repeatable::disposable::{
-    ControlledCommand, ControlledRequest, ControlledWorkspace,
+    ControlledCommand, ControlledLocalWorkspace, ControlledRequest, ControlledWorkspace,
+    controlled_database_config,
 };
 use std::{
     path::Path,
@@ -23,7 +24,77 @@ pub struct ControlledActivationResponse {
 }
 #[derive(uniffi::Object)]
 pub struct ControlledDisposableWorkspace {
-    inner: Mutex<ControlledWorkspace>,
+    inner: Mutex<Workspace>,
+}
+enum Workspace {
+    File(ControlledWorkspace),
+    Sql(ControlledLocalWorkspace),
+}
+impl Workspace {
+    fn state(&self) -> serde_json::Value {
+        match self {
+            Self::File(w) => w.state(),
+            Self::Sql(w) => w.state(),
+        }
+    }
+    fn execute(&mut self, r: ControlledRequest) -> serde_json::Value {
+        match self {
+            Self::File(w) => w.execute(r),
+            Self::Sql(w) => w.execute(r),
+        }
+    }
+    fn prepare(
+        &mut self,
+        id: &str,
+        target: &str,
+        view: serde_json::Value,
+        epoch: Option<&str>,
+        generation: Option<u64>,
+    ) -> serde_json::Value {
+        match self {
+            Self::File(w) => w.prepare(id, target, view, epoch, generation),
+            Self::Sql(w) => w.prepare(id, target, view, epoch, generation),
+        }
+    }
+    fn confirm(&mut self, id: &str) -> serde_json::Value {
+        match self {
+            Self::File(w) => w.confirm(id),
+            Self::Sql(w) => w.confirm(id),
+        }
+    }
+    fn cancel(&mut self, id: &str) -> serde_json::Value {
+        match self {
+            Self::File(w) => w.cancel(id),
+            Self::Sql(w) => w.cancel(id),
+        }
+    }
+    fn retry(&mut self, id: &str) -> serde_json::Value {
+        match self {
+            Self::File(w) => w.retry(id),
+            Self::Sql(w) => w.retry(id),
+        }
+    }
+}
+/// Shared app/CLI constructor restricted to the fixed controller-owned SQL config.
+/// # Errors
+/// Refuses arbitrary paths, scope/pin mismatch, competing ownership or corruption.
+pub fn open_controlled_local_workspace(
+    manifest: &Path,
+    binding: serde_json::Value,
+    targets: serde_json::Value,
+    configuration: &Path,
+) -> std::io::Result<ControlledLocalWorkspace> {
+    let config = controlled_database_config(manifest, binding.clone(), configuration)?;
+    let registration: photara_library::disposable::Registration =
+        serde_json::from_value(config["registration"].clone()).map_err(std::io::Error::other)?;
+    let pins: photara_library::disposable::Pins =
+        serde_json::from_value(config["pins"].clone()).map_err(std::io::Error::other)?;
+    let path = config["path"]
+        .as_str()
+        .ok_or_else(|| std::io::Error::other("database path missing"))?;
+    let database =
+        photara_library::disposable::LocalDatabase::reopen(Path::new(path), registration, pins)?;
+    ControlledLocalWorkspace::open(manifest, binding, targets, Box::new(database))
 }
 fn response(value: serde_json::Value) -> ControlledActivationResponse {
     ControlledActivationResponse {
@@ -56,8 +127,123 @@ impl ControlledDisposableWorkspace {
         let inner = ControlledWorkspace::open(Path::new(&manifest_path), binding, targets)
             .map_err(|_| ControlledSessionError::AdmissionRefused)?;
         Ok(Arc::new(Self {
-            inner: Mutex::new(inner),
+            inner: Mutex::new(Workspace::File(inner)),
         }))
+    }
+    /// Opens the approved fresh SQL slot; existing PS4 file slots remain separate.
+    /// # Errors
+    /// Refuses unregistered paths, stale scope and competing ownership.
+    #[uniffi::constructor]
+    pub fn open_local(
+        manifest_path: String,
+        binding_json: String,
+        target_bindings_json: String,
+        database_registration_path: String,
+    ) -> Result<Arc<Self>, ControlledSessionError> {
+        if manifest_path.len() > 4096
+            || database_registration_path.len() > 4096
+            || binding_json.len() > 65536
+            || target_bindings_json.len() > 65536
+        {
+            return Err(ControlledSessionError::AdmissionRefused);
+        }
+        let binding = serde_json::from_str(&binding_json)
+            .map_err(|_| ControlledSessionError::AdmissionRefused)?;
+        let targets = serde_json::from_str(&target_bindings_json)
+            .map_err(|_| ControlledSessionError::AdmissionRefused)?;
+        let inner = open_controlled_local_workspace(
+            Path::new(&manifest_path),
+            binding,
+            targets,
+            Path::new(&database_registration_path),
+        )
+        .map_err(|_| ControlledSessionError::AdmissionRefused)?;
+        Ok(Arc::new(Self {
+            inner: Mutex::new(Workspace::Sql(inner)),
+        }))
+    }
+    /// Selects a Library without implicitly opening a Project or showing a clean-switch sheet.
+    /// # Errors
+    /// Refuses unsupported route or malformed bounded inputs.
+    pub fn select_library(
+        &self,
+        activation_id: String,
+        library_id: String,
+        view_json: String,
+        expected_owner_epoch: Option<String>,
+        expected_attachment_generation: Option<u64>,
+    ) -> Result<ControlledActivationResponse, ControlledSessionError> {
+        if activation_id.len() != 36 || library_id.len() != 36 || view_json.len() > 65536 {
+            return Err(ControlledSessionError::InvalidRequest);
+        }
+        let view =
+            serde_json::from_str(&view_json).map_err(|_| ControlledSessionError::InvalidRequest)?;
+        let mut guard = self
+            .inner
+            .lock()
+            .map_err(|_| ControlledSessionError::Unavailable)?;
+        let Workspace::Sql(w) = &mut *guard else {
+            return Err(ControlledSessionError::InvalidRequest);
+        };
+        Ok(response(w.select_library(
+            &activation_id,
+            &library_id,
+            view,
+            expected_owner_epoch.as_deref(),
+            expected_attachment_generation,
+        )))
+    }
+    /// Returns to the current Library through a fully verified Project flush and SQL publication.
+    /// # Errors
+    /// Refuses unsupported scope or malformed bounded input.
+    pub fn close_project(
+        &self,
+        activation_id: String,
+        view_json: String,
+        expected_owner_epoch: Option<String>,
+        expected_attachment_generation: Option<u64>,
+    ) -> Result<ControlledActivationResponse, ControlledSessionError> {
+        if activation_id.len() != 36 || view_json.len() > 65_536 {
+            return Err(ControlledSessionError::InvalidRequest);
+        }
+        let view =
+            serde_json::from_str(&view_json).map_err(|_| ControlledSessionError::InvalidRequest)?;
+        let mut guard = self
+            .inner
+            .lock()
+            .map_err(|_| ControlledSessionError::Unavailable)?;
+        let Workspace::Sql(workspace) = &mut *guard else {
+            return Err(ControlledSessionError::InvalidRequest);
+        };
+        Ok(response(workspace.close_project(
+            &activation_id,
+            view,
+            expected_owner_epoch.as_deref(),
+            expected_attachment_generation,
+        )))
+    }
+    /// Creates using one immutable original request and current verified local controller.
+    /// # Errors
+    /// Refuses unsupported route or malformed input.
+    pub fn create_library(
+        &self,
+        operation_id: String,
+        library_id: String,
+        name: String,
+    ) -> Result<ControlledActivationResponse, ControlledSessionError> {
+        self.library_command(operation_id, library_id, name, None)
+    }
+    /// Renames through exact revision CAS; retry retains original bytes.
+    /// # Errors
+    /// Refuses unsupported route or malformed input.
+    pub fn rename_library(
+        &self,
+        operation_id: String,
+        library_id: String,
+        expected_revision: u64,
+        name: String,
+    ) -> Result<ControlledActivationResponse, ControlledSessionError> {
+        self.library_command(operation_id, library_id, name, Some(expected_revision))
     }
     /// # Errors
     /// Refuses a poisoned coordinator.
@@ -183,5 +369,27 @@ impl ControlledDisposableWorkspace {
             acknowledgement_json: field("acknowledgement"),
             error: value["error"].as_str().map(str::to_owned),
         })
+    }
+}
+
+impl ControlledDisposableWorkspace {
+    fn library_command(
+        &self,
+        id: String,
+        library: String,
+        name: String,
+        revision: Option<u64>,
+    ) -> Result<ControlledActivationResponse, ControlledSessionError> {
+        if id.len() != 36 || library.len() != 36 || name.len() > 65536 {
+            return Err(ControlledSessionError::InvalidRequest);
+        }
+        let mut guard = self
+            .inner
+            .lock()
+            .map_err(|_| ControlledSessionError::Unavailable)?;
+        let Workspace::Sql(w) = &mut *guard else {
+            return Err(ControlledSessionError::InvalidRequest);
+        };
+        Ok(response(w.library_command(&id, &library, &name, revision)))
     }
 }

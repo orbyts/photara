@@ -9,6 +9,7 @@ xcrun swiftc -swift-version 6 -warnings-as-errors -parse-as-library \
   "$LAB/Sources/DisposableAutosaveProcess.swift" \
   "$SCRIPT_ROOT/Sources/ControlledDisposableConfiguration.swift" \
   "$SCRIPT_ROOT/Sources/ControlledSwitchConfirmation.swift" \
+  "$SCRIPT_ROOT/Sources/LocalLibraryNameSheet.swift" \
   "$SCRIPT_ROOT/Tests/ControlledSessionChecks.swift" -o "$BUILD_ROOT/checks"
 python3 - "$BUILD_ROOT/checks" "$SCRIPT_ROOT" <<'PY'
 import os, pathlib, subprocess, sys
@@ -19,8 +20,10 @@ for patch in ({'PHOTARA_MACOS_PROVISIONING_PROFILE': '/unopened/profile'}, {'PHO
     result = subprocess.run(['zsh', str(root/'build-controlled-disposable.sh')], env=env, capture_output=True, timeout=5)
     assert result.returncode == 2 and b'ad-hoc' in result.stderr
 # The compile-time controlled branch cannot initialize the legacy AppModel.
-entry = (root/'Sources/PhotaraMacApp.swift').read_text().split('#else', 1)[0]
+entry = (root/'Sources/PhotaraMacApp.swift').read_text().split('#else\n', 1)[0]
 assert 'ControlledDisposableScene(delegate: delegate, model: model)' in entry
 assert '@NSApplicationDelegateAdaptor' in entry and 'AppModel(' not in entry
+assert 'LocalLibrarySessionScene(delegate: delegate, model: model)' in entry
+assert 'ApplicationShell(presentation:' in (root/'Sources/LocalLibrarySession.swift').read_text()
 print('PASS: controlled entry excludes legacy initialization and production signing/channel')
 PY

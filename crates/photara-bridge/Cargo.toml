@@ -11,7 +11,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [features]
 bindgen = ["uniffi/cli"]
-controlled-disposable = ["photara-store/controlled-disposable"]
+controlled-disposable = ["photara-store/controlled-disposable", "photara-library/disposable-ll2a"]
 
 [dependencies]
 tokio = { version = "1", features = ["rt", "time", "net"] }

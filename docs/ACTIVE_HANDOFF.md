@@ -26,7 +26,7 @@ The delivery path is:
 **PS2 production durability → PS3 one-project session/autosave → PS4 project
 browse/reopen/switch → LL2a signed cross-Library acceptance.**
 
-**PS2, PS3 and PS4 approved disposable scopes pass; LL2a is the active next gate.**
+**PS2–PS4 approved disposable scopes pass; LL2a local native implementation is ready for final human review.**
 General real-library storage admission remains disabled. LL1 remains parallel.
 Do not rerun historical PS2/PS3 suites without a concrete regression or expand the
 approved fixture scope.
@@ -63,22 +63,33 @@ publication transaction, and new-Library controller assignment from the verified
 current bootstrap-default local controller. It includes one bounded approval text.
 Cloud lifecycle/selection, existing database/slot migration and real-library writes
 remain excluded. The user explicitly approved the packet at `2794db8`; do not
-ask again for its security/format decisions. SQLite durability
-still requires its own disposable qualification before native acceptance.
+ask again for its security/format decisions. SQLite disposable qualification and final-commit failure/restart cases now pass
+within the exact registered conditional profile; see the LL2a evidence below.
 
-**2026-10-09 continuation:** user requested LL2a and a clear signal when autosave
-is ready to test in the main application. The ordinary `PhotaraMacApp` branch
-still uses `AppModel` manual save/close; the verified controlled scene is separate.
-Do not claim normal-app readiness until its actual shell and Library menu use the
-shared durable session and the signed two-Library/two-Project gates pass.
+**LL2a native local implementation — 2026-10-09.** The normal
+`ApplicationShell` and avatar menu now use the shared Rust session for the two
+registered disposable local Libraries. Fresh SQLite is the sole activation
+publisher; verified live controller/grant checks protect create/rename and
+selection. The original legacy/personal application route remains unchanged.
+The [acceptance evidence](architecture/verification/ll2a-disposable-local-acceptance.json)
+records affected Rust/SQL/Swift checks, nine native cases and four final SQL
+activation-commit failure/unknown/process-cut cases. Native UI verification
+covers Create, Rename, cross-Library selection, pending autosave Quit/relaunch,
+and Close Project/reopen. Human review remains the next gate.
 
-Read-only source review found no additional-cloud-Library create-entitlement rule;
-`claim_library` bootstrap/claim behavior does not supply one. Additional local
-Library controller assignment uses the approved explicit mapping: existing
-controllers can transfer, so do not regenerate a historical bootstrap principal.
-The bounded recommendation recorded in the existing LL2a packet is two local
-Libraries under one verified controller; cloud creation stays disabled. Implement
-only this approved slice, then qualify and perform native acceptance.
+The development app is `/private/tmp/photara-ll2a-app/Photara Local Libraries.app`;
+use only the pinned launcher
+`/private/tmp/photara-ll2a-app/final/Open Photara Autosave.app`.
+The two private images at `/private/tmp/photara-ps2-remount-34iyzxfo` and
+`/private/tmp/photara-ps2-remount-b5oucref` remain mounted intentionally for that
+review. Quit does not detach them. Do not rebind pins, discard files, install the
+app, or admit personal Libraries. Operations can take tens of seconds or longer
+in this disposable profile; preserve truthful pending/Saved state and barriers.
+The native Rename presentation bug found during validation was fixed and retested.
+
+Cloud Library creation/rename/selection, existing database migration and real
+Library enablement remain excluded. Broader authoring, cloud account policy,
+LL2b removal and the platform-ready vertical slice remain later work.
 
 SSH verification still cannot reach `origin/main`: the 2026-10-09 read-only retry
 hit its 20-second deadline. The previous normal push also stalled. Whether
@@ -457,10 +468,11 @@ These are disposable proofs and review documents, not production deletion.
 - Shared Rust session/undo/barrier code exists behind private admission. Native
   disposable autosave and approved controlled app/CLI integration pass (PS3);
   general real-library admission remains disabled.
-- No safe real project browse/reopen/switch flow on that durability boundary
-  (PS4).
-- No production Library create/select/rename wiring or signed cross-Library
-  acceptance (LL2a). Library removal is LL2b and remains later.
+- PS4 registered-disposable browse/reopen/switch passes; general real-Project
+  admission remains disabled.
+- LL2a fresh disposable local create/select/rename and native cross-Library
+  wiring exist. Human review is next; production/cloud Library lifecycle and
+  real-library admission remain disabled. Removal is LL2b and remains later.
 - LL1 production Rust/OIDC-to-SQL authority handoff, canonical evidence/replay
   codecs, real TCP-disconnect handling, public unknown-outcome policy and
   remaining lifecycle/concurrency states remain absent. The combined handoff,

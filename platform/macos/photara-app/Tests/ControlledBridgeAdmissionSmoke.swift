@@ -23,5 +23,14 @@ struct ControlledBridgeAdmissionSmoke {
         } catch {
             preconditionFailure("Unexpected controlled workspace result: \(error)")
         }
+        do {
+            _ = try ControlledDisposableWorkspace.openLocal(
+                manifestPath: "/not-an-approved-disposable/manifest.json", bindingJson: "{}", targetBindingsJson: "{}",
+                databaseRegistrationPath: "/not-an-approved-disposable/registration.json")
+            preconditionFailure("Unregistered local Library scope unexpectedly admitted")
+        } catch ControlledSessionError.AdmissionRefused {
+            print("PASS: typed unregistered local Library-scope refusal")
+        } catch { preconditionFailure("Unexpected local Library result: \(error)") }
+
     }
 }

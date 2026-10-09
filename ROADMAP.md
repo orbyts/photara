@@ -2,7 +2,7 @@
 
 ## Delivery path: cross-Library acceptance, then platform-ready vertical slice — 2026-09-17
 
-**Current position: PS2–PS4 approved disposable scopes verified; LL2a active.**
+**Current position: PS2–PS4 verified; LL2a disposable local native build ready for human review.**
 PS0/BR0/PS1 are accepted. The shared reader/repeatable writer and approved PHPSJ001
 checkpoint subset pass consecutive-operation, persisted-restart and native
 clean-remount checks under the exact conditional disposable profile; see the
@@ -14,7 +14,13 @@ admission remains disabled. The integrated Graph canvas now passes autosave,
 pending Quit and exact Saved reopen through both app and CLI. PS4 activation format and same-Library disposable switching were approved on
 2026-10-08; native switching, failure/recovery and restart gates now pass in that
 exact disposable scope (implementation `d907f24`). Preserve verified pre-dialog Saved
-and post-confirmation freeze/flush barriers. LL2a remains separate.
+and post-confirmation freeze/flush barriers. The approved LL2a fresh-local slice
+now connects the normal shell/avatar menu to shared Rust sessions and a sole
+SQLite activation slot. Native create/rename, two-Library autosave/reopen and
+final SQL commit/restart checks are recorded in the
+[LL2a evidence](docs/architecture/verification/ll2a-disposable-local-acceptance.json).
+The next gate is Suhail's hands-on disposable build review; personal Libraries,
+cloud lifecycle, existing database migration and installation remain excluded.
 Move through the following bounded
 checkpoints, committing and fast-forward pushing verified slices to `main`
 periodically rather than carrying a long-lived dirty checkout. Preserve the

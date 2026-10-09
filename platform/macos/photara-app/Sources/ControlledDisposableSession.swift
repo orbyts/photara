@@ -3,16 +3,27 @@ import SwiftUI
 
 /// The actor keeps synchronous UniFFI calls off MainActor and in request order.
 /// Only Rust's controlled constructor can acquire project authority.
-private actor ControlledDisposableBridge: DisposableWorkspaceBridge {
+private actor ControlledDisposableBridge: DisposableLibraryBridge {
     private var session: ControlledDisposableSession?
     private var workspaceSession: ControlledDisposableWorkspace?
     private let environment: [String: String]
-    init(environment: [String: String]) { self.environment = environment }
+    private let localLibraryRoute: Bool
+    init(environment: [String: String], localLibraryRoute: Bool = false) {
+        self.environment = environment; self.localLibraryRoute = localLibraryRoute
+    }
 
     private func open() throws {
         guard session == nil, workspaceSession == nil else { return }
         let config = try ControlledDisposableConfiguration.load(environment)
-        if let targets = config.targetBindingsJSON {
+        if localLibraryRoute {
+            guard let targets = config.targetBindingsJSON, let database = config.databaseRegistrationPath else {
+                throw ControlledDisposableConfiguration.ConfigurationError.missingOrInvalid
+            }
+            workspaceSession = try ControlledDisposableWorkspace.openLocal(manifestPath: config.manifestPath,
+                bindingJson: config.bindingJSON, targetBindingsJson: targets, databaseRegistrationPath: database)
+        } else if config.databaseRegistrationPath != nil {
+            throw ControlledDisposableConfiguration.ConfigurationError.missingOrInvalid
+        } else if let targets = config.targetBindingsJSON {
             workspaceSession = try ControlledDisposableWorkspace.open(manifestPath: config.manifestPath,
                 bindingJson: config.bindingJSON, targetBindingsJson: targets)
         } else {
@@ -52,8 +63,59 @@ private actor ControlledDisposableBridge: DisposableWorkspaceBridge {
         }
     }
 
+    func selectLibrary(activationID: UUID, libraryID: UUID, view: DisposableSessionView?, binding: DisposableAutosaveBinding?) throws -> DisposableActivationResponse {
+        guard localLibraryRoute, let workspaceSession else { throw CocoaError(.featureUnsupported) }
+        let data = try view.map { try JSONEncoder().encode($0) } ?? Data("null".utf8)
+        guard data.count <= 65_536 else { throw CocoaError(.coderInvalidValue) }
+        return try decodeActivation(workspaceSession.selectLibrary(activationId: activationID.uuidString.lowercased(),
+            libraryId: libraryID.uuidString.lowercased(), viewJson: String(decoding: data, as: UTF8.self),
+            expectedOwnerEpoch: binding?.ownerEpoch.uuidString.lowercased(),
+            expectedAttachmentGeneration: binding?.attachmentGeneration))
+    }
+
+    func closeProject(activationID: UUID, view: DisposableSessionView?, binding: DisposableAutosaveBinding?) throws -> DisposableActivationResponse {
+        guard localLibraryRoute, let workspaceSession else { throw CocoaError(.featureUnsupported) }
+        let data = try view.map { try JSONEncoder().encode($0) } ?? Data("null".utf8)
+        guard data.count <= 65_536 else { throw CocoaError(.coderInvalidValue) }
+        return try decodeActivation(workspaceSession.closeProject(activationId: activationID.uuidString.lowercased(),
+            viewJson: String(decoding: data, as: UTF8.self), expectedOwnerEpoch: binding?.ownerEpoch.uuidString.lowercased(),
+            expectedAttachmentGeneration: binding?.attachmentGeneration))
+    }
+
+    func libraryCommand(_ request: DisposableLibraryRequest) throws -> DisposableLibraryResponse {
+        guard localLibraryRoute, let workspaceSession else { throw CocoaError(.featureUnsupported) }
+        let result: ControlledActivationResponse
+        if let revision = request.expectedRevision {
+            result = try workspaceSession.renameLibrary(operationId: request.operationID.uuidString.lowercased(),
+                libraryId: request.libraryID.uuidString.lowercased(), expectedRevision: revision, name: request.name)
+        } else {
+            result = try workspaceSession.createLibrary(operationId: request.operationID.uuidString.lowercased(),
+                libraryId: request.libraryID.uuidString.lowercased(), name: request.name)
+        }
+        struct ReceiptEnvelope: Decodable {
+            struct Receipt: Decodable {
+                struct Result: Decodable { let kind: String }
+                let operation_id: UUID; let library_id: UUID; let action: String; let result: Result
+            }
+            let library_receipt: Receipt?
+        }
+        guard let envelope = try decode(result.stateJson, as: ReceiptEnvelope.self), let receipt = envelope.library_receipt,
+              receipt.result.kind == "rejected" || receipt.result.kind == (request.expectedRevision == nil ? "created" : "renamed") else {
+            throw CocoaError(.coderInvalidValue)
+        }
+        return try .init(receipt: .init(operationID: receipt.operation_id, libraryID: receipt.library_id, action: receipt.action, rejected: receipt.result.kind == "rejected"),
+            state: decodeActivation(result).state)
+    }
+
     private struct WorkspaceDTO: Decodable {
-        struct Active: Decodable { struct Body: Decodable { let project_id: UUID }; let body: Body }
+        struct Active: Decodable {
+            struct Body: Decodable {
+                struct Target: Decodable { struct Project: Decodable { let project_id: UUID }; let project: Project? }
+                let project_id: UUID?
+                let target: Target?
+            }
+            let body: Body
+        }
         struct Project: Decodable { let project_id: UUID; let title: String? }
         let status: String
         let activation_id: UUID?
@@ -66,6 +128,10 @@ private actor ControlledDisposableBridge: DisposableWorkspaceBridge {
         let error: String?
         let recovery_nodes: [DisposablePositionNode]?
         let pending_target_project_id: UUID?
+        let pending_target_library_id: UUID?
+        let libraries: [DisposableLibraryChoice]?
+        let selected_library_id: UUID?
+        let creatable_library_ids: [UUID]?
     }
     private func decodeActivation(_ response: ControlledActivationResponse) throws -> DisposableActivationResponse {
         guard let value = try decode(response.stateJson, as: WorkspaceDTO.self),
@@ -76,9 +142,13 @@ private actor ControlledDisposableBridge: DisposableWorkspaceBridge {
         }
         return .init(status: response.status, activationID: response.activationId.flatMap(UUID.init(uuidString:)),
             state: .init(current: value.current, projects: value.projects.map { .init(id: $0.project_id, title: $0.title ?? "Project \($0.project_id.uuidString.lowercased())") },
-                activeProjectID: value.active?.body.project_id, view: value.view,
+                activeProjectID: value.active?.body.project_id ?? value.active?.body.target?.project?.project_id, view: value.view,
                 confirmationRequired: value.confirmation_required, readOnly: value.read_only, error: value.error,
-                recoveryNodes: value.recovery_nodes, pendingTarget: value.pending_target_project_id))
+                recoveryNodes: value.recovery_nodes, pendingTarget: value.pending_target_project_id ?? value.pending_target_library_id,
+                libraries: value.libraries ?? [], selectedLibraryID: value.selected_library_id,
+                creatableLibraryIDs: value.creatable_library_ids ?? [],
+                pendingIsLibrary: value.pending_target_project_id == nil && value.pending_target_library_id != nil,
+                localLibraryContext: value.libraries != nil))
     }
 
     func execute(_ request: DisposableHostRequest) throws -> DisposableHostResponse {
@@ -124,6 +194,12 @@ func makeControlledDisposableModel() -> DisposableAutosaveProcess {
     DisposableAutosaveProcess(bridge: ControlledDisposableBridge(environment: ProcessInfo.processInfo.environment))
 }
 
+@MainActor
+func makeLocalLibrarySessionModel() -> DisposableAutosaveProcess {
+    DisposableAutosaveProcess(bridge: ControlledDisposableBridge(environment: ProcessInfo.processInfo.environment,
+        localLibraryRoute: true))
+}
+
 struct ControlledDisposableScene: Scene {
     let delegate: ControlledSessionApplicationDelegate
     @ObservedObject var model: DisposableAutosaveProcess
@@ -151,7 +227,7 @@ struct ControlledDisposableScene: Scene {
     }
 }
 
-private struct ControlledWindowCloseGuard: NSViewRepresentable {
+struct ControlledWindowCloseGuard: NSViewRepresentable {
     let model: DisposableAutosaveProcess
     func makeCoordinator() -> Coordinator { Coordinator(model) }
     func makeNSView(context: Context) -> NSView { NSView() }

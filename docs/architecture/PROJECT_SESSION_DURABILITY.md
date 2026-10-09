@@ -917,6 +917,25 @@ from the final signed artifact rather than claiming one executable ran every cas
 PS4's approved disposable acceptance scope is complete. This is not cross-Library
 or real-library enablement. Conditional storage assumptions and fixture budgets
 remain unchanged; no power-loss proof, deletion, conversion, migration, production
-writes or deployment is implied. LL2a is the next separate milestone; its
-[unapproved field/authority amendment](verification/LL2A_FIELD_AUTHORITY_REVIEW.md#2026-10-08-narrow-amendment--unapproved)
-identifies the remaining publication, target/scope and create-authority decisions.
+writes or deployment is implied. LL2a is the next separate milestone. Its
+[2026-10-09 approved local-first packet](verification/LL2A_FIELD_AUTHORITY_REVIEW.md#2026-10-09-recommended-decision--fresh-local-sql-slots)
+resolves the publication, target/scope and create-authority decisions for fresh disposable local Libraries only.
+
+
+## LL2a approved fresh-local implementation — 2026-10-09
+
+The normal native shell and avatar menu now use the shared durable session for
+two explicitly registered disposable local Libraries, one Project each. A fresh
+SQLite slot publishes exact v2 selection bytes and derived IDs atomically;
+immutable v1/package/journal meanings remain unchanged. Current stored local
+controller and grant checks run at the actual authority boundary. Unknown commit
+outcomes recover the original receipt after durable read reconciliation.
+
+[Evidence](verification/ll2a-disposable-local-acceptance.json) records the native
+matrix, final SQL commit cuts, affected tests, and actual signed development-app
+Create/Rename, autosave, pending Quit/relaunch, Library switching and Close
+Project/reopen. Human review is next. The registered images remain mounted for
+repeatable testing; the pinned launcher is listed in ACTIVE_HANDOFF.md.
+This is conditional disposable qualification, not power-loss proof or personal
+Library enablement. No migration, deployment, removal, cloud lifecycle, format
+conversion, expiry or new production resource limit is authorized.

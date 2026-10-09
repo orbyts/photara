@@ -521,7 +521,7 @@ impl OpenSession {
             .map_err(|_| invalid())?,
             owner_epoch: package::PackageUuid::parse(&uuid::Uuid::new_v4().to_string())
                 .map_err(|_| invalid())?,
-            owner: json!({"attachment_id":io.journal_header["stream_id"],"attachment_generation":registration["generation"].as_u64().ok_or_else(invalid)?.to_string(),"principal":request().1["provenance"]["principal"]}),
+            owner: json!({"attachment_id":io.journal_header["stream_id"],"attachment_generation":registration["generation"].as_u64().ok_or_else(invalid)?.to_string(),"principal":io.local_provenance.as_ref().unwrap_or(&request().1["provenance"])["principal"]}),
         };
         let mut host = Host {
             io,
@@ -620,7 +620,12 @@ impl OpenSession {
                         core["envelope"]["command"]["node_id"] = req["node_id"].clone();
                         core["envelope"]["command"]["x"] = req["x"].clone();
                         core["envelope"]["command"]["y"] = req["y"].clone();
-                        let mut provenance = request().1["provenance"].clone();
+                        let mut provenance = s
+                            .io_mut()
+                            .io
+                            .local_provenance
+                            .clone()
+                            .unwrap_or_else(|| request().1["provenance"].clone());
                         provenance["effective_scope"]["project_id"] =
                             json!(s.snapshot().binding.project_id);
                         let (intent, receipt) = s.prepare_graph(

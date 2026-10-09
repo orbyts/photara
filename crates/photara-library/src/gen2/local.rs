@@ -1,5 +1,7 @@
-//! D19 local controller. Identity is read only from a verified database;
-//! local authority is explicit and never inferred from a catalog or path.
+pub(crate) const LOCAL_AUTHORITY_SQL: &str = "SELECT EXISTS(SELECT 1 FROM library_contract_state a JOIN libraries l USING(library_id) WHERE a.library_id=? AND a.authority_mode='local-only' AND a.local_principal_id=? AND l.state='active')";
+pub(crate) const PROJECT_AUTHORITY_SQL: &str = "SELECT g.action_mask FROM project_access_grants g JOIN project_ownership o USING(library_id,project_id) WHERE g.library_id=? AND g.project_id=? AND g.local_principal_id=? AND g.state='active' AND o.registration_state='active'";
+// D19 local controller. Identity is read only from a verified database;
+// local authority is explicit and never inferred from a catalog or path.
 use super::*;
 use photara_core::contracts::access::{ActionMask, ProjectAction, ProjectPolicy};
 use photara_core::contracts::{LocalPrincipalId, ProjectAccessGrantId};
@@ -372,7 +374,11 @@ pub(super) async fn local_authority(
     library: LibraryId,
     actor: LocalPrincipalId,
 ) -> Result<()> {
-    let allowed: bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM library_contract_state a JOIN libraries l USING(library_id) WHERE a.library_id=? AND a.authority_mode='local-only' AND a.local_principal_id=? AND l.state='active')").bind(library.bytes()).bind(actor.uuid().as_bytes().to_vec()).fetch_one(&mut *conn).await?;
+    let allowed: bool = sqlx::query_scalar(LOCAL_AUTHORITY_SQL)
+        .bind(library.bytes())
+        .bind(actor.uuid().as_bytes().to_vec())
+        .fetch_one(&mut *conn)
+        .await?;
     if allowed { Ok(()) } else { Err(Error::Invalid) }
 }
 pub(super) async fn project_authority(
@@ -383,7 +389,12 @@ pub(super) async fn project_authority(
     action: ProjectAction,
 ) -> Result<()> {
     local_authority(conn, library, actor).await?;
-    let bits:Option<i64>=sqlx::query_scalar("SELECT g.action_mask FROM project_access_grants g JOIN project_ownership o USING(library_id,project_id) WHERE g.library_id=? AND g.project_id=? AND g.local_principal_id=? AND g.state='active' AND o.registration_state='active'").bind(library.bytes()).bind(project.bytes()).bind(actor.uuid().as_bytes().to_vec()).fetch_optional(&mut *conn).await?;
+    let bits: Option<i64> = sqlx::query_scalar(PROJECT_AUTHORITY_SQL)
+        .bind(library.bytes())
+        .bind(project.bytes())
+        .bind(actor.uuid().as_bytes().to_vec())
+        .fetch_optional(&mut *conn)
+        .await?;
     let mask = bits
         .and_then(|v| u16::try_from(v).ok())
         .and_then(|v| ActionMask::new(v).ok())

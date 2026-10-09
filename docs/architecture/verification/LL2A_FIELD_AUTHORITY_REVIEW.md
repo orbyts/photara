@@ -1,6 +1,6 @@
 # LL2a field, authority and session dependency review
 
-Status: **UNAPPROVED concrete local-first review packet, 2026-10-09**. The original mapping below
+Status: **Approved local-first implementation packet, 2026-10-09**. The original mapping below
 is retained; the dated amendment identifies where approved PS4 now supersedes
 its assumptions. No schema, codec,
 production endpoint, local pointer or default is changed. This narrows the

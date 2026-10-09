@@ -40,7 +40,10 @@ impl ControlledWorkspace {
         self.inner.snapshot()
     }
     pub fn execute(&mut self, request: ControlledRequest) -> Value {
-        match serde_json::to_value(request) {Ok(value)=>self.inner.execute(&value),Err(_)=>json!({"error":"invalid request"})}
+        match serde_json::to_value(request) {
+            Ok(value) => self.inner.execute(&value),
+            Err(_) => json!({"error":"invalid request"}),
+        }
     }
     pub fn prepare(
         &mut self,
@@ -67,6 +70,101 @@ impl ControlledWorkspace {
     /// Refuses unregistered fault injection and unknown cut names.
     pub fn inject_faults(&mut self, points: &[String]) -> std::io::Result<()> {
         self.inner.inject_faults(points)
+    }
+}
+/// Reads only the fixed private database configuration after independent controller checks.
+/// # Errors
+/// Refuses arbitrary paths or an unregistered image/namespace.
+pub fn controlled_database_config(
+    manifest: &std::path::Path,
+    binding: Value,
+    config: &std::path::Path,
+) -> std::io::Result<Value> {
+    native::local_database_config(manifest, binding, config)
+}
+/// Fresh SQL-authoritative local Library/Project slot. The supplied authority
+/// implementation owns independent database admission; native package scopes are
+/// still checked through the explicit controller registrar.
+pub struct ControlledLocalWorkspace {
+    inner: native::selection_host::Coordinator,
+}
+impl ControlledLocalWorkspace {
+    /// # Errors
+    /// Refuses unregistered native/database scope, corruption or competing ownership.
+    pub fn open(
+        manifest: &std::path::Path,
+        binding: Value,
+        targets: Value,
+        database: Box<dyn v1_3::activation::v2::SelectionStore>,
+    ) -> std::io::Result<Self> {
+        Ok(Self {
+            inner: native::selection_host::Coordinator::open(manifest, binding, targets, database)?,
+        })
+    }
+    #[must_use]
+    pub fn state(&self) -> Value {
+        self.inner.snapshot()
+    }
+    pub fn execute(&mut self, r: ControlledRequest) -> Value {
+        match serde_json::to_value(r) {
+            Ok(v) => self.inner.execute(&v),
+            Err(_) => json!({"error":"invalid request"}),
+        }
+    }
+    pub fn prepare(
+        &mut self,
+        id: &str,
+        project: &str,
+        view: Value,
+        epoch: Option<&str>,
+        generation: Option<u64>,
+    ) -> Value {
+        self.inner.prepare(id, project, view, epoch, generation)
+    }
+    pub fn close_project(
+        &mut self,
+        id: &str,
+        view: Value,
+        epoch: Option<&str>,
+        generation: Option<u64>,
+    ) -> Value {
+        self.inner.close_project(id, view, epoch, generation)
+    }
+    pub fn select_library(
+        &mut self,
+        id: &str,
+        library: &str,
+        view: Value,
+        epoch: Option<&str>,
+        generation: Option<u64>,
+    ) -> Value {
+        self.inner.select(id, library, view, epoch, generation)
+    }
+    pub fn confirm(&mut self, id: &str) -> Value {
+        self.inner.confirm(id)
+    }
+    pub fn cancel(&mut self, id: &str) -> Value {
+        self.inner.cancel(id)
+    }
+    pub fn retry(&mut self, id: &str) -> Value {
+        self.inner.retry(id)
+    }
+    pub fn lifecycle(&mut self, request: Value) -> Value {
+        self.inner.lifecycle(request)
+    }
+    pub fn library_command(
+        &mut self,
+        id: &str,
+        library: &str,
+        name: &str,
+        revision: Option<u64>,
+    ) -> Value {
+        self.inner.library_command(id, library, name, revision)
+    }
+    /// # Errors
+    /// Refuses unregistered fault injection.
+    pub fn inject_fault(&mut self, point: &str) -> std::io::Result<()> {
+        self.inner.inject_fault(point)
     }
 }
 /// Not constructible outside this registrar module. Minted only after profile,

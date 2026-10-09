@@ -208,11 +208,17 @@ pub(super) fn validate_receipt(
         ],
     )?;
     for principal in [&p["principal"], &p["grantor"]] {
-        fields(principal, &["kind", "account_id"])?;
-        if principal["kind"] != "account" {
-            return Err(PackageError::UnsupportedVersion);
+        match principal["kind"].as_str() {
+            Some("account") => {
+                fields(principal, &["kind", "account_id"])?;
+                nonnil(&principal["account_id"])?;
+            }
+            Some("local-controller") => {
+                fields(principal, &["kind", "principal_id"])?;
+                nonnil(&principal["principal_id"])?;
+            }
+            _ => return Err(PackageError::UnsupportedVersion),
         }
-        nonnil(&principal["account_id"])?;
     }
     fields(&p["actor"], &["kind", "actor_id"])?;
     nonnil(&p["actor"]["actor_id"])?;

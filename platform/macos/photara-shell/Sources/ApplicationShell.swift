@@ -1,11 +1,21 @@
 import AppKit
 import SwiftUI
 
+/// Optional local-authority route. The shell owns the same chrome and editor;
+/// supplied content never constructs the legacy account/database facade.
+struct ApplicationLocalNavigation {
+    var account: AnyView
+    var opening: AnyView
+    var browseProjects: () -> Void
+    var showGraph: (() -> Void)? = nil
+}
+
 struct ApplicationShell<Panel: View>: View {
     let presentation: ApplicationPresentation
     let actions: ApplicationActions
     var preset: ApplicationShellPreset = .shipped
     var openingCloud: OpeningCloudModel?
+    var localNavigation: ApplicationLocalNavigation? = nil
     @EnvironmentObject private var session: EditorSessionModel
     @Environment(\.photaraTheme) private var theme
     @Environment(\.colorScheme) private var colorScheme
@@ -23,9 +33,11 @@ struct ApplicationShell<Panel: View>: View {
                         } else {
                             regularEditor
                         }
-                        if availability.hasStatus || openingCloud != nil {
+                        if availability.hasStatus || openingCloud != nil || localNavigation != nil {
                             HStack(spacing: 8) {
-                                if let openingCloud {
+                                if let localNavigation {
+                                    localNavigation.account.frame(width: 220).padding(.leading, 16)
+                                } else if let openingCloud {
                                     SidebarAccountControls(cloud: openingCloud, showLibrarySettings: { session.show(.account) })
                                         .frame(width: 220)
                                         .padding(.leading, 16)
@@ -39,6 +51,8 @@ struct ApplicationShell<Panel: View>: View {
                         }
                     }.padding(max(0, preset.frame.outerInset - preset.frame.gutter / 2))
                 }
+            } else if let localNavigation {
+                localNavigation.opening
             } else {
                 OpeningLibraryView(presentation: presentation, actions: actions, cloud: openingCloud)
             }
@@ -59,9 +73,12 @@ struct ApplicationShell<Panel: View>: View {
                 .sharedBackgroundVisibility(.hidden)
             if presentation.hasOpenProject {
                 ToolbarItemGroup(placement: .primaryAction) {
-                    Button("People", systemImage: "person.2") { session.show(.people) }.help("People and Clients")
-                    Button("Locations", systemImage: "mappin.and.ellipse") { session.show(.locations) }.help("Locations")
-                    Button("Location Kinds", systemImage: "tag") { session.show(.scenes) }.help("Location Kinds")
+                    if let localNavigation {
+                        Button("Projects", systemImage: "folder", action: localNavigation.browseProjects)
+                    }
+                    Button("People", systemImage: "person.2") { session.show(.people) }.help("People and Clients").disabled(localNavigation != nil)
+                    Button("Locations", systemImage: "mappin.and.ellipse") { session.show(.locations) }.help("Locations").disabled(localNavigation != nil)
+                    Button("Location Kinds", systemImage: "tag") { session.show(.scenes) }.help("Location Kinds").disabled(localNavigation != nil)
                 }
                 ToolbarSpacer(.fixed, placement: .primaryAction)
                 ToolbarItemGroup(placement: .primaryAction) {
@@ -140,7 +157,7 @@ struct ApplicationShell<Panel: View>: View {
         }
     }
     @ViewBuilder private var editorModeControls: some View {
-        Button { session.activateGraph() } label: {
+        Button { localNavigation?.showGraph?(); session.activateGraph() } label: {
             Image(systemName: EditorMode.graph.symbol)
         }.help("Graph").accessibilityLabel("Graph")
         ForEach(presentation.workSurfaces) { surface in

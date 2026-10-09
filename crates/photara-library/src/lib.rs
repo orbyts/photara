@@ -6,6 +6,8 @@
 //! never receive SQL, credentials, or network authority.
 
 pub mod gen2;
+#[cfg(all(unix, feature = "disposable-ll2a"))]
+pub mod disposable;
 
 use std::{fs, path::Path};
 

@@ -492,6 +492,8 @@ struct Native {
     ceiling: Option<support::Fixture>,
     namespace_allowance: u64,
     session_mode: bool,
+    local_provenance: Option<Value>,
+    local_authority: Option<std::sync::Arc<dyn Fn() -> IoResult<Value> + Send + Sync>>,
     session_project_limit: Option<u64>,
     reserved_journal_extra: usize,
 }
@@ -609,6 +611,8 @@ impl Native {
             completed_head: Value::Null,
             ceiling: None,
             namespace_allowance: 0,
+            local_provenance: None,
+            local_authority: None,
             session_mode: registration["session"].as_bool().unwrap_or(false),
             session_project_limit: None,
             reserved_journal_extra: 0,
@@ -666,6 +670,11 @@ impl Native {
         ))
     }
     fn pins(&self) -> IoResult<()> {
+        if let Some(authority) = &self.local_authority
+            && self.local_provenance.as_ref() != Some(&authority()?)
+        {
+            return Err(invalid());
+        }
         self.scope.assessment.check_pins().map_err(|_| invalid())?;
         let evidence = File::from(openat(
             &self.scope.mount,
@@ -1182,7 +1191,14 @@ impl RepeatableIo for Native {
         let (_, mut expected) = request();
         expected["provenance"]["effective_scope"]["project_id"] =
             self.journal_header["project_id"].clone();
-        if r["provenance"] != expected["provenance"] || o["request"]["receipt"] != reference(r) {
+        if r["provenance"]
+            != self
+                .local_provenance
+                .as_ref()
+                .unwrap_or(&expected["provenance"])
+                .clone()
+            || o["request"]["receipt"] != reference(r)
+        {
             return Err(ExecutionError::Authorization);
         }
         Ok(())
@@ -1463,7 +1479,8 @@ impl RepeatableIo for Native {
 fn run(mut io: Native, phase: &str) -> IoResult<()> {
     if phase == "complete"
         && io.session_mode
-        && io.journal_header["project_id"] != request().0["project_id"]
+        && (io.journal_header["project_id"] != request().0["project_id"]
+            || io.journal_header["library_id"] != request().0["library_id"])
         && io.checkpoint()?.records().is_empty()
     {
         return session_host::bootstrap(io);
@@ -1617,6 +1634,8 @@ pub(super) fn native_repeatable_phase() {
 
 #[path = "native_activation.rs"]
 pub(super) mod activation_host;
+#[path = "native_selection.rs"]
+pub(super) mod selection_host;
 #[path = "native_session.rs"]
 pub(super) mod session_host;
 
@@ -1626,4 +1645,45 @@ pub(super) fn open_controlled(path: &Path, binding: Value) -> IoResult<session_h
     let native = Native::load(scope)
         .map_err(|e| std::io::Error::new(e.kind(), format!("captured registration: {e}")))?;
     session_host::OpenSession::open(native)
+}
+
+pub(super) fn open_local_controlled(
+    path: &Path,
+    binding: Value,
+    authority: std::sync::Arc<dyn Fn() -> IoResult<Value> + Send + Sync>,
+) -> IoResult<session_host::OpenSession> {
+    let mut native = Native::load(Scope::load_explicit(path, binding)?)?;
+    native.local_provenance = Some(authority()?);
+    native.local_authority = Some(authority);
+    session_host::OpenSession::open(native)
+}
+pub(super) fn local_database_config(
+    manifest: &Path,
+    binding: Value,
+    config: &Path,
+) -> IoResult<Value> {
+    let scope = Scope::load_explicit(manifest, binding)?;
+    let parent = manifest.parent().ok_or_else(invalid)?;
+    if config != parent.join("ll2a-database-registration.json") {
+        return Err(invalid());
+    }
+    let raw = read(&scope.scratch, "ll2a-database-registration.json")?;
+    if raw.len() > 65536 {
+        return Err(invalid());
+    }
+    let v: Value = serde_json::from_slice(&raw).map_err(|_| invalid())?;
+    if v.as_object().is_none_or(|o| o.len() != 3)
+        || v["path"]
+            != parent
+                .join("mount/library/library.sqlite")
+                .to_string_lossy()
+                .as_ref()
+    {
+        return Err(invalid());
+    }
+    scope
+        .assessment
+        .check_pins()
+        .map_err(|error| std::io::Error::other(format!("{error:?}")))?;
+    Ok(v)
 }

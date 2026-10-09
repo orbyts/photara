@@ -6,7 +6,7 @@ use super::{
     BTreeSet, PackageError, Snapshot, Value, check, digest, encode, fields, hash, id, json, number,
     reference,
 };
-fn binding(value: &Value) -> Result<(), PackageError> {
+pub(super) fn binding(value: &Value) -> Result<(), PackageError> {
     fields(
         value,
         &["project_id", "incarnation_id", "owner_epoch", "owner"],
@@ -16,7 +16,7 @@ fn binding(value: &Value) -> Result<(), PackageError> {
     }
     owner(&value["owner"])
 }
-fn accepted(value: &Value) -> Result<(), PackageError> {
+pub(super) fn accepted(value: &Value) -> Result<(), PackageError> {
     fields(value, &["coordinate", "mutation", "accepted_frame"])?;
     coordinate(&value["coordinate"])?;
     check(value["mutation"].is_null() == value["accepted_frame"].is_null())?;
@@ -45,7 +45,7 @@ fn accepted(value: &Value) -> Result<(), PackageError> {
     }
     Ok(())
 }
-fn target(value: &Value) -> Result<(), PackageError> {
+pub(super) fn target(value: &Value) -> Result<(), PackageError> {
     fields(
         value,
         &[
@@ -120,7 +120,7 @@ fn nullable_ref(value: &Value) -> Result<(), PackageError> {
     }
     Ok(())
 }
-fn view_shape(body: &Value) -> Result<(), PackageError> {
+pub(super) fn view_shape(body: &Value) -> Result<(), PackageError> {
     fields(
         body,
         &[
@@ -448,7 +448,7 @@ pub(super) fn shape(record: &Value) -> Result<(), PackageError> {
         _ => Err(PackageError::UnsupportedVersion),
     }
 }
-fn core_graph(value: &Value) -> Result<(), PackageError> {
+pub(super) fn core_graph(value: &Value) -> Result<(), PackageError> {
     id(&value["id"])?;
     for key in ["nodes", "connections"] {
         for item in value[key].as_array().ok_or(PackageError::Record)? {
