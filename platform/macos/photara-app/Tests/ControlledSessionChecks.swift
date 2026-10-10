@@ -490,7 +490,6 @@ struct ControlledSessionChecks {
         actual.move(node, x: 10, y: 1)
         let firstID = actual.pendingPosition!.operationID
         actual.move(node, x: 20, y: 2); actual.move(node, x: 30, y: 3)
-        let secondID = actual.queuedPositions[0].operationID
         precondition(actual.visibleNodes[0].x == 30 && actual.nodes[0].x == 0 && actual.visualStatus == .saving)
         precondition(actual.canMove && !actual.canEdit)
         // Real model remains on MainActor; held backend acknowledgement must not
@@ -505,31 +504,44 @@ struct ControlledSessionChecks {
         await bridge.release("submit")
         while !(await bridge.waitingFor("complete")) { await Task.yield() }
         precondition(actual.nodes[0].x == 10 && actual.visibleNodes[0].x == 30 && actual.canMove)
-        actual.move(node, x: 40, y: 4)
-        precondition(actual.visibleNodes[0].x == 40)
+        for x in 1...1_000 { actual.move(node, x: Int64(x), y: 4) }
+        let secondID = actual.queuedPositions[0].operationID
+        precondition(actual.visibleNodes[0].x == 1_000 && actual.queuedPositions.count == 1)
+        precondition(actual.pendingPosition == nil && actual.nodes[0].x == 10)
+        actual.action("undo") // No undo/other authored action can cross unsent drafts.
+        precondition(actual.queuedPositions[0].operationID == secondID)
         await bridge.release("complete", .fail)
         await wait { actual.transportFailure != nil }
-        precondition(!actual.canMove && actual.visibleNodes[0].x == 40 && actual.queuedPositions.count == 3)
+        precondition(!actual.canMove && actual.visibleNodes[0].x == 1_000 && actual.queuedPositions.count == 1)
         var closed: Bool?
         actual.close { closed = $0 }; precondition(closed == false && !actual.closed)
         actual.retry(); await bridge.release("complete")
         while !(await bridge.waitingFor("submit")) { await Task.yield() }
-        precondition(actual.pendingPosition?.operationID == secondID && actual.visibleNodes[0].x == 40)
+        precondition(actual.pendingPosition?.operationID == secondID && actual.visibleNodes[0].x == 1_000)
         // A matching request carrying stale snapshot evidence cannot erase drafts.
         await bridge.release("submit", .stale)
         await wait { actual.transportFailure != nil }
-        precondition(actual.pendingPosition?.operationID == secondID && actual.visibleNodes[0].x == 40)
+        precondition(actual.pendingPosition?.operationID == secondID && actual.visibleNodes[0].x == 1_000)
         actual.retry()
-        actual.close { closed = $0 } // Drains every already queued original before closing.
-        await bridge.release("submit"); await bridge.release("complete")
-        await bridge.release("submit"); await bridge.release("complete")
+        actual.close { closed = $0 }
+        precondition(actual.isClosing && actual.canCancelClose)
+        actual.cancelClose()
+        precondition(closed == false && !actual.isClosing && actual.pendingPosition?.operationID == secondID)
+        actual.close { closed = $0 } // Drains the submitted original and final unsent endpoint.
         await bridge.release("submit"); await bridge.release("complete")
         await wait { actual.closed }
-        precondition(closed == true && actual.nodes[0].x == 40 && actual.visibleNodes[0].x == 40)
+        precondition(closed == true && actual.nodes[0].x == 1_000 && actual.visibleNodes[0].x == 1_000)
         precondition(actual.queuedPositions.isEmpty && actual.pendingPosition == nil && actual.visualStatus == .saved)
         let calls = await bridge.requests()
-        precondition(calls.map(\.command) == ["snapshot", "submit", "complete", "complete", "submit", "submit", "complete", "submit", "complete", "submit", "complete", "close"])
+        precondition(calls.map(\.command) == ["snapshot", "submit", "complete", "complete", "submit", "submit", "complete", "close"])
         precondition(calls[1].id == firstID && calls[2].id == calls[3].id && calls[4].id == secondID && calls[4].id == calls[5].id)
+        precondition(firstID != secondID) // Two accepted operations retain distinct undo identities.
+        precondition(calls.filter { $0.command == "submit" }.map(\.x) == [10, 1_000, 1_000])
+        let a = DisposablePendingPosition(operationID: UUID(), nodeID: "a", title: "A", x: 1, y: 0)
+        let b = DisposablePendingPosition(operationID: UUID(), nodeID: "b", title: "B", x: 1, y: 0)
+        let a2 = DisposablePendingPosition(operationID: UUID(), nodeID: "a", title: "A", x: 2, y: 0)
+        precondition(DisposableAutosaveProcess.coalescingUnsent(a2, into: [a, b]) == [a, b, a2])
+        precondition(DisposableAutosaveProcess.coalescingUnsent(a2, into: [b, a]) == [b, a2])
         let switchingBridge = ScriptedWorkspace()
         let switching = DisposableAutosaveProcess(bridge: switchingBridge)
         switching.start(); await wait { switching.canMove }
@@ -556,7 +568,7 @@ struct ControlledSessionChecks {
         precondition(bound.queuedPositions.isEmpty && bound.visibleNodes[0].x == 1)
         await boundBridge.release("submit"); await boundBridge.release("complete")
         await wait { bound.canEdit }
-        print("PASS: immediate overlay survives delayed/stale replies and failed checkpoint retry; subsequent drops remain ordered originals; Quit drains all; bounded rejection retains prior visible draft")
+        print("PASS: immediate overlay survives delayed/stale replies and failed checkpoint retry; 1,000 moves retain in-flight original plus final endpoint; different-node order preserved; cancel Quit keeps saving, final Quit drains; bounded rejection retains prior visible draft")
     }
 
 }

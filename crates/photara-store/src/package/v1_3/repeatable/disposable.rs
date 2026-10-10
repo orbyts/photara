@@ -9,7 +9,7 @@ use super::{
     Allocation, AssociationId, Attempt, Corridor, EffectFailure, ExecutionError, Limits,
     Observation, OriginalPackage, PlannerInputs, RepeatableIo, RepeatablePlan, RestartContext,
     RoleAllocation, SelectedStage, SelectorIds, TreeGeometry, VerifiedOriginal, execute, journal,
-    layout, plan, recovery, restart, restore_plan, wire,
+    layout, plan, restart, restore_plan, wire,
 };
 use crate::package::{self, v1_3};
 use serde_json::{Value, json};

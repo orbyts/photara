@@ -52,6 +52,110 @@ fn append_raw(prefix: &[u8], previous: &[u8], value: &Value) -> Vec<u8> {
     out.extend(sha.finalize());
     out
 }
+// Same original corpus, comparing authenticated full-index reads with the
+// unchanged scoped point lookup. No live file or authority is involved.
+fn audited_locator_equivalence(p: &OriginalPackage) {
+    use v1_3::PhysicalRecords as _;
+    struct Counted<'a> {
+        packs: std::collections::BTreeMap<package::PackageUuid, v1_3::PackedAllocation<'a>>,
+        reads: std::cell::Cell<usize>,
+    }
+    impl v1_3::PhysicalRecords for Counted<'_> {
+        fn resolve(
+            &self,
+            r: &v1_3::PhysicalRef,
+            kind: v1_3::FrameKind,
+        ) -> Result<Value, package::PackageError> {
+            self.reads.set(self.reads.get() + 1);
+            self.packs.resolve(r, kind)
+        }
+    }
+    let packs = p
+        .allocations
+        .iter()
+        .map(|(id, a)| {
+            let id = package::PackageUuid::parse(id).unwrap();
+            (
+                id,
+                v1_3::PackedAllocation::open(
+                    id,
+                    serde_json::from_value(json!(a.arena)).unwrap(),
+                    &a.bytes,
+                    frames(),
+                )
+                .unwrap(),
+            )
+        })
+        .collect();
+    let provider = Counted {
+        packs,
+        reads: std::cell::Cell::new(0),
+    };
+    let id = identity(p);
+    let project = id.project;
+    let limits = support::limits();
+    let envelope = v1_3::SelectedEnvelope::parse(
+        &encode(&p.manifest),
+        &encode(&p.head),
+        &encode(&p.commit),
+        id,
+        limits.json,
+    )
+    .unwrap();
+    let state = envelope
+        .open_role(&provider, v1_3::SelectedRole::Active, limits.tree)
+        .unwrap();
+    let (indexed, audit) =
+        v1_3::Locator::audited(&provider, project, state.locator.clone(), limits.tree).unwrap();
+    let scoped = v1_3::Locator::new(&provider, project, state.locator.clone(), limits.tree);
+    provider.reads.set(0);
+    let mut values = Vec::new();
+    for entry in &audit.entries {
+        let object: package::ObjectRef = serde_json::from_value(entry["object"].clone()).unwrap();
+        let membership = serde_json::from_value(entry["membership"].clone()).unwrap();
+        values.push(indexed.json(&object, membership).unwrap());
+    }
+    let indexed_reads = provider.reads.get();
+    assert_eq!(indexed_reads, audit.entries.len());
+    provider.reads.set(0);
+    for (entry, value) in audit.entries.iter().zip(&values) {
+        let object: package::ObjectRef = serde_json::from_value(entry["object"].clone()).unwrap();
+        let membership = serde_json::from_value(entry["membership"].clone()).unwrap();
+        assert_eq!(scoped.json(&object, membership).unwrap(), *value);
+    }
+    assert!(provider.reads.get() > indexed_reads);
+    eprintln!(
+        "locator entries={} indexed_frame_reads={} scoped_frame_reads={}",
+        audit.entries.len(),
+        indexed_reads,
+        provider.reads.get()
+    );
+    // Malformed but correctly framed/rehashed root must still fail the audit.
+    let mut value = provider
+        .resolve(&state.locator, v1_3::FrameKind::Physical)
+        .unwrap();
+    value["count"] = json!("0");
+    let frame = v1_3::encode_frame(
+        state.locator.arena,
+        v1_3::FrameKind::Physical,
+        &encode(&value),
+        frames(),
+    )
+    .unwrap();
+    let mut bytes = p.allocations[&state.locator.allocation_id.to_string()]
+        .bytes
+        .clone();
+    let mut root = state.locator.clone();
+    root.offset = package::DecimalU64::parse(&bytes.len().to_string()).unwrap();
+    root.byte_length = package::DecimalU64::parse(&frame.len().to_string()).unwrap();
+    root.record_sha256 = package::digest(&frame);
+    bytes.extend(frame);
+    let bad = std::collections::BTreeMap::from([(
+        root.allocation_id,
+        v1_3::PackedAllocation::open(root.allocation_id, root.arena, &bytes, frames()).unwrap(),
+    )]);
+    assert!(v1_3::Locator::audited(&bad, project, root, limits.tree).is_err());
+}
 #[test]
 #[expect(
     clippy::too_many_lines,
@@ -203,6 +307,7 @@ fn hash_raw(bytes: &[u8]) -> String {
 fn phpsj001_two_completed_operations_bind_exact_selectors() {
     let base = fixture();
     let original = verify(&base);
+    audited_locator_equivalence(original.package());
     let (intent, receipt) = request();
     let reader = support::limits();
     let p = plan::compile_inner(
@@ -234,6 +339,14 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
         .prepare_receipt(&p, record(92_001).record_id, record(92_002), limits())
         .unwrap();
     bytes.extend(first_receipt.bytes());
+    let mut memo = restart::CompiledPlans::default();
+    let first_complete = Journal::read(&bytes, &h, limits()).unwrap();
+    first_complete
+        .verify_cached(&after1, &ctx1, &mut memo)
+        .unwrap();
+    assert_eq!(memo.compilations, 1);
+    assert_eq!(memo.retained().0, 1);
+    let one_cost = memo.retained().1;
     let next = p
         .verify_next_original(
             after1.clone(),
@@ -318,6 +431,137 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
     let j = Journal::read(&bytes, &h, limits()).unwrap();
     let checked = j.verify(&after2, &ctx2).unwrap();
     assert_eq!(checked.records().len(), 4);
+    let before = std::time::Instant::now();
+    let cached = j.verify_cached(&after2, &ctx2, &mut memo).unwrap();
+    let growth = before.elapsed();
+    assert_eq!(
+        memo.compilations, 2,
+        "only the new original compiles as history grows"
+    );
+    assert_eq!(memo.retained().0, 2);
+    let reader_before = memo.reader_work();
+    let before = std::time::Instant::now();
+    j.verify_cached(&after2, &ctx2, &mut memo).unwrap();
+    assert_eq!(
+        memo.reader_work().0,
+        reader_before.0,
+        "warm replay does not repeat immutable structural proofs"
+    );
+    assert!(memo.reader_work().1 >= reader_before.1 + 3);
+    let warm = before.elapsed();
+    assert_eq!(
+        memo.compilations, 2,
+        "unchanged historical compilation is reused"
+    );
+    assert!(memo.hits >= 3);
+    assert!(memo.retained().1 <= usize::try_from(budget().max_total_allocation_bytes).unwrap());
+    assert!(cached.retained_metadata_bytes() < memo.retained().1 / 10);
+    eprintln!(
+        "compiled memo: growing={growth:?} warm={warm:?} compilations={} hits={} plan_payload_bytes={} compact_metadata_bytes={}",
+        memo.compilations,
+        memo.hits,
+        memo.retained().1,
+        cached.retained_metadata_bytes()
+    );
+    let local_cached = cached
+        .verify_session(&original, &attempt(&original, 1000).planner, budget())
+        .unwrap();
+    assert_eq!(local_cached.coordinate(), intent2["expected"]);
+    assert!(local_cached.through().is_none());
+    let mut narrow = budget();
+    narrow.semantic.json.max_array_elements = 1;
+    assert!(
+        cached
+            .verify_session(&original, &attempt(&original, 1000).planner, narrow)
+            .is_err()
+    );
+
+    // A working set beyond the optional cap never churns warm originals or
+    // changes acceptance: only the uncached second plan recompiles each pass.
+    let mut capped = restart::CompiledPlans::default();
+    capped.set_test_ceiling(one_cost);
+    for pass in 0..3 {
+        j.verify_cached(&after2, &ctx2, &mut capped).unwrap();
+        assert_eq!(capped.compilations, 2 + pass);
+        assert_eq!(capped.retained().0, 1);
+        assert!(capped.retained().1 <= one_cost);
+    }
+    eprintln!(
+        "over-cap replay: compilations={} hits={} bounded_bytes={}",
+        capped.compilations,
+        capped.hits,
+        capped.retained().1
+    );
+    let restored = restart::restore_plan_cached(&after2, &ctx2, &mut memo).unwrap();
+    assert_eq!(restored.original(), second.original());
+    assert_eq!(restored.stages()[6].head, after2.head);
+    let restarted = restart::restore_intent_plan_cached(
+        &after2,
+        second.original(),
+        &intent2,
+        &receipt2,
+        &ctx2,
+        &mut memo,
+    )
+    .unwrap();
+    assert_eq!(restarted.files, second.files);
+    let mut altered_observation = snapshot(&base, &after2);
+    altered_observation
+        .allocations
+        .values_mut()
+        .next()
+        .unwrap()
+        .inode += 1;
+    let changed_context = context(&altered_observation, &id, &reader);
+    assert!(
+        j.verify_cached(&after2, &changed_context, &mut memo)
+            .is_err()
+    );
+    let mut altered_charge = snapshot(&base, &after2);
+    altered_charge
+        .allocations
+        .values_mut()
+        .next()
+        .unwrap()
+        .charge = 0;
+    let changed_context = context(&altered_charge, &id, &reader);
+    assert!(
+        j.verify_cached(&after2, &changed_context, &mut memo)
+            .is_err()
+    );
+    let mut narrow_reader = reader;
+    narrow_reader.tree.max_pages = 0;
+    let narrow_context = context(&observed2, &id, &narrow_reader);
+    assert!(
+        j.verify_cached(&after2, &narrow_context, &mut memo)
+            .is_err()
+    );
+    let mut wrong_scope = context(&observed2, &id, &reader);
+    wrong_scope.directory.inode += 1;
+    assert!(j.verify_cached(&after2, &wrong_scope, &mut memo).is_err());
+    let mut malformed_control = after2.clone();
+    malformed_control
+        .loose
+        .values_mut()
+        .next()
+        .unwrap()
+        .push(b' ');
+    assert!(
+        j.verify_cached(&malformed_control, &ctx2, &mut memo)
+            .is_err()
+    );
+    // A rechecksummed same-ID original is decoded but cannot reuse this memo.
+    let mut altered = first.record().value().clone();
+    altered["body"]["original"]["reserve"] = json!("1");
+    let initial = Journal::create(&h, limits()).unwrap();
+    let altered_bytes = append_raw(&initial, &initial[initial.len() - 32..], &altered);
+    let altered_journal = Journal::read(&altered_bytes, &h, limits()).unwrap();
+    assert!(
+        altered_journal
+            .verify_cached(&after2, &ctx2, &mut memo)
+            .is_err()
+    );
+
     // Invocation-local predecessor reuse preserves the exact chain depth bound.
     let mut bounded = context(&observed2, &id, &reader);
     bounded.max_originals = 1;
@@ -331,6 +575,19 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
     let mut changed = after2.clone();
     changed.allocations.values_mut().next().unwrap().bytes[16] ^= 1;
     assert!(j.verify(&changed, &ctx2).is_err());
+    assert!(j.verify_cached(&changed, &ctx2, &mut memo).is_err());
+    let mut changed_witness = after2.clone();
+    changed_witness
+        .allocations
+        .values_mut()
+        .next()
+        .unwrap()
+        .witness["inode"] = json!("0");
+    assert!(j.verify_cached(&changed_witness, &ctx2, &mut memo).is_err());
+    let mut smaller = context(&observed2, &id, &reader);
+    smaller.planner.max_total_allocation_bytes = 1;
+    assert!(j.verify_cached(&after2, &smaller, &mut memo).is_err());
+    assert_eq!(memo.retained(), (0, 0));
 
     // Checkpoint-only history advances the inherited PS3 coordinate without
     // inventing local Mutation ownership or resetting to the header base.
@@ -372,6 +629,7 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
     );
     let j = Journal::read(&forged, &h, limits()).unwrap();
     assert!(j.verify(&after2, &ctx2).is_err());
+    assert!(j.verify_cached(&after2, &ctx2, &mut memo).is_err());
     assert_eq!(
         hash(&bytes),
         "788ad5be74841fdb8e58457d952ad60e72266400eb3813286b6cf4f10bd180b1"

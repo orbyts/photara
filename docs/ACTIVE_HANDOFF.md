@@ -21,6 +21,41 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
+**2026-10-10 save-backlog correction active.** User reports prolonged Saving and
+Quit waiting, and authorizes combining redundant moves. Combine only consecutive
+same-node **unsent** drafts; never discard submitted/Accepted originals or their
+undo/retry evidence. A 1,000-drop test covers coalescing, exact retry and close.
+Quit now exposes its save wait and can cancel termination before close dispatch.
+The prior build drained and quit normally (exit 0), preserving queued edits. A
+native sample identified repeated immutable historical plan compilation inside
+admission verification (100% CPU, about 1.57 GiB RSS). Compact per-Host plan reuse
+and completed-journal metadata are under native performance validation; current
+authority/closure checks and permanent formats remain unchanged.
+The first native candidate was rejected: two coalesced operations plus normal
+Quit took 226 seconds. An inspection-local audited locator index passes existing
+reader/refusal/recovery tests but the second native candidate still exceeds 35
+seconds. Next measured bottleneck: original checkpoint reconstruction repeatedly
+parses historical objects to recover a small control set. Do not declare autosave
+performance accepted from the two-operation fixture tests alone.
+
+**Disposable capacity boundary:** the indexed native run (PID 62015) reached
+Save Failed after its outward test move saved; its return-to-start draft remains
+visible and unacknowledged. All seven packs reached their immutable prepaid
+4 MiB corridors. Do not retry in a loop, force-quit, rebind, raise the existing
+ceiling, or claim this draft Saved. Exact pending-position note is
+`/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-indexed-pending-position.json`.
+A narrow user question requests fresh larger disposable fixtures, retaining old
+files and recording the pending position before closing this test run. Until
+approved, leave this app and both registrations intact; pure code/tests continue.
+
+Latest source correction adds bounded exact-input reader/reconstruction memoization
+with fresh allocation observations/prefix digests; no authority or Saved result is
+reused. Warm two-operation replay is 76 ms in the focused regression; five session
+tests pass. These sources are newer than both rejected native builds. Native
+performance/human acceptance remains open. Proposed fresh test setup is 8 MiB
+per prepaid tip within existing reader limits; preserve both old images and the
+pending-position note. See the existing LL2a evidence JSON for exact provenance.
+
 **Human review finding — 2026-10-09:** LL2a interaction acceptance remains open.
 The user observed a dropped node snap back to its acknowledged position, then
 jump to the draft after admission. Fix immediate draft rendering and background

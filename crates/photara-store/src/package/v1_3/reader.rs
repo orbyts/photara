@@ -297,12 +297,12 @@ fn role<P: PhysicalRecords, M: BlobMetadata>(
     state: &StructuralState,
     limits: &ReaderLimits,
 ) -> Result<RoleClosure, PackageError> {
-    let loc = Locator::new(
+    let (loc, _) = Locator::audited(
         provider,
         envelope.identity.project,
         state.locator.clone(),
         limits.tree,
-    );
+    )?;
     // The frozen selected codec spells the authenticated parent digest
     // `commit_sha256`; the legacy semantic DTO calls the same field `sha256`.
     // This is only the semantic validator's typed input, never a new selector.
@@ -359,25 +359,10 @@ struct Located {
     blobs: BTreeMap<PackageUuid, ObjectRef>,
 }
 fn located<P: PhysicalRecords, M: BlobMetadata>(
-    provider: &P,
+    loc: &Locator<'_, P>,
+    tree: super::PhysicalTreeAudit,
     inspection: &M,
-    envelope: &SelectedEnvelope,
-    state: &StructuralState,
-    limits: &ReaderLimits,
 ) -> Result<Located, PackageError> {
-    let tree = PhysicalTree::new(
-        provider,
-        envelope.identity.project,
-        PhysicalTreeKind::Locator,
-        limits.tree,
-    )
-    .audit_with_pages(&state.locator)?;
-    let loc = Locator::new(
-        provider,
-        envelope.identity.project,
-        state.locator.clone(),
-        limits.tree,
-    );
     let mut allocations = tree
         .pages
         .iter()
@@ -577,13 +562,13 @@ fn role_physical<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
     shared_allocations: &BTreeSet<PackageUuid>,
     limits: &ReaderLimits,
 ) -> Result<(BTreeSet<PackageUuid>, BTreeSet<ObjectRef>), PackageError> {
-    let loc = Locator::new(
+    let (loc, tree) = Locator::audited(
         provider,
         envelope.identity.project,
         state.locator.clone(),
         limits.tree,
-    );
-    let mut actual = located(provider, inspection, envelope, state, limits)?;
+    )?;
+    let mut actual = located(&loc, tree, inspection)?;
     actual.allocations.extend(shared_allocations);
     let owner = audit_ownership(
         &loc,
@@ -645,12 +630,12 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
 ) -> Result<SettledPackage, PackageError> {
     let control = controls(envelope, control_records, limits, operation)?;
     let active = envelope.open_role(provider, SelectedRole::Active, limits.tree)?;
-    let active_loc = Locator::new(
+    let (active_loc, _) = Locator::audited(
         provider,
         envelope.identity.project,
         active.locator.clone(),
         limits.tree,
-    );
+    )?;
     let (pins, pin_nodes) = pins(&active_loc, envelope, limits)?;
     let mut selected = BTreeMap::from([
         ("active".to_owned(), json_ref(&envelope.root["active"])?),
@@ -735,12 +720,12 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
     let mut requirements = BTreeMap::new();
     for (label, proof) in &roles {
         if let Some(selected) = operation {
-            let loc = Locator::new(
+            let (loc, _) = Locator::audited(
                 provider,
                 envelope.identity.project,
                 structures[label].locator.clone(),
                 limits.tree,
-            );
+            )?;
             for (reference, membership) in selected.extra_global {
                 loc.json(reference, *membership)?;
             }
@@ -807,12 +792,12 @@ pub fn inspect_recovery<P: PhysicalRecords, M: BlobMetadata + AllocationInspecti
 ) -> Result<RoleClosure, PackageError> {
     let control = controls(envelope, control_records, limits, None)?;
     let state = envelope.open_role(provider, SelectedRole::Recovery, limits.tree)?;
-    let loc = Locator::new(
+    let (loc, _) = Locator::audited(
         provider,
         envelope.identity.project,
         state.locator.clone(),
         limits.tree,
-    );
+    )?;
     let (pins, pin_nodes) = pins(&loc, envelope, limits)?;
     let holds = loc.json(&control.holds, Membership::Ownership)?;
     let account = audit_settled_accounting(&control.ledger, &holds, &loc, limits.accounting)?;

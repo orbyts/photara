@@ -5,7 +5,10 @@ use crate::package::v1_3::{AllocationInspection, selected, tree};
 use crate::package::{JsonLimits, PackageError, PackageUuid, Sha256Hex, parse_canonical_json};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 #[path = "journal_session.rs"]
 pub(crate) mod session;
@@ -53,7 +56,75 @@ pub struct Journal {
 /// Local Mutation/lifecycle evidence additionally requires `verify_session`.
 pub struct VerifiedJournal<'a> {
     journal: &'a Journal,
-    plans: BTreeMap<String, RepeatablePlan>,
+    plans: BTreeMap<String, CheckpointPlan>,
+}
+// Completed history needs commitments and semantic replay inputs, not copies of
+// every historical pack. Construction follows deterministic original validation;
+// completed receipts still run the full current-prefix reader below.
+struct CheckpointPlan {
+    original: Value,
+    receipt: Value,
+    intent: Value,
+    selected_state: Value,
+    head: Value,
+    json_shape: JsonLimits,
+}
+impl CheckpointPlan {
+    fn from_plan(plan: &RepeatablePlan, limits: JsonLimits) -> Result<Self, PackageError> {
+        let state_ref = &plan.stages[6].commit["root_set"]["active"];
+        let mut json_shape = JsonLimits {
+            max_bytes: 0,
+            max_depth: 0,
+            max_members: 0,
+            max_array_elements: 0,
+        };
+        let values = plan.stages[6]
+            .loose
+            .values()
+            .map(|bytes| {
+                let value = parse_canonical_json(bytes, limits)?;
+                json_shape.max_bytes = json_shape.max_bytes.max(bytes.len());
+                measure_json(&value, 0, &mut json_shape);
+                Ok(value)
+            })
+            .collect::<Result<Vec<_>, PackageError>>()?;
+        let selected_state = values
+            .into_iter()
+            .find_map(|value| {
+                let state = &value["target_projection"]["active_state"];
+                (value["schema"]["id"] == "photara.storage.finalization-control"
+                    && value["original"] == wire::reference(&plan.original)
+                    && wire::reference(state) == *state_ref)
+                    .then(|| state.clone())
+            })
+            .ok_or(PackageError::Integrity)?;
+        Ok(Self {
+            original: plan.original.clone(),
+            receipt: plan.prepared.receipt.clone(),
+            intent: intent_body(plan)["semantic_intent"].clone(),
+            selected_state,
+            head: plan.stages[6].head.clone(),
+            json_shape,
+        })
+    }
+}
+fn measure_json(value: &Value, depth: usize, shape: &mut JsonLimits) {
+    shape.max_depth = shape.max_depth.max(depth);
+    match value {
+        Value::Array(a) => {
+            shape.max_array_elements = shape.max_array_elements.max(a.len());
+            for value in a {
+                measure_json(value, depth + 1, shape);
+            }
+        }
+        Value::Object(o) => {
+            shape.max_members = shape.max_members.max(o.len());
+            for value in o.values() {
+                measure_json(value, depth + 1, shape);
+            }
+        }
+        _ => {}
+    }
 }
 /// Exact append or exact-existing-record retry. Existing bytes must be rebarriered
 /// after uncertainty; an empty append is never evidence of durability by itself.
@@ -412,6 +483,24 @@ impl Journal {
         current: &OriginalPackage,
         context: &RestartContext<'_, I>,
     ) -> Result<VerifiedJournal<'a>, PackageError> {
+        self.verify_inner(current, context, None)
+    }
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(crate) fn verify_cached<'a, I: AllocationInspection>(
+        &'a self,
+        current: &OriginalPackage,
+        context: &RestartContext<'_, I>,
+        memo: &mut restart::CompiledPlans,
+    ) -> Result<VerifiedJournal<'a>, PackageError> {
+        memo.trim(context.planner, context.max_originals);
+        self.verify_inner(current, context, Some(memo))
+    }
+    fn verify_inner<'a, I: AllocationInspection>(
+        &'a self,
+        current: &OriginalPackage,
+        context: &RestartContext<'_, I>,
+        mut memo: Option<&mut restart::CompiledPlans>,
+    ) -> Result<VerifiedJournal<'a>, PackageError> {
         check(
             self.header["project_id"] == context.identity.project.to_string()
                 && self.header["library_id"] == context.identity.library.to_string()
@@ -423,6 +512,7 @@ impl Journal {
         let mut operations = BTreeSet::new();
         let mut receipts = BTreeSet::new();
         let mut pending: Option<String> = None;
+        let mut pending_plan: Option<Arc<RepeatablePlan>> = None;
         let mut prior_head = self.header["base_head"].clone();
         if self.records.is_empty() {
             check(
@@ -434,10 +524,11 @@ impl Journal {
         for record in &self.records {
             let b = &record.value["body"];
             if record.value["kind"] == "CheckpointIntent" {
-                let p = replay.restore(
+                let p = replay.restore_shared(
                     &b["original"],
                     &b["semantic_intent"],
                     &b["operation_receipt"],
+                    memo.as_deref_mut(),
                 )?;
                 if plans.is_empty() {
                     check(
@@ -459,11 +550,12 @@ impl Journal {
                         .as_str()
                         .ok_or(PackageError::Record)?
                         .to_owned(),
-                    p,
+                    CheckpointPlan::from_plan(&p, context.planner.semantic.json)?,
                 );
+                pending_plan = Some(p);
             } else if record.value["kind"] == "CheckpointReceipt" {
                 let target = b["intent_record_id"].as_str().ok_or(PackageError::Record)?;
-                let p = plans.get(target).ok_or(PackageError::Integrity)?;
+                let p = pending_plan.as_ref().ok_or(PackageError::Integrity)?;
                 let intent = self
                     .records
                     .iter()
@@ -474,9 +566,10 @@ impl Journal {
                         && receipts.insert(target.to_owned())
                         && *b == receipt_body(p, intent),
                 )?;
-                replay.complete(p)?;
+                replay.complete(p, memo.as_deref_mut())?;
                 prior_head = p.stages[6].head.clone();
                 pending = None;
+                pending_plan = None;
             }
         }
         Ok(VerifiedJournal {
@@ -499,6 +592,24 @@ fn receipt_body(p: &RepeatablePlan, intent: &JournalRecord) -> Value {
     json!({"intent_record_id":intent.value["record_id"],"intent_record_checksum":hex(&intent.checksum),"original_sha256":wire::hash(&p.original_bytes()),"operation_receipt":p.prepared.receipt,"selected_head":p.stages[6].head,"selected_commit":p.stages[6].commit})
 }
 impl VerifiedJournal<'_> {
+    #[cfg(test)]
+    pub(crate) fn retained_metadata_bytes(&self) -> usize {
+        self.plans
+            .values()
+            .map(|p| {
+                [
+                    &p.original,
+                    &p.receipt,
+                    &p.intent,
+                    &p.selected_state,
+                    &p.head,
+                ]
+                .into_iter()
+                .map(|v| wire::encode(v).len())
+                .sum::<usize>()
+            })
+            .sum()
+    }
     #[must_use]
     pub fn records(&self) -> &[JournalRecord] {
         &self.journal.records

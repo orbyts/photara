@@ -191,7 +191,10 @@ private struct LocalLibrarySessionView: View {
     private var status: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                if model.readOnly { Text("Recovery required"); Button("Retry Recovery", action: model.retry).disabled(model.switching) }
+                if model.isClosing {
+                    Text("Saving before closing…")
+                    if model.canCancelClose { Button("Keep Working", action: model.cancelClose) }
+                } else if model.readOnly { Text("Recovery required"); Button("Retry Recovery", action: model.retry).disabled(model.switching) }
                 else if model.projection != nil {
                     Text(model.visualStatus.label).accessibilityIdentifier("disposable-autosave-status")
                     if case .failed = model.visualStatus { Button("Retry", action: model.retry).disabled(model.busy) }

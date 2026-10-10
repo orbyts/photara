@@ -11,8 +11,12 @@ use crate::package::{
 use serde_json::Value;
 use std::{
     cell::RefCell,
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, VecDeque},
+    sync::Arc,
 };
+
+#[path = "restart_reader.rs"]
+mod reader_memo;
 
 /// All observations are independent registered/pinned inputs. No IO or lease is
 /// acquired, and success is neither write permission nor a durable receipt.
@@ -211,11 +215,12 @@ impl<I: AllocationInspection> AllocationInspection for Prefix<'_, I> {
         Ok(actual)
     }
 }
-struct Replayer<'a, I> {
+struct Replayer<'a, 'm, I> {
     context: &'a RestartContext<'a, I>,
+    memo: Option<&'m mut CompiledPlans>,
     seen: BTreeSet<String>,
 }
-impl<I: AllocationInspection> Replayer<'_, I> {
+impl<I: AllocationInspection> Replayer<'_, '_, I> {
     #[expect(
         clippy::needless_pass_by_value,
         reason = "Own bounded historical snapshot throughout recursive verification"
@@ -262,6 +267,30 @@ impl<I: AllocationInspection> Replayer<'_, I> {
         }
         let plan = self.plan(&package)?;
         check(plan.stages()[6].head == package.head)?;
+        if let Some(memo) = self.memo.as_deref_mut() {
+            let context = self.context;
+            let maximum = memo.maximum(context.planner).saturating_sub(memo.bytes);
+            return memo.reader.verify(
+                &package,
+                &prefix,
+                context,
+                Some(&plan),
+                maximum,
+                |inspection| {
+                    v1_3::reader::verify_operation_original(
+                        package.clone(),
+                        identity(context.identity),
+                        inspection,
+                        context.registration,
+                        context.directory,
+                        context.frames,
+                        context.reader,
+                        &plan,
+                        6,
+                    )
+                },
+            );
+        }
         v1_3::reader::verify_operation_original(
             package.clone(),
             identity(self.context.identity),
@@ -285,17 +314,33 @@ impl<I: AllocationInspection> Replayer<'_, I> {
             original["scope"]
                 == serde_json::json!({"profile":self.context.registration.profile,"incarnation":self.context.registration.incarnation.to_string(),"directory":{"device":self.context.directory.device.to_string(),"inode":self.context.directory.inode.to_string()}}),
         )?;
-        let old = recovery::reconstruct_original(current, &original, self.context.planner)?;
+        let old = if let Some(memo) = self.memo.as_deref() {
+            memo.reconstruct(current, &original, self.context.planner)?
+        } else {
+            recovery::reconstruct_original(current, &original, self.context.planner)?
+        };
         let verified = self.verified(old)?;
         let intent = request(current, &original["request"]["intent"], self.context)?;
         let receipt = request(current, &original["request"]["receipt"], self.context)?;
-        let plan = recovery::recover(
-            &verified,
-            &original,
-            &intent,
-            &receipt,
-            self.context.planner,
-        )?;
+        let plan = if let Some(memo) = self.memo.as_deref_mut() {
+            Arc::try_unwrap(memo.recover(
+                &verified,
+                &original,
+                &intent,
+                &receipt,
+                self.context.planner,
+                self.context.max_originals,
+            )?)
+            .map_err(|_| PackageError::Integrity)?
+        } else {
+            recovery::recover(
+                &verified,
+                &original,
+                &intent,
+                &receipt,
+                self.context.planner,
+            )?
+        };
         let stage = plan
             .stages()
             .iter()
@@ -364,9 +409,26 @@ pub fn restore_plan<I: AllocationInspection>(
     current: &OriginalPackage,
     context: &RestartContext<'_, I>,
 ) -> Result<RepeatablePlan, PackageError> {
+    restore_plan_inner(current, context, None)
+}
+#[cfg(any(test, feature = "controlled-disposable"))]
+pub(crate) fn restore_plan_cached<I: AllocationInspection>(
+    current: &OriginalPackage,
+    context: &RestartContext<'_, I>,
+    memo: &mut CompiledPlans,
+) -> Result<RepeatablePlan, PackageError> {
+    memo.trim(context.planner, context.max_originals);
+    restore_plan_inner(current, context, Some(memo))
+}
+fn restore_plan_inner<I: AllocationInspection>(
+    current: &OriginalPackage,
+    context: &RestartContext<'_, I>,
+    memo: Option<&mut CompiledPlans>,
+) -> Result<RepeatablePlan, PackageError> {
     check(context.directory.inode != 0 && context.registration.charge_unit > 0)?;
     let mut replay = Replayer {
         context,
+        memo,
         seen: BTreeSet::new(),
     };
     let plan = replay.plan(current)?;
@@ -414,6 +476,397 @@ pub(crate) fn restore_intent_plan<I: AllocationInspection>(
     IntentReplay::new(current, context).restore(original, intent, receipt)
 }
 
+#[cfg(any(test, feature = "controlled-disposable"))]
+pub(crate) fn restore_intent_plan_cached<I: AllocationInspection>(
+    current: &OriginalPackage,
+    original: &Value,
+    intent: &Value,
+    receipt: &Value,
+    context: &RestartContext<'_, I>,
+    memo: &mut CompiledPlans,
+) -> Result<RepeatablePlan, PackageError> {
+    memo.trim(context.planner, context.max_originals);
+    check(
+        context.directory.inode != 0
+            && context.registration.charge_unit > 0
+            && context.max_originals > 0,
+    )?;
+    check(
+        original["scope"]
+            == serde_json::json!({"profile":context.registration.profile,"incarnation":context.registration.incarnation.to_string(),"directory":{"device":context.directory.device.to_string(),"inode":context.directory.inode.to_string()}}),
+    )?;
+    let old = memo.reconstruct(current, original, context.planner)?;
+    let mut replay = Replayer {
+        context,
+        memo: Some(memo),
+        seen: BTreeSet::from([wire::hash(&wire::encode(original))]),
+    };
+    let verified = replay.verified(old)?;
+    Arc::try_unwrap(
+        replay
+            .memo
+            .as_deref_mut()
+            .ok_or(PackageError::Integrity)?
+            .recover(
+                &verified,
+                original,
+                intent,
+                receipt,
+                context.planner,
+                context.max_originals,
+            )?,
+    )
+    .map_err(|_| PackageError::Integrity)
+}
+
+/// Pure deterministic compilation memo. It never stores a live read/authority
+/// proof: every hit requires a freshly verified original with exact bytes.
+#[derive(Default)]
+pub(crate) struct CompiledPlans {
+    entries: BTreeMap<String, (CachedPlan, usize)>,
+    reader: reader_memo::ReaderMemo,
+    order: VecDeque<String>,
+    bytes: usize,
+    byte_ceiling: Option<usize>,
+    #[cfg(test)]
+    pub(crate) compilations: usize,
+    #[cfg(test)]
+    pub(crate) hits: usize,
+}
+impl CompiledPlans {
+    fn maximum(&self, limits: Limits) -> usize {
+        let maximum = usize::try_from(limits.max_total_allocation_bytes).unwrap_or(usize::MAX);
+        self.byte_ceiling.map_or(maximum, |n| n.min(maximum))
+    }
+    #[cfg(test)]
+    pub(crate) fn set_test_ceiling(&mut self, maximum: usize) {
+        self.byte_ceiling = Some(maximum);
+    }
+
+    pub(crate) fn trim(&mut self, limits: Limits, max_entries: usize) {
+        let maximum = self.maximum(limits);
+        self.reader.trim_entries(max_entries);
+        if self.bytes.saturating_add(self.reader.bytes) > maximum {
+            self.reader.clear();
+        }
+        while self.entries.len() > max_entries || self.bytes > maximum {
+            let Some(old) = self.order.pop_front() else {
+                break;
+            };
+            if let Some((_, size)) = self.entries.remove(&old) {
+                self.bytes -= size;
+            }
+        }
+    }
+    pub(crate) fn reconstruct(
+        &self,
+        current: &OriginalPackage,
+        original: &Value,
+        limits: Limits,
+    ) -> Result<OriginalPackage, PackageError> {
+        let bounds = planner_limits(limits);
+        if let Some((cached, _)) = self
+            .entries
+            .values()
+            .find(|(cached, _)| cached.plan.original == *original && cached.limits == bounds)
+        {
+            return recovery::reconstruct_cached(
+                current,
+                original,
+                limits,
+                &cached.plan.old,
+                &cached.objects,
+            );
+        }
+        recovery::reconstruct_original(current, original, limits)
+    }
+    fn recover(
+        &mut self,
+        verified: &VerifiedOriginal,
+        original: &Value,
+        intent: &Value,
+        receipt: &Value,
+        limits: Limits,
+        max_entries: usize,
+    ) -> Result<Arc<RepeatablePlan>, PackageError> {
+        self.trim(limits, max_entries);
+        let maximum = self.maximum(limits);
+        let retained = verified.retained_controls.iter().map(|(reference,membership)| {
+            serde_json::json!({"record":reference,"membership":match membership {v1_3::Membership::Semantic=>"semantic",v1_3::Membership::Ownership=>"ownership",v1_3::Membership::Blob=>"blob"}})
+        }).collect::<Vec<_>>();
+        let basis = wire::encode(&serde_json::json!({
+            "original":original,"intent":intent,"receipt":receipt,
+            "scope":verified.scope,"charge_unit":verified.charge_unit,
+            "empty_hold":verified.empty_hold,"retained":retained,
+            "limits":planner_limits(limits)
+        }));
+        let key = wire::hash(&basis);
+        if let Some((cached, _)) = self.entries.get(&key) {
+            check(cached.plan.original == *original && cached.plan.prepared.receipt == *receipt)?;
+            let plan = cached.materialize(verified.package())?;
+            let supplied = wire::encode(intent);
+            check(
+                plan.stages[0].loose.get(
+                    original["request"]["intent"]["sha256"]
+                        .as_str()
+                        .ok_or(PackageError::Record)?,
+                ) == Some(&supplied),
+            )?;
+            #[cfg(test)]
+            {
+                self.hits += 1;
+            }
+            return Ok(Arc::new(plan));
+        }
+        #[cfg(test)]
+        {
+            self.compilations += 1;
+        }
+        let plan = Arc::new(recovery::recover(
+            verified, original, intent, receipt, limits,
+        )?);
+        // Scan-resistant admission: a journal replay must not evict its warm
+        // prefix merely because the immutable history exceeds the optional cache.
+        // Oversize/new entries remain uncached, with identical verification.
+        let cached = CachedPlan::compact(&plan, limits)?;
+        let cost = cached.byte_cost().and_then(|n| n.checked_add(basis.len()));
+        if let Some(cost) = cost.filter(|cost| {
+            self.entries.len() < max_entries
+                && self
+                    .bytes
+                    .checked_add(self.reader.bytes)
+                    .and_then(|n| n.checked_add(*cost))
+                    .is_some_and(|n| n <= maximum)
+        }) {
+            self.entries.insert(key.clone(), (cached, cost));
+            self.order.push_back(key);
+            self.bytes += cost;
+        }
+        Ok(plan)
+    }
+    #[cfg(test)]
+    pub(crate) fn reader_work(&self) -> (usize, usize) {
+        (self.reader.misses, self.reader.hits)
+    }
+    #[cfg(test)]
+    pub(crate) fn retained(&self) -> (usize, usize) {
+        (self.entries.len(), self.bytes + self.reader.bytes)
+    }
+}
+fn planner_limits(limits: Limits) -> Value {
+    let json = limits.semantic.json;
+    let semantic = limits.semantic;
+    serde_json::json!([
+        json.max_bytes as u64,
+        json.max_depth as u64,
+        json.max_members as u64,
+        json.max_array_elements as u64,
+        semantic.max_objects as u64,
+        semantic.max_commits as u64,
+        semantic.max_total_json_bytes as u64,
+        semantic.max_blob_bytes,
+        semantic.max_total_blob_bytes,
+        limits.max_frames as u64,
+        limits.max_total_allocation_bytes,
+        limits.max_entries as u64,
+        limits.max_objects as u64,
+        limits.max_allocation_growth,
+        limits.max_allocation_bytes
+    ])
+}
+// Only immutable deterministic output is retained. Original pack bytes are
+// supplied afresh, authenticated by the reader, and checked against these exact
+// length/digest/arena/witness commitments before any cached suffix is appended.
+struct CachedPlan {
+    plan: RepeatablePlan,
+    prefixes: BTreeMap<String, (usize, String)>,
+    controls: BTreeMap<String, Vec<u8>>,
+    stage_keys: Vec<Vec<String>>,
+    objects: BTreeSet<super::wire::Key>,
+    limits: Value,
+}
+impl CachedPlan {
+    fn compact(p: &RepeatablePlan, limits: Limits) -> Result<Self, PackageError> {
+        let old = OriginalPackage {
+            manifest: p.old.manifest.clone(),
+            head: p.old.head.clone(),
+            commit: p.old.commit.clone(),
+            loose: p.old.loose.clone(),
+            allocations: p
+                .old
+                .allocations
+                .iter()
+                .map(|(id, a)| {
+                    (
+                        id.clone(),
+                        super::input::Allocation {
+                            arena: a.arena.clone(),
+                            witness: a.witness.clone(),
+                            bytes: Vec::new(),
+                        },
+                    )
+                })
+                .collect(),
+        };
+        let mut prefixes = BTreeMap::new();
+        let mut files = BTreeMap::new();
+        for (id, allocation) in &p.old.allocations {
+            let len = allocation.bytes.len();
+            prefixes.insert(id.clone(), (len, wire::hash(&allocation.bytes)));
+            let target = p.files.get(id).ok_or(PackageError::Integrity)?;
+            check(target.starts_with(&allocation.bytes))?;
+            files.insert(id.clone(), target[len..].to_vec());
+        }
+        check(files.len() == p.files.len())?;
+        let mut controls = BTreeMap::new();
+        let mut stage_keys = Vec::new();
+        let stages = p
+            .stages
+            .iter()
+            .map(|stage| {
+                stage_keys.push(stage.loose.keys().cloned().collect());
+                for (key, bytes) in &stage.loose {
+                    if let Some(previous) = controls.insert(key.clone(), bytes.clone()) {
+                        check(previous == *bytes)?;
+                    }
+                }
+                Ok(super::plan::SelectedStage {
+                    head: stage.head.clone(),
+                    commit: stage.commit.clone(),
+                    loose: BTreeMap::new(),
+                })
+            })
+            .collect::<Result<Vec<_>, PackageError>>()?;
+        Ok(Self {
+            plan: RepeatablePlan {
+                old,
+                files,
+                stages,
+                original: p.original.clone(),
+                payload_ends: p.payload_ends.clone(),
+                prepared: p.prepared.clone(),
+                reservation: p.reservation,
+                peak: p.peak,
+                control_role_peak: p.control_role_peak,
+                attempt: p.attempt.clone(),
+                empty_hold: p.empty_hold.clone(),
+                retained_controls: p.retained_controls.clone(),
+            },
+            prefixes,
+            controls,
+            stage_keys,
+            objects: super::layout::original_objects(&p.old, &p.attempt.planner, limits)
+                .map_err(|_| PackageError::Integrity)?
+                .into_keys()
+                .collect(),
+            limits: planner_limits(limits),
+        })
+    }
+    fn materialize(&self, current: &OriginalPackage) -> Result<RepeatablePlan, PackageError> {
+        let p = &self.plan;
+        check(
+            current.manifest == p.old.manifest
+                && current.head == p.old.head
+                && current.commit == p.old.commit
+                && current.loose == p.old.loose
+                && current.allocations.len() == p.old.allocations.len(),
+        )?;
+        let mut files = BTreeMap::new();
+        for (id, expected) in &p.old.allocations {
+            let actual = current.allocations.get(id).ok_or(PackageError::Integrity)?;
+            let (length, digest) = self.prefixes.get(id).ok_or(PackageError::Integrity)?;
+            check(
+                actual.arena == expected.arena
+                    && actual.witness == expected.witness
+                    && actual.bytes.len() == *length
+                    && wire::hash(&actual.bytes) == *digest,
+            )?;
+            let mut bytes = actual.bytes.clone();
+            bytes.extend_from_slice(p.files.get(id).ok_or(PackageError::Integrity)?);
+            files.insert(id.clone(), bytes);
+        }
+        let stages = p
+            .stages
+            .iter()
+            .zip(&self.stage_keys)
+            .map(|(stage, keys)| {
+                let loose = keys
+                    .iter()
+                    .map(|key| {
+                        Ok((
+                            key.clone(),
+                            self.controls
+                                .get(key)
+                                .ok_or(PackageError::Integrity)?
+                                .clone(),
+                        ))
+                    })
+                    .collect::<Result<_, PackageError>>()?;
+                Ok(super::plan::SelectedStage {
+                    head: stage.head.clone(),
+                    commit: stage.commit.clone(),
+                    loose,
+                })
+            })
+            .collect::<Result<_, PackageError>>()?;
+        Ok(RepeatablePlan {
+            old: current.clone(),
+            files,
+            stages,
+            original: p.original.clone(),
+            payload_ends: p.payload_ends.clone(),
+            prepared: p.prepared.clone(),
+            reservation: p.reservation,
+            peak: p.peak,
+            control_role_peak: p.control_role_peak,
+            attempt: p.attempt.clone(),
+            empty_hold: p.empty_hold.clone(),
+            retained_controls: p.retained_controls.clone(),
+        })
+    }
+    fn byte_cost(&self) -> Option<usize> {
+        // Conservative owned-storage estimate, including Value/container overhead;
+        // not allocator RSS or durable accounting. Prefix bytes are never retained.
+        let p = &self.plan;
+        let metadata = serde_json::json!({"old_manifest":p.old.manifest,"old_head":p.old.head,"old_commit":p.old.commit,
+            "old_allocations":p.old.allocations.iter().map(|(id,a)| serde_json::json!([id,a.arena,a.witness])).collect::<Vec<_>>(),
+            "original":p.original,"receipt":p.prepared.receipt,"authored":p.prepared.authored.values().collect::<Vec<_>>(),
+            "stages":p.stages.iter().map(|s| serde_json::json!([s.head,s.commit])).collect::<Vec<_>>(),
+            "attempt":p.attempt,"empty_hold":p.empty_hold,"prefixes":self.prefixes,"keys":self.stage_keys,
+            "payload_ends":p.payload_ends,"retained_refs":p.retained_controls.keys().collect::<Vec<_>>(),"objects":self.objects,"limits":self.limits});
+        let mut bytes = value_storage(&metadata)?;
+        for (key, value) in p.old.loose.iter().chain(&p.files).chain(&self.controls) {
+            bytes = bytes
+                .checked_add(key.capacity())?
+                .checked_add(value.capacity())?
+                .checked_add(128)?;
+        }
+        // Authored-map digest keys and retained Membership tags are separate
+        // from their Value bodies. Account for keys/nodes as well as metadata.
+        for (digest, _) in p.prepared.authored.keys() {
+            bytes = bytes.checked_add(digest.capacity())?.checked_add(256)?;
+        }
+        bytes = bytes.checked_add(p.retained_controls.len().checked_mul(256)?)?;
+        bytes.checked_add(std::mem::size_of::<Self>())
+    }
+}
+fn value_storage(value: &Value) -> Option<usize> {
+    let base = std::mem::size_of::<Value>();
+    match value {
+        Value::String(s) => base.checked_add(s.capacity()),
+        Value::Array(a) => a.iter().try_fold(
+            base.checked_add(a.capacity().checked_mul(base)?)?,
+            |n, v| n.checked_add(value_storage(v)?),
+        ),
+        Value::Object(o) => o.iter().try_fold(base, |n, (k, v)| {
+            n.checked_add(k.capacity())?
+                .checked_add(128)?
+                .checked_add(value_storage(v)?)
+        }),
+        _ => Some(base),
+    }
+}
+
 /// One journal inspection only. A completed prefix can be reused as the next
 /// original only after exact byte equality; no proof crosses snapshot boundaries.
 /// Retain one predecessor, rather than every historical allocation copy.
@@ -434,12 +887,23 @@ impl<'a, 'b, I: AllocationInspection> IntentReplay<'a, 'b, I> {
             pending: None,
         }
     }
+    #[cfg(any(test, feature = "controlled-disposable"))]
     pub(crate) fn restore(
         &mut self,
         original: &Value,
         intent: &Value,
         receipt: &Value,
     ) -> Result<RepeatablePlan, PackageError> {
+        Arc::try_unwrap(self.restore_shared(original, intent, receipt, None)?)
+            .map_err(|_| PackageError::Integrity)
+    }
+    pub(crate) fn restore_shared(
+        &mut self,
+        original: &Value,
+        intent: &Value,
+        receipt: &Value,
+        mut memo: Option<&mut CompiledPlans>,
+    ) -> Result<Arc<RepeatablePlan>, PackageError> {
         let context = self.context;
         check(context.directory.inode != 0 && context.registration.charge_unit > 0)?;
         check(context.max_originals > 0)?;
@@ -448,10 +912,53 @@ impl<'a, 'b, I: AllocationInspection> IntentReplay<'a, 'b, I> {
                 == serde_json::json!({"profile":context.registration.profile,"incarnation":context.registration.incarnation.to_string(),"directory":{"device":context.directory.device.to_string(),"inode":context.directory.inode.to_string()}}),
         )?;
         let key = wire::hash(&wire::encode(original));
-        let old = recovery::reconstruct_original(self.current, original, context.planner)?;
+        let old = if let Some(cache) = memo.as_deref() {
+            cache.reconstruct(self.current, original, context.planner)?
+        } else {
+            recovery::reconstruct_original(self.current, original, context.planner)?
+        };
         let mut replay = Replayer {
             context,
+            memo: None,
             seen: BTreeSet::from([key.clone()]),
+        };
+        let initial = if self.completed.is_none() {
+            let envelope = loose(
+                &old,
+                &old.commit["root_set"]["placement"]["accounting"],
+                context.reader.json,
+            )?;
+            let terminal = old.loose.contains_key(
+                envelope["holds"]["sha256"]
+                    .as_str()
+                    .ok_or(PackageError::Record)?,
+            );
+            // Recursive terminal predecessors still collect the full cycle/depth
+            // lineage. Only the settled header uses this baseline memo.
+            Some(if terminal {
+                replay.verified(old.clone())?
+            } else if let Some(cache) = memo.as_deref_mut() {
+                verify_original_prefix_cached(&old, context, cache)?
+            } else {
+                replay.verified(old.clone())?
+            })
+        } else {
+            None
+        };
+        let mut recover = |verified: &VerifiedOriginal| {
+            if let Some(memo) = memo.as_deref_mut() {
+                memo.recover(
+                    verified,
+                    original,
+                    intent,
+                    receipt,
+                    context.planner,
+                    context.max_originals,
+                )
+            } else {
+                recovery::recover(verified, original, intent, receipt, context.planner)
+                    .map(Arc::new)
+            }
         };
         let plan = if let Some((verified, ancestry)) = &self.completed {
             // A matching HEAD alone cannot authorize reuse of altered controls,
@@ -462,18 +969,21 @@ impl<'a, 'b, I: AllocationInspection> IntentReplay<'a, 'b, I> {
                 return Err(PackageError::Limit);
             }
             replay.seen.extend(ancestry.iter().cloned());
-            recovery::recover(verified, original, intent, receipt, context.planner)?
+            recover(verified)?
         } else {
-            let verified = replay.verified(old)?;
-            recovery::recover(&verified, original, intent, receipt, context.planner)?
+            recover(initial.as_ref().ok_or(PackageError::Integrity)?)?
         };
         self.lineage = replay.seen;
         self.pending = Some(key);
         Ok(plan)
     }
-    pub(crate) fn complete(&mut self, plan: &RepeatablePlan) -> Result<(), PackageError> {
+    pub(crate) fn complete(
+        &mut self,
+        plan: &RepeatablePlan,
+        memo: Option<&mut CompiledPlans>,
+    ) -> Result<(), PackageError> {
         check(self.pending.as_ref() == Some(&wire::hash(&wire::encode(plan.original()))))?;
-        let verified = verify_completed_plan(self.current, plan, self.context)?;
+        let verified = verify_completed_plan(self.current, plan, self.context, memo)?;
         self.completed = Some((verified, self.lineage.clone()));
         self.pending = None;
         Ok(())
@@ -495,7 +1005,6 @@ fn same_package(a: &OriginalPackage, b: &OriginalPackage) -> bool {
 
 /// Private historical view for the session's authenticated journal header base.
 /// Actual current suffixes remain the executor's separate proof obligation.
-#[cfg(any(test, feature = "controlled-disposable"))]
 pub(crate) fn verify_original_prefix<I: AllocationInspection>(
     package: OriginalPackage,
     context: &RestartContext<'_, I>,
@@ -507,9 +1016,40 @@ pub(crate) fn verify_original_prefix<I: AllocationInspection>(
     )?;
     Replayer {
         context,
+        memo: None,
         seen: BTreeSet::new(),
     }
     .verified(package)
+}
+
+/// Same deterministic historical-base proof with fresh observation replay.
+pub(crate) fn verify_original_prefix_cached<I: AllocationInspection>(
+    package: &OriginalPackage,
+    context: &RestartContext<'_, I>,
+    memo: &mut CompiledPlans,
+) -> Result<VerifiedOriginal, PackageError> {
+    memo.trim(context.planner, context.max_originals);
+    let maximum = memo.maximum(context.planner).saturating_sub(memo.bytes);
+    memo.reader.verify(
+        package,
+        context.inspection,
+        context,
+        None,
+        maximum,
+        |inspection| {
+            let fresh = RestartContext {
+                inspection,
+                registration: context.registration,
+                directory: context.directory,
+                identity: context.identity,
+                frames: context.frames,
+                reader: context.reader,
+                planner: context.planner,
+                max_originals: context.max_originals,
+            };
+            verify_original_prefix(package.clone(), &fresh)
+        },
+    )
 }
 
 /// Verify a checkpoint receipt's completed historical closure using only actual
@@ -518,6 +1058,7 @@ fn verify_completed_plan<I: AllocationInspection>(
     current: &OriginalPackage,
     plan: &RepeatablePlan,
     context: &RestartContext<'_, I>,
+    memo: Option<&mut CompiledPlans>,
 ) -> Result<VerifiedOriginal, PackageError> {
     let stage = &plan.stages()[6];
     let mut package = plan.old.clone();
@@ -557,6 +1098,29 @@ fn verify_completed_plan<I: AllocationInspection>(
         unit: context.registration.charge_unit,
         tip_charges,
     };
+    if let Some(memo) = memo {
+        let maximum = memo.maximum(context.planner).saturating_sub(memo.bytes);
+        return memo.reader.verify(
+            &package,
+            &prefix,
+            context,
+            Some(plan),
+            maximum,
+            |inspection| {
+                v1_3::reader::verify_operation_original(
+                    package.clone(),
+                    identity(context.identity),
+                    inspection,
+                    context.registration,
+                    context.directory,
+                    context.frames,
+                    context.reader,
+                    plan,
+                    6,
+                )
+            },
+        );
+    }
     v1_3::reader::verify_operation_original(
         package.clone(),
         identity(context.identity),

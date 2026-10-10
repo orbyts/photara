@@ -4,8 +4,7 @@ use super::{
     BTreeMap, CHECKPOINT, EffectFailure, IoResult, Native, NativeLease, PlannerInputs,
     RepeatablePlan, RestartContext, Value, VerifiedOriginal, attempt, barrier, budget, canonical,
     execute, frames, hash, identity, invalid, journal, json, number, package, plan, read,
-    record_identity, recovery, reference, regular, request, restart, restore_plan, snapshot,
-    support, uncertain, v1_3,
+    record_identity, reference, regular, request, restart, snapshot, support, uncertain, v1_3,
 };
 use crate::package::v1_3::repeatable::session::{
     AcceptedCoordinate, Presentation, Session, SessionBinding, SessionError, SessionFailure,
@@ -57,7 +56,10 @@ impl Host {
             .iter()
             .find(|r| r.value()["kind"] == "CheckpointIntent")
         {
-            recovery::reconstruct_original(&current, &first.value()["body"]["original"], budget())
+            self.io
+                .compiled
+                .borrow()
+                .reconstruct(&current, &first.value()["body"]["original"], budget())
                 .map_err(|_| invalid())?
         } else {
             current.clone()
@@ -68,8 +70,12 @@ impl Host {
         let observed = snapshot(&self.io.base, &current);
         let id = identity(&current);
         let reader = support::limits();
-        restart::verify_original_prefix(raw, &self.context(&observed, &id, &reader))
-            .map_err(|_| invalid())
+        restart::verify_original_prefix_cached(
+            &raw,
+            &self.context(&observed, &id, &reader),
+            &mut self.io.compiled.borrow_mut(),
+        )
+        .map_err(|_| invalid())
     }
     fn original(&self) -> IoResult<VerifiedOriginal> {
         let current = self.io.current()?;
@@ -90,7 +96,9 @@ impl Host {
             )
             .map_err(|_| invalid())
         } else {
-            let plan = restore_plan(&current, &ctx).map_err(|_| invalid())?;
+            let plan =
+                restart::restore_plan_cached(&current, &ctx, &mut self.io.compiled.borrow_mut())
+                    .map_err(|_| invalid())?;
             v1_3::reader::verify_operation_original(
                 current,
                 id,
@@ -120,12 +128,13 @@ impl Host {
         let observed = snapshot(&self.io.base, &current);
         let id = identity(&current);
         let reader = support::limits();
-        restart::restore_intent_plan(
+        restart::restore_intent_plan_cached(
             &current,
             &b["original"],
             &b["semantic_intent"],
             &b["operation_receipt"],
             &self.context(&observed, &id, &reader),
+            &mut self.io.compiled.borrow_mut(),
         )
         .map_err(|_| invalid())
     }
@@ -230,7 +239,11 @@ impl SessionIo for Host {
         let observed = snapshot(&self.io.base, &current);
         let id = identity(&current);
         let reader = support::limits();
-        Ok(j.verify(&current, &self.context(&observed, &id, &reader))?)
+        Ok(j.verify_cached(
+            &current,
+            &self.context(&observed, &id, &reader),
+            &mut self.io.compiled.borrow_mut(),
+        )?)
     }
     fn selected_head(&self) -> Result<Value, SessionError> {
         Ok(self.io.current().map_err(session_error)?.head)

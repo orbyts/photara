@@ -476,7 +476,7 @@ impl<'a> VerifiedJournal<'a> {
     /// forged lifecycle evidence or a different base.
     #[expect(
         clippy::too_many_lines,
-        reason = "Ordered local and independent checkpoint prefix validation kept together"
+        reason = "Keep ordered local and independently checked checkpoint prefix validation together"
     )]
     pub fn verify_session(
         &self,
@@ -534,26 +534,19 @@ impl<'a> VerifiedJournal<'a> {
                         .as_str()
                         .ok_or(PackageError::Record)?;
                     let plan = self.plans.get(intent_id).ok_or(PackageError::Integrity)?;
-                    let operation = plan.prepared.receipt["operation_id"]
+                    // Preserve the caller's original per-record decoding bounds
+                    // even though completed checkpoint bytes were compacted.
+                    check(
+                        plan.json_shape.max_bytes <= limits.semantic.json.max_bytes
+                            && plan.json_shape.max_depth <= limits.semantic.json.max_depth
+                            && plan.json_shape.max_members <= limits.semantic.json.max_members
+                            && plan.json_shape.max_array_elements
+                                <= limits.semantic.json.max_array_elements,
+                    )?;
+                    let operation = plan.receipt["operation_id"]
                         .as_str()
                         .ok_or(PackageError::Record)?;
-                    let state_ref = &plan.stages[6].commit["root_set"]["active"];
-                    // StateRoots are packed; the authenticated finalizer carries
-                    // the exact selected active value, not a loose StateRoot.
-                    let selected_state = plan.stages[6]
-                        .loose
-                        .values()
-                        .map(|bytes| parse_canonical_json(bytes, limits.semantic.json))
-                        .collect::<Result<Vec<_>, _>>()?
-                        .into_iter()
-                        .find_map(|value| {
-                            let state = &value["target_projection"]["active_state"];
-                            (value["schema"]["id"] == "photara.storage.finalization-control"
-                                && value["original"] == reference(&plan.original)
-                                && reference(state) == *state_ref)
-                                .then(|| state.clone())
-                        })
-                        .ok_or(PackageError::Integrity)?;
+                    let selected_state = &plan.selected_state;
                     if let Some(mutation) = session.mutations.get(operation) {
                         check(
                             selected_state["accepted"] == mutation.accepted
@@ -566,9 +559,8 @@ impl<'a> VerifiedJournal<'a> {
                                 .get(session.checkpointed)
                                 .is_some_and(|id| id == operation)
                                 && mutation.record.value["body"]["operation_receipt"]
-                                    == plan.prepared.receipt
-                                && mutation.record.value["body"]["semantic_intent"]
-                                    == intent_body(plan)["semantic_intent"],
+                                    == plan.receipt
+                                && mutation.record.value["body"]["semantic_intent"] == plan.intent,
                         )?;
                         session.checkpoint_target = json!({"coordinate":mutation.record.value["body"]["result"],"through":record_link(&mutation.record),"accepted_frame":mutation.record.value["body"]["accepted_frame"]});
                         session.checkpointed += 1;
@@ -577,22 +569,18 @@ impl<'a> VerifiedJournal<'a> {
                         // coordinate without inventing local Mutation ownership.
                         check(session.order.is_empty())?;
                         check(session.historical.insert(operation.to_owned()))?;
-                        let body = intent_body(plan);
-                        session.logical = replay(
-                            &session.logical,
-                            &body["semantic_intent"],
-                            Some(&body["operation_receipt"]),
-                        )?;
-                        session.ordinal = n(&plan.prepared.receipt["acceptance_ordinal"])?;
-                        session.sequence = n(&plan.prepared.receipt["journal_sequence"])?;
-                        session.advance_prefix(&plan.prepared.receipt);
+                        session.logical =
+                            replay(&session.logical, &plan.intent, Some(&plan.receipt))?;
+                        session.ordinal = n(&plan.receipt["acceptance_ordinal"])?;
+                        session.sequence = n(&plan.receipt["journal_sequence"])?;
+                        session.advance_prefix(&plan.receipt);
                         check(
                             selected_state["accepted"] == session.accepted
                                 && selected_state["journal_inclusion"] == session.journal_inclusion,
                         )?;
                         session.checkpoint_target = json!({"coordinate":session.coordinate(),"through":null,"accepted_frame":null});
                     }
-                    session.head = plan.stages[6].head.clone();
+                    session.head = plan.head.clone();
                     session.completed = Some(record_link(record));
                 }
                 Some("CheckpointIntent") => {

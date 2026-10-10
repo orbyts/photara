@@ -4,8 +4,8 @@ use super::{
     Attempt, BTreeMap, DisposablePermit, EffectFailure, ExecutionError, Observation,
     OriginalPackage, PlannerInputs, RepeatableIo, RepeatablePlan, RestartContext, SelectedStage,
     Value, VerifiedOriginal, aid, attempt, budget, encode, execute, frames, hash, identity,
-    journal, json, package, plan, recovery, reference, request, restart, restore_plan, selected,
-    support, v1_3,
+    journal, json, package, plan, reference, request, restart, restore_plan, selected, support,
+    v1_3,
 };
 #[cfg(test)]
 use rustix::fs::mkdirat;
@@ -496,6 +496,7 @@ struct Native {
     local_authority: Option<std::sync::Arc<dyn Fn() -> IoResult<Value> + Send + Sync>>,
     session_project_limit: Option<u64>,
     reserved_journal_extra: usize,
+    compiled: std::cell::RefCell<restart::CompiledPlans>,
 }
 // Current observations preserve separately captured original highwaters. The
 // shared synthetic helper uses rounded logical lengths; native prepaid storage
@@ -616,6 +617,7 @@ impl Native {
             session_mode: registration["session"].as_bool().unwrap_or(false),
             session_project_limit: None,
             reserved_journal_extra: 0,
+            compiled: std::cell::RefCell::new(restart::CompiledPlans::default()),
         };
         if native.session_mode {
             // Configuration derives solely from the separately captured INITIAL
@@ -998,7 +1000,9 @@ impl Native {
         };
         let limits = self.journal_bounds();
         let parsed = self.checkpoint()?;
-        let verified = parsed.verify(&current, &context).map_err(|_| invalid())?;
+        let verified = parsed
+            .verify_cached(&current, &context, &mut self.compiled.borrow_mut())
+            .map_err(|_| invalid())?;
         let prior_intent = parsed
             .records()
             .iter()
@@ -1028,7 +1032,9 @@ impl Native {
         .map_err(|_| invalid())?;
         let next = journal::Journal::read(&planned, &self.journal_header, limits)
             .map_err(|_| invalid())?;
-        let verified_next = next.verify(&current, &context).map_err(|_| invalid())?;
+        let verified_next = next
+            .verify_cached(&current, &context, &mut self.compiled.borrow_mut())
+            .map_err(|_| invalid())?;
         let prior_receipt = next
             .records()
             .iter()
@@ -1062,7 +1068,7 @@ impl Native {
         )
         .map_err(|_| invalid())?;
         let worst = prefix
-            .verify(&current, &context)
+            .verify_cached(&current, &context, &mut self.compiled.borrow_mut())
             .map_err(|_| invalid())?
             .prepare_receipt(
                 plan,

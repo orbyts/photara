@@ -6,7 +6,7 @@ use super::{FrameKind, PhysicalRecords, PhysicalRef, PhysicalTree, PhysicalTreeK
 use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::io::Read;
+use std::{collections::BTreeMap, io::Read};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -54,6 +54,7 @@ pub struct Locator<'a, P> {
     tree: PhysicalTree<'a, P>,
     provider: &'a P,
     root: PhysicalRef,
+    audited: Option<BTreeMap<ObjectRef, WireEntry>>,
 }
 impl<'a, P: PhysicalRecords> Locator<'a, P> {
     #[must_use]
@@ -67,7 +68,29 @@ impl<'a, P: PhysicalRecords> Locator<'a, P> {
             tree: PhysicalTree::new(provider, project, PhysicalTreeKind::Locator, limits),
             provider,
             root,
+            audited: None,
         }
+    }
+    // Full-reader-only index: every page, entry, ordering, child summary and
+    // bound is authenticated in this invocation. Scoped lookup stays scoped.
+    pub(crate) fn audited(
+        provider: &'a P,
+        project: PackageUuid,
+        root: PhysicalRef,
+        limits: TreeLimits,
+    ) -> Result<(Self, super::PhysicalTreeAudit), PackageError> {
+        let mut locator = Self::new(provider, project, root, limits);
+        let audit = locator.tree.audit_with_pages(&locator.root)?;
+        let mut entries = BTreeMap::new();
+        for value in &audit.entries {
+            let entry: WireEntry =
+                serde_json::from_value(value.clone()).map_err(|_| PackageError::Record)?;
+            if entries.insert(entry.object.clone(), entry).is_some() {
+                return Err(PackageError::Integrity);
+            }
+        }
+        locator.audited = Some(entries);
+        Ok((locator, audit))
     }
     /// # Errors
     /// Requires an exact JSON locator identity, membership, frame and content digest.
@@ -122,6 +145,9 @@ impl<'a, P: PhysicalRecords> Locator<'a, P> {
         })
     }
     fn entry(&self, object: &ObjectRef) -> Result<WireEntry, PackageError> {
+        if let Some(entries) = &self.audited {
+            return entries.get(object).cloned().ok_or(PackageError::Integrity);
+        }
         let value = self
             .tree
             .lookup(&self.root, object)?

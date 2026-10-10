@@ -71,7 +71,16 @@ pub fn reconstruct_original(
     record: &Value,
     limits: Limits,
 ) -> Result<OriginalPackage, PackageError> {
-    reconstruct(current, record, limits).map_err(|_| PackageError::Integrity)
+    reconstruct(current, record, limits, None).map_err(|_| PackageError::Integrity)
+}
+pub(super) fn reconstruct_cached(
+    current: &OriginalPackage,
+    record: &Value,
+    limits: Limits,
+    old: &OriginalPackage,
+    objects: &BTreeSet<wire::Key>,
+) -> Result<OriginalPackage, PackageError> {
+    reconstruct(current, record, limits, Some((old, objects))).map_err(|_| PackageError::Integrity)
 }
 #[expect(
     clippy::too_many_lines,
@@ -81,6 +90,7 @@ fn reconstruct(
     current: &OriginalPackage,
     record: &Value,
     limits: Limits,
+    cached: Option<(&OriginalPackage, &BTreeSet<wire::Key>)>,
 ) -> wire::Result<OriginalPackage> {
     wire::ensure(
         record["original_codec"] == "photara.codec.ps2-repeatable-admission-v1"
@@ -145,8 +155,21 @@ fn reconstruct(
         loose: BTreeMap::new(),
         allocations,
     };
-    let pool = layout::original_objects(&old, &attempt.planner, limits)?;
-    let mut available = pool;
+    let mut available = if let Some((saved, objects)) = cached {
+        wire::ensure(
+            saved.manifest == old.manifest && saved.head == old.head && saved.commit == old.commit,
+            "cached original identity",
+        )?;
+        // Null is only a presence sentinel for immutable authenticated prefix
+        // object keys. Exact controls below come from the original decoded view.
+        objects
+            .iter()
+            .cloned()
+            .map(|key| (key, Value::Null))
+            .collect()
+    } else {
+        layout::original_objects(&old, &attempt.planner, limits)?
+    };
     for name in ["ledger", "envelope", "overlay"] {
         let v = &record["old"][name];
         available.insert(key(&wire::reference(v))?, v.clone());
@@ -185,8 +208,23 @@ fn reconstruct(
     )?;
     for r in refs {
         let k = key(r)?;
-        let v = available.get(&k).ok_or("preserved original control")?;
-        old.loose.insert(k.0, encode(v));
+        let value = available.get(&k).ok_or("preserved original control")?;
+        let bytes = if value.is_null() {
+            let saved = cached
+                .ok_or("cached control source")?
+                .0
+                .loose
+                .get(&k.0)
+                .ok_or("cached original control")?;
+            wire::ensure(
+                saved.len() as u64 == k.1 && hash(saved) == k.0,
+                "cached control commitment",
+            )?;
+            saved.clone()
+        } else {
+            encode(value)
+        };
+        old.loose.insert(k.0, bytes);
     }
     old.loose.insert(hash(&encode(overlay)), encode(overlay));
     Ok(old)

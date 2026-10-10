@@ -220,7 +220,16 @@ final class DisposableAutosaveProcess: ObservableObject {
     private var pending: DisposableHostRequest?
     private var failedRequest: DisposableHostRequest?
     private var deadline: Task<Void, Never>?
-    private var closeCompletion: ((Bool) -> Void)?
+    @Published private(set) var isClosing = false
+    private var closeCompletion: ((Bool) -> Void)? {
+        didSet { isClosing = closeCompletion != nil }
+    }
+    var canCancelClose: Bool { isClosing && pending?.command != "close" && !closed }
+    func cancelClose() {
+        guard canCancelClose, let completion = closeCompletion else { return }
+        closeCompletion = nil
+        completion(false) // Saving continues; no request, draft, or evidence is discarded.
+    }
     private static let frameLimit = 1_048_576
     private static let prefix = Data("PHOTARA_PS3 ".utf8)
 
@@ -239,8 +248,8 @@ final class DisposableAutosaveProcess: ObservableObject {
         if pendingPosition != nil || !queuedPositions.isEmpty { return .saving }
         return projection?.status ?? .unavailable
     }
-    /// Extra drops remain explicitly volatile drafts until their original FIFO
-    /// request is acknowledged. Only position edits can queue across a checkpoint.
+    /// Extra drops remain volatile drafts. Consecutive unsent moves of the same
+    /// node keep only their latest endpoint; submitted originals remain immutable.
     var canMove: Bool {
         guard libraryPending == nil, !libraryWorking, !switching, !readOnly, !checkingStorage,
               closeCompletion == nil, transportFailure == nil, !closed,
@@ -351,14 +360,25 @@ final class DisposableAutosaveProcess: ObservableObject {
     func move(_ node: DisposablePositionNode, x: Int64, y: Int64) {
         guard canMove, nodes.contains(where: { $0.id == node.id }) else { return }
         let draft = DisposablePendingPosition(operationID: UUID(), nodeID: node.id, title: node.title, x: x, y: y)
-        let proposed = (pendingPosition.map { [$0] } ?? []) + queuedPositions + [draft]
+        let next = Self.coalescingUnsent(draft, into: queuedPositions)
+        let proposed = (pendingPosition.map { [$0] } ?? []) + next
         guard let bytes = try? JSONEncoder().encode(proposed), bytes.count <= Self.frameLimit else {
             moveRefusal = "This move could not be queued. Let saving finish, then try again."
             return
         }
         moveRefusal = nil
-        queuedPositions.append(draft)
+        queuedPositions = next
         _ = drainMoves()
+    }
+
+    /// Only an unsent tail is replaceable. Accepted/in-flight originals never
+    /// enter this function; another node is an ordering boundary.
+    static func coalescingUnsent(_ draft: DisposablePendingPosition,
+                                into queue: [DisposablePendingPosition]) -> [DisposablePendingPosition] {
+        var next = queue
+        if next.last?.nodeID == draft.nodeID { next.removeLast() }
+        next.append(draft)
+        return next
     }
 
     @discardableResult private func drainMoves() -> Bool {

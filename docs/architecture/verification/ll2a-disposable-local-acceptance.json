@@ -579,5 +579,98 @@
       "platform/macos/photara-app/Tests/AutosaveInteractionChecks.swift": "8725ca0b0ef5bbf9d5d315b0a8a25b3df2f141d26bc22430a6743aba8246289d",
       "platform/macos/photara-app/verify-autosave-interactions.sh": "155d76c93e636a6460f4fd9a46933632fbf99222471270cb0001e9700f04c098"
     }
+  },
+  "save_backlog_followup_2026_10_10": {
+    "status": "performance acceptance open; first native correction rejected",
+    "changes": [
+      "Consecutive same-node unsent drafts coalesce; submitted originals and exact retry stay immutable.",
+      "Quit exposes save wait and safe Keep Working cancellation.",
+      "Completed journal verification retains compact metadata; optional bounded compiled-plan memo excludes historical allocation prefixes.",
+      "Inspection-local audited locator index now in second native build; no cross-inspection authority proof reuse."
+    ],
+    "checks": {
+      "swift": "1000-move coalescing, exact retry, ordering, MainActor heartbeat, Quit cancel/drain passed in mandatory build gate",
+      "rust": "five session regressions and focused exact journal golden/refusal tests passed",
+      "reader": "Existing ps2_frozen_reader 5/5 and strict store lint pass; authenticated index results equal scoped lookup; rehashed malformed root refuses."
+    },
+    "first_native": {
+      "executable": "/private/tmp/photara-ll2a-coalesced-final/Photara Local Libraries.app/Contents/MacOS/PhotaraLocalLibraries",
+      "sha256": "00de013d6864b6adc083bb81b21e7ae7e5ea524a5e4186bf0c101b9318302ed7",
+      "rapid_drops": 3,
+      "result": "returned to starting position; Saving wait, Keep Working cancellation, subsequent normal Quit observed",
+      "burst_to_exit_seconds": 226.2263,
+      "exit": 0,
+      "ending_mutation_markers": 14,
+      "ending_receipt_markers": 14,
+      "observed_rss_kib": 856336,
+      "sample": "/private/tmp/ll2a-coalesced-save.sample.txt",
+      "acceptance": "rejected for latency"
+    },
+    "pending": [
+      "Native timing after locator-index fix",
+      "Human interaction re-review",
+      "Durable add/delete/native-connect implementation remains unavailable"
+    ],
+    "second_native": {
+      "executable": "/private/tmp/photara-ll2a-indexed-final/Photara Local Libraries.app/Contents/MacOS/PhotaraLocalLibraries",
+      "sha256": "493578dd3a17064a3b0395e981c92a1ae5ca417c57d7158eaee282152e973622",
+      "startup_cpu_seconds": 23.42,
+      "result": "SaveFailed capacity refusal while returning test node to its starting position. Prior outward test move is Saved; failed return has no admitted Mutation. App retained pending draft; normal Quit canceled by failure.",
+      "sample": "/private/tmp/ll2a-indexed-save.sample.txt",
+      "acceptance": "rejected for latency",
+      "pid": 62015,
+      "pending_position_note": "/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-indexed-pending-position.json"
+    },
+    "capacity_boundary": {
+      "pack_count": 7,
+      "each_pack_extent_and_prepaid_charge": 4194304,
+      "project_limit": 33669120,
+      "ledger_total": 33665024,
+      "cleanup": 4096,
+      "next_minimum_total_plus_reserve": 35504128,
+      "missing_prepaid_capacity": 1835008,
+      "status": "Awaiting narrow approval for fresh larger disposable fixtures; existing registration cannot be raised/rebound.",
+      "proposal": {
+        "fresh_private_images_only": true,
+        "prepaid_bytes_per_tip": 8388608,
+        "tip_count": 7,
+        "image_bytes_each": 134217728,
+        "existing_reader_total_bytes": 67108864,
+        "existing_files_retained": true,
+        "existing_registration_changed": false,
+        "production_limit_change": false,
+        "approval": "pending"
+      }
+    },
+    "latest_code_candidate": {
+      "status": "Focused regressions pass; not built into a native review artifact after reader memo change; actual native latency remains unverified.",
+      "warm_two_operation_replay_ms": 76.241541,
+      "previous_uncached_warm_ms": 649,
+      "session_tests": "5 passed in11.45seconds",
+      "focused_test": "phpsj001_two_completed_operations_bind_exact_selectors passed7.67seconds; golden unchanged",
+      "semantics": "Exact immutable input memo; fresh storage observations and prefix digests replayed. Scope/limits/changed bytes and observation mismatches rechecked. No authority or Saved result cached. Existing64MiB optional-cache budget shared; exhaustion changes performance only.",
+      "logs": [
+        "/private/tmp/ll2a-reader-memo-tests.log",
+        "/private/tmp/ll2a-reader-memo-session.log",
+        "/private/tmp/ll2a-reader-memo-clippy.log"
+      ],
+      "source_sha256": {
+        "crates/photara-store/src/package/v1_3/locator.rs": "d5e4ba1b96d2c99e352ca881543c7dfa074db21ce94ea9628916ed5bc1ec7c8d",
+        "crates/photara-store/src/package/v1_3/reader.rs": "f0c84df9d8df7ce5b8c171a65160ede057b9e6f8a06b6e310e96150bc7a4bbc8",
+        "crates/photara-store/src/package/v1_3/repeatable/disposable.rs": "124a254ccdcf4e9ffd35d6df663b7404e51dbe2d57b34f9a5308e43b555c436e",
+        "crates/photara-store/src/package/v1_3/repeatable/journal.rs": "f93fa921b509bc35d8632acbea3a7c8f3943a8172b1d6ba7091a01841063c250",
+        "crates/photara-store/src/package/v1_3/repeatable/journal_session.rs": "40155512dbdbf7507a3a1bab655ee01d6c73b2c3f281b123ced1a31ca87d0d90",
+        "crates/photara-store/src/package/v1_3/repeatable/journal_tests.rs": "cb404f4bda3ed385bf2c8ba4686582488cfc1649057d3cecc1b0e413b3eafe1f",
+        "crates/photara-store/src/package/v1_3/repeatable/native_session.rs": "d7522f5b46754b65d0a8c57db83e5147bde329139d2fd645f9b8b8ed978e4842",
+        "crates/photara-store/src/package/v1_3/repeatable/native_test.rs": "6c8b07262f549a8d85544153bec595ca0560d4c70eb6b725bd9074b8134b553e",
+        "crates/photara-store/src/package/v1_3/repeatable/recovery.rs": "a639e403622fa72003ff5dd3de5e7587feae1b0d41e5dfb1db137589c2f524cd",
+        "crates/photara-store/src/package/v1_3/repeatable/restart.rs": "69799dd2d0f66dd9f43665c9e54a1450c3897ea0248016619e870e75c0ab482f",
+        "platform/macos/photara-app/Sources/LocalLibrarySession.swift": "0914f91af7479e2ec14b4fb62e530582f73233fd26119b6203058e1be1115986",
+        "platform/macos/photara-app/Tests/ControlledSessionChecks.swift": "29c60e511b375c3f4e1794774074085481bbabb8dbf1641f7c560d56627a673d",
+        "platform/macos/photara-graph-lab/Sources/DisposableAutosaveProcess.swift": "e63085734144977d328059174ab8dc5137e154ba9e72ad2d68925ed4c483819f",
+        "crates/photara-store/src/package/v1_3/repeatable/restart_reader.rs": "0e18256e4a059017280a50089782cd4a12b680bd4f54318523268b1c8a93193e"
+      },
+      "strict": "store lib/tests --no-deps -D warnings passed25.06seconds"
+    }
   }
 }
