@@ -6,6 +6,10 @@ experiment reports are reference material only.
 ## Baseline
 
 - Authoritative branch: `main`.
+- Latest autosave optimization checkpoint is local only: the 2026-10-10 normal
+  SSH push and follow-up read-only `ls-remote` both failed to read the remote.
+  Preserve the existing SSH remote/authentication; verify remote state before
+  the next normal push. Do not claim GitHub synchronization for this checkpoint.
 - Historical production-code baseline before shared PS2 implementation:
   `f91f8de1546896267bac13adeac00c1659133232`. Shared `package::v1_3` reader
   components now follow the narrow 2026-10-03 approval; production writes remain disabled.
