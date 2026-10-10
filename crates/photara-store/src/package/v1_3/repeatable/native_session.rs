@@ -3,7 +3,7 @@
 use super::{
     BTreeMap, CHECKPOINT, EffectFailure, IoResult, Native, NativeLease, PlannerInputs,
     RepeatablePlan, RestartContext, Value, VerifiedOriginal, attempt, barrier, budget, canonical,
-    execute, frames, hash, identity, invalid, journal, json, number, package, plan, read,
+    execute, frames, hash, identity, invalid, journal, json, number, package, read,
     record_identity, reference, regular, request, restart, snapshot, support, uncertain, v1_3,
 };
 use crate::package::v1_3::repeatable::session::{
@@ -84,6 +84,15 @@ impl Host {
         let reader = support::limits();
         let ctx = self.context(&observed, &id, &reader);
         let directory = ctx.directory;
+        if let Some(original) = self
+            .io
+            .compiled
+            .borrow_mut()
+            .current_original(&current, &ctx)
+            .map_err(|_| invalid())?
+        {
+            return Ok(original);
+        }
         if current.head == self.io.journal_header["base_head"] {
             v1_3::verify_original(
                 current,
@@ -181,7 +190,8 @@ impl Host {
         let j = self.io.checkpoint().map_err(session_error)?;
         let v = self.verify(&j)?;
         let base = self.header_original().map_err(session_error)?;
-        let s = v.verify_session(
+        let s = self.verify_session(
+            &v,
             &base,
             self.seed.as_ref().expect("initialized header seed"),
             budget(),
@@ -242,6 +252,20 @@ impl SessionIo for Host {
         Ok(j.verify_cached(
             &current,
             &self.context(&observed, &id, &reader),
+            &mut self.io.compiled.borrow_mut(),
+        )?)
+    }
+    fn verify_session<'a>(
+        &self,
+        verified: &journal::VerifiedJournal<'a>,
+        base: &VerifiedOriginal,
+        inputs: &PlannerInputs,
+        limits: super::super::Limits,
+    ) -> Result<journal::VerifiedSession<'a>, SessionError> {
+        Ok(verified.verify_session_cached(
+            base,
+            inputs,
+            limits,
             &mut self.io.compiled.borrow_mut(),
         )?)
     }
@@ -311,14 +335,19 @@ impl SessionIo for Host {
             .map_err(session_error)?
             .checked_mul(1000)
             .ok_or(SessionError::Failure(SessionFailure::Capacity))?;
-        let p = plan::compile_inner(
-            &original,
-            intent,
-            receipt,
-            self.io.attempt(&original, n).map_err(session_error)?,
-            budget(),
-        )
-        .map_err(session_error)?;
+        let p = self
+            .io
+            .compiled
+            .borrow_mut()
+            .compile(
+                &original,
+                intent,
+                receipt,
+                self.io.attempt(&original, n).map_err(session_error)?,
+                budget(),
+                self.io.journal_bounds().max_records,
+            )
+            .map_err(session_error)?;
         self.reserve_mutation(mutation)?;
         self.io.allow(&p);
         let base = self.header_original().map_err(session_error)?;

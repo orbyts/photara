@@ -9,7 +9,7 @@ use super::{
     Allocation, AssociationId, Attempt, Corridor, EffectFailure, ExecutionError, Limits,
     Observation, OriginalPackage, PlannerInputs, RepeatableIo, RepeatablePlan, RestartContext,
     RoleAllocation, SelectedStage, SelectorIds, TreeGeometry, VerifiedOriginal, execute, journal,
-    layout, plan, restart, restore_plan, wire,
+    restart,
 };
 use crate::package::{self, v1_3};
 use serde_json::{Value, json};
@@ -259,34 +259,21 @@ fn attempt(old: &VerifiedOriginal, n: u64) -> std::io::Result<Attempt> {
             return Err(invalid());
         }
     }
-    let pool = layout::original_objects(
-        &old.package,
-        &PlannerInputs {
-            codec: String::new(),
-            active_root_id: String::new(),
-            associations: vec![],
-            roles: vec![],
-            root_placement: String::new(),
-            shared_sealed: vec![],
-            geometry: TreeGeometry {
-                semantic_leaf: 4,
-                operation_leaf: 2,
-                ownership_leaf: 4,
-                physical_leaf: 4,
-                branch: 4,
-            },
-            corridors: vec![],
-        },
-        budget(),
+    let active = old.proof.roles.get("active").ok_or_else(invalid)?;
+    let resource = restart::original_json(
+        old,
+        &active.state["resource_state"],
+        frames(),
+        &support::limits(),
     )
     .map_err(|_| invalid())?;
-    let active = old.proof.roles.get("active").ok_or_else(invalid)?;
-    let resource = pool
-        .get(&wire::key(&active.state["resource_state"]).map_err(|_| invalid())?)
-        .ok_or_else(invalid)?;
-    let sources = pool
-        .get(&wire::key(&resource["retention_sources"]).map_err(|_| invalid())?)
-        .ok_or_else(invalid)?;
+    let sources = restart::original_json(
+        old,
+        &resource["retention_sources"],
+        frames(),
+        &support::limits(),
+    )
+    .map_err(|_| invalid())?;
     let associations = sources["entries"]
         .as_array()
         .filter(|v| v.len() <= 64)

@@ -169,3 +169,177 @@ claimed merely because a previous candidate fixture demonstrated those variants.
 Strict library/tests Clippy, targeted Rustfmt and diff checks also pass. The
 [source-bound verification manifest](verification/ps2-shared-repeatable-regression.json)
 records the commands, exact source hashes and output logs.
+
+## Proposed incremental layout amendment — 2026-10-10 (UNAPPROVED)
+
+The current disposable writer is not ready for sustained autosave. Its latest
+attempt refused before admission with `preflight corridor exhausted`; no Mutation
+was acknowledged and no new original was persisted. The selected state remains
+Saved at position `(13, 14)`. Seven writable tips each have 3,145,728 prepaid bytes
+remaining, but twelve 262,144-byte physical units do **not** imply twelve admissible
+operations: every generated append must independently fit its original corridor.
+
+The preserved active-locator append sizes for the last five completed operations
+were 235,320, 240,106, 251,351, 253,985 and 259,654 non-padding bytes. The last leaves
+only 2,474 bytes after the required padding-frame header. These are measured
+completed outputs, not a claimed exact size for the refused attempt: that
+attempt's randomly chosen planner IDs were not persisted. Its request and refusal
+are retained in the private trial evidence; no fixture rewrite or cap increase is
+proposed.
+
+### Existing permission versus new compatibility boundary
+
+Fresh geometry and finite corridors are already approved explicit inputs. The
+adapter's fanout four and uniform 262,144-byte corridors are fixture choices,
+not frozen format requirements. Choosing better inputs before a new admission
+can reduce overhead; it cannot change an already admitted original. Such tuning
+has not been measured here and is not evidence that history scaling is solved.
+
+`repeatable/layout.rs` currently sorts and rechunks the entire logical tree in
+`Builder::tree` and the entire locator in `Builder::physical_tree`. It reuses exact
+matching pages, but inserted hash keys shift chunk boundaries and rewrite many
+otherwise unchanged entries. Global inventories and every role locator include
+all retained terminal controls. Wider pages reduce constants; wider corridors
+only postpone refusal. CPU memoization cannot remove these serialized bytes.
+
+Changing that deterministic construction under layout v1 would invalidate retry:
+`repeatable/recovery.rs::recover` recompiles the persisted inputs and requires exact
+original equality. A path-copy implementation therefore needs additive dispatch;
+existing v1 outputs, parser behavior and golden vectors must remain unchanged.
+
+### Exact proposed additive contract (UNAPPROVED)
+
+Approval is requested for this concrete packet's implementation and validation,
+not an additional design workstream. Proposed dispatch names are
+`photara.codec.ps2-repeatable-admission-v2` and
+`photara.codec.ps2-repeatable-layout-v2`. Neither is implemented. All v1 dispatch,
+bytes, refusal and retry rules remain frozen.
+
+All O/P/F fields retain their representation and meaning except:
+
+| Location | v2 value/change |
+| --- | --- |
+| `O.original_codec` | `photara.codec.ps2-repeatable-admission-v2` |
+| `O.payload_recipe.codec` | `photara.codec.ps2-repeatable-layout-v2` |
+| `O.payload_recipe.planner.planner.codec` | `photara.codec.ps2-repeatable-layout-v2`; the outer planner value remains the existing persisted Attempt. |
+| `O.payload_recipe.retained_controls` | Removed and forbidden in v2. |
+| `O.payload_recipe.retained_control_inventory` | Exact `{base, additions, result}` object below. |
+| `F.recipe_codec` | `photara.codec.ps2-repeatable-layout-v2` |
+
+Unknown fields/codecs refuse. No v1 alias/fallback, journal changes, package
+version changes, new geometry field or new product bound is introduced.
+
+`base` is exactly one of:
+
+- `{"kind":"empty"}` only when the independently verified predecessor has no
+  retained operation controls.
+- `{"kind":"legacy","original":Ref}` where the ref is the actual selected,
+  completed v1 predecessor O; its authenticated flattened retained list is the
+  seed. An arbitrary historical original is not eligible.
+- `{"kind":"tree","root":Ref}` where the ref equals the actual selected,
+  completed v2 predecessor's `retained_control_inventory.result`, resolved from
+  old packed bytes. This is a typed edge to the inventory and all its entries.
+
+`additions` is the exact sorted array of `{record:Ref,membership}` for predecessor
+selected overlay controls retained by the current v1 rule. It is empty for the
+initial settled case. Membership is `semantic` or `ownership`, derived from the
+actual schema; this graph-only path admits no new Blob controls. Equal keys
+coalesce only with equal membership, otherwise refuse. The full seed plus these
+additions is the exact retained set. No old entry expires. Prior holds still
+require independent terminal/zero-remaining proof; an inventory is not authority.
+
+`result` is the ObjectRef of the new inventory root. Before payload publication
+it is a reconstruction commitment, like the existing recipe's `base_inventory`.
+Published full proof must resolve it and all typed edges from actual selected
+bytes. Nodes are packed/charged with ownership membership in every role's
+independent locator and included in the exact global inventory. Current O is not
+in its own inventory; it enters the next original through `additions`. No self-hash
+cycle or embedded-body substitute for missing packed bytes is permitted.
+
+Two exact new node schemas are proposed. Both have fields
+`schema:{id,version:1}`, `project_id:UUID`, `count:DecimalU64`, the array below,
+and `extensions:{}`; unknown fields refuse. IDs are
+`photara.storage.retained-control-inventory-leaf` and
+`photara.storage.retained-control-inventory-branch`.
+
+| Node | Array and invariants |
+| --- | --- |
+| Leaf | `entries:[{record:Ref,membership}]`; strictly increasing `(sha256,numeric byte_length)` keys; count equals length. Empty is allowed only at the root. Each record is a typed edge with its recorded membership. |
+| Branch | `children:[{first:Ref,last:Ref,count:DecimalU64,child:Ref}]`; at least two children; exact positive subtree counts, disjoint ordered ranges and checked count sum. Each child is a typed inventory-node edge. |
+
+All nodes match Project identity. Existing JSON/object/frame/tree/work budgets
+apply before allocation. Leaf capacity is persisted `semantic_leaf`; branch
+capacity is `branch`. Reuse never exempts a node from schema/identity/budget checks.
+
+### Deterministic incremental layout
+
+Seed trees come only from the authenticated original: operation indexes from old
+active indexes; semantic inventories from their corresponding predecessor; global
+inventory from the old overlay base; ownership and locators from the original
+same-role placement in the same destination allocation; root placement from the
+old selected root-placement tree. Missing eligible seeds use canonical empty
+leaves. Reused physical references must remain in the new role's exact ownership
+closure; otherwise pack a valid new location. No foreign-role shortcut is allowed.
+
+Derive the unchanged exact target set, including the new inventory nodes. Apply
+one delta per key in ascending order: remove absent keys, replace differing values,
+insert new keys. ObjectRefs sort by `(sha256,numeric byte_length)`, ordinals
+numerically, UUIDs by existing canonical string order. Equal entries/subtrees
+retain exact bytes/references. Descent selects the first child whose last key is
+at least the update key, otherwise the last child. Copy only changed paths.
+
+On overflow split the ordered `capacity+1` entries/children at `floor(length/2)`,
+left then right. Remove empty children and collapse singleton branches; an empty
+root becomes the canonical empty leaf. Do not merge underfull neighbors or globally
+rechunk. Emit changed nodes bottom-up, left to right, in delta order, retaining
+existing digest deduplication and frame encoding. Other objects keep existing
+append order. Refuse geometry smaller than an eligible seed node rather than
+silently rebuilding it. Count/range/seed inconsistencies refuse before effects.
+
+Persist planning choices once under O. Recovery dispatches by that original and
+reproduces exact append bytes, identities, reserve and selectors. Complete plan
+and control coexistence must fit unchanged admitted/registered bounds before any
+effect. Neither larger corridors nor geometry tuning is part of this fix.
+
+### Draft serialization vectors
+
+These isolated node vectors specify canonical bytes/splitting, not complete
+package proof. Project is `10000000-0000-4000-8000-000000000001`. Entry A has record
+SHA-256 of 64 `a` characters, byte_length `"1"`, membership `"ownership"`; B uses
+64 `b` characters, length `"2"`, membership `"semantic"`. With leaf capacity one,
+inserting B into A yields leaves A/B and their two-child branch. The branch child
+ranges are the corresponding record refs, child count `"1"`, and child refs are
+those leaves' hashes/lengths. Existing canonical sorted-key UTF-8 JSON has no
+whitespace or trailing newline.
+
+| Object | Bytes | SHA-256 |
+| Empty leaf | 172 | `cc2273172590226214739fca9d25ea8d9c2e1e9d288229b5c053d8750fb08c5a` |
+| Leaf A | 303 | `b1196ffa9b8f0347afe5cb01a531143f23f0058d60b97ef29cf06d3f4be398f2` |
+| Leaf B | 302 | `4d46dc2615b02d3dba9bc1ae94b3a1481d0f0fa9b79308705b9defa774e48650` |
+| Branch A/B | 828 | `7a14cc350f1f2d742f3bd64ae2f194f9a6540fd9917d05b22fa061aefcd38f58` |
+
+### Required implementation and acceptance
+
+The retained inventory and path-copy changes are one cohesive amendment; neither
+alone is claimed to solve autosave. Implement bounded exact-input reuse of
+validated immutable subtrees/history so new commands do not rematerialize every
+prior original. Initial/reopened audit remains complete. Every request still
+checks actual current observations, registered identity/charges, authorization
+and barriers; no persisted or memoized proof can mint Saved. Changed bytes,
+limits or observations invalidate affected reuse.
+
+Approval authorizes implementation of this packet and exact-byte validation in
+existing infrastructure, followed by measured disposable acceptance. Required
+gates: unchanged v1 vectors/recovery; exact retained set and liabilities;
+independent role recovery; split/removal/order/malformed-input refusals; exact
+interrupted retry; and same-history measurements of append bytes, work, peak
+memory and total save latency. Publish complete v2 package vectors with results.
+Stop for review only if implementation reveals a material change to the exact
+fields or authority semantics above. No native writes resume merely because
+isolated serialization vectors match. No new fixture family is needed.
+
+No deletion, retention expiry, history/undo truncation, cap increase, weaker
+Saved/barrier claim, migration or real-library write permission is included.
+Existing v1 bytes remain unchanged; new v2 attempts may reference their verified
+legacy authority. Finite physical capacity can still refuse. Desired latency
+remains an acceptance test, not an unmeasured guarantee.

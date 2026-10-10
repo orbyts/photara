@@ -11,6 +11,10 @@ use crate::package::planning::{
     PlanRequest, VerifiedClosure, WriteId,
 };
 use photara_core::{NodeDefinitionRegistry, ValueTypeRegistry, creation::PackageExtension};
+use std::sync::Arc;
+#[cfg(any(test, feature = "controlled-disposable"))]
+#[path = "journal_session_cache.rs"]
+pub(crate) mod cache;
 type Objects = BTreeMap<wire::Key, Value>;
 
 fn checked<T>(result: wire::Result<T>) -> Result<T, PackageError> {
@@ -442,6 +446,7 @@ fn replay(
     )
     .map_err(|_| PackageError::Integrity)
 }
+#[derive(Clone)]
 struct MutationEvidence {
     record: JournalRecord,
     before: Objects,
@@ -455,7 +460,7 @@ struct MutationEvidence {
 /// A separately qualified coordinator must authorize and barrier any append.
 pub struct VerifiedSession<'a> {
     journal: &'a Journal,
-    logical: VerifiedClosure,
+    logical: Arc<VerifiedClosure>,
     head: Value,
     accepted: Value,
     journal_inclusion: Value,
@@ -474,11 +479,15 @@ impl<'a> VerifiedJournal<'a> {
     /// # Errors
     /// Refuses false patches, unsupported inverses, discontinuous inclusion,
     /// forged lifecycle evidence or a different base.
-    #[expect(
-        clippy::too_many_lines,
-        reason = "Keep ordered local and independently checked checkpoint prefix validation together"
-    )]
     pub fn verify_session(
+        &self,
+        base: &VerifiedOriginal,
+        inputs: &PlannerInputs,
+        limits: Limits,
+    ) -> Result<VerifiedSession<'a>, PackageError> {
+        self.extend_session(self.initial_session(base, inputs, limits)?, 0, limits)
+    }
+    fn initial_session(
         &self,
         base: &VerifiedOriginal,
         inputs: &PlannerInputs,
@@ -502,9 +511,9 @@ impl<'a> VerifiedJournal<'a> {
             .ok_or(PackageError::Integrity)?;
         let checkpoint_target =
             json!({"coordinate":logical.coordinate(),"through":null,"accepted_frame":null});
-        let mut session = VerifiedSession {
+        Ok(VerifiedSession {
             journal: self.journal,
-            logical,
+            logical: Arc::new(logical),
             head: base.package.head.clone(),
             accepted: active.state["accepted"].clone(),
             journal_inclusion: active.state["journal_inclusion"].clone(),
@@ -525,8 +534,15 @@ impl<'a> VerifiedJournal<'a> {
             checkpointed: 0,
             completed: None,
             checkpoint_target,
-        };
-        for (index, record) in self.journal.records.iter().enumerate() {
+        })
+    }
+    fn extend_session(
+        &self,
+        mut session: VerifiedSession<'a>,
+        start: usize,
+        limits: Limits,
+    ) -> Result<VerifiedSession<'a>, PackageError> {
+        for (index, record) in self.journal.records.iter().enumerate().skip(start) {
             match record.value["kind"].as_str() {
                 Some("Mutation") => session.apply_mutation(record)?,
                 Some("CheckpointReceipt") => {
@@ -570,7 +586,7 @@ impl<'a> VerifiedJournal<'a> {
                         check(session.order.is_empty())?;
                         check(session.historical.insert(operation.to_owned()))?;
                         session.logical =
-                            replay(&session.logical, &plan.intent, Some(&plan.receipt))?;
+                            Arc::new(replay(&session.logical, &plan.intent, Some(&plan.receipt))?);
                         session.ordinal = n(&plan.receipt["acceptance_ordinal"])?;
                         session.sequence = n(&plan.receipt["journal_sequence"])?;
                         session.advance_prefix(&plan.receipt);
@@ -837,7 +853,7 @@ impl VerifiedSession<'_> {
                 None
             };
         }
-        self.logical = next;
+        self.logical = Arc::new(next);
         self.ordinal = n(&body["operation_receipt"]["acceptance_ordinal"])?;
         self.sequence = n(&body["operation_receipt"]["journal_sequence"])?;
         self.advance_prefix(&body["operation_receipt"]);

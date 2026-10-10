@@ -1,6 +1,8 @@
 //! Restart from selected original records and current supplied bytes, without a
 //! retained in-memory plan. Historical prefix views never certify current tails.
 use super::{Limits, OriginalPackage, RepeatablePlan, VerifiedOriginal, recovery, wire};
+#[cfg(any(test, feature = "controlled-disposable"))]
+use crate::package::Sha256Hex;
 use crate::package::v1_3::{
     self, AllocationInspection, AllocationLayout, AllocationObservation, DirectoryObservation,
     FrameLimits, ReaderLimits, SelectionIdentity, SettledRegistration,
@@ -15,8 +17,13 @@ use std::{
     sync::Arc,
 };
 
+#[path = "restart_prefix.rs"]
+pub(super) mod prefix_index;
 #[path = "restart_reader.rs"]
 mod reader_memo;
+#[path = "restart_snapshot.rs"]
+#[cfg(any(test, feature = "controlled-disposable"))]
+pub(super) mod snapshot_memo;
 
 /// All observations are independent registered/pinned inputs. No IO or lease is
 /// acquired, and success is neither write permission nor a durable receipt.
@@ -130,6 +137,61 @@ fn request<I>(
     )
     .json(&reference, v1_3::Membership::Semantic)
 }
+/// Resolves one semantic record from a privately verified original's actual
+/// selected locator. Used for planner inputs, never a diagnostic object pool.
+#[cfg(any(test, feature = "controlled-disposable"))]
+pub(crate) fn original_json(
+    original: &VerifiedOriginal,
+    reference: &Value,
+    frames: FrameLimits,
+    reader: &v1_3::ReaderLimits,
+) -> Result<Value, PackageError> {
+    let package = original.package();
+    let selection = v1_3::SelectionIdentity {
+        project: PackageUuid::parse(
+            package.manifest["project_id"]
+                .as_str()
+                .ok_or(PackageError::Record)?,
+        )?,
+        library: PackageUuid::parse(
+            package.commit["root_set"]["library_id"]
+                .as_str()
+                .ok_or(PackageError::Record)?,
+        )?,
+        bootstrap_sha256: Sha256Hex::parse(
+            package.commit["bootstrap_sha256"]
+                .as_str()
+                .ok_or(PackageError::Record)?,
+        )?,
+    };
+    let envelope = v1_3::SelectedEnvelope::parse(
+        &wire::encode(&package.manifest),
+        &wire::encode(&package.head),
+        &wire::encode(&package.commit),
+        selection,
+        reader.json,
+    )?;
+    let provider = Packed {
+        package,
+        limits: frames,
+        checked: RefCell::new(BTreeMap::new()),
+    };
+    let role = envelope.open_role(&provider, v1_3::SelectedRole::Active, reader.tree)?;
+    let reference: ObjectRef =
+        serde_json::from_value(reference.clone()).map_err(|_| PackageError::Record)?;
+    v1_3::Locator::new(
+        &provider,
+        PackageUuid::parse(
+            package.manifest["project_id"]
+                .as_str()
+                .ok_or(PackageError::Record)?,
+        )?,
+        role.locator,
+        reader.tree,
+    )
+    .json(&reference, v1_3::Membership::Semantic)
+}
+
 fn controls(package: &OriginalPackage, limits: JsonLimits) -> Result<(Value, Value), PackageError> {
     let envelope = loose(
         package,
@@ -276,6 +338,7 @@ impl<I: AllocationInspection> Replayer<'_, '_, I> {
                 context,
                 Some(&plan),
                 maximum,
+                None,
                 |inspection| {
                     v1_3::reader::verify_operation_original(
                         package.clone(),
@@ -330,6 +393,7 @@ impl<I: AllocationInspection> Replayer<'_, '_, I> {
                 &receipt,
                 self.context.planner,
                 self.context.max_originals,
+                None,
             )?)
             .map_err(|_| PackageError::Integrity)?
         } else {
@@ -465,7 +529,7 @@ fn restore_plan_inner<I: AllocationInspection>(
 /// Validate a persisted checkpoint intent before its first selected package
 /// effect. This restores the original recipe, not a proof of current suffixes
 /// or publication; execution must independently validate those before effects.
-#[cfg(any(test, feature = "controlled-disposable"))]
+#[cfg(test)]
 pub(crate) fn restore_intent_plan<I: AllocationInspection>(
     current: &OriginalPackage,
     original: &Value,
@@ -496,6 +560,29 @@ pub(crate) fn restore_intent_plan_cached<I: AllocationInspection>(
             == serde_json::json!({"profile":context.registration.profile,"incarnation":context.registration.incarnation.to_string(),"directory":{"device":context.directory.device.to_string(),"inode":context.directory.inode.to_string()}}),
     )?;
     let old = memo.reconstruct(current, original, context.planner)?;
+    if same_package(&old, current)
+        && let Some(verified) = memo.current_original(current, context)?
+    {
+        let lineage = memo
+            .journal
+            .as_ref()
+            .ok_or(PackageError::Integrity)?
+            .lineage();
+        check(!lineage.contains(&wire::hash(&wire::encode(original))))?;
+        if lineage.len() >= context.max_originals {
+            return Err(PackageError::Limit);
+        }
+        return Arc::try_unwrap(memo.recover(
+            &verified,
+            original,
+            intent,
+            receipt,
+            context.planner,
+            context.max_originals,
+            None,
+        )?)
+        .map_err(|_| PackageError::Integrity);
+    }
     let mut replay = Replayer {
         context,
         memo: Some(memo),
@@ -514,6 +601,7 @@ pub(crate) fn restore_intent_plan_cached<I: AllocationInspection>(
                 receipt,
                 context.planner,
                 context.max_originals,
+                None,
             )?,
     )
     .map_err(|_| PackageError::Integrity)
@@ -528,15 +616,43 @@ pub(crate) struct CompiledPlans {
     order: VecDeque<String>,
     bytes: usize,
     byte_ceiling: Option<usize>,
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(super) journal: Option<super::journal::JournalMemo>,
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(crate) session: Option<super::journal::session::cache::SessionMemo>,
+    #[cfg(test)]
+    pub(crate) session_replayed: usize,
+    #[cfg(test)]
+    pub(crate) session_record_work: usize,
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    candidates: snapshot_memo::Candidates,
+    #[cfg(test)]
+    pub(crate) candidate_checks: usize,
     #[cfg(test)]
     pub(crate) compilations: usize,
     #[cfg(test)]
     pub(crate) hits: usize,
+    #[cfg(test)]
+    pub(crate) journal_prefix_hashed: usize,
+    #[cfg(test)]
+    pub(crate) journal_replayed: usize,
+    #[cfg(test)]
+    pub(crate) journal_hits: usize,
 }
 impl CompiledPlans {
-    fn maximum(&self, limits: Limits) -> usize {
+    pub(super) fn raw_maximum(&self, limits: Limits) -> usize {
         let maximum = usize::try_from(limits.max_total_allocation_bytes).unwrap_or(usize::MAX);
         self.byte_ceiling.map_or(maximum, |n| n.min(maximum))
+    }
+    fn maximum(&self, limits: Limits) -> usize {
+        let maximum = self.raw_maximum(limits);
+        let maximum = maximum.saturating_sub(prefix_index::allowance(maximum));
+        #[cfg(any(test, feature = "controlled-disposable"))]
+        let maximum = maximum
+            .saturating_sub(self.journal.as_ref().map_or(0, |m| m.cost))
+            .saturating_sub(self.session.as_ref().map_or(0, |m| m.cost))
+            .saturating_sub(self.candidates.bytes);
+        maximum
     }
     #[cfg(test)]
     pub(crate) fn set_test_ceiling(&mut self, maximum: usize) {
@@ -544,6 +660,24 @@ impl CompiledPlans {
     }
 
     pub(crate) fn trim(&mut self, limits: Limits, max_entries: usize) {
+        #[cfg(any(test, feature = "controlled-disposable"))]
+        {
+            if self
+                .journal
+                .as_ref()
+                .is_some_and(|m| m.cost > self.raw_maximum(limits) / 8)
+            {
+                self.journal = None;
+            }
+            if self
+                .session
+                .as_ref()
+                .is_some_and(|m| m.cost > self.raw_maximum(limits) / 4)
+            {
+                self.session = None;
+            }
+            self.candidates.trim(self.raw_maximum(limits) / 16);
+        }
         let maximum = self.maximum(limits);
         self.reader.trim_entries(max_entries);
         if self.bytes.saturating_add(self.reader.bytes) > maximum {
@@ -558,11 +692,113 @@ impl CompiledPlans {
             }
         }
     }
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(crate) fn inspect_candidate<I: AllocationInspection>(
+        &mut self,
+        package: &OriginalPackage,
+        context: &RestartContext<'_, I>,
+        plan: &RepeatablePlan,
+        stage: usize,
+    ) -> Result<(), PackageError> {
+        self.trim(context.planner, context.max_originals);
+        let _ = plan.operation_selection(stage)?;
+        check(
+            package.manifest == plan.old.manifest && package.allocations.len() == plan.files.len(),
+        )?;
+        for (id, expected) in &plan.files {
+            check(
+                package
+                    .allocations
+                    .get(id)
+                    .is_some_and(|a| a.bytes == *expected),
+            )?;
+        }
+        let selected = &plan.stages[stage];
+        let key = wire::hash(&wire::encode(&serde_json::json!([
+            reader_memo::fingerprint(package, context, Some(plan), None),
+            stage,
+            selected.head,
+            selected.commit,
+            selected
+                .loose
+                .iter()
+                .map(|(k, v)| serde_json::json!([k, v.len(), wire::hash(v)]))
+                .collect::<Vec<_>>()
+        ])));
+        if self.candidates.matches(&key, context.inspection)? {
+            return Ok(());
+        }
+        let observed = snapshot_memo::Recording::new(
+            context.inspection,
+            snapshot_memo::Observations::default(),
+        );
+        v1_3::reader::inspect_operation_package(
+            package,
+            identity(context.identity),
+            &observed,
+            context.registration,
+            context.frames,
+            context.reader,
+            plan,
+            stage,
+        )?;
+        #[cfg(test)]
+        {
+            self.candidate_checks += 1;
+        }
+        self.candidates.insert(
+            key,
+            observed.finish(),
+            self.raw_maximum(context.planner) / 16,
+        );
+        self.trim(context.planner, context.max_originals);
+        Ok(())
+    }
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(crate) fn current_original<I: AllocationInspection>(
+        &mut self,
+        current: &OriginalPackage,
+        context: &RestartContext<'_, I>,
+    ) -> Result<Option<VerifiedOriginal>, PackageError> {
+        self.trim(context.planner, context.max_originals);
+        let result = match &self.journal {
+            Some(saved) => saved.current_original(current, context),
+            None => Ok(None),
+        };
+        #[cfg(feature = "controlled-disposable")]
+        if std::env::var_os("PHOTARA_PS3_TRACE_REPLAY").is_some() {
+            eprintln!(
+                "private current-original memo: {}",
+                if matches!(&result, Ok(Some(_))) {
+                    "hit"
+                } else {
+                    "miss"
+                }
+            );
+        }
+        result
+    }
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(super) fn snapshot_key<I>(
+        current: &OriginalPackage,
+        context: &RestartContext<'_, I>,
+    ) -> String {
+        reader_memo::fingerprint(current, context, None, None)
+    }
     pub(crate) fn reconstruct(
         &self,
         current: &OriginalPackage,
         original: &Value,
         limits: Limits,
+    ) -> Result<OriginalPackage, PackageError> {
+        self.reconstruct_indexed(current, original, limits, None)
+    }
+    fn reconstruct_indexed(
+        &self,
+        current: &OriginalPackage,
+        original: &Value,
+        limits: Limits,
+        prefixes: Option<&prefix_index::Prefixes<'_>>,
     ) -> Result<OriginalPackage, PackageError> {
         let bounds = planner_limits(limits);
         if let Some((cached, _)) = self
@@ -575,11 +811,16 @@ impl CompiledPlans {
                 original,
                 limits,
                 &cached.plan.old,
-                &cached.objects,
+                &cached.plan.original_objects,
+                prefixes,
             );
         }
         recovery::reconstruct_original(current, original, limits)
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Exact replay inputs and optional snapshot-bound hash index remain explicit"
+    )]
     fn recover(
         &mut self,
         verified: &VerifiedOriginal,
@@ -588,22 +829,14 @@ impl CompiledPlans {
         receipt: &Value,
         limits: Limits,
         max_entries: usize,
+        prefixes: Option<&prefix_index::Prefixes<'_>>,
     ) -> Result<Arc<RepeatablePlan>, PackageError> {
         self.trim(limits, max_entries);
-        let maximum = self.maximum(limits);
-        let retained = verified.retained_controls.iter().map(|(reference,membership)| {
-            serde_json::json!({"record":reference,"membership":match membership {v1_3::Membership::Semantic=>"semantic",v1_3::Membership::Ownership=>"ownership",v1_3::Membership::Blob=>"blob"}})
-        }).collect::<Vec<_>>();
-        let basis = wire::encode(&serde_json::json!({
-            "original":original,"intent":intent,"receipt":receipt,
-            "scope":verified.scope,"charge_unit":verified.charge_unit,
-            "empty_hold":verified.empty_hold,"retained":retained,
-            "limits":planner_limits(limits)
-        }));
+        let basis = compiled_basis(verified, original, intent, receipt, limits);
         let key = wire::hash(&basis);
         if let Some((cached, _)) = self.entries.get(&key) {
             check(cached.plan.original == *original && cached.plan.prepared.receipt == *receipt)?;
-            let plan = cached.materialize(verified.package())?;
+            let plan = cached.materialize(verified.package(), prefixes)?;
             let supplied = wire::encode(intent);
             check(
                 plan.stages[0].loose.get(
@@ -625,11 +858,76 @@ impl CompiledPlans {
         let plan = Arc::new(recovery::recover(
             verified, original, intent, receipt, limits,
         )?);
+        self.remember(&basis, &plan, limits, max_entries, false)?;
+        Ok(plan)
+    }
+    /// Compile a fresh admission once and retain its exact deterministic output
+    /// for subsequent pre-effect journal verification. This accepts no caller-
+    /// constructed plan or reader proof; ordinary compilation still runs first.
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(crate) fn compile(
+        &mut self,
+        verified: &VerifiedOriginal,
+        intent: &Value,
+        receipt: &Value,
+        attempt: super::plan::Attempt,
+        limits: Limits,
+        max_entries: usize,
+    ) -> wire::Result<RepeatablePlan> {
+        #[cfg(test)]
+        {
+            self.compilations += 1;
+        }
+        let plan = super::plan::compile_inner(verified, intent, receipt, attempt, limits)?;
+        let basis = compiled_basis(verified, plan.original(), intent, receipt, limits);
+        self.remember(&basis, &plan, limits, max_entries, true)
+            .map_err(|_| "compiled plan memo")?;
+        Ok(plan)
+    }
+    fn remember(
+        &mut self,
+        basis: &[u8],
+        plan: &RepeatablePlan,
+        limits: Limits,
+        max_entries: usize,
+        fresh: bool,
+    ) -> Result<(), PackageError> {
+        self.trim(limits, max_entries);
+        let maximum = self.maximum(limits);
+        let key = wire::hash(basis);
+        if self.entries.contains_key(&key) {
+            return Ok(());
+        }
         // Scan-resistant admission: a journal replay must not evict its warm
         // prefix merely because the immutable history exceeds the optional cache.
         // Oversize/new entries remain uncached, with identical verification.
-        let cached = CachedPlan::compact(&plan, limits)?;
+        let cached = CachedPlan::compact(plan, limits)?;
         let cost = cached.byte_cost().and_then(|n| n.checked_add(basis.len()));
+        // A newly admitted operation is the imminent retry working set. Unlike
+        // a historical scan, it may displace older optional entries so it does
+        // not compile again immediately before its first effects.
+        if fresh
+            && max_entries > 0
+            && let Some(cost) = cost.filter(|cost| *cost <= maximum)
+        {
+            if self.reader.bytes.saturating_add(cost) > maximum {
+                self.reader.clear();
+            }
+            while self.entries.len() >= max_entries
+                || self
+                    .bytes
+                    .saturating_add(self.reader.bytes)
+                    .saturating_add(cost)
+                    > maximum
+            {
+                let Some(old) = self.order.pop_front() else {
+                    break;
+                };
+                if let Some((_, size)) = self.entries.remove(&old) {
+                    self.bytes -= size;
+                }
+            }
+        }
         if let Some(cost) = cost.filter(|cost| {
             self.entries.len() < max_entries
                 && self
@@ -642,7 +940,7 @@ impl CompiledPlans {
             self.order.push_back(key);
             self.bytes += cost;
         }
-        Ok(plan)
+        Ok(())
     }
     #[cfg(test)]
     pub(crate) fn reader_work(&self) -> (usize, usize) {
@@ -650,10 +948,34 @@ impl CompiledPlans {
     }
     #[cfg(test)]
     pub(crate) fn retained(&self) -> (usize, usize) {
-        (self.entries.len(), self.bytes + self.reader.bytes)
+        (
+            self.entries.len(),
+            self.bytes
+                + self.reader.bytes
+                + self.journal.as_ref().map_or(0, |j| j.cost)
+                + self.session.as_ref().map_or(0, |m| m.cost)
+                + self.candidates.bytes,
+        )
     }
 }
-fn planner_limits(limits: Limits) -> Value {
+fn compiled_basis(
+    verified: &VerifiedOriginal,
+    original: &Value,
+    intent: &Value,
+    receipt: &Value,
+    limits: Limits,
+) -> Vec<u8> {
+    let retained = verified.retained_controls.iter().map(|(reference,membership)| {
+            serde_json::json!({"record":reference,"membership":match membership {v1_3::Membership::Semantic=>"semantic",v1_3::Membership::Ownership=>"ownership",v1_3::Membership::Blob=>"blob"}})
+        }).collect::<Vec<_>>();
+    wire::encode(&serde_json::json!({
+        "original":original,"intent":intent,"receipt":receipt,
+        "scope":verified.scope,"charge_unit":verified.charge_unit,
+        "empty_hold":verified.empty_hold,"retained":retained,
+        "limits":planner_limits(limits)
+    }))
+}
+pub(super) fn planner_limits(limits: Limits) -> Value {
     let json = limits.semantic.json;
     let semantic = limits.semantic;
     serde_json::json!([
@@ -682,7 +1004,6 @@ struct CachedPlan {
     prefixes: BTreeMap<String, (usize, String)>,
     controls: BTreeMap<String, Vec<u8>>,
     stage_keys: Vec<Vec<String>>,
-    objects: BTreeSet<super::wire::Key>,
     limits: Value,
 }
 impl CachedPlan {
@@ -739,6 +1060,7 @@ impl CachedPlan {
             .collect::<Result<Vec<_>, PackageError>>()?;
         Ok(Self {
             plan: RepeatablePlan {
+                original_objects: p.original_objects.clone(),
                 old,
                 files,
                 stages,
@@ -755,14 +1077,14 @@ impl CachedPlan {
             prefixes,
             controls,
             stage_keys,
-            objects: super::layout::original_objects(&p.old, &p.attempt.planner, limits)
-                .map_err(|_| PackageError::Integrity)?
-                .into_keys()
-                .collect(),
             limits: planner_limits(limits),
         })
     }
-    fn materialize(&self, current: &OriginalPackage) -> Result<RepeatablePlan, PackageError> {
+    fn materialize(
+        &self,
+        current: &OriginalPackage,
+        prefixes: Option<&prefix_index::Prefixes<'_>>,
+    ) -> Result<RepeatablePlan, PackageError> {
         let p = &self.plan;
         check(
             current.manifest == p.old.manifest
@@ -779,7 +1101,9 @@ impl CachedPlan {
                 actual.arena == expected.arena
                     && actual.witness == expected.witness
                     && actual.bytes.len() == *length
-                    && wire::hash(&actual.bytes) == *digest,
+                    && prefixes
+                        .map_or_else(|| wire::hash(&actual.bytes), |p| p.hash(id, &actual.bytes))
+                        == *digest,
             )?;
             let mut bytes = actual.bytes.clone();
             bytes.extend_from_slice(p.files.get(id).ok_or(PackageError::Integrity)?);
@@ -810,6 +1134,7 @@ impl CachedPlan {
             })
             .collect::<Result<_, PackageError>>()?;
         Ok(RepeatablePlan {
+            original_objects: p.original_objects.clone(),
             old: current.clone(),
             files,
             stages,
@@ -833,7 +1158,7 @@ impl CachedPlan {
             "original":p.original,"receipt":p.prepared.receipt,"authored":p.prepared.authored.values().collect::<Vec<_>>(),
             "stages":p.stages.iter().map(|s| serde_json::json!([s.head,s.commit])).collect::<Vec<_>>(),
             "attempt":p.attempt,"empty_hold":p.empty_hold,"prefixes":self.prefixes,"keys":self.stage_keys,
-            "payload_ends":p.payload_ends,"retained_refs":p.retained_controls.keys().collect::<Vec<_>>(),"objects":self.objects,"limits":self.limits});
+            "payload_ends":p.payload_ends,"retained_refs":p.retained_controls.keys().collect::<Vec<_>>(),"objects":p.original_objects.iter().collect::<Vec<_>>(),"limits":self.limits});
         let mut bytes = value_storage(&metadata)?;
         for (key, value) in p.old.loose.iter().chain(&p.files).chain(&self.controls) {
             bytes = bytes
@@ -850,7 +1175,7 @@ impl CachedPlan {
         bytes.checked_add(std::mem::size_of::<Self>())
     }
 }
-fn value_storage(value: &Value) -> Option<usize> {
+pub(super) fn value_storage(value: &Value) -> Option<usize> {
     let base = std::mem::size_of::<Value>();
     match value {
         Value::String(s) => base.checked_add(s.capacity()),
@@ -876,6 +1201,8 @@ pub(crate) struct IntentReplay<'a, 'b, I> {
     completed: Option<(VerifiedOriginal, BTreeSet<String>)>,
     lineage: BTreeSet<String>,
     pending: Option<String>,
+    prefixes: prefix_index::Prefixes<'a>,
+    resume: Option<(CompactOriginal, BTreeSet<String>)>,
 }
 impl<'a, 'b, I: AllocationInspection> IntentReplay<'a, 'b, I> {
     pub(crate) fn new(current: &'a OriginalPackage, context: &'a RestartContext<'b, I>) -> Self {
@@ -885,9 +1212,27 @@ impl<'a, 'b, I: AllocationInspection> IntentReplay<'a, 'b, I> {
             completed: None,
             lineage: BTreeSet::new(),
             pending: None,
+            resume: None,
+            prefixes: prefix_index::Prefixes::new(
+                current,
+                usize::try_from(context.planner.max_total_allocation_bytes).unwrap_or(usize::MAX),
+            ),
         }
     }
-    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(super) fn seed(&mut self, original: CompactOriginal, lineage: BTreeSet<String>) {
+        self.resume = Some((original, lineage));
+    }
+    pub(super) fn completed_metadata(&self) -> Option<(CompactOriginal, BTreeSet<String>)> {
+        self.completed
+            .as_ref()
+            .map(|(v, l)| (CompactOriginal::new(v), l.clone()))
+            .or_else(|| self.resume.clone())
+    }
+    #[cfg(test)]
+    pub(crate) fn prefix_hashed(&self) -> usize {
+        self.prefixes.hashed.get()
+    }
+    #[cfg(test)]
     pub(crate) fn restore(
         &mut self,
         original: &Value,
@@ -904,7 +1249,13 @@ impl<'a, 'b, I: AllocationInspection> IntentReplay<'a, 'b, I> {
         receipt: &Value,
         mut memo: Option<&mut CompiledPlans>,
     ) -> Result<Arc<RepeatablePlan>, PackageError> {
+        if let Some((saved, lineage)) = self.resume.take() {
+            self.completed = Some((saved.materialize(self.current)?, lineage));
+        }
         let context = self.context;
+        if let Some(cache) = memo.as_deref() {
+            self.prefixes.limit(cache.raw_maximum(context.planner));
+        }
         check(context.directory.inode != 0 && context.registration.charge_unit > 0)?;
         check(context.max_originals > 0)?;
         check(
@@ -913,7 +1264,12 @@ impl<'a, 'b, I: AllocationInspection> IntentReplay<'a, 'b, I> {
         )?;
         let key = wire::hash(&wire::encode(original));
         let old = if let Some(cache) = memo.as_deref() {
-            cache.reconstruct(self.current, original, context.planner)?
+            cache.reconstruct_indexed(
+                self.current,
+                original,
+                context.planner,
+                Some(&self.prefixes),
+            )?
         } else {
             recovery::reconstruct_original(self.current, original, context.planner)?
         };
@@ -954,6 +1310,7 @@ impl<'a, 'b, I: AllocationInspection> IntentReplay<'a, 'b, I> {
                     receipt,
                     context.planner,
                     context.max_originals,
+                    Some(&self.prefixes),
                 )
             } else {
                 recovery::recover(verified, original, intent, receipt, context.planner)
@@ -983,7 +1340,8 @@ impl<'a, 'b, I: AllocationInspection> IntentReplay<'a, 'b, I> {
         memo: Option<&mut CompiledPlans>,
     ) -> Result<(), PackageError> {
         check(self.pending.as_ref() == Some(&wire::hash(&wire::encode(plan.original()))))?;
-        let verified = verify_completed_plan(self.current, plan, self.context, memo)?;
+        let verified =
+            verify_completed_plan(self.current, plan, self.context, memo, Some(&self.prefixes))?;
         self.completed = Some((verified, self.lineage.clone()));
         self.pending = None;
         Ok(())
@@ -1036,6 +1394,7 @@ pub(crate) fn verify_original_prefix_cached<I: AllocationInspection>(
         context,
         None,
         maximum,
+        None,
         |inspection| {
             let fresh = RestartContext {
                 inspection,
@@ -1059,12 +1418,32 @@ fn verify_completed_plan<I: AllocationInspection>(
     plan: &RepeatablePlan,
     context: &RestartContext<'_, I>,
     memo: Option<&mut CompiledPlans>,
+    prefixes: Option<&prefix_index::Prefixes<'_>>,
 ) -> Result<VerifiedOriginal, PackageError> {
     let stage = &plan.stages()[6];
-    let mut package = plan.old.clone();
-    package.head = stage.head.clone();
-    package.commit = stage.commit.clone();
-    package.loose = stage.loose.clone();
+    // Copy each target once; cloning the older full prefix first doubled the
+    // transient allocation bytes during every historical completion proof.
+    let mut package = OriginalPackage {
+        manifest: plan.old.manifest.clone(),
+        head: stage.head.clone(),
+        commit: stage.commit.clone(),
+        loose: stage.loose.clone(),
+        allocations: plan
+            .old
+            .allocations
+            .iter()
+            .map(|(id, a)| {
+                (
+                    id.clone(),
+                    super::Allocation {
+                        arena: a.arena.clone(),
+                        witness: a.witness.clone(),
+                        bytes: Vec::new(),
+                    },
+                )
+            })
+            .collect(),
+    };
     for (id, allocation) in &mut package.allocations {
         let actual = current.allocations.get(id).ok_or(PackageError::Integrity)?;
         let target = plan.files.get(id).ok_or(PackageError::Integrity)?;
@@ -1106,6 +1485,7 @@ fn verify_completed_plan<I: AllocationInspection>(
             context,
             Some(plan),
             maximum,
+            prefixes,
             |inspection| {
                 v1_3::reader::verify_operation_original(
                     package.clone(),
@@ -1132,4 +1512,131 @@ fn verify_completed_plan<I: AllocationInspection>(
         plan,
         6,
     )
+}
+
+#[derive(Clone)]
+pub(super) struct CompactOriginal {
+    package: OriginalPackage,
+    lengths: BTreeMap<String, usize>,
+    proof: super::input::OriginalProof,
+    scope: Value,
+    charge: u64,
+    empty: ObjectRef,
+    retained: BTreeMap<ObjectRef, v1_3::Membership>,
+}
+impl CompactOriginal {
+    fn new(v: &VerifiedOriginal) -> Self {
+        let package = OriginalPackage {
+            manifest: v.package.manifest.clone(),
+            head: v.package.head.clone(),
+            commit: v.package.commit.clone(),
+            loose: v.package.loose.clone(),
+            allocations: v
+                .package
+                .allocations
+                .iter()
+                .map(|(id, a)| {
+                    (
+                        id.clone(),
+                        super::Allocation {
+                            bytes: Vec::new(),
+                            arena: a.arena.clone(),
+                            witness: a.witness.clone(),
+                        },
+                    )
+                })
+                .collect(),
+        };
+        Self {
+            package,
+            lengths: v
+                .package
+                .allocations
+                .iter()
+                .map(|(id, a)| (id.clone(), a.bytes.len()))
+                .collect(),
+            proof: v.proof.clone(),
+            scope: v.scope.clone(),
+            charge: v.charge_unit,
+            empty: v.empty_hold.clone(),
+            retained: v.retained_controls.clone(),
+        }
+    }
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(super) fn exact_current<I: AllocationInspection>(
+        &self,
+        current: &OriginalPackage,
+        context: &RestartContext<'_, I>,
+    ) -> Result<Option<VerifiedOriginal>, PackageError> {
+        let p = &self.package;
+        if p.manifest != current.manifest
+            || p.head != current.head
+            || p.commit != current.commit
+            || p.loose != current.loose
+            || p.allocations.len() != current.allocations.len()
+            || current
+                .allocations
+                .iter()
+                .any(|(id, a)| self.lengths.get(id) != Some(&a.bytes.len()))
+        {
+            return Ok(None);
+        }
+        // Historical validation clamps tip charge/extent. Reuse as a current
+        // full proof only when those independent observations are identical.
+        let envelope = loose(
+            current,
+            &current.commit["root_set"]["placement"]["accounting"],
+            context.reader.json,
+        )?;
+        let ledger = loose(current, &envelope["ledger"], context.reader.json)?;
+        for tip in ledger["tips"].as_array().ok_or(PackageError::Record)? {
+            let id =
+                PackageUuid::parse(tip["allocation_id"].as_str().ok_or(PackageError::Record)?)?;
+            let actual = context.inspection.observe(id)?;
+            if actual.registered_charge != number(&tip["registered_charge"])?
+                || actual.extent
+                    != current
+                        .allocations
+                        .get(&id.to_string())
+                        .ok_or(PackageError::Integrity)?
+                        .bytes
+                        .len() as u64
+            {
+                return Ok(None);
+            }
+        }
+        self.materialize(current).map(Some)
+    }
+    fn materialize(&self, current: &OriginalPackage) -> Result<VerifiedOriginal, PackageError> {
+        let mut package = self.package.clone();
+        check(package.allocations.len() == current.allocations.len())?;
+        for (id, a) in &mut package.allocations {
+            let actual = current.allocations.get(id).ok_or(PackageError::Integrity)?;
+            check(actual.arena == a.arena && actual.witness == a.witness)?;
+            a.bytes = actual
+                .bytes
+                .get(..*self.lengths.get(id).ok_or(PackageError::Integrity)?)
+                .ok_or(PackageError::Integrity)?
+                .to_vec();
+        }
+        let mut verified = VerifiedOriginal::from_reader(
+            package,
+            self.proof.clone(),
+            self.scope.clone(),
+            self.charge,
+            self.empty.clone(),
+        );
+        verified.retained_controls = self.retained.clone();
+        Ok(verified)
+    }
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(super) fn cost(&self) -> Option<usize> {
+        let p = &self.package;
+        let data = serde_json::json!({"manifest":p.manifest,"head":p.head,"commit":p.commit,"allocations":p.allocations.iter().map(|(id,a)|serde_json::json!([id,a.arena,a.witness])).collect::<Vec<_>>(),"lengths":self.lengths,"roles":self.proof.roles.iter().map(|(id,r)|serde_json::json!([id,r.state,r.semantic,r.receipts])).collect::<Vec<_>>(),"global":self.proof.global,"scope":self.scope,"empty":self.empty,"retained":self.retained.iter().map(|(r,m)|serde_json::json!([r,format!("{m:?}")])).collect::<Vec<_>>()});
+        p.loose.iter().try_fold(value_storage(&data)?, |n, (k, v)| {
+            n.checked_add(k.capacity())?
+                .checked_add(v.capacity())?
+                .checked_add(256)
+        })
+    }
 }

@@ -79,6 +79,7 @@ pub struct SelectedStage {
     pub loose: BTreeMap<String, Vec<u8>>,
 }
 pub struct RepeatablePlan {
+    pub(crate) original_objects: std::sync::Arc<BTreeSet<wire::Key>>,
     pub(crate) old: OriginalPackage,
     pub(crate) original: Value,
     pub(crate) stages: Vec<SelectedStage>,
@@ -287,7 +288,17 @@ pub(crate) fn compile_inner(
                 .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c)),
         "original token and nonce",
     )?;
-    let prepared = core::replay(old, proof, intent, receipt, &attempt.planner, limits)?;
+    let builder = layout::Builder::load(old, &attempt.planner, limits)?;
+    let original_objects = std::sync::Arc::new(builder.pool.keys().cloned().collect());
+    let prepared = core::replay(
+        old,
+        proof,
+        intent,
+        receipt,
+        &attempt.planner,
+        limits,
+        &builder.pool,
+    )?;
     let mut retained_controls = original.retained_controls.clone();
     if !original.retained_controls.is_empty()
         || old.loose.values().any(|bytes| {
@@ -316,6 +327,7 @@ pub(crate) fn compile_inner(
         }
     }
     let layout = layout::compile(
+        builder,
         old,
         proof,
         &prepared,
@@ -566,6 +578,7 @@ pub(crate) fn compile_inner(
         });
     }
     Ok(RepeatablePlan {
+        original_objects,
         old: old.clone(),
         original: original_record,
         stages,

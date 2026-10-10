@@ -840,3 +840,6 @@ mod journal_tests;
 mod session_tests;
 #[path = "activation_tests.rs"]
 mod activation_tests;
+
+#[path = "compiler_benchmark.rs"]
+mod compiler_benchmark;

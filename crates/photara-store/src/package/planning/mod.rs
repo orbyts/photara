@@ -141,6 +141,45 @@ impl VerifiedClosure {
     pub fn files(&self) -> &MemoryPackage {
         &self.files
     }
+    /// Conservative owned-memory accounting for optional in-process memoization.
+    /// Shared buffers are counted in full; this never affects package admission.
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(crate) fn memo_bytes(
+        &self,
+        value_bytes: impl Fn(&serde_json::Value) -> Option<usize>,
+    ) -> Option<usize> {
+        let v = &self.verified;
+        let metadata = serde_json::json!([v.bootstrap, v.head, v.commits, self.coordinate]);
+        let mut total = value_bytes(&metadata)?
+            .checked_add(4096)?
+            .checked_add(self.token.manifest.len())?
+            .checked_add(self.token.head.len())?
+            .checked_add(
+                v.diagnostics
+                    .capacity()
+                    .checked_mul(std::mem::size_of::<PackageDiagnostic>())?,
+            )?;
+        for (name, bytes) in self.files.files() {
+            total = total
+                .checked_add(name.capacity())?
+                .checked_add(bytes.len())?
+                .checked_add(256)?;
+        }
+        for object in std::iter::once(&v.authored)
+            .chain(v.graphs.iter())
+            .chain(v.objects.values())
+        {
+            total = total
+                .checked_add(value_bytes(&object.value)?)?
+                .checked_add(object.canonical_bytes.capacity())?
+                .checked_add(512)?;
+        }
+        total.checked_add(
+            v.graphs
+                .capacity()
+                .checked_mul(std::mem::size_of::<super::VerifiedObject>())?,
+        )
+    }
 }
 
 #[derive(Debug)]

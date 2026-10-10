@@ -61,6 +61,7 @@ pub struct VerifiedJournal<'a> {
 // Completed history needs commitments and semantic replay inputs, not copies of
 // every historical pack. Construction follows deterministic original validation;
 // completed receipts still run the full current-prefix reader below.
+#[derive(Clone)]
 struct CheckpointPlan {
     original: Value,
     receipt: Value,
@@ -68,6 +69,50 @@ struct CheckpointPlan {
     selected_state: Value,
     head: Value,
     json_shape: JsonLimits,
+}
+#[derive(Clone)]
+struct JournalResume {
+    prefix: Vec<u8>,
+    count: usize,
+    plans: BTreeMap<String, CheckpointPlan>,
+    original: restart::CompactOriginal,
+    lineage: BTreeSet<String>,
+    head: Value,
+}
+#[cfg(any(test, feature = "controlled-disposable"))]
+pub(super) struct JournalMemo {
+    key: String,
+    resume: JournalResume,
+    observations: restart::snapshot_memo::Observations,
+    pub(super) cost: usize,
+}
+#[cfg(any(test, feature = "controlled-disposable"))]
+impl JournalMemo {
+    pub(super) fn lineage(&self) -> &BTreeSet<String> {
+        &self.resume.lineage
+    }
+    pub(super) fn current_original<I: AllocationInspection>(
+        &self,
+        current: &OriginalPackage,
+        context: &RestartContext<'_, I>,
+    ) -> Result<Option<super::VerifiedOriginal>, PackageError> {
+        if self.key != restart::CompiledPlans::snapshot_key(current, context)
+            || !self.observations.matches(context.inspection)?
+        {
+            return Ok(None);
+        }
+        self.resume.original.exact_current(current, context)
+    }
+}
+#[cfg(any(test, feature = "controlled-disposable"))]
+impl JournalResume {
+    fn cost(&self) -> Option<usize> {
+        let metadata = json!({"plans":self.plans.iter().map(|(id,p)|json!([id,p.original,p.receipt,p.intent,p.selected_state,p.head,format!("{:?}",p.json_shape)])).collect::<Vec<_>>(),"lineage":self.lineage,"head":self.head});
+        restart::value_storage(&metadata)?
+            .checked_add(self.prefix.capacity())?
+            .checked_add(self.original.cost()?)?
+            .checked_add(512)
+    }
 }
 impl CheckpointPlan {
     fn from_plan(plan: &RepeatablePlan, limits: JsonLimits) -> Result<Self, PackageError> {
@@ -483,7 +528,8 @@ impl Journal {
         current: &OriginalPackage,
         context: &RestartContext<'_, I>,
     ) -> Result<VerifiedJournal<'a>, PackageError> {
-        self.verify_inner(current, context, None)
+        self.verify_inner(current, context, None, None)
+            .map(|(verified, _)| verified)
     }
     #[cfg(any(test, feature = "controlled-disposable"))]
     pub(crate) fn verify_cached<'a, I: AllocationInspection>(
@@ -493,14 +539,65 @@ impl Journal {
         memo: &mut restart::CompiledPlans,
     ) -> Result<VerifiedJournal<'a>, PackageError> {
         memo.trim(context.planner, context.max_originals);
-        self.verify_inner(current, context, Some(memo))
+        let key = restart::CompiledPlans::snapshot_key(current, context);
+        let hit = if let Some(entry) = &memo.journal {
+            entry.key == key
+                && self.bytes.starts_with(&entry.resume.prefix)
+                && entry.observations.matches(context.inspection)?
+        } else {
+            false
+        };
+        #[cfg(test)]
+        if hit {
+            memo.journal_hits += 1;
+        }
+        let (seed, observations) = if hit {
+            let entry = memo.journal.as_ref().ok_or(PackageError::Integrity)?;
+            (Some(entry.resume.clone()), entry.observations.clone())
+        } else {
+            (None, restart::snapshot_memo::Observations::default())
+        };
+        let recording = restart::snapshot_memo::Recording::new(context.inspection, observations);
+        let fresh = restart::RestartContext {
+            inspection: &recording,
+            registration: context.registration,
+            directory: context.directory,
+            identity: context.identity,
+            frames: context.frames,
+            reader: context.reader,
+            planner: context.planner,
+            max_originals: context.max_originals,
+        };
+        let (verified, resume) = self.verify_inner(current, &fresh, Some(memo), seed.as_ref())?;
+        if let Some(resume) = resume {
+            let observations = recording.finish();
+            let cost = resume
+                .cost()
+                .and_then(|v| v.checked_add(observations.cost()?))
+                .and_then(|v| v.checked_add(key.capacity()));
+            if let Some(cost) = cost.filter(|c| *c <= memo.raw_maximum(context.planner) / 8) {
+                memo.journal = Some(JournalMemo {
+                    key,
+                    resume,
+                    observations,
+                    cost,
+                });
+                memo.trim(context.planner, context.max_originals);
+            }
+        }
+        Ok(verified)
     }
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Ordered checkpoint validation and exact completed-prefix capture share one state machine"
+    )]
     fn verify_inner<'a, I: AllocationInspection>(
         &'a self,
         current: &OriginalPackage,
         context: &RestartContext<'_, I>,
         mut memo: Option<&mut restart::CompiledPlans>,
-    ) -> Result<VerifiedJournal<'a>, PackageError> {
+        seed: Option<&JournalResume>,
+    ) -> Result<(VerifiedJournal<'a>, Option<JournalResume>), PackageError> {
         check(
             self.header["project_id"] == context.identity.project.to_string()
                 && self.header["library_id"] == context.identity.library.to_string()
@@ -508,12 +605,33 @@ impl Journal {
                 && self.header["incarnation_id"] == context.registration.incarnation.to_string(),
         )?;
         let mut replay = restart::IntentReplay::new(current, context);
-        let mut plans = BTreeMap::new();
-        let mut operations = BTreeSet::new();
-        let mut receipts = BTreeSet::new();
+        let mut plans = seed
+            .as_ref()
+            .map_or_else(BTreeMap::new, |v| v.plans.clone());
+        let mut operations = plans
+            .values()
+            .map(|p| id(&p.receipt["operation_id"]))
+            .collect::<Result<BTreeSet<_>, _>>()?;
+        let mut receipts = plans.keys().cloned().collect::<BTreeSet<_>>();
+        let start = seed.as_ref().map_or(0, |v| v.count);
+        let mut completed_count = start;
+        let mut at = seed.as_ref().map_or_else(
+            || 12 + wire::encode(&self.header).len() + 32,
+            |v| v.prefix.len(),
+        );
+        let mut completed_end = at;
+        if let Some(seed) = &seed {
+            replay.seed(seed.original.clone(), seed.lineage.clone());
+        }
+        #[cfg(test)]
+        if let Some(memo) = memo.as_deref_mut() {
+            memo.journal_replayed = 0;
+        }
         let mut pending: Option<String> = None;
         let mut pending_plan: Option<Arc<RepeatablePlan>> = None;
-        let mut prior_head = self.header["base_head"].clone();
+        let mut prior_head = seed
+            .as_ref()
+            .map_or_else(|| self.header["base_head"].clone(), |v| v.head.clone());
         if self.records.is_empty() {
             check(
                 self.header["base_head"] == current.head
@@ -521,7 +639,15 @@ impl Journal {
                         == n(&current.commit["package_revision"])?,
             )?;
         }
-        for record in &self.records {
+        for (index, record) in self.records.iter().enumerate().skip(start) {
+            at = at
+                .checked_add(36)
+                .and_then(|n| n.checked_add(wire::encode(&record.value).len()))
+                .ok_or(PackageError::Limit)?;
+            #[cfg(test)]
+            if let Some(memo) = memo.as_deref_mut() {
+                memo.journal_replayed += 1;
+            }
             let b = &record.value["body"];
             if record.value["kind"] == "CheckpointIntent" {
                 let p = replay.restore_shared(
@@ -570,12 +696,42 @@ impl Journal {
                 prior_head = p.stages[6].head.clone();
                 pending = None;
                 pending_plan = None;
+                completed_count = index + 1;
+                completed_end = at;
             }
         }
-        Ok(VerifiedJournal {
-            journal: self,
-            plans,
-        })
+        let resume = if memo.is_some() && completed_count > 0 {
+            let (original, lineage) = replay.completed_metadata().ok_or(PackageError::Integrity)?;
+            Some(JournalResume {
+                prefix: self
+                    .bytes
+                    .get(..completed_end)
+                    .ok_or(PackageError::Integrity)?
+                    .to_vec(),
+                count: completed_count,
+                plans: plans
+                    .iter()
+                    .filter(|(id, _)| receipts.contains(*id))
+                    .map(|(id, p)| (id.clone(), p.clone()))
+                    .collect(),
+                original,
+                lineage,
+                head: prior_head,
+            })
+        } else {
+            None
+        };
+        #[cfg(test)]
+        if let Some(memo) = memo {
+            memo.journal_prefix_hashed = replay.prefix_hashed();
+        }
+        Ok((
+            VerifiedJournal {
+                journal: self,
+                plans,
+            },
+            resume,
+        ))
     }
 }
 fn intent_body(p: &RepeatablePlan) -> Value {

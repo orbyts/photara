@@ -80,6 +80,10 @@ impl ReaderMemo {
         self.entries.clear();
         self.bytes = 0;
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Independent inspection and optional immutable snapshot index are separate from proof inputs"
+    )]
     pub(super) fn verify<I: AllocationInspection, J>(
         &mut self,
         package: &OriginalPackage,
@@ -87,9 +91,10 @@ impl ReaderMemo {
         context: &RestartContext<'_, J>,
         operation: Option<&RepeatablePlan>,
         maximum: usize,
+        prefixes: Option<&super::prefix_index::Prefixes<'_>>,
         verify: impl FnOnce(&Recording<'_, I>) -> Result<VerifiedOriginal, PackageError>,
     ) -> Result<VerifiedOriginal, PackageError> {
-        let key = fingerprint(package, context, operation);
+        let key = fingerprint(package, context, operation, prefixes);
         if let Some(entry) = self.entries.get(&key) {
             // Re-read every independent input used by the full proof. A changed
             // observation is a cache miss, not a new acceptance/refusal rule.
@@ -158,10 +163,11 @@ impl ReaderMemo {
         Ok(result)
     }
 }
-fn fingerprint<I>(
+pub(super) fn fingerprint<I>(
     p: &OriginalPackage,
     c: &RestartContext<'_, I>,
     operation: Option<&RepeatablePlan>,
+    prefixes: Option<&super::prefix_index::Prefixes<'_>>,
 ) -> String {
     let r = c.registration;
     let l = c.reader;
@@ -180,7 +186,7 @@ fn fingerprint<I>(
     );
     let body = json!({"manifest":p.manifest,"head":p.head,"commit":p.commit,
         "loose":p.loose.iter().map(|(k,v)|json!([k,v.len(),wire::hash(v)])).collect::<Vec<_>>(),
-        "allocations":p.allocations.iter().map(|(k,v)|json!([k,v.arena,v.witness,v.bytes.len(),wire::hash(&v.bytes)])).collect::<Vec<_>>(),
+        "allocations":p.allocations.iter().map(|(k,v)|json!([k,v.arena,v.witness,v.bytes.len(),prefixes.map_or_else(||wire::hash(&v.bytes),|p|p.hash(k,&v.bytes))])).collect::<Vec<_>>(),
         "registration":[r.profile,r.incarnation,r.allocations,r.conversion,r.standing_control,r.charge_unit,r.directory_allowance,r.retained_directory_allowance,
             r.retained_files.iter().map(|(path,v)|json!([path,v.extent,v.sha256,v.registered_charge,v.device,v.inode])).collect::<Vec<_>>()],
         "directory":[c.directory.device,c.directory.inode],"identity":[c.identity.project,c.identity.library,c.identity.bootstrap_sha256],

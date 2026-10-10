@@ -21,6 +21,11 @@ thiserror.workspace = true
 [target.'cfg(unix)'.dependencies]
 rustix = { version = "1.1.4", features = ["fs"] }
 
+[target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
+# sha2 0.10 gates ARM SHA instructions behind asm, with runtime detection and
+# the same portable fallback. This changes neither digest nor package bytes.
+sha2 = { workspace = true, features = ["asm"] }
+
 [dev-dependencies]
 tempfile = "3.27"
 

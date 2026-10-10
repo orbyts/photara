@@ -71,7 +71,7 @@ pub fn reconstruct_original(
     record: &Value,
     limits: Limits,
 ) -> Result<OriginalPackage, PackageError> {
-    reconstruct(current, record, limits, None).map_err(|_| PackageError::Integrity)
+    reconstruct(current, record, limits, None, None).map_err(|_| PackageError::Integrity)
 }
 pub(super) fn reconstruct_cached(
     current: &OriginalPackage,
@@ -79,8 +79,10 @@ pub(super) fn reconstruct_cached(
     limits: Limits,
     old: &OriginalPackage,
     objects: &BTreeSet<wire::Key>,
+    prefixes: Option<&super::restart::prefix_index::Prefixes<'_>>,
 ) -> Result<OriginalPackage, PackageError> {
-    reconstruct(current, record, limits, Some((old, objects))).map_err(|_| PackageError::Integrity)
+    reconstruct(current, record, limits, Some((old, objects)), prefixes)
+        .map_err(|_| PackageError::Integrity)
 }
 #[expect(
     clippy::too_many_lines,
@@ -91,6 +93,7 @@ fn reconstruct(
     record: &Value,
     limits: Limits,
     cached: Option<(&OriginalPackage, &BTreeSet<wire::Key>)>,
+    prefixes: Option<&super::restart::prefix_index::Prefixes<'_>>,
 ) -> wire::Result<OriginalPackage> {
     wire::ensure(
         record["original_codec"] == "photara.codec.ps2-repeatable-admission-v1"
@@ -124,7 +127,8 @@ fn reconstruct(
         )?;
         let prefix = a.bytes.get(..end).ok_or("original truncated")?;
         wire::ensure(
-            hash(prefix) == range["original_sha256"],
+            prefixes.map_or_else(|| hash(prefix), |p| p.hash(id, prefix))
+                == range["original_sha256"],
             "original prefix digest",
         )?;
         total = total

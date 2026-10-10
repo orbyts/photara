@@ -157,6 +157,15 @@ pub(crate) trait SessionIo {
     ) -> Result<(), SessionError>;
     fn read_journal(&self) -> Result<Vec<u8>, SessionError>;
     fn verify<'a>(&self, journal: &'a Journal) -> Result<VerifiedJournal<'a>, SessionError>;
+    fn verify_session<'a>(
+        &self,
+        verified: &VerifiedJournal<'a>,
+        base: &VerifiedOriginal,
+        inputs: &PlannerInputs,
+        limits: Limits,
+    ) -> Result<VerifiedSession<'a>, SessionError> {
+        Ok(verified.verify_session(base, inputs, limits)?)
+    }
     fn selected_head(&self) -> Result<Value, SessionError>;
     /// After pure request/action validation, durably retain its exact original
     /// plan and full liability before Mutation admission. Complete earlier
@@ -247,7 +256,9 @@ impl<I: SessionIo> Session<I> {
             return Err(SessionError::Failure(SessionFailure::Journal));
         }
         let verified = self.io.verify(&journal)?;
-        let view = verified.verify_session(&self.base, &self.inputs, self.limits)?;
+        let view = self
+            .io
+            .verify_session(&verified, &self.base, &self.inputs, self.limits)?;
         f(&journal, &view)
     }
     fn refresh(&mut self) -> Result<(), SessionError> {

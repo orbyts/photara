@@ -21,6 +21,25 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
+**Current stop boundary — incremental format approval required.** Safe replay/compiler
+optimizations pass focused regressions, but autosave is NOT performance-accepted.
+Same-input compilation improved 874→381 ms with exact output unchanged; latest
+native saves still take 7.00/6.87 seconds and peak process RSS is about 918 MiB.
+A subsequent move refused before admission: the growing active locator no longer
+fits its 262,144-byte per-attempt corridor. Last Saved remains revision 22 at
+x=13/y=14. No new original/Mutation was persisted; all writers are stopped.
+Remaining prepaid disk bytes are NOT a count of admissible future operations.
+Do not raise caps, erase history, relaunch stale apps, or claim this fixed.
+Review the concrete incremental-format packet in
+[the existing repeatable amendment](architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#proposed-incremental-layout-amendment--2026-10-10-unapproved).
+Existing geometry/corridor inputs are tunable under prior approval, but cannot
+silently change v1 deterministic construction. New permanent codec dispatch and
+format implementation require approval of this packet. It includes exact fields,
+typed edges, ordering rules and independently checked draft serialization vectors.
+No v2 dispatch is implemented. Preserve all v1
+bytes, typed dependencies, history, accounting and Accepted/Saved semantics.
+
+
 **2026-10-10 save-backlog correction active.** User reports prolonged Saving and
 Quit waiting, and authorizes combining redundant moves. Combine only consecutive
 same-node **unsent** drafts; never discard submitted/Accepted originals or their
@@ -44,9 +63,26 @@ visible and unacknowledged. All seven packs reached their immutable prepaid
 4 MiB corridors. Do not retry in a loop, force-quit, rebind, raise the existing
 ceiling, or claim this draft Saved. Exact pending-position note is
 `/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-indexed-pending-position.json`.
-A narrow user question requests fresh larger disposable fixtures, retaining old
-files and recording the pending position before closing this test run. Until
-approved, leave this app and both registrations intact; pure code/tests continue.
+User approved fresh 8 MiB prepaid-tip disposable fixtures on 2026-10-10,
+retaining old files and the pending-position record. The exact old process was
+closed with SIGTERM under that approval; this was not a successful save. Existing
+registrations remain intact. Fresh fixtures are ready: `/private/tmp/photara-ps2-remount-mjwcvi6f` (A) and
+`/private/tmp/photara-ps2-remount-ei2h61e0` (B). Identities/config paths are in
+`/private/tmp/photara-ll2a-fresh-8deecae5-2425-4fc0-85c0-9ae0d2d14176.json`.
+Native two-operation save times are 3.63/4.61 seconds; verified close is 0.56
+seconds, peak CLI RSS about 200 MiB. UI out-and-return drag plus normal Quit
+passed (PID 71768 exit 0); app is stopped, images remain mounted. Latency is
+still not accepted. Subsequent same-fixture backend runs retain more history: single
+compilation, Apple Silicon SHA acceleration and per-pass prefix hashing preserve
+exact bytes/retry checks but latest saves remain 5.36/6.35 seconds with about
+777 MiB peak RSS. All benchmark writers closed normally at original x=13/y=14.
+Compact journal/semantic/candidate verification reuse now passes focused tests, but
+integrated native saves regressed to 19.83/15.53 seconds (~861 MiB peak RSS).
+The remaining profile points to repeated original-frame decoding in NEW plan
+compilation. Compare against one fixed read-only snapshot before/after; no more
+growing-history benchmark loop. Preserve full frame/audit validation and exact plan
+bytes. Fresh B has 14 prepaid corridors left. All writers closed normally at
+x=13/y=14; app is stopped. Do not hand over a new build as performance-ready.
 
 Latest source correction adds bounded exact-input reader/reconstruction memoization
 with fresh allocation observations/prefix digests; no authority or Saved result is

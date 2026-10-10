@@ -27,6 +27,7 @@ pub(super) fn replay(
     receipt: &Value,
     inputs: &PlannerInputs,
     limits: Limits,
+    pool: &BTreeMap<wire::Key, Value>,
 ) -> Result<PreparedChange> {
     let active = proof.roles.get("active").ok_or("active role")?;
     ensure(
@@ -63,7 +64,7 @@ pub(super) fn replay(
             && intent["bootstrap_sha256"] == hash(&encode(&old.manifest)),
         "original intent binding",
     )?;
-    let (logical, closure) = original_closure(old, proof, inputs, limits)?;
+    let (logical, closure) = closure_from_pool(old, proof, inputs, limits, pool)?;
     ensure(
         serde_json::to_value(logical.coordinate()).map_err(|_| "coordinate")? == intent["expected"],
         "actual expected coordinate",
@@ -178,8 +179,17 @@ pub(super) fn original_closure(
     inputs: &PlannerInputs,
     limits: Limits,
 ) -> Result<(VerifiedClosure, BTreeMap<wire::Key, Value>)> {
-    let active = proof.roles.get("active").ok_or("active role")?;
     let pool = layout::original_objects(old, inputs, limits)?;
+    closure_from_pool(old, proof, inputs, limits, &pool)
+}
+fn closure_from_pool(
+    old: &OriginalPackage,
+    proof: &OriginalProof,
+    inputs: &PlannerInputs,
+    limits: Limits,
+    pool: &BTreeMap<wire::Key, Value>,
+) -> Result<(VerifiedClosure, BTreeMap<wire::Key, Value>)> {
+    let active = proof.roles.get("active").ok_or("active role")?;
     let mut closure = BTreeMap::new();
     let mut pending = vec![
         active.state["authored"].clone(),

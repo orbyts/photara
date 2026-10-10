@@ -639,7 +639,7 @@
         "existing_files_retained": true,
         "existing_registration_changed": false,
         "production_limit_change": false,
-        "approval": "pending"
+        "approval": "Explicitly approved by user2026-10-10; fresh fixtures only, old files retained."
       }
     },
     "latest_code_candidate": {
@@ -671,6 +671,515 @@
         "crates/photara-store/src/package/v1_3/repeatable/restart_reader.rs": "0e18256e4a059017280a50089782cd4a12b680bd4f54318523268b1c8a93193e"
       },
       "strict": "store lib/tests --no-deps -D warnings passed25.06seconds"
+    },
+    "old_failed_run_close": {
+      "approval": "User approved close after recording pending position",
+      "pid": 62015,
+      "exit": -15,
+      "saved_claim": false,
+      "record": "/private/tmp/photara-ps2-remount-34iyzxfo/ll2a-indexed-approved-close.json"
+    },
+    "fresh_review": {
+      "status": "Native behavior verified in fresh fixtures, latency still open. Further duplicate admission-plan compilation optimization underway.",
+      "identities": "/private/tmp/photara-ll2a-fresh-8deecae5-2425-4fc0-85c0-9ae0d2d14176.json",
+      "executable": "/private/tmp/photara-ll2a-fresh-review/Photara Local Libraries.app/Contents/MacOS/PhotaraLocalLibraries",
+      "sha256": "6be4eb2ef84fffaa5cf2f2a887a10bcbdde09478fee86df9fb66a8c22be9b2de",
+      "build_log": "/private/tmp/ll2a-fresh-review-build.log",
+      "setup_evidence": "/private/tmp/photara-ps2-remount-mjwcvi6f/fresh-setup-evidence.json",
+      "first_native_timing": {
+        "timings": [
+          {
+            "stage": "open",
+            "seconds": 1.8286118330433965
+          },
+          {
+            "stage": "submit-1",
+            "seconds": 1.5374528330285102
+          },
+          {
+            "stage": "complete-1",
+            "seconds": 2.0923407500376925
+          },
+          {
+            "stage": "submit-2",
+            "seconds": 2.25596358301118
+          },
+          {
+            "stage": "complete-2",
+            "seconds": 2.355583666008897
+          },
+          {
+            "stage": "state",
+            "seconds": 0.1932583749294281
+          },
+          {
+            "stage": "close",
+            "seconds": 0.5616554579464719
+          }
+        ],
+        "before": [
+          {
+            "id": "62000000-0000-4000-8000-000000020103",
+            "title": "example.review.inspect",
+            "x": 13,
+            "y": 14
+          }
+        ],
+        "after": [
+          {
+            "id": "62000000-0000-4000-8000-000000020103",
+            "title": "example.review.inspect",
+            "x": 13,
+            "y": 14
+          }
+        ],
+        "child_user_seconds": 7.457251,
+        "child_system_seconds": 0.726823,
+        "child_maxrss_bytes": 209829888
+      },
+      "ui_check": {
+        "pid": 71768,
+        "exit": 0,
+        "result": "Immediate out-and-return drag during Saving; normal Quit waits visibly and succeeds; no capacity refusal. Save latency still unsuitable for acceptance.",
+        "profile": "/private/tmp/ll2a-fresh-save.sample.txt"
+      },
+      "backend_optimization_measurements": {
+        "fresh-single-compile-20261010": {
+          "timings": [
+            {
+              "stage": "open",
+              "seconds": 5.102532458957285
+            },
+            {
+              "stage": "submit-1",
+              "seconds": 4.762992165982723
+            },
+            {
+              "stage": "complete-1",
+              "seconds": 4.169363582972437
+            },
+            {
+              "stage": "submit-2",
+              "seconds": 6.0614562089322135
+            },
+            {
+              "stage": "complete-2",
+              "seconds": 4.80821475002449
+            },
+            {
+              "stage": "state",
+              "seconds": 0.6107575839851052
+            },
+            {
+              "stage": "close",
+              "seconds": 1.9072393340757117
+            }
+          ],
+          "before": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "after": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "child_user_seconds": 23.444778,
+          "child_system_seconds": 0.9075059999999999,
+          "child_maxrss_bytes": 593395712
+        },
+        "fresh-sha-hardware-20261010": {
+          "timings": [
+            {
+              "stage": "open",
+              "seconds": 5.057834125007503
+            },
+            {
+              "stage": "submit-1",
+              "seconds": 2.7893730000359938
+            },
+            {
+              "stage": "complete-1",
+              "seconds": 3.011447458062321
+            },
+            {
+              "stage": "submit-2",
+              "seconds": 3.415988208958879
+            },
+            {
+              "stage": "complete-2",
+              "seconds": 3.152375625097193
+            },
+            {
+              "stage": "state",
+              "seconds": 0.2932285409187898
+            },
+            {
+              "stage": "close",
+              "seconds": 0.8231519999681041
+            }
+          ],
+          "before": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "after": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "child_user_seconds": 14.225403,
+          "child_system_seconds": 0.998663,
+          "child_maxrss_bytes": 682033152
+        },
+        "fresh-prefix-index-20261010": {
+          "timings": [
+            {
+              "stage": "open",
+              "seconds": 6.599710416980088
+            },
+            {
+              "stage": "submit-1",
+              "seconds": 2.766297416994348
+            },
+            {
+              "stage": "complete-1",
+              "seconds": 2.59323666698765
+            },
+            {
+              "stage": "submit-2",
+              "seconds": 3.4109926250530407
+            },
+            {
+              "stage": "complete-2",
+              "seconds": 2.9380210830131546
+            },
+            {
+              "stage": "state",
+              "seconds": 0.22686787496786565
+            },
+            {
+              "stage": "close",
+              "seconds": 0.6282835840247571
+            }
+          ],
+          "before": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "after": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "child_user_seconds": 14.794397,
+          "child_system_seconds": 1.157198,
+          "child_maxrss_bytes": 814874624
+        },
+        "fresh-integrated-replay-20261010": {
+          "timings": [
+            {
+              "stage": "open",
+              "seconds": 14.456904000020586
+            },
+            {
+              "stage": "submit-1",
+              "seconds": 8.664243040955625
+            },
+            {
+              "stage": "complete-1",
+              "seconds": 11.16567112505436
+            },
+            {
+              "stage": "submit-2",
+              "seconds": 8.414016375085339
+            },
+            {
+              "stage": "complete-2",
+              "seconds": 7.120518167037517
+            },
+            {
+              "stage": "state",
+              "seconds": 0.08960804098751396
+            },
+            {
+              "stage": "close",
+              "seconds": 0.26410812500398606
+            }
+          ],
+          "before": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "after": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "child_user_seconds": 44.84692,
+          "child_system_seconds": 1.706463,
+          "child_maxrss_bytes": 902365184
+        },
+        "fresh-journal-prefix-20261010": {
+          "timings": [
+            {
+              "stage": "open",
+              "seconds": 8.750587458023801
+            },
+            {
+              "stage": "submit-1",
+              "seconds": 2.906487875035964
+            },
+            {
+              "stage": "complete-1",
+              "seconds": 2.8820662499638274
+            },
+            {
+              "stage": "submit-2",
+              "seconds": 3.5342402500100434
+            },
+            {
+              "stage": "complete-2",
+              "seconds": 3.052466291002929
+            },
+            {
+              "stage": "state",
+              "seconds": 0.17985770793166012
+            },
+            {
+              "stage": "close",
+              "seconds": 0.4383572089718655
+            }
+          ],
+          "before": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "after": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "child_user_seconds": 17.059532,
+          "child_system_seconds": 1.205736,
+          "child_maxrss_bytes": 814202880
+        },
+        "fresh-current-original-20261010": {
+          "timings": [
+            {
+              "stage": "open",
+              "seconds": 10.621408374980092
+            },
+            {
+              "stage": "submit-1",
+              "seconds": 2.468340125051327
+            },
+            {
+              "stage": "complete-1",
+              "seconds": 3.114350917050615
+            },
+            {
+              "stage": "submit-2",
+              "seconds": 3.089935249998234
+            },
+            {
+              "stage": "complete-2",
+              "seconds": 2.8908949160249904
+            },
+            {
+              "stage": "state",
+              "seconds": 0.2115331250242889
+            },
+            {
+              "stage": "close",
+              "seconds": 0.5440345000242814
+            }
+          ],
+          "before": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "after": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "child_user_seconds": 18.178234,
+          "child_system_seconds": 1.304131,
+          "child_maxrss_bytes": 818413568
+        },
+        "fresh-single-pool-20261010": {
+          "timings": [
+            {
+              "stage": "open",
+              "seconds": 9.597061667009257
+            },
+            {
+              "stage": "submit-1",
+              "seconds": 2.143019958981313
+            },
+            {
+              "stage": "complete-1",
+              "seconds": 4.854446957935579
+            },
+            {
+              "stage": "submit-2",
+              "seconds": 1.608883166918531
+            },
+            {
+              "stage": "complete-2",
+              "seconds": 5.262705750064924
+            },
+            {
+              "stage": "state",
+              "seconds": 0.08966275001876056
+            },
+            {
+              "stage": "close",
+              "seconds": 0.28420054202433676
+            }
+          ],
+          "before": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "after": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "child_user_seconds": 18.690911,
+          "child_system_seconds": 1.602575,
+          "child_maxrss_bytes": 962985984
+        }
+      },
+      "performance_status": "NOT ACCEPTED. Latest single-pool native saves 6.997/6.872 seconds, Close 0.284 seconds, process peak RSS 962985984 bytes. Saved x13/y14 restored, writer closed normally. Targeted completion follow-up then refused before Mutation admission: preflight corridor exhausted, despite remaining prepaid storage. No new Accepted or persisted original. Exact failed request retained; no cap changes or history deletion. Existing physical allocation runway must NOT be represented as remaining admissible operations. App remains closed; no replacement build is ready for review.",
+      "same_snapshot_compiler": {
+        "capture": "/private/tmp/ll2a-compiler-snapshot-20261010",
+        "before_ms": 873.62,
+        "after_ms": 381.34,
+        "exact_final_bytes": 33031450,
+        "unchanged_vector": "2402544a080d0cfba44802eebc6cb5f2d724983a9fdf004d2f76c88d415983ad",
+        "baseline_peak_rss": "not recorded; no memory reduction claim"
+      },
+      "new_admission_refusal": {
+        "request_log": "/private/tmp/photara-ps2-remount-mjwcvi6f/fresh-complete-profile-20261010.jsonl",
+        "operation_id": "12b5331c-1812-4fc5-ad07-85d7419247e9",
+        "reason": "preflight corridor exhausted",
+        "mutation_acknowledged": false,
+        "new_original_persisted": false,
+        "last_saved_position": [
+          13,
+          14
+        ],
+        "last_saved_revision": 22,
+        "growth_evidence": "/private/tmp/ll2a-corridor-growth.json",
+        "last_five_active_locator_nonpadding_bytes": [
+          235320,
+          240106,
+          251351,
+          253985,
+          259654
+        ],
+        "per_attempt_corridor_bytes": 262144,
+        "prepaid_bytes_per_tip": 8388608,
+        "current_tip_extent": 5242880,
+        "writer_running": false
+      },
+      "final_verified_source_sha256": {
+        "Cargo.lock": "1db4dbf9a577e8d73eb6f4a0896bf065f60fb4f346155deab97faca531050b0f",
+        "crates/photara-store/Cargo.toml": "248b52108ab561ebefb1d669973923a876755517780b0028d1286139c7186100",
+        "crates/photara-store/src/package/planning/mod.rs": "f39b33a06272162a055a52bdce3efda3493a0ff692f3598628b6736a8f1c8d99",
+        "crates/photara-store/src/package/v1_3/repeatable/core.rs": "c3c7a1b6e2b191ecc53f7bc626fe9bbf84e1b209b8dc471f2ffe7729e52e7e80",
+        "crates/photara-store/src/package/v1_3/repeatable/disposable.rs": "6ee30a21a7927b1898e2fd9c77df547a174a65c17e93c38e493261703d1b77d8",
+        "crates/photara-store/src/package/v1_3/repeatable/journal.rs": "652202d04701ad5dfd91a583369bc3b14541a08cebef18fe8c57374bd38efeaf",
+        "crates/photara-store/src/package/v1_3/repeatable/journal_session.rs": "23720a4b0d9b155d61a73537a1b1db4471bd4227df1d10c4fde09ca00df4ce57",
+        "crates/photara-store/src/package/v1_3/repeatable/journal_tests.rs": "6a34dc7b4be804d82db4fcee59e97c24a122154e43e7d3e5267066faab1d5200",
+        "crates/photara-store/src/package/v1_3/repeatable/layout.rs": "d41582071e5a337233e2cbd3ecd43fd20087413389924320ace752f603c8358e",
+        "crates/photara-store/src/package/v1_3/repeatable/native_session.rs": "84e403e061f16ef25fa5a794706e7b7ae16b8db8a29b6efb96c2167c2e577e47",
+        "crates/photara-store/src/package/v1_3/repeatable/native_test.rs": "b080a529c734e9788741523cdd93474dc227d17b4d8450ac3dafb17ed02323b3",
+        "crates/photara-store/src/package/v1_3/repeatable/plan.rs": "e045a07e03211b0ec6e9a958db5102cd904e7c194749fd38ff0fcd1fedd935b5",
+        "crates/photara-store/src/package/v1_3/repeatable/recovery.rs": "fa831bb878d8744199ab337fba4438eb66be4ac8160944bf9e8c0f29213575e5",
+        "crates/photara-store/src/package/v1_3/repeatable/restart.rs": "b9aa93671b3ceda0ea495c5155ef95557391ecfaea9754c78fe731e84f73b52f",
+        "crates/photara-store/src/package/v1_3/repeatable/restart_reader.rs": "8b4d96ca0e0819b4b1746bfde7b43a171954e6dc1faa7691a8a2e81cdce53360",
+        "crates/photara-store/src/package/v1_3/repeatable/session.rs": "f186fc3d132323973bbe4613e5557b3a28ac52dd66657568d01b2fe49e46bd78",
+        "crates/photara-store/src/package/v1_3/repeatable/session_tests.rs": "5f5835800bd6c2d55514cecfdf8e9a6a5ff5e551a583eb63d137e8438cb457ca",
+        "crates/photara-store/src/package/v1_3/repeatable/tests.rs": "e6ef1c666161cabc51556ead50b6466eb1d06620054d00d4c588d9f353a97424",
+        "crates/photara-store/src/package/v1_3/repeatable/compiler_benchmark.rs": "1e791ff23d7dc5f0fd3c792edc5914f2149fba6f0f400e5a866b423ea433b4bf",
+        "crates/photara-store/src/package/v1_3/repeatable/journal_session_cache.rs": "c3c6f5de8a5cc58521e2f94f3dd6ba7936097e0f209d40f97e2c4a31ae6d9ad0",
+        "crates/photara-store/src/package/v1_3/repeatable/restart_prefix.rs": "01f40d59e0d68c1710aefd815b46abcd7f0229cc5986968a78c5fd8cff31df4a",
+        "crates/photara-store/src/package/v1_3/repeatable/restart_snapshot.rs": "caca037582b459f1ddf86b4db041c2fe127d9ec52e26ccb777899db40b56f8ad"
+      },
+      "final_checks": {
+        "session_tests": {
+          "passed": 9,
+          "log": "/private/tmp/ll2a-single-pool-session.log"
+        },
+        "byte_pressure_retry": {
+          "passed": 1,
+          "log": "/private/tmp/ll2a-single-pool-cache-pressure.log"
+        },
+        "frozen_golden": {
+          "passed": 1,
+          "log": "/private/tmp/ll2a-single-pool-golden.log"
+        },
+        "controlled_strict": "/private/tmp/ll2a-single-pool-clippy.log",
+        "default_store_strict": "/private/tmp/ll2a-final-store-default-clippy.log",
+        "controlled_check": "/private/tmp/ll2a-final-store-controlled-check.log",
+        "default_library_check": "/private/tmp/ll2a-final-library-default-check.log",
+        "app_rebuilt": false,
+        "format_proposal": "docs/architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#proposed-incremental-layout-amendment--2026-10-10-unapproved",
+        "proposal_status": "UNAPPROVED; draft serialization hashes independently recomputed; permanent dispatch not implemented"
+      }
     }
   }
 }

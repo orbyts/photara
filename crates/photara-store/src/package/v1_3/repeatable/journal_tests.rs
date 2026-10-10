@@ -418,10 +418,55 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
         .prepare_intent(&second, record(92_003), limits())
         .unwrap();
     bytes.extend(second_intent.bytes());
+    // The current physical snapshot is still the first completed operation.
+    // Extend its memo with an unresolved successor, preserving original retries.
+    let pending = Journal::read(&bytes, &h, limits()).unwrap();
+    let pending_cached = pending.verify_cached(&after1, &ctx1, &mut memo).unwrap();
+    assert_eq!(memo.journal_replayed, 1);
+    assert_eq!(memo.compilations, 2);
+    let work = (memo.compilations, memo.reader_work());
+    let restored_pending = restart::restore_intent_plan_cached(
+        &after1,
+        second.original(),
+        &intent2,
+        &receipt2,
+        &ctx1,
+        &mut memo,
+    )
+    .unwrap();
+    assert_eq!(restored_pending.files, second.files);
+    assert_eq!(
+        (memo.compilations, memo.reader_work()),
+        work,
+        "native persisted-plan path reuses the exact current predecessor"
+    );
+    assert!(
+        pending_cached
+            .prepare_intent(&second, record(92_003), limits())
+            .unwrap()
+            .existing()
+    );
+    assert_eq!(
+        pending_cached.retained_metadata_bytes(),
+        pending
+            .verify(&after1, &ctx1)
+            .unwrap()
+            .retained_metadata_bytes()
+    );
     let after2 = selected(&second, 6);
     let observed2 = snapshot(&base, &after2);
     let id = identity(&after2);
     let ctx2 = context(&observed2, &id, &reader);
+    // The executor revisits prospective clean, published, then selected clean.
+    // Reuse the deterministic proof but reread independent observations each time.
+    memo.inspect_candidate(&after2, &ctx2, &second, 6).unwrap();
+    memo.inspect_candidate(&after2, &ctx2, &second, 6).unwrap();
+    assert_eq!(memo.candidate_checks, 1);
+    let published = selected(&second, 5);
+    memo.inspect_candidate(&published, &ctx2, &second, 5)
+        .unwrap();
+    memo.inspect_candidate(&after2, &ctx2, &second, 6).unwrap();
+    assert_eq!(memo.candidate_checks, 2);
     let j = Journal::read(&bytes, &h, limits()).unwrap();
     let checked = j.verify(&after2, &ctx2).unwrap();
     let second_receipt = checked
@@ -447,8 +492,26 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
         reader_before.0,
         "warm replay does not repeat immutable structural proofs"
     );
-    assert!(memo.reader_work().1 >= reader_before.1 + 3);
+    assert_eq!(memo.reader_work().1, reader_before.1);
+    assert!(memo.journal_hits > 0);
+    assert_eq!(
+        memo.journal_replayed, 0,
+        "same snapshot completed history performs no replay"
+    );
     let warm = before.elapsed();
+    assert_eq!(memo.journal_prefix_hashed, 0);
+    // Independently exercise actual full Journal ordering with warm individual
+    // plan/reader memos but no whole-prefix shortcut.
+    memo.journal = None;
+    j.verify_cached(&after2, &ctx2, &mut memo).unwrap();
+    assert_eq!(
+        memo.journal_prefix_hashed,
+        after2
+            .allocations
+            .values()
+            .map(|a| a.bytes.len())
+            .sum::<usize>()
+    );
     assert_eq!(
         memo.compilations, 2,
         "unchanged historical compilation is reused"
@@ -514,6 +577,10 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
         .inode += 1;
     let changed_context = context(&altered_observation, &id, &reader);
     assert!(
+        memo.inspect_candidate(&after2, &changed_context, &second, 6)
+            .is_err()
+    );
+    assert!(
         j.verify_cached(&after2, &changed_context, &mut memo)
             .is_err()
     );
@@ -526,12 +593,20 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
         .charge = 0;
     let changed_context = context(&altered_charge, &id, &reader);
     assert!(
+        memo.inspect_candidate(&after2, &changed_context, &second, 6)
+            .is_err()
+    );
+    assert!(
         j.verify_cached(&after2, &changed_context, &mut memo)
             .is_err()
     );
     let mut narrow_reader = reader;
     narrow_reader.tree.max_pages = 0;
     let narrow_context = context(&observed2, &id, &narrow_reader);
+    assert!(
+        memo.inspect_candidate(&after2, &narrow_context, &second, 6)
+            .is_err()
+    );
     assert!(
         j.verify_cached(&after2, &narrow_context, &mut memo)
             .is_err()
@@ -562,6 +637,18 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
             .is_err()
     );
 
+    // A coherently reframed header must miss the completed-prefix memo; its
+    // altered base cannot inherit the earlier verified checkpoint history.
+    let mut altered_header = h.clone();
+    altered_header["base_package_revision"] = json!("999");
+    let mut reframed = Journal::create(&altered_header, limits()).unwrap();
+    for record in j.records() {
+        let previous = reframed[reframed.len() - 32..].to_vec();
+        reframed = append_raw(&reframed, &previous, record.value());
+    }
+    let reframed = Journal::read(&reframed, &altered_header, limits()).unwrap();
+    assert!(reframed.verify_cached(&after2, &ctx2, &mut memo).is_err());
+
     // Invocation-local predecessor reuse preserves the exact chain depth bound.
     let mut bounded = context(&observed2, &id, &reader);
     bounded.max_originals = 1;
@@ -575,6 +662,7 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
     let mut changed = after2.clone();
     changed.allocations.values_mut().next().unwrap().bytes[16] ^= 1;
     assert!(j.verify(&changed, &ctx2).is_err());
+    assert!(memo.inspect_candidate(&changed, &ctx2, &second, 6).is_err());
     assert!(j.verify_cached(&changed, &ctx2, &mut memo).is_err());
     let mut changed_witness = after2.clone();
     changed_witness

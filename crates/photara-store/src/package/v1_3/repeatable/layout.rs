@@ -7,16 +7,24 @@ use super::{
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use wire::{Result, encode, ensure, hash, key, reference, text};
+#[cfg(test)]
+thread_local! {
+    static LOAD_WORK: std::cell::Cell<(usize, usize)> = const { std::cell::Cell::new((0, 0)) };
+}
+#[cfg(test)]
+pub(super) fn take_load_work() -> (usize, usize) {
+    LOAD_WORK.with(|work| work.replace((0, 0)))
+}
 fn get(pool: &BTreeMap<wire::Key, Value>, r: &Value) -> Result<Value> {
     pool.get(&key(r)?)
         .cloned()
         .ok_or("decoder original object absent")
 }
-struct Builder {
+pub(super) struct Builder {
     project: String,
     geometry: TreeGeometry,
     limits: Limits,
-    pool: BTreeMap<wire::Key, Value>,
+    pub(super) pool: BTreeMap<wire::Key, Value>,
     files: BTreeMap<String, Vec<u8>>,
     locations: BTreeMap<String, BTreeMap<wire::Key, Value>>,
     corridors: BTreeMap<String, u64>,
@@ -43,7 +51,16 @@ impl Builder {
         clippy::many_single_char_names,
         reason = "Frame offsets and canonical references in a bounded decoder"
     )]
-    fn load(old: &OriginalPackage, inputs: &PlannerInputs, limits: Limits) -> Result<Self> {
+    pub(super) fn load(
+        old: &OriginalPackage,
+        inputs: &PlannerInputs,
+        limits: Limits,
+    ) -> Result<Self> {
+        #[cfg(test)]
+        LOAD_WORK.with(|work| {
+            let (loads, parsed) = work.get();
+            work.set((loads + 1, parsed));
+        });
         let mut b = Self {
             project: text(&old.manifest["project_id"])?.into(),
             geometry: inputs.geometry.clone(),
@@ -105,13 +122,8 @@ impl Builder {
                         json_bytes <= limits.semantic.max_total_json_bytes,
                         "original JSON total budget",
                     )?;
-                    let v = crate::package::parse_canonical_json(
-                        &a.bytes[p + 16..end],
-                        limits.semantic.json,
-                    )
-                    .map_err(|_| "original canonical record budget")?;
-                    let r = b.add(v)?;
-                    locations.insert(key(&r)?,json!({"allocation_id":id,"arena":a.arena,"offset":p.to_string(),"byte_length":(end-p).to_string(),"record_sha256":hash(&a.bytes[p..end])}));
+                    let k = b.original(&a.bytes[p + 16..end])?;
+                    locations.insert(k,json!({"allocation_id":id,"arena":a.arena,"offset":p.to_string(),"byte_length":(end-p).to_string(),"record_sha256":hash(&a.bytes[p..end])}));
                 }
                 p = end;
             }
@@ -126,12 +138,29 @@ impl Builder {
                 json_bytes <= limits.semantic.max_total_json_bytes,
                 "original JSON total budget",
             )?;
-            b.add(
-                crate::package::parse_canonical_json(raw, limits.semantic.json)
-                    .map_err(|_| "control canonical budget")?,
-            )?;
+            b.original(raw)?;
         }
         Ok(b)
+    }
+    // Every physical occurrence still consumes frame/JSON budgets. A repeated
+    // exact canonical digest reuses the already checked immutable body.
+    fn original(&mut self, raw: &[u8]) -> Result<wire::Key> {
+        let k = (hash(raw), raw.len() as u64);
+        if !self.pool.contains_key(&k) {
+            ensure(
+                self.pool.len() < self.limits.max_objects,
+                "object pool budget",
+            )?;
+            #[cfg(test)]
+            LOAD_WORK.with(|work| {
+                let (loads, parsed) = work.get();
+                work.set((loads, parsed + 1));
+            });
+            let value = crate::package::parse_canonical_json(raw, self.limits.semantic.json)
+                .map_err(|_| "original canonical record budget")?;
+            self.pool.insert(k.clone(), value);
+        }
+        Ok(k)
     }
     fn pack(&mut self, id: &str, arena: &str, items: Vec<(Value, u8)>) -> Result<()> {
         let id = id.to_owned();
@@ -431,6 +460,7 @@ pub(crate) struct Layout {
     reason = "Finite deterministic layout preserves explicit stage dependency order"
 )]
 pub(crate) fn compile(
+    mut b: Builder,
     old: &OriginalPackage,
     proof: &OriginalProof,
     prepared: &PreparedChange,
@@ -439,7 +469,6 @@ pub(crate) fn compile(
     limits: Limits,
 ) -> Result<Layout> {
     inputs.validate(old, proof, limits)?;
-    let mut b = Builder::load(old, inputs, limits)?;
     ensure(
         !b.pool.values().any(|v| {
             v["schema"]["id"] == "photara.package.state-root"

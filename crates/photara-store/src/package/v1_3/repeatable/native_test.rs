@@ -4,9 +4,10 @@ use super::{
     Attempt, BTreeMap, DisposablePermit, EffectFailure, ExecutionError, Observation,
     OriginalPackage, PlannerInputs, RepeatableIo, RepeatablePlan, RestartContext, SelectedStage,
     Value, VerifiedOriginal, aid, attempt, budget, encode, execute, frames, hash, identity,
-    journal, json, package, plan, reference, request, restart, restore_plan, selected, support,
-    v1_3,
+    journal, json, package, reference, request, restart, selected, support, v1_3,
 };
+#[cfg(test)]
+use crate::package::v1_3::repeatable::{plan, restore_plan};
 #[cfg(test)]
 use rustix::fs::mkdirat;
 use rustix::fs::{
@@ -813,18 +814,25 @@ impl Native {
         let observed = snapshot(&self.base, p);
         self.footprint(&observed)
             .map_err(|_| ExecutionError::InvalidObservation)?;
-        v1_3::reader::inspect_operation_package(
-            p,
-            identity(p),
-            &observed,
-            &self.base.registration,
-            frames(),
-            &support::limits(),
-            plan,
-            stage,
-        )
-        .map(|_| ())
-        .map_err(|_| ExecutionError::InvalidObservation)
+        let identity = identity(p);
+        let reader = support::limits();
+        let context = RestartContext {
+            inspection: &observed,
+            registration: &self.base.registration,
+            directory: v1_3::DirectoryObservation {
+                device: self.root_pin[0],
+                inode: self.root_pin[1],
+            },
+            identity: &identity,
+            frames: frames(),
+            reader: &reader,
+            planner: budget(),
+            max_originals: self.journal_bounds().max_records,
+        };
+        self.compiled
+            .borrow_mut()
+            .inspect_candidate(p, &context, plan, stage)
+            .map_err(|_| ExecutionError::InvalidObservation)
     }
     fn allow(&mut self, plan: &RepeatablePlan) {
         self.allowed = plan.old.loose.clone();
@@ -1015,7 +1023,7 @@ impl Native {
         let identity = record_identity(prior_intent, self.scope.generation)?;
         let intent = if let Some((base, inputs)) = session {
             verified
-                .verify_session(base, inputs, budget())
+                .verify_session_cached(base, inputs, budget(), &mut self.compiled.borrow_mut())
                 .map_err(|_| invalid())?
                 .prepare_checkpoint_intent(&verified, plan, identity, limits)
         } else {

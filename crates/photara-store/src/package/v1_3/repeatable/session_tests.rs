@@ -35,6 +35,7 @@ struct Backend {
     checkpoint_fail: bool,
     omit_checkpoint: bool,
     verifications: std::rc::Rc<std::cell::Cell<usize>>,
+    memo: std::cell::RefCell<super::super::restart::CompiledPlans>,
 }
 impl Backend {
     fn context<'a>(
@@ -140,7 +141,20 @@ impl SessionIo for Backend {
         let observed = snapshot(&self.mock.base, &self.mock.current);
         let id = identity(&self.mock.current);
         let reader = support::limits();
-        Ok(j.verify(&self.mock.current, &self.context(&observed, &id, &reader))?)
+        Ok(j.verify_cached(
+            &self.mock.current,
+            &self.context(&observed, &id, &reader),
+            &mut self.memo.borrow_mut(),
+        )?)
+    }
+    fn verify_session<'a>(
+        &self,
+        verified: &VerifiedJournal<'a>,
+        base: &VerifiedOriginal,
+        inputs: &PlannerInputs,
+        limits: Limits,
+    ) -> Result<super::super::journal::VerifiedSession<'a>, SessionError> {
+        Ok(verified.verify_session_cached(base, inputs, limits, &mut self.memo.borrow_mut())?)
     }
     fn selected_head(&self) -> Result<Value, SessionError> {
         Ok(self.mock.current.head.clone())
@@ -182,7 +196,7 @@ impl SessionIo for Backend {
         let original = verify(&self.mock.base);
         let seed = attempt(&original, 1000).planner;
         let verified = self.verify(&j)?;
-        let view = verified.verify_session(&original, &seed, budget())?;
+        let view = self.verify_session(&verified, &original, &seed, budget())?;
         if let Some(frame) = view.accepted_frame() {
             let target = AcceptedCoordinate {
                 coordinate: view.coordinate(),
@@ -284,6 +298,7 @@ fn open() -> Session<Backend> {
         checkpoint_fail: false,
         omit_checkpoint: false,
         verifications: std::rc::Rc::new(std::cell::Cell::new(0)),
+        memo: std::cell::RefCell::default(),
     };
     Session::open(
         backend,
@@ -548,4 +563,367 @@ fn generic_graph_batch_reopens_exactly_and_unavailable_edits_have_no_effects() {
     assert_eq!(reopened.io_mut().bytes, before_journal);
     assert_eq!(reopened.io_mut().mock.current.head, before_head);
     assert_eq!(reopened.io_mut().mock.effects, before_effects);
+}
+
+#[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "One original preflight and byte-pressure retry sequence"
+)]
+fn fresh_admission_reuses_compilation_before_package_effects() {
+    // Real existing-corpus planner and journal preflight, synthetic immutable IO.
+    let base = fixture();
+    let original = verify(&base);
+    let (intent, receipt) = request();
+    let mut memo = super::super::restart::CompiledPlans::default();
+    let initial_attempt = attempt(&original, 1000);
+    super::super::layout::take_load_work();
+    let plan = memo
+        .compile(&original, &intent, &receipt, initial_attempt, budget(), 16)
+        .unwrap();
+    assert_eq!(
+        super::super::layout::take_load_work().0,
+        1,
+        "Core/layout/cache share one original decoding pass"
+    );
+    assert_eq!(memo.compilations, 1);
+    let mut header = super::journal_tests::header(original.package());
+    header["journal_id"] = receipt["journal_id"].clone();
+    let bytes = Journal::create(&header, limits()).unwrap();
+    let id = identity(original.package());
+    let reader = support::limits();
+    let ctx = super::journal_tests::context(&base, &id, &reader);
+    let journal = Journal::read(&bytes, &header, limits()).unwrap();
+    let prepared = journal
+        .verify(original.package(), &ctx)
+        .unwrap()
+        .prepare_intent(&plan, rid(120_001), limits())
+        .unwrap();
+    let mut preflight = bytes.clone();
+    preflight.extend(prepared.bytes());
+    let parsed = Journal::read(&preflight, &header, limits()).unwrap();
+    // No package effect or journal append has occurred: this is the exact next
+    // immutable journal candidate inspected before its first durable write.
+    parsed
+        .verify_cached(original.package(), &ctx, &mut memo)
+        .unwrap();
+    assert_eq!(
+        memo.compilations, 1,
+        "preflight must reuse the just-compiled original"
+    );
+    assert!(memo.hits > 0);
+    let retry = super::super::restart::restore_intent_plan_cached(
+        original.package(),
+        plan.original(),
+        &intent,
+        &receipt,
+        &ctx,
+        &mut memo,
+    )
+    .unwrap();
+    assert_eq!(retry.original_bytes(), plan.original_bytes());
+    assert_eq!(retry.files, plan.files);
+    assert_eq!(
+        memo.compilations, 1,
+        "original retry must not compile again"
+    );
+    assert!(memo.retained().1 <= usize::try_from(budget().max_total_allocation_bytes).unwrap());
+    let mut changed = original.package().clone();
+    changed.allocations.values_mut().next().unwrap().bytes[16] ^= 1;
+    assert!(parsed.verify_cached(&changed, &ctx, &mut memo).is_err());
+    assert_eq!(bytes, Journal::create(&header, limits()).unwrap());
+    // A fresh admission must replace an older optional entry at the byte cap.
+    // Distinct operation IDs use the same immutable original for this pure test.
+    let mut intent2 = intent.clone();
+    intent2["operation_id"] = json!(uid(120_010));
+    intent2["command"]["envelope"]["command_id"] = intent2["operation_id"].clone();
+    let mut receipt2 = receipt.clone();
+    receipt2["operation_id"] = intent2["operation_id"].clone();
+    receipt2["request_sha256"] = json!(hash(&encode(&intent2)));
+    let cache_ceiling = memo.retained().1 + 4096;
+    memo.set_test_ceiling(cache_ceiling);
+    let fresh = memo
+        .compile(
+            &original,
+            &intent2,
+            &receipt2,
+            attempt(&original, 2000),
+            budget(),
+            16,
+        )
+        .unwrap();
+    assert_eq!(memo.retained().0, 1);
+    assert!(memo.retained().1 <= cache_ceiling);
+    let before_work = memo.compilations;
+    let retry = super::super::restart::restore_intent_plan_cached(
+        original.package(),
+        fresh.original(),
+        &intent2,
+        &receipt2,
+        &ctx,
+        &mut memo,
+    )
+    .unwrap();
+    assert_eq!(retry.files, fresh.files);
+    assert_eq!(
+        memo.compilations, before_work,
+        "fresh entry survives old-history cache saturation"
+    );
+    assert!(memo.retained().1 <= usize::try_from(budget().max_total_allocation_bytes).unwrap());
+    let mut tight = budget();
+    tight.max_frames = 1;
+    assert!(
+        plan::compile_inner(
+            &original,
+            &intent2,
+            &receipt2,
+            attempt(&original, 2000),
+            tight
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn journal_snapshot_prefix_work_is_linear_and_changed_bytes_never_reuse_hash() {
+    use super::super::restart::prefix_index::Prefixes;
+    let base = fixture();
+    let original = verify(&base);
+    let source = original.package();
+    let maximum = usize::try_from(budget().max_total_allocation_bytes).unwrap();
+    let indexed = Prefixes::new(source, maximum);
+    let disabled = Prefixes::new(source, 0);
+    let mut ordinary_work = 0usize;
+    let total = source
+        .allocations
+        .values()
+        .map(|a| a.bytes.len())
+        .sum::<usize>();
+    // Thirty-two chronological historical boundaries over actual fixture bytes,
+    // with the three consumers (reconstruct/materialize/fingerprint) per step.
+    for step in 1..=32 {
+        for (id, a) in &source.allocations {
+            let end = a.bytes.len() * step / 32;
+            let bytes = &a.bytes[..end];
+            let expected = hash(bytes);
+            for _ in 0..3 {
+                assert_eq!(indexed.hash(id, bytes), expected);
+                assert_eq!(disabled.hash(id, bytes), expected);
+                ordinary_work += bytes.len();
+            }
+        }
+    }
+    assert_eq!(indexed.hashed.get(), total);
+    assert_eq!(disabled.hashed.get(), ordinary_work);
+    assert!(ordinary_work > total * 40);
+    let (id, a) = source.allocations.iter().next().unwrap();
+    let mut changed = a.bytes.clone();
+    changed[16] ^= 1;
+    assert_eq!(indexed.hash(id, &changed), hash(&changed));
+    assert_ne!(indexed.hash(id, &changed), hash(&a.bytes));
+    assert_eq!(indexed.hash(id, &a.bytes[..17]), hash(&a.bytes[..17]));
+    // Another actual snapshot always creates a fresh index; no stored hash or
+    // checked observation can cross requests, even under the same allocation ID.
+    let mut changed_source = source.clone();
+    changed_source.allocations.get_mut(id).unwrap().bytes = changed.clone();
+    let next = Prefixes::new(&changed_source, maximum);
+    assert_eq!(next.hash(id, &changed), hash(&changed));
+    assert_eq!(next.hashed.get(), changed.len());
+    eprintln!(
+        "32-step prefix work indexed={total} ordinary={ordinary_work} ratio_at_least={}",
+        ordinary_work / total
+    );
+}
+
+#[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "One four-operation workload compares cold, warm, native-admission and altered-input paths"
+)]
+fn completed_journal_prefix_extends_without_historical_replay() {
+    let mut session = open();
+    for step in 0..4u64 {
+        let (intent, receipt) = edit(&session, 130_001 + step, 50 + i64::try_from(step).unwrap());
+        session
+            .submit(
+                &intent,
+                &receipt,
+                &json!({"kind":"edit"}),
+                rid(131_001 + step * 2),
+                step,
+            )
+            .unwrap();
+        let flush = session
+            .begin_flush("save-now", rid(131_002 + step * 2))
+            .unwrap();
+        session.finish_flush(&flush).unwrap();
+    }
+    let backend = session.io_mut();
+    let j = backend.parsed();
+    let current = &backend.mock.current;
+    let observed = snapshot(&backend.mock.base, current);
+    let identity = identity(current);
+    let reader = support::limits();
+    let context = backend.context(&observed, &identity, &reader);
+    let base = verify(&backend.mock.base);
+    let planner = attempt(&base, 1000).planner;
+    let expected = j.verify(current, &context).unwrap();
+    let mut memo = super::super::restart::CompiledPlans::default();
+    j.verify_cached(current, &context, &mut memo).unwrap();
+    let cold_records = memo.journal_replayed;
+    let before = std::time::Instant::now();
+    let cached = j.verify_cached(current, &context, &mut memo).unwrap();
+    assert_eq!(memo.journal_replayed, 0);
+    // Exercise the exact shortcut used by native Host::original after journal
+    // verification, not merely another Journal scan. No historical recursion.
+    let work = (memo.compilations, memo.reader_work());
+    let native_original = memo.current_original(current, &context).unwrap().unwrap();
+    assert_eq!((memo.compilations, memo.reader_work()), work);
+    let full_original = backend.original();
+    assert_eq!(native_original.package().head, full_original.package().head);
+    assert_eq!(native_original.proof.global, full_original.proof.global);
+    assert_eq!(
+        native_original.proof.roles["active"].state,
+        full_original.proof.roles["active"].state
+    );
+    let pool = super::super::layout::original_objects(current, &planner, budget()).unwrap();
+    let resource_ref = &native_original.proof.roles["active"].state["resource_state"];
+    let resource =
+        super::super::restart::original_json(&native_original, resource_ref, frames(), &reader)
+            .unwrap();
+    assert_eq!(
+        resource,
+        pool[&super::super::wire::key(resource_ref).unwrap()]
+    );
+    let sources = super::super::restart::original_json(
+        &native_original,
+        &resource["retention_sources"],
+        frames(),
+        &reader,
+    )
+    .unwrap();
+    assert_eq!(
+        sources,
+        pool[&super::super::wire::key(&resource["retention_sources"]).unwrap()]
+    );
+    let mut different_observation = snapshot(&backend.mock.base, current);
+    different_observation
+        .allocations
+        .values_mut()
+        .next()
+        .unwrap()
+        .charge += 4096;
+    assert!(
+        memo.current_original(
+            current,
+            &backend.context(&different_observation, &identity, &reader)
+        )
+        .unwrap()
+        .is_none()
+    );
+    let mut narrower = context;
+    narrower.max_originals = 1;
+    assert!(memo.current_original(current, &narrower).unwrap().is_none());
+    let context = backend.context(&observed, &identity, &reader);
+    let expected_view = expected.verify_session(&base, &planner, budget()).unwrap();
+    cached
+        .verify_session_cached(&base, &planner, budget(), &mut memo)
+        .unwrap();
+    assert_eq!(memo.session_replayed, j.records().len());
+    let actual = cached
+        .verify_session_cached(&base, &planner, budget(), &mut memo)
+        .unwrap();
+    assert_eq!(memo.session_replayed, 0);
+    assert!(
+        backend.memo.borrow().session_record_work <= j.records().len() + 4,
+        "whole submit/flush path extends the local prefix instead of replaying its history"
+    );
+    assert_eq!(actual.coordinate(), expected_view.coordinate());
+    assert_eq!(actual.accepted_frame(), expected_view.accepted_frame());
+    assert_eq!(
+        actual.undo_targets(&binding().owner),
+        expected_view.undo_targets(&binding().owner)
+    );
+    assert_eq!(
+        actual.graph_objects().unwrap(),
+        expected_view.graph_objects().unwrap()
+    );
+    let barrier = actual
+        .prepare_barrier(&binding().owner, "save-now", rid(132_001), limits())
+        .unwrap();
+    let mut extended = backend.bytes.clone();
+    extended.extend(barrier.bytes());
+    let appended = Journal::read(&extended, &backend.header, limits()).unwrap();
+    let appended_proof = appended
+        .verify_cached(current, &context, &mut memo)
+        .unwrap();
+    let appended_view = appended_proof
+        .verify_session_cached(&base, &planner, budget(), &mut memo)
+        .unwrap();
+    assert_eq!(memo.session_replayed, 1);
+    assert_eq!(appended_view.coordinate(), actual.coordinate());
+    let mut narrow = budget();
+    narrow.semantic.json.max_array_elements = 1;
+    assert!(
+        appended_proof
+            .verify_session_cached(&base, &planner, narrow, &mut memo)
+            .is_err()
+    );
+    assert_eq!(
+        memo.journal_replayed, 1,
+        "only the newly appended record replays"
+    );
+    assert!(memo.retained().1 <= usize::try_from(budget().max_total_allocation_bytes).unwrap());
+    let mut changed = current.clone();
+    changed.allocations.values_mut().next().unwrap().bytes[16] ^= 1;
+    assert!(memo.current_original(&changed, &context).unwrap().is_none());
+    let mut extra = current.clone();
+    extra.allocations.values_mut().next().unwrap().bytes.push(0);
+    assert!(memo.current_original(&extra, &context).unwrap().is_none());
+    assert!(
+        appended
+            .verify_cached(&changed, &context, &mut memo)
+            .is_err()
+    );
+    eprintln!(
+        "four-operation journal: cold_records={cold_records} warm_records=0 appended_records=1 elapsed={:?} retained_bytes={}",
+        before.elapsed(),
+        memo.retained().1
+    );
+}
+
+#[test]
+fn original_pool_dedup_preserves_physical_budgets_and_malformed_refusal() {
+    let original = verify(&fixture());
+    let inputs = attempt(&original, 1000).planner;
+    let mut duplicate = original.package().clone();
+    let ids = duplicate.allocations.keys().cloned().collect::<Vec<_>>();
+    let copied = duplicate.allocations[&ids[0]].bytes.clone();
+    duplicate.allocations.get_mut(&ids[1]).unwrap().bytes = copied;
+    // This intentionally unselected layout exercises only the internal decoder;
+    // no reader authority or package acceptance is inferred from its result.
+    super::super::layout::Builder::load(&duplicate, &inputs, budget()).unwrap();
+    let mut physical_json = duplicate.loose.values().map(Vec::len).sum::<usize>();
+    for a in duplicate.allocations.values() {
+        let mut at = 0;
+        while at < a.bytes.len() {
+            let length = u32::from_le_bytes(a.bytes[at + 12..at + 16].try_into().unwrap()) as usize;
+            if a.bytes[at + 8] != 0 {
+                physical_json += length;
+            }
+            at += 16 + length;
+        }
+    }
+    let mut narrow = budget();
+    narrow.semantic.max_total_json_bytes = physical_json - 1;
+    assert!(super::super::layout::Builder::load(&duplicate, &inputs, narrow).is_err());
+    let raw = &mut duplicate.allocations.get_mut(&ids[0]).unwrap().bytes;
+    let mut at = 0;
+    while raw[at + 8] == 0 {
+        at += 16 + u32::from_le_bytes(raw[at + 12..at + 16].try_into().unwrap()) as usize;
+    }
+    raw[at + 16] = b' '; // Both repeated bodies are now invalid canonical JSON.
+    let malformed = raw.clone();
+    duplicate.allocations.get_mut(&ids[1]).unwrap().bytes = malformed;
+    assert!(super::super::layout::Builder::load(&duplicate, &inputs, budget()).is_err());
 }
