@@ -43,10 +43,22 @@ vectors3 pass; strict store check passes. Logs
 Package integration log: `/private/tmp/ps2-snapshot-package-tests.log` (4 pass);
 compatibility `/private/tmp/ps2-snapshot-archive-legacy-reader.log` (5 pass) and
 strict store tests `/private/tmp/ps2-snapshot-archive-clippy.log` pass.
-Verified commits through `fc3788c` are local; SSH publication retries currently
+Verified commits through `92a19b0` are local; SSH publication retries currently
 fail without an authentication/remote change. Continue local implementation.
 Next: approved turnover, PHPSJ002/local recovery, v4 admission and disposable gates.
 Do not ask for the approved format again or claim performance acceptance yet.
+
+The next implementation slice adds exact PHPSJ002 framing, local base/selector/
+archive records, and first-turnover history prepared from a verified drained
+session. It binds the old full audit to the selected clean snapshot and rebuilds
+the live Core coordinate using the registered incarnation. New journal semantic
+dispatch still refuses until publication/recovery is connected. No native format
+enablement, turnover publication or v4 continuation yet. Final focused gate passes
+9/9 (`/private/tmp/ps2-turnover-focused-final.log`), including exact selected-base
+binding; strict store tests pass (`/private/tmp/ps2-turnover-clippy-final.log`).
+Next concrete work: maintenance Original/layout/stages, then selector custody and
+PHPSJ002 semantic recovery/v4 continuation. Do not mistake framing/preparation
+evidence for a working checkpoint writer or measured native performance.
 
 **Latest 2026-10-11 checkpoint:** exact-prefix journal decode reuse now removes
 repeated canonical parsing and record re-encoding during preflight. It still

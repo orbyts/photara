@@ -46,7 +46,7 @@ pub(crate) fn link(value: &Value) -> Result<(), PackageError> {
     id(&value["record_id"])?;
     digest(&value["record_checksum"])
 }
-fn target(value: &Value) -> Result<(), PackageError> {
+pub(crate) fn target(value: &Value) -> Result<(), PackageError> {
     fields(value, &["kind", "operation_id", "mutation"])?;
     check(value["kind"] == "operation")?;
     id(&value["operation_id"])?;
@@ -1138,4 +1138,64 @@ fn inverse(
         _ => return Err(PackageError::UnsupportedVersion),
     }
     Ok(derived)
+}
+
+impl<'a> VerifiedSession<'a> {
+    /// A turnover source must be a complete, fully checkpointed local prefix.
+    /// Preserve every local undo target initially; retirement is a separate
+    /// explicit projection and cannot be inferred from an absent receipt.
+    pub(crate) fn checkpoint_source(
+        &self,
+        current: &VerifiedOriginal,
+    ) -> Result<(&'a Journal, Vec<Value>), PackageError> {
+        let active = current
+            .proof
+            .roles
+            .get("active")
+            .ok_or(PackageError::Integrity)?;
+        check(
+            self.journal.tail == super::JournalTail::Complete
+                && self.journal.header["format_version"] == 1
+                && !self.journal.records.is_empty()
+                && self.head == current.package.head
+                && self.checkpointed == self.order.len()
+                && self.accepted == active.state["accepted"]
+                && self.journal_inclusion == active.state["journal_inclusion"]
+                && self.coordinate() == self.checkpoint_target["coordinate"],
+        )?;
+        let completed = self
+            .journal
+            .records
+            .iter()
+            .filter(|record| record.value["kind"] == "CheckpointReceipt")
+            .map(|record| {
+                record.value["body"]["intent_record_id"]
+                    .as_str()
+                    .ok_or(PackageError::Record)
+            })
+            .collect::<Result<BTreeSet<_>, _>>()?;
+        for record in &self.journal.records {
+            if record.value["kind"] == "CheckpointIntent" {
+                check(
+                    completed.contains(
+                        record.value["record_id"]
+                            .as_str()
+                            .ok_or(PackageError::Record)?,
+                    ),
+                )?;
+            }
+        }
+        let mut roots = self
+            .order
+            .iter()
+            .map(|id| operation_target(&self.mutations[id].record))
+            .collect::<Vec<_>>();
+        roots.sort_by_key(|v| {
+            (
+                v["operation_id"].as_str().unwrap_or_default().to_owned(),
+                wire::encode(&v["mutation"]),
+            )
+        });
+        Ok((self.journal, roots))
+    }
 }

@@ -16,6 +16,21 @@ pub(crate) mod session;
 pub use session::VerifiedSession;
 
 const MAGIC: &[u8; 8] = b"PHPSJ001";
+const SNAPSHOT_MAGIC: &[u8; 8] = b"PHPSJ002";
+fn magic(header: &Value) -> Result<&'static [u8; 8], PackageError> {
+    match header["format_version"].as_u64() {
+        Some(1) => Ok(MAGIC),
+        Some(2) => Ok(SNAPSHOT_MAGIC),
+        _ => Err(PackageError::UnsupportedVersion),
+    }
+}
+fn sequence_base(header: &Value) -> Result<u64, PackageError> {
+    if header["format_version"] == 2 {
+        n(&header["sequence_base"])
+    } else {
+        Ok(0)
+    }
+}
 #[derive(Clone, Copy)]
 pub struct JournalLimits {
     pub json: JsonLimits,
@@ -264,24 +279,33 @@ fn reference(v: &Value) -> Value {
     wire::reference(v)
 }
 fn header(v: &Value) -> Result<(), PackageError> {
-    fields(
-        v,
-        &[
-            "format_version",
-            "stream_id",
-            "journal_id",
-            "device_id",
-            "project_id",
-            "library_id",
-            "incarnation_id",
-            "bootstrap_sha256",
-            "base_head",
-            "base_package_revision",
-        ],
-    )?;
-    if v["format_version"] != 1 {
-        return Err(PackageError::UnsupportedVersion);
+    magic(v)?;
+    let mut names = vec![
+        "format_version",
+        "stream_id",
+        "journal_id",
+        "device_id",
+        "project_id",
+        "library_id",
+        "incarnation_id",
+        "bootstrap_sha256",
+        "base_head",
+        "base_package_revision",
+    ];
+    if v["format_version"] == 2 {
+        names.extend(["base", "sequence_base", "previous_segment"]);
+        selected::json_ref(&v["base"])?;
+        let previous = &v["previous_segment"];
+        fields(previous, &["stream_id", "header_sha256", "last"])?;
+        id(&previous["stream_id"])?;
+        digest(&previous["header_sha256"])?;
+        super::checkpoint::link(&previous["last"])?;
+        check(
+            previous["stream_id"] != v["stream_id"]
+                && previous["last"]["sequence"] == v["sequence_base"],
+        )?;
     }
+    fields(v, &names)?;
     for k in [
         "stream_id",
         "journal_id",
@@ -306,6 +330,29 @@ fn header(v: &Value) -> Result<(), PackageError> {
 }
 fn body(record: &Value, header: &Value) -> Result<(), PackageError> {
     match record["kind"].as_str() {
+        Some("CheckpointBaseReceipt") => {
+            check(header["format_version"] == 2)?;
+            let body = &record["body"];
+            fields(
+                body,
+                &[
+                    "maintenance_id",
+                    "original",
+                    "journal_base",
+                    "selected_head",
+                    "selected_commit",
+                ],
+            )?;
+            id(&body["maintenance_id"])?;
+            selected::json_ref(&body["original"])?;
+            selected::json_ref(&body["journal_base"])?;
+            selected::json_ref(&body["selected_commit"])?;
+            check(
+                body["journal_base"] == header["base"]
+                    && body["selected_head"] == header["base_head"]
+                    && body["selected_head"]["commit_sha256"] == body["selected_commit"]["sha256"],
+            )
+        }
         Some("CheckpointIntent") => {
             let body = &record["body"];
             fields(
@@ -389,8 +436,17 @@ fn envelope(v: &Value, h: &Value, sequence: u64) -> Result<(), PackageError> {
             "body",
         ],
     )?;
-    if v["format_version"] != 1 {
+    if v["format_version"] != h["format_version"] {
         return Err(PackageError::UnsupportedVersion);
+    }
+    if h["format_version"] == 2 {
+        check(
+            (sequence
+                == sequence_base(h)?
+                    .checked_add(1)
+                    .ok_or(PackageError::Limit)?)
+                == (v["kind"] == "CheckpointBaseReceipt"),
+        )?;
     }
     id(&v["record_id"])?;
     id(&v["project_id"])?;
@@ -433,6 +489,7 @@ impl Journal {
     /// Refuses unsupported/malformed header fields or caller byte/work ceilings.
     pub fn create(header_value: &Value, limits: JournalLimits) -> Result<Vec<u8>, PackageError> {
         header(header_value)?;
+        let magic = magic(header_value)?;
         let bytes = wire::encode(header_value);
         let len = u32::try_from(bytes.len())
             .map_err(|_| PackageError::Limit)?
@@ -453,10 +510,10 @@ impl Journal {
         }
         let mut work = 0;
         payload(&bytes, limits, &mut work)?;
-        out.extend(MAGIC);
+        out.extend(magic);
         out.extend(len);
         out.extend(&bytes);
-        out.extend(hash_parts(&[MAGIC, &len, &bytes]));
+        out.extend(hash_parts(&[magic, &len, &bytes]));
         Ok(out)
     }
     /// Reads the verified prefix without truncating or interpreting an incomplete
@@ -499,7 +556,9 @@ impl Journal {
         if bytes.len() > limits.max_file_bytes {
             return Err(PackageError::Limit);
         }
-        check(bytes.get(..8) == Some(MAGIC.as_slice()))?;
+        header(expected_header)?;
+        let magic = magic(expected_header)?;
+        check(bytes.get(..8) == Some(magic.as_slice()))?;
         let raw_len: [u8; 4] = bytes
             .get(8..12)
             .ok_or(PackageError::Integrity)?
@@ -513,7 +572,7 @@ impl Journal {
         let header_end = 12usize.checked_add(length).ok_or(PackageError::Limit)?;
         let mut at = header_end.checked_add(32).ok_or(PackageError::Limit)?;
         let raw = bytes.get(12..header_end).ok_or(PackageError::Integrity)?;
-        let mut last = hash_parts(&[MAGIC, &raw_len, raw]);
+        let mut last = hash_parts(&[magic, &raw_len, raw]);
         check(bytes.get(header_end..at) == Some(last.as_slice()))?;
         let mut work = 0;
         let h = payload(raw, limits, &mut work)?;
@@ -570,7 +629,8 @@ impl Journal {
             };
             let sequence = u64::try_from(records.len())
                 .map_err(|_| PackageError::Limit)?
-                .checked_add(1)
+                .checked_add(sequence_base(&h)?)
+                .and_then(|n| n.checked_add(1))
                 .ok_or(PackageError::Limit)?;
             envelope(&value, &h, sequence)?;
             check(ids.insert(id(&value["record_id"])?))?;
@@ -744,6 +804,11 @@ impl Journal {
         mut memo: Option<&mut restart::CompiledPlans>,
         seed: Option<&JournalResume>,
     ) -> Result<(VerifiedJournal<'a>, Option<JournalResume>), PackageError> {
+        // Snapshot segments require independently verified local-base custody;
+        // framing/header equality alone must never seed semantic acceptance.
+        if self.header["format_version"] != 1 {
+            return Err(PackageError::UnsupportedVersion);
+        }
         check(
             self.header["project_id"] == context.identity.project.to_string()
                 && self.header["library_id"] == context.identity.library.to_string()
@@ -1100,4 +1165,37 @@ pub(crate) fn validate_detached_checkpoint(value: &Value) -> Result<(), PackageE
     let sequence = n(&value["sequence"])?;
     check(sequence > 0)?;
     envelope(value, &header, sequence)
+}
+
+impl Journal {
+    pub(super) fn checkpoint_archive(&self, index: usize) -> Result<Value, PackageError> {
+        let record = self.records.get(index).ok_or(PackageError::Integrity)?;
+        let start = if index == 0 {
+            12usize
+                .checked_add(wire::encode(&self.header).len())
+                .and_then(|v| v.checked_add(32))
+                .ok_or(PackageError::Limit)?
+        } else {
+            self.records[index - 1].frame_end
+        };
+        let length = record
+            .frame_end
+            .checked_sub(start)
+            .ok_or(PackageError::Integrity)?;
+        Ok(
+            json!({"stream_id":self.header["stream_id"],"offset":start.to_string(),"byte_length":length.to_string(),"record":wire::reference(&record.value),"checksum":record.checksum()}),
+        )
+    }
+    pub(super) fn checkpoint_segment(&self) -> Result<Value, PackageError> {
+        check(self.tail == JournalTail::Complete)?;
+        let first = self.records.first().ok_or(PackageError::Integrity)?;
+        let last = self.records.last().ok_or(PackageError::Integrity)?;
+        let header_end = 12usize
+            .checked_add(wire::encode(&self.header).len())
+            .and_then(|v| v.checked_add(32))
+            .ok_or(PackageError::Limit)?;
+        Ok(
+            json!({"stream_id":self.header["stream_id"],"journal_id":self.header["journal_id"],"header_sha256":wire::hash(&self.bytes[..header_end]),"byte_length":self.bytes.len().to_string(),"sha256":wire::hash(&self.bytes),"first_sequence":first.value["sequence"],"last_sequence":last.value["sequence"],"last_checksum":last.checksum()}),
+        )
+    }
 }

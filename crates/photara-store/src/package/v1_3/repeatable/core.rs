@@ -65,7 +65,7 @@ pub(super) fn replay(
             && intent["bootstrap_sha256"] == hash(&encode(&old.manifest)),
         "original intent binding",
     )?;
-    let (logical, closure) = closure_from_pool(old, proof, inputs, limits, pool)?;
+    let (logical, closure) = closure_from_pool(old, proof, &inputs.active_root_id, limits, pool)?;
     ensure(
         serde_json::to_value(logical.coordinate()).map_err(|_| "coordinate")? == intent["expected"],
         "actual expected coordinate",
@@ -181,12 +181,12 @@ pub(super) fn original_closure(
     limits: Limits,
 ) -> Result<(VerifiedClosure, BTreeMap<wire::Key, Value>)> {
     let pool = layout::original_objects(old, inputs, limits)?;
-    closure_from_pool(old, proof, inputs, limits, &pool)
+    closure_from_pool(old, proof, &inputs.active_root_id, limits, &pool)
 }
 fn closure_from_pool(
     old: &OriginalPackage,
     proof: &OriginalProof,
-    inputs: &PlannerInputs,
+    incarnation: &str,
     limits: Limits,
     pool: &super::object_pool::ObjectPool,
 ) -> Result<(VerifiedClosure, BTreeMap<wire::Key, Value>)> {
@@ -240,7 +240,7 @@ fn closure_from_pool(
     );
     let logical = VerifiedClosure::verify(
         MemoryPackage::new(files, limits.semantic).map_err(|_| "temporary Core input")?,
-        IncarnationId::parse(&inputs.active_root_id).map_err(|_| "temporary identity")?,
+        IncarnationId::parse(incarnation).map_err(|_| "temporary identity")?,
     )
     .map_err(|_| "actual original Core closure")?;
 
@@ -254,4 +254,33 @@ pub(crate) fn original_coordinate(
 ) -> Result<Value> {
     let (logical, _) = original_closure(&original.package, &original.proof, inputs, limits)?;
     serde_json::to_value(logical.coordinate()).map_err(|_| "coordinate")
+}
+
+/// Seed real Core state from selected live closure, without restoring archived
+/// transitions. The complete snapshot reader proof must already exist.
+pub(super) fn snapshot_closure(
+    original: &super::VerifiedOriginal,
+    incarnation: crate::package::PackageUuid,
+    frames: crate::package::v1_3::FrameLimits,
+    reader: &crate::package::v1_3::ReaderLimits,
+    limits: Limits,
+) -> Result<VerifiedClosure> {
+    let values = crate::package::v1_3::reader::snapshot_core_objects(original, frames, reader)
+        .map_err(|_| "snapshot Core records")?;
+    ensure(
+        values.len() <= limits.max_objects,
+        "snapshot Core object budget",
+    )?;
+    let mut pool = super::object_pool::ObjectPool::default();
+    for (key, value) in values {
+        pool.insert(key, value);
+    }
+    let (closure, _) = closure_from_pool(
+        &original.package,
+        &original.proof,
+        &incarnation.to_string(),
+        limits,
+        &pool,
+    )?;
+    Ok(closure)
 }

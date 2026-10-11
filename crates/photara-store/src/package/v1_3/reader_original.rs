@@ -422,3 +422,193 @@ pub(crate) fn verify_operation_original(
     verified.retained_controls = plan.retained_controls.clone();
     Ok(verified)
 }
+
+/// First adoption reuses the exact selected old active locator and performs the
+/// full reciprocal operation audit; a claimed base is never enough by itself.
+pub(crate) fn audit_checkpoint_adoption(
+    original: &repeatable::VerifiedOriginal,
+    base: &super::super::snapshot::AcceptanceBase,
+    identity: &SelectionIdentity,
+    frames: FrameLimits,
+    limits: &ReaderLimits,
+) -> Result<(), PackageError> {
+    use super::super::{Locator, PhysicalTree, PhysicalTreeKind};
+    let package = original.shared_package();
+    let provider = Bytes {
+        package,
+        inspection: &(),
+        frames,
+        snapshot: package.commit["root_set"]["schema"]["version"] == 3,
+        checked: RefCell::new(BTreeMap::new()),
+    };
+    let active = original
+        .proof
+        .roles
+        .get("active")
+        .ok_or(PackageError::Integrity)?;
+    let reference = super::super::selected::json_ref(&package.commit["root_set"]["active"])?;
+    let placement = PhysicalTree::new(
+        &provider,
+        identity.project,
+        PhysicalTreeKind::RootPlacement,
+        limits.tree,
+    )
+    .lookup(
+        &super::super::selected::physical(
+            &package.commit["root_set"]["placement"]["root_placements"],
+        )?,
+        &reference,
+    )?
+    .ok_or(PackageError::Integrity)?;
+    let locator = Locator::new(
+        &provider,
+        identity.project,
+        super::super::selected::physical(&placement["locator"])?,
+        limits.tree,
+    );
+    base.audit_adoption(
+        &locator,
+        &package.commit,
+        &active.state,
+        identity,
+        limits.tree,
+    )
+}
+
+/// Materialize only the already authenticated live Core graph/history closure.
+/// Historical operation/archive frames remain lookup edges and are not scanned.
+pub(crate) fn snapshot_core_objects(
+    original: &repeatable::VerifiedOriginal,
+    frames: FrameLimits,
+    limits: &ReaderLimits,
+) -> Result<BTreeMap<(String, u64), Value>, PackageError> {
+    use super::super::{Locator, Membership, PhysicalTree, PhysicalTreeKind};
+    let package = original.shared_package();
+    check(package.commit["root_set"]["schema"]["version"] == 3)?;
+    let project = PackageUuid::parse(
+        package.manifest["project_id"]
+            .as_str()
+            .ok_or(PackageError::Record)?,
+    )?;
+    let provider = Bytes {
+        package,
+        inspection: &(),
+        frames,
+        snapshot: true,
+        checked: RefCell::new(BTreeMap::new()),
+    };
+    let active = original
+        .proof
+        .roles
+        .get("active")
+        .ok_or(PackageError::Integrity)?;
+    let reference = super::super::selected::json_ref(&package.commit["root_set"]["active"])?;
+    let placement = PhysicalTree::new(
+        &provider,
+        project,
+        PhysicalTreeKind::RootPlacement,
+        limits.tree,
+    )
+    .lookup(
+        &super::super::selected::physical(
+            &package.commit["root_set"]["placement"]["root_placements"],
+        )?,
+        &reference,
+    )?
+    .ok_or(PackageError::Integrity)?;
+    let locator = Locator::new(
+        &provider,
+        project,
+        super::super::selected::physical(&placement["locator"])?,
+        limits.tree,
+    );
+    let mut pending = vec![
+        super::super::selected::json_ref(&active.state["authored"])?,
+        super::super::selected::json_ref(&active.state["history"])?,
+    ];
+    let mut objects = BTreeMap::new();
+    let mut bytes = 0usize;
+    while let Some(reference) = pending.pop() {
+        let key = (
+            reference.sha256.as_str().to_owned(),
+            reference.byte_length.get(),
+        );
+        if objects.contains_key(&key) {
+            continue;
+        }
+        check(active.semantic.contains(&key))?;
+        if objects.len() >= limits.semantic.max_objects {
+            return Err(PackageError::Limit);
+        }
+        bytes = bytes
+            .checked_add(
+                usize::try_from(reference.byte_length.get()).map_err(|_| PackageError::Limit)?,
+            )
+            .ok_or(PackageError::Limit)?;
+        if bytes > limits.semantic.max_total_json_bytes {
+            return Err(PackageError::Limit);
+        }
+        let value = locator.json(&reference, Membership::Semantic)?;
+        let mut edges = Vec::new();
+        crate::package::v1_1::references(&value, &mut edges)?;
+        pending.extend(edges);
+        objects.insert(key, value);
+    }
+    Ok(objects)
+}
+
+pub(crate) fn snapshot_base_binding(
+    original: &repeatable::VerifiedOriginal,
+    checkpoint: &ObjectRef,
+    frames: FrameLimits,
+    limits: &ReaderLimits,
+) -> Result<(), PackageError> {
+    use super::super::{Locator, Membership, PhysicalTree, PhysicalTreeKind};
+    let package = original.shared_package();
+    let project = PackageUuid::parse(
+        package.manifest["project_id"]
+            .as_str()
+            .ok_or(PackageError::Record)?,
+    )?;
+    let provider = Bytes {
+        package,
+        inspection: &(),
+        frames,
+        snapshot: true,
+        checked: RefCell::new(BTreeMap::new()),
+    };
+    let active = original
+        .proof
+        .roles
+        .get("active")
+        .ok_or(PackageError::Integrity)?;
+    check(active.state["schema"]["version"] == 3 && active.receipts.is_empty())?;
+    let reference = super::super::selected::json_ref(&package.commit["root_set"]["active"])?;
+    let placement = PhysicalTree::new(
+        &provider,
+        project,
+        PhysicalTreeKind::RootPlacement,
+        limits.tree,
+    )
+    .lookup(
+        &super::super::selected::physical(
+            &package.commit["root_set"]["placement"]["root_placements"],
+        )?,
+        &reference,
+    )?
+    .ok_or(PackageError::Integrity)?;
+    let locator = Locator::new(
+        &provider,
+        project,
+        super::super::selected::physical(&placement["locator"])?,
+        limits.tree,
+    );
+    let index = locator.json(
+        &super::super::selected::json_ref(&active.state["operation_index"])?,
+        Membership::Semantic,
+    )?;
+    check(
+        index["schema"] == serde_json::json!({"id":"photara.package.operation-index","version":3})
+            && super::super::selected::json_ref(&index["base"])? == *checkpoint,
+    )
+}

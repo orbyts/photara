@@ -438,7 +438,7 @@ pub(super) fn json_ref(value: &Value) -> Result<ObjectRef, PackageError> {
         Ok(reference)
     }
 }
-fn physical(value: &Value) -> Result<PhysicalRef, PackageError> {
+pub(crate) fn physical(value: &Value) -> Result<PhysicalRef, PackageError> {
     let reference: PhysicalRef =
         serde_json::from_value(value.clone()).map_err(|_| PackageError::Record)?;
     if reference.allocation_id.as_uuid().is_nil() {

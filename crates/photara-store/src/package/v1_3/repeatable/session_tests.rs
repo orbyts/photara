@@ -1297,3 +1297,88 @@ fn hypothetical_journal_reuses_only_exact_canonical_prefix_and_limits() {
         assert!(Journal::read_reusing(&backend.bytes[..cut], &backend.header, short, &b).is_err());
     }
 }
+
+#[test]
+fn session_checkpoint_history_requires_drained_exact_mutation_evidence() {
+    use super::super::checkpoint::{CheckpointIdentity, PreparedHistory};
+    let mut session = open();
+    let (intent, receipt) = edit(&session, 510_001, 35);
+    session
+        .submit(&intent, &receipt, &json!({"kind":"edit"}), rid(510_002), 0)
+        .unwrap();
+    let inspect = |io: &Backend, drained: bool| {
+        let current = io.original();
+        let base = verify(&io.mock.base);
+        let journal = io.parsed();
+        let verified = io.verify(&journal).unwrap();
+        let view = verified
+            .verify_session(&base, &attempt(&base, 1000).planner, budget())
+            .unwrap();
+        let identity = CheckpointIdentity {
+            package: identity(&current.package),
+            device: package::PackageUuid::parse(io.header["device_id"].as_str().unwrap()).unwrap(),
+            incarnation: binding().incarnation_id,
+        };
+        let result = PreparedHistory::prepare(
+            &view,
+            &current,
+            &identity,
+            package::PackageUuid::parse(&uid(510_003)).unwrap(),
+            (2, 2),
+            &support::limits(),
+        );
+        if !drained {
+            assert!(result.is_err());
+            return;
+        }
+        let history = result.unwrap();
+        let entry = history
+            .lookup_objects()
+            .values()
+            .filter_map(|v| v["entries"].as_array())
+            .flatten()
+            .find(|v| v["operation_id"] == intent["operation_id"])
+            .unwrap();
+        assert_eq!(entry["receipt"], reference(&receipt));
+        assert_eq!(
+            entry["local"]["owner_sha256"],
+            hash(&encode(&binding().owner))
+        );
+        assert_eq!(
+            entry["local"]["action_sha256"],
+            hash(&encode(&json!({"kind":"edit"})))
+        );
+        let archived = &entry["local"]["mutation"];
+        let offset = archived["offset"]
+            .as_str()
+            .unwrap()
+            .parse::<usize>()
+            .unwrap();
+        let length = archived["byte_length"]
+            .as_str()
+            .unwrap()
+            .parse::<usize>()
+            .unwrap();
+        let payload = u32::from_le_bytes(io.bytes[offset..offset + 4].try_into().unwrap()) as usize;
+        assert_eq!(length, payload + 36);
+        assert_eq!(
+            io.bytes[offset + 4 + payload..offset + length].iter().fold(
+                String::new(),
+                |mut text, byte| {
+                    use std::fmt::Write;
+                    write!(&mut text, "{byte:02x}").unwrap();
+                    text
+                }
+            ),
+            archived["checksum"].as_str().unwrap()
+        );
+        let record: Value =
+            serde_json::from_slice(&io.bytes[offset + 4..offset + 4 + payload]).unwrap();
+        assert_eq!(archived["record"], reference(&record));
+        assert_eq!(record["body"]["semantic_intent"], intent);
+    };
+    inspect(session.io_mut(), false);
+    let target = session.begin_flush("save-now", rid(510_004)).unwrap();
+    session.finish_flush(&target).unwrap();
+    inspect(session.io_mut(), true);
+}

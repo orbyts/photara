@@ -575,6 +575,74 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
         .unwrap();
     assert_eq!(local_cached.coordinate(), intent2["expected"]);
     assert!(local_cached.through().is_none());
+    let current_original = second
+        .verify_next_shared_original(
+            after2.clone(),
+            identity(&after2),
+            &observed2,
+            &base.registration,
+            v1_3::DirectoryObservation {
+                device: 7,
+                inode: 900,
+            },
+            frames(),
+            &reader,
+        )
+        .unwrap();
+    let checkpoint_identity = super::super::checkpoint::CheckpointIdentity {
+        package: identity(&after2),
+        device: package::PackageUuid::parse(h["device_id"].as_str().unwrap()).unwrap(),
+        incarnation: base.registration.incarnation,
+    };
+    let history = super::super::checkpoint::PreparedHistory::prepare(
+        &local_cached,
+        &current_original,
+        &checkpoint_identity,
+        package::PackageUuid::parse(&uid(500_100)).unwrap(),
+        (2, 2),
+        &reader,
+    )
+    .unwrap();
+    assert_eq!(
+        history.archive()["segments"][0]["byte_length"],
+        bytes.len().to_string()
+    );
+    let entries = history
+        .lookup_objects()
+        .values()
+        .filter_map(|v| v["entries"].as_array())
+        .flatten()
+        .collect::<Vec<_>>();
+    assert_eq!(entries.len(), 5);
+    assert!(
+        entries.iter().all(|entry| entry["local"].is_null()),
+        "checkpoint-only history never invents Mutation ownership"
+    );
+    assert!(
+        super::super::checkpoint::PreparedHistory::prepare(
+            &local_cached,
+            &original,
+            &checkpoint_identity,
+            package::PackageUuid::parse(&uid(500_100)).unwrap(),
+            (2, 2),
+            &reader
+        )
+        .is_err()
+    );
+    let mut no_pages = reader;
+    no_pages.tree.max_pages = 0;
+    assert!(
+        super::super::checkpoint::PreparedHistory::prepare(
+            &local_cached,
+            &current_original,
+            &checkpoint_identity,
+            package::PackageUuid::parse(&uid(500_100)).unwrap(),
+            (2, 2),
+            &no_pages
+        )
+        .is_err()
+    );
+
     let mut narrow = budget();
     narrow.semantic.json.max_array_elements = 1;
     assert!(
@@ -772,4 +840,145 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
         hash(&bytes),
         "788ad5be74841fdb8e58457d952ad60e72266400eb3813286b6cf4f10bd180b1"
     );
+}
+
+#[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "Exact new-segment bindings and old framing compatibility in one existing corpus"
+)]
+fn phpsj002_exact_base_sequence_and_torn_tail_refusals() {
+    use super::super::checkpoint::{CheckpointIdentity, LocalArchive, LocalBase, LocalSelection};
+    let fixture = support::Fixture::load("integrated");
+    let original = package(&fixture);
+    let h1 = header(&original);
+    let old = Journal::create(&h1, limits()).unwrap();
+    let identity = CheckpointIdentity {
+        package: identity(&original),
+        device: package::PackageUuid::parse(h1["device_id"].as_str().unwrap()).unwrap(),
+        incarnation: fixture.registration.incarnation,
+    };
+    let common = json!({"project_id":h1["project_id"],"library_id":h1["library_id"],"bootstrap_sha256":h1["bootstrap_sha256"],"extensions":{},"device_id":h1["device_id"],"incarnation_id":h1["incarnation_id"]});
+    let record = |name: &str, mut value: Value| {
+        for (k, v) in common.as_object().unwrap() {
+            value[k] = v.clone();
+        }
+        value["schema"] = json!({"id":name,"version":1});
+        value
+    };
+    let through = json!({"record_id":uid(500_001),"checksum":"ab".repeat(32),"sequence":"41"});
+    let base_value = record(
+        "photara.session.checkpoint-base",
+        json!({"checkpoint":original.commit["root_set"]["active"],"package_head":original.head,"package_commit":reference(&original.commit),"journal_id":h1["journal_id"],"through":through,"mutation":null,"accepted_frame":null,"coordinate":request().0["expected"],"undo_roots":[],"lookup":reference(&json!({"test":"lookup"})),"archive":reference(&json!({"test":"archive"}))}),
+    );
+    let base = LocalBase::parse(&encode(&base_value), &identity, limits().json).unwrap();
+    let mut h2 = h1.clone();
+    h2["format_version"] = json!(2);
+    h2["stream_id"] = json!(uid(500_002));
+    h2["base"] = reference(base.value());
+    h2["sequence_base"] = through["sequence"].clone();
+    h2["previous_segment"] =
+        json!({"stream_id":h1["stream_id"],"header_sha256":hash(&old),"last":through});
+    base.check_header(&h2).unwrap();
+    let prefix = Journal::create(&h2, limits()).unwrap();
+    assert_eq!(&prefix[..8], b"PHPSJ002");
+    let value = json!({"format_version":2,"sequence":"42","record_id":uid(500_003),"session_generation":"1","project_id":h2["project_id"],"incarnation_id":h2["incarnation_id"],"kind":"CheckpointBaseReceipt","body":{"maintenance_id":uid(500_004),"original":reference(&json!({"test":"original"})),"journal_base":h2["base"],"selected_head":original.head,"selected_commit":reference(&original.commit)}});
+    let bytes = append_raw(&prefix, &prefix[prefix.len() - 32..], &value);
+    let parsed = Journal::read(&bytes, &h2, limits()).unwrap();
+    assert_eq!(parsed.records()[0].value(), &value);
+    // A structurally valid base/segment is never writable or Accepted authority.
+    assert!(
+        parsed
+            .verify_shared(
+                &original,
+                &context(&fixture, &identity.package, &support::limits())
+            )
+            .is_err()
+    );
+    for cut in [1, 4, bytes.len() - prefix.len() - 1] {
+        let partial = Journal::read(&bytes[..prefix.len() + cut], &h2, limits()).unwrap();
+        assert_eq!(partial.tail(), JournalTail::Incomplete);
+        assert!(partial.records().is_empty());
+        assert_eq!(partial.verified_bytes(), prefix.len());
+    }
+    for field in ["format_version", "sequence"] {
+        let mut bad = value.clone();
+        bad[field] = if field == "format_version" {
+            json!(1)
+        } else {
+            json!("1")
+        };
+        assert!(
+            Journal::read(
+                &append_raw(&prefix, &prefix[prefix.len() - 32..], &bad),
+                &h2,
+                limits()
+            )
+            .is_err()
+        );
+    }
+    for commit in [
+        original.commit.clone(),
+        reference(&json!({"substituted":true})),
+    ] {
+        let mut changed = value.clone();
+        changed["body"]["selected_commit"] = commit;
+        assert!(
+            Journal::read(
+                &append_raw(&prefix, &prefix[prefix.len() - 32..], &changed),
+                &h2,
+                limits()
+            )
+            .is_err()
+        );
+    }
+    let mut duplicate = value.clone();
+    duplicate["sequence"] = json!("43");
+    duplicate["record_id"] = json!(uid(500_005));
+    assert!(
+        Journal::read(
+            &append_raw(&bytes, &bytes[bytes.len() - 32..], &duplicate),
+            &h2,
+            limits()
+        )
+        .is_err()
+    );
+    let mut bad = bytes.clone();
+    let last = bad.len() - 1;
+    bad[last] ^= 1;
+    assert!(Journal::read(&bad, &h2, limits()).is_err());
+    assert!(Journal::read(&bytes, &h1, limits()).is_err());
+    assert!(Journal::read(&old, &h2, limits()).is_err());
+    let mut bad_header = h2.clone();
+    bad_header["sequence_base"] = json!("40");
+    assert!(Journal::create(&bad_header, limits()).is_err());
+    bad_header = h2.clone();
+    bad_header["base"] = reference(&json!({"changed":true}));
+    assert!(base.check_header(&bad_header).is_err());
+    let selected = record(
+        "photara.session.checkpoint-selection",
+        json!({"generation":"1","previous_sha256":null,"selected":{"format":"PHPSJ001","stream_id":h1["stream_id"],"header_sha256":hash(&old),"base":null},"pending":null}),
+    );
+    let selection = LocalSelection::parse(&encode(&selected), &identity, limits().json).unwrap();
+    let mut next = selected.clone();
+    next["generation"] = json!("2");
+    next["previous_sha256"] = json!(hash(&encode(&selected)));
+    next["selected"] = json!({"format":"PHPSJ002","stream_id":h2["stream_id"],"header_sha256":hash(&prefix),"base":h2["base"]});
+    let next = LocalSelection::parse(&encode(&next), &identity, limits().json).unwrap();
+    selection
+        .successor(&next, &hash(&encode(&selected)))
+        .unwrap();
+    assert!(selection.successor(&next, &"00".repeat(32)).is_err());
+    let archive = record(
+        "photara.session.checkpoint-archive",
+        json!({"archive_id":uid(500_006),"previous":null,"segments":[{"stream_id":h1["stream_id"],"journal_id":h1["journal_id"],"header_sha256":hash(&old),"byte_length":"10000","sha256":"cd".repeat(32),"first_sequence":"1","last_sequence":"41","last_checksum":through["checksum"]}]}),
+    );
+    LocalArchive::parse(&encode(&archive), &identity, limits().json).unwrap();
+    let mut duplicate = archive.clone();
+    duplicate["segments"]
+        .as_array_mut()
+        .unwrap()
+        .push(archive["segments"][0].clone());
+    assert!(LocalArchive::parse(&encode(&duplicate), &identity, limits().json).is_err());
+    assert_eq!(Journal::create(&h1, limits()).unwrap(), old);
 }

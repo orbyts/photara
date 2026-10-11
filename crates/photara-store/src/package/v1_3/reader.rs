@@ -1038,6 +1038,8 @@ pub fn inspect_recovery<P: PhysicalRecords, M: BlobMetadata + AllocationInspecti
 }
 #[path = "reader_original.rs"]
 mod original;
-pub(crate) use original::verify_shared_original;
 pub use original::{DirectoryObservation, verify_original};
+pub(crate) use original::{
+    audit_checkpoint_adoption, snapshot_base_binding, snapshot_core_objects, verify_shared_original,
+};
 pub(crate) use original::{inspect_operation_package, verify_operation_original};

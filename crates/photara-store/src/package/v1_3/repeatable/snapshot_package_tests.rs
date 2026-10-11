@@ -584,6 +584,10 @@ fn flip(f: &mut support::Fixture, physical: &v1_3::PhysicalRef, offset: usize) {
         .bytes[offset] ^= 1;
 }
 #[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "One retained corpus distinguishes requested, archived, and live-role corruption obligations"
+)]
 fn snapshot_package_archive_requested_corruption_and_live_role_refusals() {
     let mut converted = converted();
     let f = &mut converted.fixture;
@@ -621,7 +625,31 @@ fn snapshot_package_archive_requested_corruption_and_live_role_refusals() {
     // Corruption remains inside the fully charged owned extent, but outside all
     // mandatory current/previous/pinned closures. No historical data is removed.
     settled(f).unwrap();
-    verify(f);
+    let seeded = verify(f);
+    let logical = core::snapshot_closure(
+        &seeded,
+        f.registration.incarnation,
+        frames(),
+        &support::limits(),
+        budget(),
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(logical.coordinate()).unwrap(),
+        request().0["expected"]
+    );
+    let mut narrow = support::limits();
+    narrow.semantic.max_objects = 0;
+    assert!(
+        core::snapshot_closure(
+            &seeded,
+            f.registration.incarnation,
+            frames(),
+            &narrow,
+            budget()
+        )
+        .is_err()
+    );
     recovery(f).unwrap();
     assert!(
         proof
@@ -718,4 +746,78 @@ fn snapshot_package_snapshot_recovery_keeps_its_base_and_archive_edges() {
         .open_role(&bytes, v1_3::SelectedRole::Recovery, support::tree())
         .unwrap();
     assert_eq!(proof.reference(), &observed.reference);
+}
+
+#[test]
+fn snapshot_package_turnover_local_base_binds_old_audit_and_clean_closure() {
+    use super::super::checkpoint::{CheckpointIdentity, PreparedHistory};
+    use super::super::journal::Journal;
+    let old_fixture = support::Fixture::load("integrated");
+    let old = verify(&old_fixture);
+    let header = super::journal_tests::header(&old.package);
+    let limits = super::journal_tests::limits();
+    let reader = support::limits();
+    let identity = CheckpointIdentity {
+        package: identity(&old.package),
+        device: PackageUuid::parse(header["device_id"].as_str().unwrap()).unwrap(),
+        incarnation: old_fixture.registration.incarnation,
+    };
+    let context = super::journal_tests::context(&old_fixture, &identity.package, &reader);
+    let mut bytes = Journal::create(&header, limits).unwrap();
+    let journal = Journal::read(&bytes, &header, limits).unwrap();
+    let verified = journal.verify_shared(&old.package, &context).unwrap();
+    let inputs = attempt(&old, 501_000).planner;
+    let session = verified.verify_session(&old, &inputs, budget()).unwrap();
+    let owner = json!({"attachment_id":uid(501_001),"attachment_generation":"1","principal":request().1["provenance"]["principal"]});
+    let barrier = session
+        .prepare_barrier(
+            &owner,
+            "close",
+            super::journal_tests::record(501_002),
+            limits,
+        )
+        .unwrap();
+    bytes.extend(barrier.bytes());
+    let journal = Journal::read(&bytes, &header, limits).unwrap();
+    let verified = journal.verify_shared(&old.package, &context).unwrap();
+    let session = verified.verify_session(&old, &inputs, budget()).unwrap();
+    let history = PreparedHistory::prepare(
+        &session,
+        &old,
+        &identity,
+        PackageUuid::parse(&uid(501_003)).unwrap(),
+        (2, 2),
+        &reader,
+    )
+    .unwrap();
+    let converted = converted();
+    let clean = verify(&converted.fixture);
+    let checkpoint = v1_3::snapshot::AcceptanceBase::parse(
+        &encode(&converted.base),
+        &identity.package,
+        reader.json,
+    )
+    .unwrap();
+    let base = history
+        .bind_package(&checkpoint, &clean, &identity, frames(), &reader, budget())
+        .unwrap();
+    assert_eq!(base.value()["coordinate"], session.coordinate());
+    assert_eq!(base.value()["package_head"], clean.package.head);
+    assert_eq!(base.value()["lookup"], *history.lookup());
+    assert!(base.value()["mutation"].is_null());
+    let mut altered = converted.base;
+    altered["receipts_by_id"] = altered["receipts_by_ordinal"].clone();
+    let changed =
+        v1_3::snapshot::AcceptanceBase::parse(&encode(&altered), &identity.package, reader.json)
+            .unwrap();
+    assert!(
+        history
+            .bind_package(&changed, &clean, &identity, frames(), &reader, budget())
+            .is_err()
+    );
+    assert!(
+        history
+            .bind_package(&checkpoint, &old, &identity, frames(), &reader, budget())
+            .is_err()
+    );
 }

@@ -70,8 +70,8 @@ mod wire {
     }
 }
 mod canonical_memo;
-mod object_pool;
 mod layout;
+mod object_pool;
 
 mod core;
 mod plan;
@@ -90,6 +90,7 @@ pub use evidence_charge::{
     EvidenceAllocationCharge, EvidenceAllocationId, EvidenceCharge, check_evidence_charge,
 };
 
+pub mod checkpoint;
 pub mod journal;
 pub mod session;
 
