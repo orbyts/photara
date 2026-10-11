@@ -74,7 +74,8 @@ pub(super) fn build(
             }
             Some(
                 "photara.codec.ps2-repeatable-admission-v2"
-                | "photara.codec.ps2-repeatable-admission-v3",
+                | "photara.codec.ps2-repeatable-admission-v3"
+                | "photara.codec.ps2-repeatable-admission-v4",
             ) => {
                 let r = original["payload_recipe"]["retained_control_inventory"]["result"].clone();
                 let values = incremental::audit(

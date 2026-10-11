@@ -18,7 +18,7 @@ fn record(n: u64) -> JournalRecordIdentity {
 fn header(base: &OriginalPackage, receipt: &Value) -> Value {
     json!({"format_version":1,"stream_id":uid(90001),"journal_id":receipt["journal_id"],"device_id":uid(90002),"project_id":base.manifest["project_id"],"library_id":base.commit["root_set"]["library_id"],"incarnation_id":"96000000-0000-4000-8000-000000000001","bootstrap_sha256":hash(&encode(&base.manifest)),"base_head":base.head,"base_package_revision":base.commit["package_revision"]})
 }
-fn next(
+pub(super) fn next(
     session: &VerifiedSession<'_>,
     prior: &Value,
     owner: &Value,

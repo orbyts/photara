@@ -163,6 +163,108 @@ impl Builder {
         }
         Ok(b)
     }
+    pub(super) fn load_selected(
+        original: &super::VerifiedOriginal,
+        inputs: &PlannerInputs,
+        limits: Limits,
+    ) -> Result<Self> {
+        let old = &original.package;
+        let mut b = Self {
+            incremental: inputs.codec != "photara.codec.ps2-repeatable-layout-v1",
+            overlays: inputs.codec == "photara.codec.ps2-repeatable-layout-v3",
+            changed_order: BTreeMap::new(),
+            project: text(&old.manifest["project_id"])?.into(),
+            geometry: inputs.geometry.clone(),
+            limits,
+            pool: super::object_pool::ObjectPool::default(),
+            files: BTreeMap::new(),
+            locations: BTreeMap::new(),
+            corridors: inputs
+                .corridors
+                .iter()
+                .map(|c| {
+                    Ok((
+                        c.allocation_id.clone(),
+                        wire::number(&json!(c.maximum_end))?,
+                    ))
+                })
+                .collect::<Result<_>>()?,
+        };
+
+        let selected = original
+            .selected_frames
+            .as_ref()
+            .ok_or("snapshot selected frame proof")?;
+        ensure(
+            selected.len() <= limits.max_frames
+                && old.allocations.len() <= limits.max_objects
+                && old.loose.len() <= limits.max_objects,
+            "snapshot loader bounds",
+        )?;
+        let frames = crate::package::v1_3::FrameLimits {
+            json: limits.semantic.json,
+            max_frames: limits.max_frames,
+            max_allocation_bytes: usize::try_from(limits.max_allocation_bytes)
+                .map_err(|_| "allocation platform limit")?,
+        };
+        let mut total = 0u64;
+        let mut json_bytes = 0usize;
+        for (id, allocation) in &old.allocations {
+            total = total
+                .checked_add(allocation.bytes.len() as u64)
+                .ok_or("allocation total")?;
+            ensure(
+                total <= limits.max_total_allocation_bytes
+                    && allocation.bytes.len() as u64 <= limits.max_allocation_bytes,
+                "snapshot allocation bound",
+            )?;
+            b.files.insert(id.clone(), allocation.bytes.clone());
+            b.locations.insert(id.clone(), BTreeMap::new());
+            let allocation_id =
+                crate::package::PackageUuid::parse(id).map_err(|_| "allocation UUID")?;
+            let arena =
+                serde_json::from_value(json!(allocation.arena)).map_err(|_| "allocation arena")?;
+            let reader = crate::package::v1_3::SelectedAllocation::open(
+                allocation_id,
+                arena,
+                &allocation.bytes,
+                frames,
+            )
+            .map_err(|_| "selected allocation")?;
+            for (physical, kind) in selected
+                .iter()
+                .filter(|(r, _)| r.allocation_id == allocation_id)
+            {
+                let value = reader
+                    .resolve(physical, *kind)
+                    .map_err(|_| "selected frame bytes")?;
+                let raw = encode(&value);
+                json_bytes = json_bytes
+                    .checked_add(raw.len())
+                    .ok_or("snapshot JSON total")?;
+                ensure(
+                    json_bytes <= limits.semantic.max_total_json_bytes,
+                    "snapshot JSON bound",
+                )?;
+                let reference = b.add(value)?;
+                b.locations.get_mut(id).ok_or("allocation")?.insert(
+                    key(&reference)?,
+                    serde_json::to_value(physical).map_err(|_| "physical ref")?,
+                );
+            }
+        }
+        for raw in old.loose.values() {
+            json_bytes = json_bytes
+                .checked_add(raw.len())
+                .ok_or("snapshot JSON total")?;
+            ensure(
+                json_bytes <= limits.semantic.max_total_json_bytes,
+                "snapshot JSON bound",
+            )?;
+            b.original(raw, None)?;
+        }
+        Ok(b)
+    }
     // Every physical occurrence still consumes frame/JSON budgets. A repeated
     // exact canonical digest reuses the already checked immutable body.
     fn original(
@@ -645,6 +747,8 @@ impl Builder {
 pub(crate) struct Layout {
     pub files: BTreeMap<String, super::shared::Bytes>,
     pub target: Value,
+    pub active_state: Value,
+    pub base_count: u64,
     pub base_inventory: Value,
     pub root_placements: Value,
     pub retained_inventory: Option<Value>,
@@ -706,7 +810,13 @@ fn compile_change(
     retained_controls: &BTreeMap<crate::package::ObjectRef, crate::package::v1_3::Membership>,
     limits: Limits,
 ) -> Result<Layout> {
-    inputs.validate(old, proof, limits)?;
+    inputs.validate_context(
+        old,
+        proof,
+        limits,
+        matches!(operation, Change::Graph(_))
+            && proof.roles["active"].state["schema"]["version"] == 3,
+    )?;
     ensure(
         !b.pool.collision(&inputs.active_root_id, true),
         "retained root identity collision",
@@ -822,6 +932,15 @@ fn compile_change(
         json!({"library_id":root["library_id"],"bootstrap_sha256":root["bootstrap_sha256"],"accepted":accepted,"by_id":ir,"by_ordinal":or}),
     );
             index["schema"]["version"] = json!(2);
+            if oldactive["schema"]["version"] == 3 {
+                ensure(
+                    old_index["schema"]["version"] == 3,
+                    "snapshot index version",
+                )?;
+                index["schema"]["version"] = json!(3);
+                index["base"] = old_index["base"].clone();
+            }
+
             let frame = json!({"schema":{"id":"photara.package.accepted-journal-frame","version":1},"journal_id":prepared.receipt["journal_id"],"sequence":prepared.receipt["journal_sequence"],"operation_id":prepared.receipt["operation_id"],"request_sha256":prepared.receipt["request_sha256"],"receipt_sha256":reference(&prepared.receipt)["sha256"]});
             let journal = json!({"journal_id":prepared.receipt["journal_id"],"through_sequence":prepared.receipt["journal_sequence"],"prefix_sha256":hash(&encode(&json!({"domain":"photara.package.journal-prefix-link.v1","previous_sha256":oldactive["journal_inclusion"]["prefix_sha256"],"frame_sha256":hash(&encode(&frame))}))),"resulting_authored_revision":prepared.receipt["after"]["revision"],"resulting_authored_sha256":prepared.receipt["after"]["digest"]});
             let authored = prepared
@@ -1150,7 +1269,10 @@ fn compile_change(
     if let Some((placement, _)) = archive {
         target["archive_placement"] = placement;
     }
+    let base_count = wire::number(&get(&b.pool, &base_inventory)?["count"])?;
     Ok(Layout {
+        active_state: active,
+        base_count,
         retained_inventory: retained.map(|v| v.0),
         inventory_nodes,
         files: b.files,

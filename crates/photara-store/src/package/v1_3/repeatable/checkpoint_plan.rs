@@ -222,9 +222,8 @@ impl TurnoverPlan {
         );
         original["attempt"] = raw;
         original["maintenance_id"] = Value::String(ids.maintenance_id);
-        let state = repeatable::plan::packed(&layout.files, &layout.target["active"])?;
-        let basecount =
-            number(&repeatable::plan::packed(&layout.files, &layout.base_inventory)?["count"])?;
+        let state = layout.active_state.clone();
+        let basecount = layout.base_count;
         let mut stages = Vec::new();
         let mut prior_head = old.head.clone();
         let mut prior_commit = old.commit.clone();

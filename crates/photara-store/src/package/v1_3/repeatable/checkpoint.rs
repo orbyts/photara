@@ -323,3 +323,11 @@ pub use history::PreparedHistory;
 #[path = "checkpoint_plan.rs"]
 mod plan;
 pub use plan::{TurnoverIds, TurnoverPlan};
+
+#[path = "checkpoint_activate.rs"]
+mod activate;
+pub use activate::{ActivatedCheckpoint, ActivationLimits, CheckpointIo, activate};
+
+#[cfg(test)]
+#[path = "checkpoint_continue.rs"]
+mod continuation;

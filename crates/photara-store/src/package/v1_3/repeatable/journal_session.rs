@@ -473,6 +473,106 @@ pub struct VerifiedSession<'a> {
     completed: Option<Value>,
     checkpoint_target: Value,
 }
+/// Live turnover seed, constructed only from a fully audited drained session.
+/// Persistent reopen must resolve the same retained lookup/undo evidence; parsed
+/// local-base bytes alone cannot construct this capability.
+#[derive(Clone)]
+pub(crate) struct CheckpointSeed {
+    mutations: BTreeMap<String, MutationEvidence>,
+    historical: BTreeSet<String>,
+    order: Vec<String>,
+    checkpoint_target: Value,
+}
+impl VerifiedSession<'_> {
+    pub(crate) fn checkpoint_seed(&self) -> CheckpointSeed {
+        CheckpointSeed {
+            mutations: self.mutations.clone(),
+            historical: self.historical.clone(),
+            order: self.order.clone(),
+            checkpoint_target: self.checkpoint_target.clone(),
+        }
+    }
+}
+impl CheckpointSeed {
+    #[cfg(test)]
+    pub(crate) fn check_new_operation(&self, operation: &str) -> wire::Result<()> {
+        wire::ensure(
+            !self.historical.contains(operation) && !self.mutations.contains_key(operation),
+            "archived original operation",
+        )
+    }
+
+    pub(crate) fn session<'a>(
+        &self,
+        journal: &'a Journal,
+        activated: &super::super::checkpoint::ActivatedCheckpoint,
+        frames: crate::package::v1_3::FrameLimits,
+        reader: &crate::package::v1_3::ReaderLimits,
+        limits: Limits,
+    ) -> Result<VerifiedSession<'a>, PackageError> {
+        let base = activated.base();
+        base.check_header(journal.header())?;
+        check(
+            journal.header() == activated.header()
+                && journal.bytes.starts_with(activated.segment())
+                && journal.tail == super::JournalTail::Complete,
+        )?;
+        // Until v4 checkpoint verification is connected, only actual local
+        // semantic/lifecycle suffix records can be replayed from this capability.
+        check(journal.records.iter().skip(1).all(|r| {
+            !matches!(
+                r.value["kind"].as_str(),
+                Some("CheckpointIntent" | "CheckpointReceipt" | "CheckpointBaseReceipt")
+            )
+        }))?;
+        let clean = activated.package();
+        let logical = checked(core::snapshot_closure(
+            clean,
+            id(&journal.header["incarnation_id"])?,
+            frames,
+            reader,
+            limits,
+        ))?;
+        check(
+            serde_json::to_value(logical.coordinate()).map_err(|_| PackageError::Record)?
+                == base.value()["coordinate"]
+                && self.checkpoint_target["coordinate"] == base.value()["coordinate"],
+        )?;
+        let active = clean
+            .proof
+            .roles
+            .get("active")
+            .ok_or(PackageError::Integrity)?;
+        // Reapply tighter requested JSON bounds to retained semantic evidence.
+        for mutation in self.mutations.values() {
+            parse_canonical_json(&wire::encode(&mutation.record.value), limits.semantic.json)?;
+        }
+        let state = VerifiedSession {
+            journal,
+            logical: Arc::new(logical),
+            head: clean.package.head.clone(),
+            accepted: active.state["accepted"].clone(),
+            journal_inclusion: active.state["journal_inclusion"].clone(),
+            ordinal: n(&active.state["accepted"]["through_ordinal"])?,
+            sequence: if active.state["journal_inclusion"].is_null() {
+                0
+            } else {
+                n(&active.state["journal_inclusion"]["through_sequence"])?
+            },
+            mutations: self.mutations.clone(),
+            historical: self.historical.clone(),
+            order: self.order.clone(),
+            checkpointed: self.order.len(),
+            completed: Some(record_link(&journal.records[0])),
+            checkpoint_target: self.checkpoint_target.clone(),
+        };
+        VerifiedJournal {
+            journal,
+            plans: BTreeMap::new(),
+        }
+        .extend_session(state, 1, limits)
+    }
+}
 impl<'a> VerifiedJournal<'a> {
     /// Replays local records from an independently verified header base and
     /// independently verified checkpoint history. Does not confer durability.
@@ -518,7 +618,11 @@ impl<'a> VerifiedJournal<'a> {
             accepted: active.state["accepted"].clone(),
             journal_inclusion: active.state["journal_inclusion"].clone(),
             ordinal: n(&active.state["accepted"]["through_ordinal"])?,
-            sequence: n(&active.state["journal_inclusion"]["through_sequence"])?,
+            sequence: if active.state["journal_inclusion"].is_null() {
+                0
+            } else {
+                n(&active.state["journal_inclusion"]["through_sequence"])?
+            },
             mutations: BTreeMap::new(),
             historical: active
                 .receipts
@@ -814,6 +918,10 @@ impl VerifiedSession<'_> {
         ))
     }
     fn advance_prefix(&mut self, receipt: &Value) {
+        if self.journal_inclusion.is_null() {
+            self.journal_inclusion = json!({"journal_id":receipt["journal_id"],"prefix_sha256":wire::hash(&wire::encode(&json!({"domain":"photara.package.journal-prefix.v1","journal_id":receipt["journal_id"],"through_sequence":"0"})))});
+        }
+
         self.accepted = json!({"through_ordinal":receipt["acceptance_ordinal"],"prefix_sha256":wire::hash(&wire::encode(&json!({"domain":"photara.package.accepted-prefix-link.v1","previous_sha256":self.accepted["prefix_sha256"],"acceptance_ordinal":receipt["acceptance_ordinal"],"operation_id":receipt["operation_id"],"request_sha256":receipt["request_sha256"],"receipt_sha256":reference(receipt)["sha256"]})))});
         self.journal_inclusion = json!({"journal_id":receipt["journal_id"],"through_sequence":receipt["journal_sequence"],"prefix_sha256":wire::hash(&wire::encode(&json!({"domain":"photara.package.journal-prefix-link.v1","previous_sha256":self.journal_inclusion["prefix_sha256"],"frame_sha256":wire::hash(&wire::encode(&plan::journal_frame(receipt)))}))),"resulting_authored_revision":receipt["after"]["revision"],"resulting_authored_sha256":receipt["after"]["digest"]});
     }

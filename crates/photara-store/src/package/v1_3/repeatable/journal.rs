@@ -516,6 +516,21 @@ impl Journal {
         out.extend(hash_parts(&[magic, &len, &bytes]));
         Ok(out)
     }
+    /// Prepare only the first original-bound checkpoint-base receipt. The caller
+    /// must independently verify the clean package and barrier the base first.
+    pub(super) fn base_receipt(
+        &self,
+        body: &Value,
+        identity: JournalRecordIdentity,
+        limits: JournalLimits,
+    ) -> Result<JournalAppend, PackageError> {
+        check(self.header["format_version"] == 2 && self.records.len() <= 1)?;
+        VerifiedJournal {
+            journal: self,
+            plans: BTreeMap::new(),
+        }
+        .prepare("CheckpointBaseReceipt", body, identity, limits)
+    }
     /// Reads the verified prefix without truncating or interpreting an incomplete
     /// tail as successful append. A checksum mismatch is corruption even at EOF.
     /// `expected_header` must come from independently validated local registration.
@@ -1112,8 +1127,9 @@ impl VerifiedJournal<'_> {
         let sequence = u64::try_from(self.records().len())
             .map_err(|_| PackageError::Limit)?
             .checked_add(1)
+            .and_then(|n| n.checked_add(sequence_base(&self.journal.header).ok()?))
             .ok_or(PackageError::Limit)?;
-        let value = json!({"format_version":1,"sequence":sequence.to_string(),"record_id":record_id,"session_generation":identity.session_generation.to_string(),"project_id":self.journal.header["project_id"],"incarnation_id":self.journal.header["incarnation_id"],"kind":kind,"body":b});
+        let value = json!({"format_version":self.journal.header["format_version"],"sequence":sequence.to_string(),"record_id":record_id,"session_generation":identity.session_generation.to_string(),"project_id":self.journal.header["project_id"],"incarnation_id":self.journal.header["incarnation_id"],"kind":kind,"body":b});
         envelope(&value, &self.journal.header, sequence)?;
         let raw = wire::encode(&value);
         let len = u32::try_from(raw.len())

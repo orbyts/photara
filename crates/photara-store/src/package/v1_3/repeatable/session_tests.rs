@@ -1,4 +1,5 @@
 //! Existing corpus, real Core/journal/repeatable executor; synthetic IO faults.
+use super::super::checkpoint::{ActivationLimits, activate};
 use super::super::{
     journal::{Journal, JournalAppend, JournalLimits, JournalRecordIdentity, VerifiedJournal},
     session::*,
@@ -1395,7 +1396,8 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
     use super::super::journal::Journal;
     let fixture = fixture();
     let old = verify(&fixture);
-    let header = super::journal_tests::header(&old.package);
+    let mut header = super::journal_tests::header(&old.package);
+    header["journal_id"] = request().1["journal_id"].clone();
     let limits = super::journal_tests::limits();
     let reader = support::limits();
     let id = CheckpointIdentity {
@@ -1558,8 +1560,353 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                 .bind_package(&base, &clean, &id, frames(), &reader, budget())
                 .unwrap();
             assert_eq!(local.value()["coordinate"], view.coordinate());
+            let activation_limits = || ActivationLimits {
+                journal: limits,
+                frames: frames(),
+                reader: &reader,
+                planner: budget(),
+            };
+            let held = lease(&old.package);
+            let mut expected = None;
+            for cut in 1..=5 {
+                let mut io = CheckpointMemory {
+                    fixture: &fixture,
+                    package: clean.package.clone(),
+                    selector: encode(selector.value()),
+                    original: None,
+                    installed: None,
+                    fail_after: Some(cut),
+                    effects: 0,
+                };
+                assert!(
+                    activate(
+                        &mut io,
+                        &held,
+                        &plan,
+                        &history,
+                        &selector,
+                        &id,
+                        activation_limits()
+                    )
+                    .is_err()
+                );
+                let active = activate(
+                    &mut io,
+                    &held,
+                    &plan,
+                    &history,
+                    &selector,
+                    &id,
+                    activation_limits(),
+                )
+                .unwrap();
+                assert_eq!(active.base().value(), local.value());
+                let journal = Journal::read(active.segment(), active.header(), limits).unwrap();
+                assert_eq!(journal.records().len(), 1);
+                assert_eq!(
+                    journal.records()[0].value()["kind"],
+                    "CheckpointBaseReceipt"
+                );
+                assert_eq!(journal.records()[0].value()["sequence"], "2");
+                assert_eq!(active.header()["base"], reference(local.value()));
+                if cut == 5 {
+                    let seeded = active
+                        .verify_session(&journal, frames(), &reader, budget())
+                        .unwrap();
+                    assert_eq!(seeded.coordinate(), view.coordinate());
+                    assert_eq!(
+                        seeded.next_receipt_coordinates().unwrap(),
+                        view.next_receipt_coordinates().unwrap()
+                    );
+                    let (mut intent, mut receipt) = request();
+                    receipt["journal_sequence"] =
+                        json!(seeded.next_receipt_coordinates().unwrap().1.to_string());
+                    let make_raw = |original: &VerifiedOriginal, n| {
+                        let mut raw = serde_json::to_value(super::attempt(original, n)).unwrap();
+                        raw["planner"]["codec"] = json!("photara.codec.ps2-repeatable-layout-v4");
+                        for corridor in raw["planner"]["corridors"].as_array_mut().unwrap() {
+                            corridor.as_object_mut().unwrap().remove("original_sha256");
+                            corridor["base_head_sha256"] =
+                                json!(hash(&encode(&original.package.head)));
+                        }
+                        raw
+                    };
+                    let first_raw = make_raw(active.package(), 650_000);
+                    let first = active
+                        .compile_operation_inner(
+                            active.package(),
+                            &intent,
+                            &receipt,
+                            &first_raw,
+                            budget(),
+                        )
+                        .unwrap();
+                    assert_eq!(
+                        first.original()["original_codec"],
+                        "photara.codec.ps2-repeatable-admission-v4"
+                    );
+                    assert_eq!(
+                        first.original()["payload_recipe"]["checkpoint_base"],
+                        reference(local.value())
+                    );
+                    assert_eq!(
+                        active
+                            .restore_operation(
+                                active.package(),
+                                &intent,
+                                &receipt,
+                                &first.original_bytes(),
+                                budget()
+                            )
+                            .unwrap()
+                            .original_bytes(),
+                        first.original_bytes()
+                    );
+                    let append = seeded
+                        .prepare_mutation(
+                            &intent,
+                            &receipt,
+                            &owner,
+                            &json!({"kind":"edit"}),
+                            rid(640_001),
+                            limits,
+                        )
+                        .unwrap();
+                    let mut continued = active.segment().to_vec();
+                    continued.extend_from_slice(append.bytes());
+                    let suffix = Journal::read(&continued, active.header(), limits).unwrap();
+                    let current = active
+                        .verify_session(&suffix, frames(), &reader, budget())
+                        .unwrap();
+                    assert_ne!(current.coordinate(), seeded.coordinate());
+                    assert!(
+                        current
+                            .prepare_mutation(
+                                &intent,
+                                &receipt,
+                                &owner,
+                                &json!({"kind":"edit"}),
+                                rid(640_001),
+                                limits
+                            )
+                            .unwrap()
+                            .existing()
+                    );
+                    intent["command"]["envelope"]["command"]["x"] = json!(333);
+                    assert!(
+                        current
+                            .prepare_mutation(
+                                &intent,
+                                &receipt,
+                                &owner,
+                                &json!({"kind":"edit"}),
+                                rid(640_001),
+                                limits
+                            )
+                            .is_err()
+                    );
+                    let action = json!({"kind":"undo","target":current.undo_targets(&owner)[0]});
+                    let (intent, receipt) = super::journal_ps3_tests::next(
+                        &current, &receipt, &owner, &action, 640_002,
+                    );
+                    continued.extend_from_slice(
+                        current
+                            .prepare_mutation(
+                                &intent,
+                                &receipt,
+                                &owner,
+                                &action,
+                                rid(640_003),
+                                limits,
+                            )
+                            .unwrap()
+                            .bytes(),
+                    );
+                    let suffix = Journal::read(&continued, active.header(), limits).unwrap();
+                    let undone = active
+                        .verify_session(&suffix, frames(), &reader, budget())
+                        .unwrap();
+                    assert_eq!(
+                        undone.graph_objects().unwrap()[0]["graph"]["nodes"],
+                        seeded.graph_objects().unwrap()[0]["graph"]["nodes"]
+                    );
+                    assert_eq!(
+                        undone.graph_objects().unwrap()[0]["graph"]["connections"],
+                        seeded.graph_objects().unwrap()[0]["graph"]["connections"]
+                    );
+                    assert_eq!(
+                        undone.next_receipt_coordinates().unwrap().0,
+                        seeded.next_receipt_coordinates().unwrap().0 + 2
+                    );
+                    assert_eq!(suffix.records()[2].value()["sequence"], "4");
+                    let mut tighter = budget();
+                    tighter.semantic.json.max_bytes = 1;
+                    assert!(
+                        active
+                            .verify_session(&suffix, frames(), &reader, tighter)
+                            .is_err()
+                    );
+                    continued.pop();
+                    let torn = Journal::read(&continued, active.header(), limits).unwrap();
+                    assert!(
+                        active
+                            .verify_session(&torn, frames(), &reader, budget())
+                            .is_err()
+                    );
+                }
+
+                let exact = (encode(active.selector().value()), active.segment().to_vec());
+                if let Some(prior) = &expected {
+                    assert_eq!(prior, &exact);
+                }
+                expected = Some(exact);
+                let retry = activate(
+                    &mut io,
+                    &held,
+                    &plan,
+                    &history,
+                    &selector,
+                    &id,
+                    activation_limits(),
+                )
+                .unwrap();
+                assert_eq!(retry.segment(), active.segment());
+                let installed = io.installed.clone();
+                *io.installed.as_mut().unwrap().2.last_mut().unwrap() ^= 1;
+                assert!(
+                    activate(
+                        &mut io,
+                        &held,
+                        &plan,
+                        &history,
+                        &selector,
+                        &id,
+                        activation_limits()
+                    )
+                    .is_err()
+                );
+                io.installed = installed;
+                let mut third = active.selector().value().clone();
+                third["selected"]["header_sha256"] = json!("aa".repeat(32));
+                io.selector = encode(&third);
+                let effects = io.effects;
+                assert!(
+                    activate(
+                        &mut io,
+                        &held,
+                        &plan,
+                        &history,
+                        &selector,
+                        &id,
+                        activation_limits()
+                    )
+                    .is_err()
+                );
+                assert_eq!(effects, io.effects);
+            }
         }
     }
     raw["planner"]["corridors"][0]["base_head_sha256"] = json!("00".repeat(32));
     assert!(TurnoverPlan::compile(&history, &selector, ids(), raw, budget()).is_err());
+}
+
+/// Synthetic custody IO with real independent clean reader verification. Cuts
+/// occur after effects, so retry must reconcile/rebarrier exact existing bytes.
+struct CheckpointMemory<'a> {
+    fixture: &'a support::Fixture,
+    package: super::super::shared::OriginalPackage,
+    selector: Vec<u8>,
+    original: Option<Vec<u8>>,
+    installed: Option<(Vec<u8>, Value, Vec<u8>)>,
+    fail_after: Option<usize>,
+    effects: usize,
+}
+impl CheckpointMemory<'_> {
+    fn effect(&mut self) -> Result<(), package::PackageError> {
+        self.effects += 1;
+        if self.fail_after == Some(self.effects) {
+            self.fail_after = None;
+            Err(package::PackageError::Integrity)
+        } else {
+            Ok(())
+        }
+    }
+    fn verify(
+        &self,
+        plan: &super::super::checkpoint::TurnoverPlan,
+    ) -> Result<super::super::VerifiedOriginal, package::PackageError> {
+        let observed = snapshot(self.fixture, &self.package);
+        plan.verify_candidate(
+            self.package.public(),
+            3,
+            identity(&self.package),
+            &observed,
+            &self.fixture.registration,
+            v1_3::DirectoryObservation {
+                device: 7,
+                inode: 900,
+            },
+            frames(),
+            &support::limits(),
+        )?
+        .ok_or(package::PackageError::Integrity)
+    }
+}
+impl super::super::checkpoint::CheckpointIo for CheckpointMemory<'_> {
+    type Lease = ();
+    fn observe_selector(&mut self, _: &Lease, _: &Value) -> Result<Vec<u8>, package::PackageError> {
+        Ok(self.selector.clone())
+    }
+    fn retain_original(
+        &mut self,
+        _: &Lease,
+        plan: &super::super::checkpoint::TurnoverPlan,
+        _: &super::super::checkpoint::PreparedHistory<'_>,
+    ) -> Result<(), package::PackageError> {
+        let bytes = encode(plan.original());
+        if self.original.as_ref().is_some_and(|old| old != &bytes) {
+            return Err(package::PackageError::Integrity);
+        }
+        self.original = Some(bytes);
+        self.effect()
+    }
+    fn select(&mut self, _: &Lease, old: &[u8], new: &[u8]) -> Result<(), package::PackageError> {
+        if self.selector != old && self.selector != new {
+            return Err(package::PackageError::Integrity);
+        }
+        self.selector = new.to_vec();
+        self.effect()
+    }
+    fn finish_package(
+        &mut self,
+        _: &Lease,
+        plan: &super::super::checkpoint::TurnoverPlan,
+    ) -> Result<super::super::VerifiedOriginal, package::PackageError> {
+        if self.original.as_deref() != Some(encode(plan.original()).as_slice()) {
+            return Err(package::PackageError::Integrity);
+        }
+        self.effect()?;
+        self.verify(plan)
+    }
+    fn verify_clean(
+        &mut self,
+        _: &Lease,
+        plan: &super::super::checkpoint::TurnoverPlan,
+    ) -> Result<super::super::VerifiedOriginal, package::PackageError> {
+        self.verify(plan)
+    }
+    fn install_segment(
+        &mut self,
+        _: &Lease,
+        base: &[u8],
+        header: &Value,
+        segment: &[u8],
+    ) -> Result<(), package::PackageError> {
+        let candidate = (base.to_vec(), header.clone(), segment.to_vec());
+        if self.installed.as_ref().is_some_and(|old| old != &candidate) {
+            return Err(package::PackageError::Integrity);
+        }
+        self.installed = Some(candidate);
+        self.effect()
+    }
 }

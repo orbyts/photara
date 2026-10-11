@@ -24,6 +24,34 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
+**New narrow approval boundary — two inherited v4 commitments:** implementation
+found whole-allocation `original_sha256` fields in
+`payload_recipe.allocations[*]` and finalization `writes[*]`, in addition to the
+corridor field already corrected by the approved packet. They conflict with the
+approved unrequested-archive behavior and efficient exact retry. The concrete
+[two-field v4 correction](architecture/PS2_RETENTION_STORAGE_DECISION.md#narrow-v4-commitment-correction--pending-approval-2026-10-11)
+proposes `base_head_sha256` in those two v4-only locations. Old codecs and all
+other fields/checks stay unchanged. This correction is **not yet approved**;
+normal v4 compilation remains disabled. Do not ask for the wider packet again.
+Checkpoint stages through `33885e1` are committed locally; SSH publication is
+still unavailable without any authentication/remote changes.
+
+The independent activation slice now passes: registered local-selector protocol
+with five post-effect cuts, exact retry and third-selector refusal; PHPSJ002
+seeded Core edit/retry/undo; selected-frame loading that tolerates unrequested
+archive corruption but refuses changed selected frames/tighter bounds. Ten
+focused tests pass (`/private/tmp/ps2-checkpoint-activation-final.log`), frozen v1
+golden passes (`/private/tmp/ps2-checkpoint-activation-v1-golden.log`), strict store
+tests pass (`/private/tmp/ps2-checkpoint-activation-clippy.log`). This is an
+in-memory adapter with no native implementation/effects or Saved grant.
+Live seeding still retains historical undo metadata; persistent on-demand reopen
+and pure-position retirement are unfinished. Test-only v4 compiler scaffolding
+regenerates its first original, but its generated package still fails reader
+verification (`/private/tmp/ps2-checkpoint-activation-focused.log`); do not claim
+v4 publication/two-operation acceptance. Resolve the pending two-field approval,
+then finish v4/current-state saving, persistent recovery and disposable native
+qualification/performance. No app replacement has occurred.
+
 **Approved snapshot implementation — package reader integration:** shared Rust
 now parses/adopts AcceptanceBase, audits a complete nonempty post-base suffix,
 looks up exact historical receipts through reciprocal authenticated index paths,

@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 /// drained old prefix; this object does not grant a lease or acknowledge Saved.
 pub struct PreparedHistory<'a> {
     pub(super) source: &'a VerifiedOriginal,
+    pub(super) seed: super::super::journal::session::CheckpointSeed,
     archive: Value,
     lookup: Value,
     objects: BTreeMap<(String, u64), Value>,
@@ -56,6 +57,10 @@ impl<'a> PreparedHistory<'a> {
         // Subsequent turnover needs the already-bound prior archive lookup, not
         // a fabricated flattened history. Keep that route fail closed for now.
         check(active.state["schema"]["version"] == 2)?;
+        check(
+            active.state["journal_inclusion"].is_null()
+                || active.state["journal_inclusion"]["journal_id"] == header["journal_id"],
+        )?;
         let mut local = BTreeMap::new();
         for (index, record) in journal.records().iter().enumerate() {
             let value = record.value();
@@ -113,6 +118,7 @@ impl<'a> PreparedHistory<'a> {
         };
         Ok(Self {
             source: current,
+            seed: session.checkpoint_seed(),
             archive,
             lookup,
             objects,

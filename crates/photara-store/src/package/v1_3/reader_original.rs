@@ -296,6 +296,17 @@ fn verify_original_inner(
         operation,
     )?;
     let empty_hold = controls(&envelope, &bytes, limits, operation)?.holds;
+    let selected_frames = if bytes.snapshot {
+        let mut selected = Vec::new();
+        for allocation in bytes.checked.borrow().values() {
+            if let Checked::Snapshot(allocation) = allocation {
+                selected.extend(allocation.selected_references()?);
+            }
+        }
+        Some(selected)
+    } else {
+        None
+    };
     drop(bytes);
     let to_key = |r: &ObjectRef| -> Result<(String, u64), PackageError> {
         check(r.kind == ObjectKind::Json)?;
@@ -320,13 +331,15 @@ fn verify_original_inner(
         global: proof.global.iter().map(to_key).collect::<Result<_, _>>()?,
     };
     let scope = serde_json::json!({"profile":registration.profile,"incarnation":registration.incarnation.to_string(),"directory":{"device":directory.device.to_string(),"inode":directory.inode.to_string()}});
-    Ok(repeatable::VerifiedOriginal::from_reader(
+    let mut verified = repeatable::VerifiedOriginal::from_reader(
         package,
         original,
         scope,
         registration.charge_unit,
         empty_hold,
-    ))
+    );
+    verified.selected_frames = selected_frames;
+    Ok(verified)
 }
 
 #[expect(

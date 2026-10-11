@@ -247,6 +247,28 @@ pub struct SelectedAllocation<'a> {
     selected: Mutex<BTreeMap<u64, (u64, FrameKind, Sha256Hex)>>,
 }
 impl<'a> SelectedAllocation<'a> {
+    pub(crate) fn selected_references(
+        &self,
+    ) -> Result<Vec<(PhysicalRef, FrameKind)>, PackageError> {
+        self.selected
+            .lock()
+            .map_err(|_| PackageError::Integrity)?
+            .iter()
+            .map(|(offset, (end, kind, sha))| {
+                Ok((
+                    PhysicalRef {
+                        allocation_id: self.allocation_id,
+                        arena: self.arena,
+                        offset: DecimalU64::parse(&offset.to_string())?,
+                        byte_length: DecimalU64::parse(&(end - offset).to_string())?,
+                        record_sha256: sha.clone(),
+                    },
+                    *kind,
+                ))
+            })
+            .collect()
+    }
+
     /// # Errors
     /// Refuses nil identity and the caller's unchanged allocation byte budget.
     pub fn open(

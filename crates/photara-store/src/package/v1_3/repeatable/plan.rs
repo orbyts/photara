@@ -28,6 +28,12 @@ pub struct VerifiedOriginal {
     pub(crate) scope: Value,
     pub(crate) charge_unit: u64,
     pub(crate) empty_hold: crate::package::ObjectRef,
+    pub(crate) selected_frames: Option<
+        Vec<(
+            crate::package::v1_3::PhysicalRef,
+            crate::package::v1_3::FrameKind,
+        )>,
+    >,
     pub(crate) retained_controls:
         BTreeMap<crate::package::ObjectRef, crate::package::v1_3::Membership>,
 }
@@ -47,6 +53,7 @@ impl VerifiedOriginal {
             charge_unit,
             empty_hold,
             retained_controls: BTreeMap::new(),
+            selected_frames: None,
         }
     }
     pub(crate) fn shared_package(&self) -> &OriginalPackage {
@@ -245,23 +252,6 @@ fn span(old: &OriginalPackage, id: &str, bytes: &[u8], lo: usize, hi: usize) -> 
         json!({"allocation_id":id,"arena":old.allocations[id].arena,"witness":old.allocations[id].witness,"original_end":lo.to_string(),"final_end":hi.to_string(),"frame_count":count.to_string(),"framed_sha256":hash(&bytes[lo..hi])}),
     )
 }
-pub(super) fn packed(files: &BTreeMap<String, super::shared::Bytes>, r: &Value) -> Result<Value> {
-    let k = key(r)?;
-    for bytes in files.values() {
-        let mut at = 0;
-        while at < bytes.len() {
-            let end = frame_end(bytes, at)?;
-            if bytes[at + 8] != 0
-                && bytes[at + 16..end].len() as u64 == k.1
-                && hash(&bytes[at + 16..end]) == k.0
-            {
-                return wire::parse(&bytes[at + 16..end]);
-            }
-            at = end;
-        }
-    }
-    Err("selected packed object")
-}
 pub(super) fn journal_frame(receipt: &Value) -> Value {
     json!({"schema":{"id":"photara.package.accepted-journal-frame","version":1},"journal_id":receipt["journal_id"],"sequence":receipt["journal_sequence"],"operation_id":receipt["operation_id"],"request_sha256":receipt["request_sha256"],"receipt_sha256":reference(receipt)["sha256"]})
 }
@@ -274,10 +264,6 @@ pub(crate) fn compile_inner(
 ) -> Result<RepeatablePlan> {
     compile_cached(original, intent, receipt, attempt, limits, None)
 }
-#[expect(
-    clippy::too_many_lines,
-    reason = "Compile the complete original-bound finite state chain before effects"
-)]
 pub(super) fn compile_cached(
     original: &VerifiedOriginal,
     intent: &Value,
@@ -286,10 +272,31 @@ pub(super) fn compile_cached(
     limits: Limits,
     memo: Option<&mut super::canonical_memo::CanonicalMemo>,
 ) -> Result<RepeatablePlan> {
+    compile_context(original, intent, receipt, attempt, limits, memo, None)
+}
+#[expect(
+    clippy::too_many_lines,
+    reason = "One exact original-bound compiler; optional independently verified checkpoint context"
+)]
+pub(super) fn compile_context(
+    original: &VerifiedOriginal,
+    intent: &Value,
+    receipt: &Value,
+    attempt: Attempt,
+    limits: Limits,
+    memo: Option<&mut super::canonical_memo::CanonicalMemo>,
+    checkpoint: Option<(&Value, &Value)>,
+) -> Result<RepeatablePlan> {
+    ensure(
+        checkpoint.is_none() || cfg!(test),
+        "v4 commitment correction not enabled",
+    )?;
     let old = &original.package;
     let proof = &original.proof;
     let project = &old.manifest["project_id"];
-    attempt.planner.validate(old, proof, limits)?;
+    attempt
+        .planner
+        .validate_context(old, proof, limits, checkpoint.is_some())?;
     ensure(
         attempt.selectors.len() == STAGES.len(),
         "exact selector ID schedule",
@@ -313,8 +320,31 @@ pub(super) fn compile_cached(
                 .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c)),
         "original token and nonce",
     )?;
-    let builder = layout::Builder::load_cached(old, &attempt.planner, limits, memo)?;
+    let builder = if checkpoint.is_some() {
+        layout::Builder::load_selected(original, &attempt.planner, limits)?
+    } else {
+        layout::Builder::load_cached(old, &attempt.planner, limits, memo)?
+    };
     let original_objects = std::sync::Arc::new(builder.pool.keys().cloned().collect());
+    if let Some((base, _)) = checkpoint {
+        let active = &proof.roles.get("active").ok_or("snapshot active")?.state;
+        let index = builder
+            .pool
+            .get(&key(&active["operation_index"])?)
+            .ok_or("snapshot operation index")?;
+        ensure(
+            active["schema"]["version"] == 3
+                && index["schema"]["version"] == 3
+                && index["base"] == base["checkpoint"],
+            "exact checkpoint base edge",
+        )?;
+    } else {
+        ensure(
+            proof.roles["active"].state["schema"]["version"] != 3,
+            "snapshot requires v4 checkpoint context",
+        )?;
+    }
+
     let prepared = core::replay(
         old,
         proof,
@@ -437,6 +467,14 @@ pub(super) fn compile_cached(
         recipe.remove("retained_controls");
         recipe.insert("retained_control_inventory".into(), inventory.clone());
     }
+
+    if let Some((base, raw)) = checkpoint {
+        original_record["original_codec"] = json!("photara.codec.ps2-repeatable-admission-v4");
+        original_record["payload_recipe"]["codec"] =
+            json!("photara.codec.ps2-repeatable-layout-v4");
+        original_record["payload_recipe"]["planner"] = raw.clone();
+        original_record["payload_recipe"]["checkpoint_base"] = reference(base);
+    }
     let mut extra_global = retained_controls.clone();
     for (sha256, length) in &layout.inventory_nodes {
         let r: crate::package::ObjectRef = serde_json::from_value(
@@ -446,22 +484,27 @@ pub(super) fn compile_cached(
         extra_global.insert(r, crate::package::v1_3::Membership::Ownership);
     }
     let (payload, writes, payload_ends) = split(old, &layout.files)?;
-    let state = packed(&layout.files, &layout.target["active"])?;
+    let state = layout.active_state.clone();
     let mut projection = layout.target.clone();
     projection["retention_evidence"] = oldroot["retention_evidence"].clone();
     projection["base_inventory"] = layout.base_inventory.clone();
     projection["placement"] = placement;
     projection["active_state"] = state.clone();
+    let recipe_codec = if checkpoint.is_some() {
+        "photara.codec.ps2-repeatable-layout-v4"
+    } else {
+        &attempt.planner.codec
+    };
     let finalizer = object(
         project,
         "photara.storage.finalization-control",
-        json!({"token":attempt.token,"original":reference(&original_record),"prepared_receipt":receipt,"generation_plan":null,"newborn_binding":null,"payload_completion":payload,"sealed_allocations":[],"recipe_codec":attempt.planner.codec,"writes":writes,"target_projection":projection}),
+        json!({"token":attempt.token,"original":reference(&original_record),"prepared_receipt":receipt,"generation_plan":null,"newborn_binding":null,"payload_completion":payload,"sealed_allocations":[],"recipe_codec":recipe_codec,"writes":writes,"target_projection":projection}),
     );
     ensure(
         encode(&finalizer).len() as u64 <= decimal(&attempt.finalization_bytes)?,
         "finite finalizer bytes",
     )?;
-    let basecount = number(&packed(&layout.files, &layout.base_inventory)?["count"])?;
+    let basecount = layout.base_count;
     let mut stages = Vec::new();
     let mut priorhead = old.head.clone();
     let mut priorcommit = old.commit.clone();

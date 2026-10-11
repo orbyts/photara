@@ -332,7 +332,10 @@ base; they are not reset or confused with outer sequence. Existing bodies are
 unchanged. The sole new kind, `CheckpointBaseReceipt`, has exact body
 `{maintenance_id:Id,original:JRef,journal_base:JRef,selected_head:<HeadV1>,selected_commit:JRef}`;
 it is the first record and changes no authored/accepted coordinate. Its package
-and base commitments must agree. It is appended only after fresh clean selection
+and base commitments must agree. Its envelope identity is regenerated from the
+persisted original: `record_id` is the maintenance ID and `session_generation`
+is the original-bound pending selector generation (old generation plus one).
+No new retry input is generated during activation. It is appended only after fresh clean selection
 verification and barriers; its own barriers precede selecting the new segment.
 
 The local selector is one canonical file in the independently registered journal
@@ -371,7 +374,10 @@ clean removes its package hold, until the new segment/receipt/selector is durabl
 
 The proposed graph continuation dispatch is
 `photara.codec.ps2-repeatable-admission-v4` / `photara.codec.ps2-repeatable-layout-v4`.
-It retains v3 fields except that `payload_recipe` adds `checkpoint_base:JRef` and
+It retains v3 fields except that `payload_recipe` adds `checkpoint_base:JRef`
+(the device-local `photara.session.checkpoint-base` v1, whose `checkpoint` edge
+selects the package AcceptanceBase; it must match the selected PHPSJ002 header)
+and
 its retained-control inventory is limited to post-base originals plus unresolved
 pins. Planner corridor entries keep their v3 fields except `original_sha256` is
 replaced by `base_head_sha256:Digest`, equal to SHA-256 of exact canonical old HEAD.
@@ -480,3 +486,40 @@ corruption in that same frame when requested. Its explicit proposed typed-edge
 graph excludes provenance commitments and rejects introduced maintenance/local-base
 cycles. It provides no production dispatch, authority, charge reservation, complete
 nonempty-index parser or filesystem barrier evidence.
+
+## Narrow v4 commitment correction — pending approval, 2026-10-11
+
+Implementation exposed two additional inherited whole-allocation commitments.
+The approved packet replaces `planner.corridors[*].original_sha256`, but v3 also
+stores that field in the admission payload recipe and finalization writes.
+Keeping those hashes would reread unrelated archive bytes and make an exact v4
+retry depend on corruption that the approved snapshot recovery model tolerates.
+Silently changing what `original_sha256` means is not permitted.
+
+Approve these two replacements **only for the new v4 dispatch**:
+
+| Location | Exact correction |
+| --- | --- |
+| `photara.codec.ps2-repeatable-admission-v4` → `payload_recipe.allocations[*]` | Replace `original_sha256:Digest` with `base_head_sha256:Digest`. |
+| `photara.storage.finalization-control` → `writes[*]`, only when `recipe_codec` is `photara.codec.ps2-repeatable-layout-v4` | Replace `original_sha256:Digest` with `base_head_sha256:Digest`. |
+
+In both locations the value is SHA-256 of the exact canonical old HEAD already
+committed by the original attempt, identical to the approved v4 corridor value.
+Require the new field and reject the old field or both fields in these v4
+objects. All other fields retain their exact meanings and encoding. In particular,
+allocation identity/witness, bounds, frame count and appended-range digest remain
+unchanged. Finalization `recipe_sha256` is regenerated using the existing rule
+over the corrected write object before adding `recipe_sha256` itself.
+
+Current/recovery/pinned records still receive their required verification;
+retained v1 allocation claims retain their full legacy checks. Every appended
+suffix byte and exact original retry input remains verified. Unrequested archive
+bytes do not acquire a new whole-prefix integrity promise. Existing v1/v2/v3
+codecs, hashes and golden bytes are unchanged, as are the approved turnover
+format, Accepted/Saved barriers, accounting and registration limits.
+
+Validation stays in the existing corpus: two consecutive v4 operations,
+interruption/retry of the same original, changed HEAD/witness/extent/suffix refusal,
+and continuation with unrequested archived corruption. No new fixture family,
+real-library writes, conversion, deletion, expiry, deployment or production limits.
+Dependent v4 emission/retry remains disabled until this correction is approved.

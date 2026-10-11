@@ -82,15 +82,24 @@ pub struct PlannerInputs {
     pub corridors: Vec<Corridor>,
 }
 impl PlannerInputs {
-    #[expect(
-        clippy::too_many_lines,
-        reason = "Single fail-closed validation of persisted layout input"
-    )]
     pub(crate) fn validate(
         &self,
         old: &super::shared::OriginalPackage,
         proof: &OriginalProof,
         limits: super::Limits,
+    ) -> Result<()> {
+        self.validate_context(old, proof, limits, false)
+    }
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Exact legacy or snapshot corridor validation"
+    )]
+    pub(crate) fn validate_context(
+        &self,
+        old: &super::shared::OriginalPackage,
+        proof: &OriginalProof,
+        limits: super::Limits,
+        snapshot: bool,
     ) -> Result<()> {
         ensure(
             matches!(
@@ -189,7 +198,12 @@ impl PlannerInputs {
                     && c.arena == a.arena
                     && c.witness == a.witness
                     && start == a.bytes.len() as u64
-                    && c.original_sha256 == super::wire::hash(&a.bytes)
+                    && c.original_sha256
+                        == if snapshot {
+                            super::wire::hash(&super::wire::encode(&old.head))
+                        } else {
+                            super::wire::hash(&a.bytes)
+                        }
                     && end >= start
                     && end - start <= limits.max_allocation_growth
                     && end <= limits.max_allocation_bytes,

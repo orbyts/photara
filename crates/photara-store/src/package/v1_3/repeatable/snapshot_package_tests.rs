@@ -620,6 +620,7 @@ fn snapshot_package_archive_requested_corruption_and_live_role_refusals() {
         Some(receipt)
     );
     assert_eq!(converted.base["receipt_count"], "3");
+    let planner = attempt(&verify(f), 670_000).planner;
     let offset = usize::try_from(physical.offset.get()).unwrap() + 16;
     flip(f, &physical, offset);
     // Corruption remains inside the fully charged owned extent, but outside all
@@ -638,6 +639,21 @@ fn snapshot_package_archive_requested_corruption_and_live_role_refusals() {
         serde_json::to_value(logical.coordinate()).unwrap(),
         request().0["expected"]
     );
+    // The compiler consumes only frames independently selected by the reader.
+    // The corrupted archived receipt above must not be scanned or materialized.
+    let loaded = layout::Builder::load_selected(&seeded, &planner, budget()).unwrap();
+    assert!(
+        loaded
+            .pool
+            .get(&wire::key(&serde_json::to_value(&converted.archived_receipt.0).unwrap()).unwrap())
+            .is_none()
+    );
+    let mut bounded = budget();
+    bounded.max_frames = seeded.selected_frames.as_ref().unwrap().len() - 1;
+    assert!(layout::Builder::load_selected(&seeded, &planner, bounded).is_err());
+    bounded = budget();
+    bounded.semantic.json.max_bytes = 1;
+    assert!(layout::Builder::load_selected(&seeded, &planner, bounded).is_err());
     let mut narrow = support::limits();
     narrow.semantic.max_objects = 0;
     assert!(
@@ -650,6 +666,16 @@ fn snapshot_package_archive_requested_corruption_and_live_role_refusals() {
         )
         .is_err()
     );
+    let mut changed = seeded;
+    let selected_frame = changed.selected_frames.as_ref().unwrap()[0].0.clone();
+    let selected_offset = usize::try_from(selected_frame.offset.get()).unwrap() + 16;
+    changed
+        .package
+        .allocations
+        .get_mut(&selected_frame.allocation_id.to_string())
+        .unwrap()
+        .bytes[selected_offset] ^= 1;
+    assert!(layout::Builder::load_selected(&changed, &planner, budget()).is_err());
     recovery(f).unwrap();
     assert!(
         proof
@@ -754,7 +780,8 @@ fn snapshot_package_turnover_local_base_binds_old_audit_and_clean_closure() {
     use super::super::journal::Journal;
     let old_fixture = support::Fixture::load("integrated");
     let old = verify(&old_fixture);
-    let header = super::journal_tests::header(&old.package);
+    let mut header = super::journal_tests::header(&old.package);
+    header["journal_id"] = request().1["journal_id"].clone();
     let limits = super::journal_tests::limits();
     let reader = support::limits();
     let identity = CheckpointIdentity {
