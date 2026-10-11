@@ -53,12 +53,21 @@ archive records, and first-turnover history prepared from a verified drained
 session. It binds the old full audit to the selected clean snapshot and rebuilds
 the live Core coordinate using the registered incarnation. New journal semantic
 dispatch still refuses until publication/recovery is connected. No native format
-enablement, turnover publication or v4 continuation yet. Final focused gate passes
+enablement or v4 continuation yet. Final focused gate passes
 9/9 (`/private/tmp/ps2-turnover-focused-final.log`), including exact selected-base
 binding; strict store tests pass (`/private/tmp/ps2-turnover-clippy-final.log`).
-Next concrete work: maintenance Original/layout/stages, then selector custody and
-PHPSJ002 semantic recovery/v4 continuation. Do not mistake framing/preparation
-evidence for a working checkpoint writer or measured native performance.
+Maintenance Original/layout and four deterministic package stages are now
+implemented. Actual in-memory append preserves every old prefix; published/clean
+packages pass the full reader and clean binds the unchanged Core coordinate.
+Exact original retry reproduces payload/selectors; changed commitments/candidates
+and undersized existing budgets refuse. Archive-only allocations retain full
+charge without being overclaimed by active roles. Ten focused tests pass
+(`/private/tmp/ps2-turnover-stages-focused.log`), the frozen original golden passes
+(`/private/tmp/ps2-turnover-stages-v1.log`), and strict store tests pass
+(`/private/tmp/ps2-turnover-stages-clippy.log`).
+Next concrete work: durable selector custody, PHPSJ002 semantic recovery and v4
+continuation, including interruption/retry. These are compiled in-memory stages,
+not native syscall qualification or measured app performance.
 
 **Latest 2026-10-11 checkpoint:** exact-prefix journal decode reuse now removes
 repeated canonical parsing and record re-encoding during preflight. It still

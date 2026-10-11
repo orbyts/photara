@@ -510,6 +510,9 @@ impl Builder {
                 "photara.resource.captured-version" => edges.push(v["capture_evidence"].clone()),
                 "photara.resource.backing" => edges.push(v["publication_evidence"].clone()),
                 "photara.package.operation-index" => {
+                    if v["schema"]["version"] == 3 {
+                        edges.push(v["base"].clone());
+                    }
                     edges.push(v["by_id"].clone());
                     edges.push(v["by_ordinal"].clone());
                 }
@@ -647,15 +650,58 @@ pub(crate) struct Layout {
     pub retained_inventory: Option<Value>,
     pub inventory_nodes: BTreeSet<wire::Key>,
 }
+pub(crate) fn compile(
+    b: Builder,
+    old: &OriginalPackage,
+    proof: &OriginalProof,
+    prepared: &PreparedChange,
+    inputs: &PlannerInputs,
+    retained_controls: &BTreeMap<crate::package::ObjectRef, crate::package::v1_3::Membership>,
+    limits: Limits,
+) -> Result<Layout> {
+    compile_change(
+        b,
+        old,
+        proof,
+        Change::Graph(prepared),
+        inputs,
+        retained_controls,
+        limits,
+    )
+}
+
+pub(super) fn compile_checkpoint(
+    b: Builder,
+    old: &OriginalPackage,
+    proof: &OriginalProof,
+    base: &Value,
+    inputs: &PlannerInputs,
+    limits: Limits,
+) -> Result<Layout> {
+    compile_change(
+        b,
+        old,
+        proof,
+        Change::Checkpoint(base),
+        inputs,
+        &BTreeMap::new(),
+        limits,
+    )
+}
+#[derive(Clone, Copy)]
+enum Change<'a> {
+    Graph(&'a PreparedChange),
+    Checkpoint(&'a Value),
+}
 #[expect(
     clippy::too_many_lines,
     reason = "Finite deterministic layout preserves explicit stage dependency order"
 )]
-pub(crate) fn compile(
+fn compile_change(
     mut b: Builder,
     old: &OriginalPackage,
     proof: &OriginalProof,
-    prepared: &PreparedChange,
+    operation: Change<'_>,
     inputs: &PlannerInputs,
     retained_controls: &BTreeMap<crate::package::ObjectRef, crate::package::v1_3::Membership>,
     limits: Limits,
@@ -671,12 +717,14 @@ pub(crate) fn compile(
             "retained association collision",
         )?;
     }
-    for v in prepared.authored.values() {
-        b.add(v.clone())?;
+    if let Change::Graph(prepared) = &operation {
+        for v in prepared.authored.values() {
+            b.add(v.clone())?;
+        }
+        b.add(prepared.receipt.clone())?;
     }
-    b.add(prepared.receipt.clone())?;
     let root = &old.commit["root_set"];
-    let retained = if b.incremental {
+    let retained = if b.incremental && matches!(operation, Change::Graph(_)) {
         Some(retained_inventory::build(&mut b, old, retained_controls)?)
     } else {
         None
@@ -743,49 +791,92 @@ pub(crate) fn compile(
         used_associations.len() == inputs.associations.len(),
         "exact association replacements",
     )?;
-    let mut receipts = proof.roles["active"].receipts.clone();
-    receipts.push(prepared.receipt.clone());
-    let entries=receipts.iter().map(|r|json!({"operation_id":r["operation_id"],"request_sha256":r["request_sha256"],"acceptance_ordinal":r["acceptance_ordinal"],"receipt":reference(r)})).collect::<Vec<_>>();
-    let old_index = get(&b.pool, &oldactive["operation_index"])?;
-    let (ir, _) = b.tree_seed(
-        "photara.package.operation-id",
-        entries.clone(),
-        "operation_id",
-        inputs.geometry.operation_leaf as usize,
-        Some(&old_index["by_id"]),
-    )?;
-    let (or, _) = b.tree_seed(
-        "photara.package.operation-ordinal",
-        entries,
-        "acceptance_ordinal",
-        inputs.geometry.operation_leaf as usize,
-        Some(&old_index["by_ordinal"]),
-    )?;
-    let prefix = hash(&encode(
-        &json!({"domain":"photara.package.accepted-prefix-link.v1","previous_sha256":oldactive["accepted"]["prefix_sha256"],"acceptance_ordinal":prepared.receipt["acceptance_ordinal"],"operation_id":prepared.receipt["operation_id"],"request_sha256":prepared.receipt["request_sha256"],"receipt_sha256":reference(&prepared.receipt)["sha256"]}),
-    ));
-    let accepted =
-        json!({"through_ordinal":prepared.receipt["acceptance_ordinal"],"prefix_sha256":prefix});
-    let mut index = b.object(
+    active["root_id"] = json!(active_id);
+    let mut archive_records = BTreeMap::new();
+    match &operation {
+        Change::Graph(prepared) => {
+            let mut receipts = proof.roles["active"].receipts.clone();
+            receipts.push(prepared.receipt.clone());
+            let entries=receipts.iter().map(|r|json!({"operation_id":r["operation_id"],"request_sha256":r["request_sha256"],"acceptance_ordinal":r["acceptance_ordinal"],"receipt":reference(r)})).collect::<Vec<_>>();
+            let old_index = get(&b.pool, &oldactive["operation_index"])?;
+            let (ir, _) = b.tree_seed(
+                "photara.package.operation-id",
+                entries.clone(),
+                "operation_id",
+                inputs.geometry.operation_leaf as usize,
+                Some(&old_index["by_id"]),
+            )?;
+            let (or, _) = b.tree_seed(
+                "photara.package.operation-ordinal",
+                entries,
+                "acceptance_ordinal",
+                inputs.geometry.operation_leaf as usize,
+                Some(&old_index["by_ordinal"]),
+            )?;
+            let prefix = hash(&encode(
+                &json!({"domain":"photara.package.accepted-prefix-link.v1","previous_sha256":oldactive["accepted"]["prefix_sha256"],"acceptance_ordinal":prepared.receipt["acceptance_ordinal"],"operation_id":prepared.receipt["operation_id"],"request_sha256":prepared.receipt["request_sha256"],"receipt_sha256":reference(&prepared.receipt)["sha256"]}),
+            ));
+            let accepted = json!({"through_ordinal":prepared.receipt["acceptance_ordinal"],"prefix_sha256":prefix});
+            let mut index = b.object(
         "photara.package.operation-index",
         json!({"library_id":root["library_id"],"bootstrap_sha256":root["bootstrap_sha256"],"accepted":accepted,"by_id":ir,"by_ordinal":or}),
     );
-    index["schema"]["version"] = json!(2);
-    let frame = json!({"schema":{"id":"photara.package.accepted-journal-frame","version":1},"journal_id":prepared.receipt["journal_id"],"sequence":prepared.receipt["journal_sequence"],"operation_id":prepared.receipt["operation_id"],"request_sha256":prepared.receipt["request_sha256"],"receipt_sha256":reference(&prepared.receipt)["sha256"]});
-    let journal = json!({"journal_id":prepared.receipt["journal_id"],"through_sequence":prepared.receipt["journal_sequence"],"prefix_sha256":hash(&encode(&json!({"domain":"photara.package.journal-prefix-link.v1","previous_sha256":oldactive["journal_inclusion"]["prefix_sha256"],"frame_sha256":hash(&encode(&frame))}))),"resulting_authored_revision":prepared.receipt["after"]["revision"],"resulting_authored_sha256":prepared.receipt["after"]["digest"]});
-    let authored = prepared
-        .authored
-        .iter()
-        .find(|(k, _)| k.0 == prepared.receipt["after"]["digest"])
-        .ok_or("actual new authored body")?
-        .1;
-    active["root_id"] = json!(active_id);
-    active["authored_revision"] = prepared.receipt["after"]["revision"].clone();
-    active["authored"] = reference(authored);
-    active["operation_index"] = b.add(index)?;
-    active["accepted"] = accepted;
-    active["journal_inclusion"] = journal;
-    active["predecessor"] = json!({"root_sha256":root["active"]["sha256"],"authored_revision":oldactive["authored_revision"]});
+            index["schema"]["version"] = json!(2);
+            let frame = json!({"schema":{"id":"photara.package.accepted-journal-frame","version":1},"journal_id":prepared.receipt["journal_id"],"sequence":prepared.receipt["journal_sequence"],"operation_id":prepared.receipt["operation_id"],"request_sha256":prepared.receipt["request_sha256"],"receipt_sha256":reference(&prepared.receipt)["sha256"]});
+            let journal = json!({"journal_id":prepared.receipt["journal_id"],"through_sequence":prepared.receipt["journal_sequence"],"prefix_sha256":hash(&encode(&json!({"domain":"photara.package.journal-prefix-link.v1","previous_sha256":oldactive["journal_inclusion"]["prefix_sha256"],"frame_sha256":hash(&encode(&frame))}))),"resulting_authored_revision":prepared.receipt["after"]["revision"],"resulting_authored_sha256":prepared.receipt["after"]["digest"]});
+            let authored = prepared
+                .authored
+                .iter()
+                .find(|(k, _)| k.0 == prepared.receipt["after"]["digest"])
+                .ok_or("actual new authored body")?
+                .1;
+            active["authored_revision"] = prepared.receipt["after"]["revision"].clone();
+            active["authored"] = reference(authored);
+            active["operation_index"] = b.add(index)?;
+            active["accepted"] = accepted;
+            active["journal_inclusion"] = journal;
+            active["predecessor"] = json!({"root_sha256":root["active"]["sha256"],"authored_revision":oldactive["authored_revision"]});
+        }
+        Change::Checkpoint(base) => {
+            let old_index = get(&b.pool, &oldactive["operation_index"])?;
+            ensure(
+                oldactive["schema"]["version"] == 2
+                    && base["schema"]
+                        == json!({"id":"photara.package.acceptance-base","version":1})
+                    && base["source_state"] == reference(&oldactive)
+                    && base["source_commit"]
+                        == json!({"commit_id":old.commit["commit_id"],"commit_sha256":hash(&encode(&old.commit))})
+                    && base["accepted"] == oldactive["accepted"]
+                    && base["journal_inclusion"] == oldactive["journal_inclusion"]
+                    && base["receipts_by_id"] == old_index["by_id"]
+                    && base["receipts_by_ordinal"] == old_index["by_ordinal"],
+                "checkpoint exact old operation base",
+            )?;
+            archive_records = b.closure(&[oldactive["operation_index"].clone()])?;
+            for bytes in old.loose.values() {
+                let value = wire::parse(bytes)?;
+                archive_records.insert(key(&reference(&value))?, value);
+            }
+            let base_ref = b.add((*base).clone())?;
+            let (by_id, _) = b.tree(
+                "photara.package.operation-id",
+                Vec::new(),
+                "operation_id",
+                inputs.geometry.operation_leaf as usize,
+            )?;
+            let (by_ordinal, _) = b.tree(
+                "photara.package.operation-ordinal",
+                Vec::new(),
+                "acceptance_ordinal",
+                inputs.geometry.operation_leaf as usize,
+            )?;
+            let mut index = b.object("photara.package.operation-index",json!({"library_id":root["library_id"],"bootstrap_sha256":root["bootstrap_sha256"],"base":base_ref,"accepted":oldactive["accepted"],"by_id":by_id,"by_ordinal":by_ordinal}));
+            index["schema"]["version"] = json!(3);
+            active["schema"]["version"] = json!(3);
+            active["operation_index"] = b.add(index)?;
+            active["predecessor"] = json!({"root_sha256":root["active"]["sha256"],"authored_revision":oldactive["authored_revision"]});
+        }
+    }
     let semantic = b.closure(&[
         active["authored"].clone(),
         active["history"].clone(),
@@ -832,6 +923,11 @@ pub(crate) fn compile(
         .iter()
         .map(key)
         .collect::<Result<BTreeSet<_>>>()?;
+    let archive = if matches!(operation, Change::Checkpoint(_)) {
+        Some(b.checkpoint_archive(old, inputs, archive_records)?)
+    } else {
+        None
+    };
     let mut globals = proof
         .global
         .iter()
@@ -844,6 +940,22 @@ pub(crate) fn compile(
         })
         .collect::<Result<BTreeMap<_, _>>>()?;
 
+    if archive.is_some() {
+        // Historical implementation/original controls remain archived physically,
+        // but are no longer mandatory live global members after the audited base.
+        globals.retain(|_, value| {
+            !matches!(
+                value["schema"]["id"].as_str(),
+                Some(
+                    "photara.storage.original-admission"
+                        | "photara.storage.operation-phase"
+                        | "photara.storage.finalization-control"
+                        | "photara.storage.retained-control-inventory-leaf"
+                        | "photara.storage.retained-control-inventory-branch"
+                )
+            )
+        });
+    }
     for r in retained_controls.keys() {
         let k = (r.sha256.as_str().to_owned(), r.byte_length.get());
         globals.insert(
@@ -867,6 +979,11 @@ pub(crate) fn compile(
         .map(|(k, _)| k.clone())
         .collect();
     let mut union = globals.clone();
+    if let Some((_, ownership)) = &archive {
+        // Archive ownership is an independent physical partition, not a shared
+        // dependency required in every current/recovery/pinned role locator.
+        union.extend(ownership.clone());
+    }
     for records in &roles {
         union.extend(
             records
@@ -917,11 +1034,22 @@ pub(crate) fn compile(
             .collect();
         b.pack(&allocation.data, "data", items)?;
         let mut claims = Vec::new();
-        let units = inputs.shared_sealed.iter().cloned().chain([
-            allocation.data.clone(),
-            allocation.locator.clone(),
-            inputs.root_placement.clone(),
-        ]);
+        let snapshot_role = get(&b.pool, state)?["schema"]["version"] == 3;
+        // A snapshot base does not make archived receipts live dependencies.
+        // Claim shared sealed allocations only when this role actually locates
+        // one of their records. Archive/recovery custody still retains them.
+        let units = inputs
+            .shared_sealed
+            .iter()
+            .filter(|id| {
+                !snapshot_role || records.keys().any(|key| b.locations[*id].contains_key(key))
+            })
+            .cloned()
+            .chain([
+                allocation.data.clone(),
+                allocation.locator.clone(),
+                inputs.root_placement.clone(),
+            ]);
         for id in units {
             let sealed = inputs.shared_sealed.contains(&id);
             let raw = if sealed { b.files[&id].as_slice() } else { &[] };
@@ -938,7 +1066,16 @@ pub(crate) fn compile(
             } else {
                 Value::Null
             };
-            claims.push(b.object("photara.storage.allocation-claim",json!({"allocation_id":id,"arena":old.allocations[&id].arena,"layout":"framed-json","owned_extent":if sealed{raw.len()}else{ends[&id]}.to_string(),"authenticated_prefix":{"byte_length":raw.len().to_string(),"sha256":hash(raw)},"sealed":sealed,"sealed_charge":charge})));
+            let mut claim = b.object("photara.storage.allocation-claim",json!({"allocation_id":id,"arena":old.allocations[&id].arena,"layout":"framed-json","owned_extent":if sealed{raw.len()}else{ends[&id]}.to_string(),"authenticated_prefix":{"byte_length":raw.len().to_string(),"sha256":hash(raw)},"sealed":sealed,"sealed_charge":charge}));
+            if get(&b.pool, state)?["schema"]["version"] == 3 {
+                claim["schema"]["version"] = json!(2);
+                claim
+                    .as_object_mut()
+                    .ok_or("claim")?
+                    .remove("authenticated_prefix");
+                claim["verification"] = json!("selected-records");
+            }
+            claims.push(claim);
         }
         let predecessor =
             old_placements.get(&key(&reference(&proof.roles[&allocation.role].state))?);
@@ -1009,11 +1146,15 @@ pub(crate) fn compile(
         f.extend(length.to_le_bytes());
         f.resize(*end, 0);
     }
+    let mut target = json!({"active":active_ref,"recovery":root["active"],"pinned_roots":root["pinned_roots"],"operation_index":active["operation_index"],"conversion_source":root["conversion_source"]});
+    if let Some((placement, _)) = archive {
+        target["archive_placement"] = placement;
+    }
     Ok(Layout {
         retained_inventory: retained.map(|v| v.0),
         inventory_nodes,
         files: b.files,
-        target: json!({"active":active_ref,"recovery":root["active"],"pinned_roots":root["pinned_roots"],"operation_index":active["operation_index"],"conversion_source":root["conversion_source"]}),
+        target,
         base_inventory,
         root_placements,
     })
@@ -1033,4 +1174,103 @@ pub(super) fn count_decode() {
         let (loads, parsed) = work.get();
         work.set((loads, parsed + 1));
     });
+}
+
+impl Builder {
+    /// Initial checkpoint archives already-authenticated operation/control bytes
+    /// in place. Only missing loose controls and new ownership/index pages append.
+    fn checkpoint_archive(
+        &mut self,
+        old: &OriginalPackage,
+        inputs: &PlannerInputs,
+        mut records: BTreeMap<wire::Key, Value>,
+    ) -> Result<(Value, BTreeMap<wire::Key, Value>)> {
+        let data = &inputs
+            .roles
+            .iter()
+            .find(|r| r.role == "active")
+            .ok_or("active archive allocation")?
+            .data;
+        let existing = self
+            .locations
+            .values()
+            .flat_map(|map| map.keys().cloned())
+            .collect::<BTreeSet<_>>();
+        self.pack(
+            data,
+            "data",
+            records
+                .iter()
+                .filter(|(key, _)| !existing.contains(*key))
+                .map(|(_, value)| (value.clone(), tag(value)))
+                .collect(),
+        )?;
+        let mut ownership = BTreeMap::new();
+        let mut claims = Vec::new();
+        for (id, allocation) in &old.allocations {
+            let sealed = inputs.shared_sealed.contains(id);
+            let extent = if sealed {
+                allocation.bytes.len() as u64
+            } else {
+                *self
+                    .corridors
+                    .get(id)
+                    .ok_or("archive original tip corridor")?
+            };
+            let charge = if sealed {
+                let value = self
+                    .pool
+                    .keys()
+                    .filter_map(|key| self.pool.get(key))
+                    .find(|v| {
+                        v["schema"]["id"] == "photara.storage.sealed-charge"
+                            && v["allocation_id"] == *id
+                    })
+                    .ok_or("archive sealed charge")?
+                    .clone();
+                let reference = reference(&value);
+                ownership.insert(key(&reference)?, value);
+                reference
+            } else {
+                Value::Null
+            };
+            let mut claim = self.object("photara.storage.allocation-claim", json!({"allocation_id":id,"arena":allocation.arena,"layout":"framed-json","owned_extent":extent.to_string(),"verification":"selected-records","sealed":sealed,"sealed_charge":charge}));
+            claim["schema"]["version"] = json!(2);
+            let reference = self.add(claim.clone())?;
+            ownership.insert(key(&reference)?, claim);
+            claims.push(json!({"allocation_id":id,"claim":reference}));
+        }
+        let (owner, nodes) = self.tree(
+            "photara.storage.ownership",
+            claims,
+            "allocation_id",
+            inputs.geometry.ownership_leaf as usize,
+        )?;
+        for node in nodes {
+            ownership.insert(key(&reference(&node))?, node);
+        }
+        self.pack(
+            data,
+            "data",
+            ownership
+                .iter()
+                .filter(|(key, _)| {
+                    !inputs
+                        .shared_sealed
+                        .iter()
+                        .any(|id| self.locations[id].contains_key(*key))
+                })
+                .map(|(_, value)| (value.clone(), 2))
+                .collect(),
+        )?;
+        records.extend(ownership.clone());
+        let locations = self
+            .locations
+            .values()
+            .flat_map(|map| map.iter().map(|(key, value)| (key.clone(), value.clone())))
+            .collect::<BTreeMap<_, _>>();
+        let entries=records.iter().map(|(key,value)| Ok(json!({"object":reference(value),"membership":if tag(value)==2{"ownership"}else{"semantic"},"physical":locations.get(key).ok_or("archive object location")?}))).collect::<Result<Vec<_>>>()?;
+        let locator = self.physical_tree("locator", entries, "object", &inputs.root_placement)?;
+        Ok((json!({"locator":locator,"ownership":owner}), ownership))
+    }
 }

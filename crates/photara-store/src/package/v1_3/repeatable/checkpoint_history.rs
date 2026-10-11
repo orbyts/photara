@@ -10,11 +10,11 @@ use std::collections::BTreeMap;
 /// Exact immutable archive and lookup closure. Construction requires a verified,
 /// drained old prefix; this object does not grant a lease or acknowledge Saved.
 pub struct PreparedHistory<'a> {
-    source: &'a VerifiedOriginal,
+    pub(super) source: &'a VerifiedOriginal,
     archive: Value,
     lookup: Value,
     objects: BTreeMap<(String, u64), Value>,
-    through: Value,
+    pub(super) through: Value,
     mutation: Value,
     frame: Value,
     coordinate: Value,

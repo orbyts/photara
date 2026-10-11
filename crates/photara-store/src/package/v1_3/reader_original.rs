@@ -612,3 +612,49 @@ pub(crate) fn snapshot_base_binding(
             && super::super::selected::json_ref(&index["base"])? == *checkpoint,
     )
 }
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Exact maintenance original plus independent observations"
+)]
+pub(crate) fn verify_checkpoint_original(
+    package: repeatable::shared::OriginalPackage,
+    identity: SelectionIdentity,
+    inspection: &impl AllocationInspection,
+    registration: &SettledRegistration,
+    directory: DirectoryObservation,
+    frames: FrameLimits,
+    limits: &ReaderLimits,
+    plan: &repeatable::checkpoint::TurnoverPlan,
+    stage: usize,
+) -> Result<repeatable::VerifiedOriginal, PackageError> {
+    check(
+        (2..=3).contains(&stage)
+            && package.manifest == plan.old.manifest
+            && package.allocations.len() == plan.files.len(),
+    )?;
+    for (id, bytes) in &plan.files {
+        let actual = package.allocations.get(id).ok_or(PackageError::Integrity)?;
+        let old = plan
+            .old
+            .allocations
+            .get(id)
+            .ok_or(PackageError::Integrity)?;
+        check(
+            actual.bytes == *bytes && actual.arena == old.arena && actual.witness == old.witness,
+        )?;
+    }
+    let scope = serde_json::json!({"profile":registration.profile,"incarnation":registration.incarnation.to_string(),"directory":{"device":directory.device.to_string(),"inode":directory.inode.to_string()}});
+    check(scope == plan.original()["scope"])?;
+    let selected = plan.selection(stage)?;
+    verify_original_inner(
+        package,
+        identity,
+        inspection,
+        registration,
+        directory,
+        frames,
+        limits,
+        Some(&selected),
+    )
+}

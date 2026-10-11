@@ -205,6 +205,7 @@ pub(crate) struct OperationSelection<'a> {
     pub expected_commit: &'a Value,
     pub expected_loose: &'a BTreeMap<String, Vec<u8>>,
     pub packed_hold: &'a ObjectRef,
+    pub packed_selected_hold: bool,
     pub extra_global: &'a BTreeMap<ObjectRef, Membership>,
 }
 struct Controls {
@@ -265,7 +266,9 @@ fn controls(
         check(
             members.contains(&envelope_ref)
                 && members.contains(&ledger_ref)
-                && members.contains(&json_ref(&envelope_body["holds"])?),
+                && (members.contains(&json_ref(&envelope_body["holds"])?)
+                    || (selected.packed_selected_hold
+                        && json_ref(&envelope_body["holds"])? == *selected.packed_hold)),
         )?;
         members
     } else {
@@ -1042,4 +1045,6 @@ pub use original::{DirectoryObservation, verify_original};
 pub(crate) use original::{
     audit_checkpoint_adoption, snapshot_base_binding, snapshot_core_objects, verify_shared_original,
 };
-pub(crate) use original::{inspect_operation_package, verify_operation_original};
+pub(crate) use original::{
+    inspect_operation_package, verify_checkpoint_original, verify_operation_original,
+};

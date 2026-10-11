@@ -319,3 +319,7 @@ impl LocalArchive {
 #[path = "checkpoint_history.rs"]
 mod history;
 pub use history::PreparedHistory;
+
+#[path = "checkpoint_plan.rs"]
+mod plan;
+pub use plan::{TurnoverIds, TurnoverPlan};

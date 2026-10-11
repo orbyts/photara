@@ -118,6 +118,7 @@ impl RepeatablePlan {
             expected_commit: &self.stages[stage].commit,
             expected_loose: &self.stages[stage].loose,
             packed_hold: &self.empty_hold,
+            packed_selected_hold: false,
             extra_global: &self.extra_global,
         })
     }
@@ -244,7 +245,7 @@ fn span(old: &OriginalPackage, id: &str, bytes: &[u8], lo: usize, hi: usize) -> 
         json!({"allocation_id":id,"arena":old.allocations[id].arena,"witness":old.allocations[id].witness,"original_end":lo.to_string(),"final_end":hi.to_string(),"frame_count":count.to_string(),"framed_sha256":hash(&bytes[lo..hi])}),
     )
 }
-fn packed(files: &BTreeMap<String, super::shared::Bytes>, r: &Value) -> Result<Value> {
+pub(super) fn packed(files: &BTreeMap<String, super::shared::Bytes>, r: &Value) -> Result<Value> {
     let k = key(r)?;
     for bytes in files.values() {
         let mut at = 0;

@@ -1382,3 +1382,184 @@ fn session_checkpoint_history_requires_drained_exact_mutation_evidence() {
     session.finish_flush(&target).unwrap();
     inspect(session.io_mut(), true);
 }
+
+#[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "One real turnover verifies append, stages, bounds and exact retry"
+)]
+fn session_checkpoint_turnover_actual_append_and_four_selections() {
+    use super::super::checkpoint::{
+        CheckpointIdentity, LocalSelection, PreparedHistory, TurnoverIds, TurnoverPlan,
+    };
+    use super::super::journal::Journal;
+    let fixture = fixture();
+    let old = verify(&fixture);
+    let header = super::journal_tests::header(&old.package);
+    let limits = super::journal_tests::limits();
+    let reader = support::limits();
+    let id = CheckpointIdentity {
+        package: identity(&old.package),
+        device: package::PackageUuid::parse(header["device_id"].as_str().unwrap()).unwrap(),
+        incarnation: fixture.registration.incarnation,
+    };
+    let context = super::journal_tests::context(&fixture, &id.package, &reader);
+    let inputs = attempt(&old, 610_000).planner;
+    let mut bytes = Journal::create(&header, limits).unwrap();
+    let journal = Journal::read(&bytes, &header, limits).unwrap();
+    let verified = journal.verify_shared(&old.package, &context).unwrap();
+    let view = verified.verify_session(&old, &inputs, budget()).unwrap();
+    let owner = json!({"attachment_id":uid(610_001),"attachment_generation":"1","principal":request().1["provenance"]["principal"]});
+    bytes.extend(
+        view.prepare_barrier(
+            &owner,
+            "close",
+            super::journal_tests::record(610_002),
+            limits,
+        )
+        .unwrap()
+        .bytes(),
+    );
+    let journal = Journal::read(&bytes, &header, limits).unwrap();
+    let verified = journal.verify_shared(&old.package, &context).unwrap();
+    let view = verified.verify_session(&old, &inputs, budget()).unwrap();
+    let history = PreparedHistory::prepare(
+        &view,
+        &old,
+        &id,
+        package::PackageUuid::parse(&uid(610_003)).unwrap(),
+        (2, 2),
+        &reader,
+    )
+    .unwrap();
+    let mut selector = history.archive().clone();
+    selector.as_object_mut().unwrap().remove("archive_id");
+    selector.as_object_mut().unwrap().remove("previous");
+    let segment = selector
+        .as_object_mut()
+        .unwrap()
+        .remove("segments")
+        .unwrap()[0]
+        .clone();
+    selector["schema"]["id"] = json!("photara.session.checkpoint-selection");
+    selector["generation"] = json!("1");
+    selector["previous_sha256"] = Value::Null;
+    selector["selected"] = json!({"format":"PHPSJ001","stream_id":segment["stream_id"],"header_sha256":segment["header_sha256"],"base":null});
+    selector["pending"] = Value::Null;
+    let selector = LocalSelection::parse(&encode(&selector), &id, reader.json).unwrap();
+    let mut attempt = attempt(&old, 620_000);
+    attempt.selectors.truncate(4);
+    let mut raw = serde_json::to_value(attempt).unwrap();
+    raw["planner"]["codec"] = json!("photara.codec.ps2-checkpoint-turnover-layout-v1");
+    for corridor in raw["planner"]["corridors"].as_array_mut().unwrap() {
+        corridor.as_object_mut().unwrap().remove("original_sha256");
+        corridor["base_head_sha256"] = json!(hash(&encode(&old.package.head)));
+    }
+    let ids = || TurnoverIds {
+        maintenance_id: uid(630_000),
+        checkpoint_id: uid(630_001),
+        next_stream_id: uid(630_002),
+    };
+    let mut bounded = budget();
+    bounded.max_allocation_growth = 262_143;
+    assert!(TurnoverPlan::compile(&history, &selector, ids(), raw.clone(), bounded).is_err());
+    for bound in ["project_limit", "aggregate_control_bytes"] {
+        let mut too_small = raw.clone();
+        too_small[bound] = json!("1");
+        assert!(TurnoverPlan::compile(&history, &selector, ids(), too_small, budget()).is_err());
+    }
+    let plan =
+        TurnoverPlan::compile_inner(&history, &selector, ids(), raw.clone(), budget()).unwrap();
+    assert_eq!(plan.stages().len(), 4);
+    assert_eq!(plan.original()["attempt"], raw);
+    let again =
+        TurnoverPlan::compile_inner(&history, &selector, ids(), raw.clone(), budget()).unwrap();
+    assert_eq!(encode(plan.original()), encode(again.original()));
+    assert_eq!(plan.files, again.files);
+    let restored = TurnoverPlan::restore(
+        &history,
+        &selector,
+        &encode(plan.original()),
+        &encode(plan.acceptance_base()),
+        budget(),
+    )
+    .unwrap();
+    assert_eq!(restored.files, plan.files);
+    let mut changed = plan.original().clone();
+    changed["writes"][0]["suffix_sha256"] = json!("00".repeat(32));
+    assert!(
+        TurnoverPlan::restore(
+            &history,
+            &selector,
+            &encode(&changed),
+            &encode(plan.acceptance_base()),
+            budget()
+        )
+        .is_err()
+    );
+    for (stage, selected) in plan.stages().iter().enumerate() {
+        assert_eq!(selected.head, again.stages()[stage].head);
+        assert_eq!(selected.commit, again.stages()[stage].commit);
+        assert_eq!(selected.loose, again.stages()[stage].loose);
+        if stage < 2 {
+            continue;
+        }
+        let mut package = old.package.clone();
+        package.head = selected.head.clone();
+        package.commit = selected.commit.clone();
+        package.loose = selected.loose.clone();
+        for (allocation, bytes) in &plan.files {
+            assert!(bytes.starts_with(&old.package.allocations[allocation].bytes));
+            package.allocations.get_mut(allocation).unwrap().bytes = bytes.clone();
+        }
+        let observed = snapshot(&fixture, &package);
+        let mut changed = package.clone();
+        changed.allocations.get_mut(&aid(2)).unwrap().bytes[0] ^= 1;
+        assert!(
+            plan.verify_candidate(
+                changed.public(),
+                stage,
+                identity(&package),
+                &observed,
+                &fixture.registration,
+                v1_3::DirectoryObservation {
+                    device: 7,
+                    inode: 900
+                },
+                frames(),
+                &reader
+            )
+            .is_err()
+        );
+        let clean = plan
+            .verify_candidate(
+                package.public(),
+                stage,
+                identity(&package),
+                &observed,
+                &fixture.registration,
+                v1_3::DirectoryObservation {
+                    device: 7,
+                    inode: 900,
+                },
+                frames(),
+                &reader,
+            )
+            .unwrap();
+        if stage == 3 {
+            let clean = clean.unwrap();
+            let base = v1_3::snapshot::AcceptanceBase::parse(
+                &encode(plan.acceptance_base()),
+                &id.package,
+                reader.json,
+            )
+            .unwrap();
+            let local = history
+                .bind_package(&base, &clean, &id, frames(), &reader, budget())
+                .unwrap();
+            assert_eq!(local.value()["coordinate"], view.coordinate());
+        }
+    }
+    raw["planner"]["corridors"][0]["base_head_sha256"] = json!("00".repeat(32));
+    assert!(TurnoverPlan::compile(&history, &selector, ids(), raw, budget()).is_err());
+}
