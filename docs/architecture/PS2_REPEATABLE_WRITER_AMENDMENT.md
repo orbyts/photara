@@ -410,3 +410,11 @@ Typed closure and placement. Inventory base, batch and index pages are implement
 Lookup/audit/restart. Audit anchor and the balanced index once, authenticate every reachable batch and sequence, then apply batches in ascending order. Lookup may use an inspection-local resolved map; a cold scoped lookup searches batches newest-first then anchor, with a remove terminally absent. Existing depth/page/entry/JSON/physical-work bounds apply to the complete traversal before allocation; no new product limit. Logical inventory refs must resolve independently in each role; locator physical descendants must remain in that role's registered destination. Full reader compares exact final locator keys/memberships/locations and exact semantic/global set, not merely batch checksums. An immutable-prefix memo may reuse deterministic batch application only after fresh actual bytes and observations match; current closure/authority/lease/barriers and Saved proof stay independent. Restart recompiles the exact original with the new dispatch and checks exact O/files/selectors. No arbitrary anchor substitution, chain reset, compaction, or rebase.
 
 Acceptance before native enable. Pin canonical records and full v1→v3→v3 outputs; reject changed anchors, roles, destinations, missing/reordered batches, tombstone errors, false counts, narrowed limits and changed observations. Compare cache/uncached results. On the same immutable grown capture demonstrate unchanged-corridor first import and repeated updates, actual page/byte/decode counts, bounded memory and useful timing. If it fails, keep dispatch disabled and report; do not widen geometry/corridors. Then permit one controlled native return-to-original timing/close/reopen check. Performance is an acceptance condition, not a claimed result of this proposal.
+
+
+The sizing experiment also exposes canonical-decode cache thrashing (7,936 then
+9,840 parses per sizing compile). Smaller appends alone do not qualify this
+proposal for low-resource autosave. Within equivalent authenticated behavior,
+load only needed current closure/pages and reuse verified immutable computation;
+retain fresh framing, identity, authority and closure checks. Measure total
+save latency, decode work and peak memory before native handover.

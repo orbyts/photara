@@ -6,10 +6,9 @@ experiment reports are reference material only.
 ## Baseline
 
 - Authoritative branch: `main`.
-- Earlier 2026-10-10 SSH publication failed. Read-only verification now succeeds
-  through the unchanged SSH remote: `origin/main` is `79c2684` before this
-  incremental-format checkpoint. Preserve existing authentication and use only
-  a normal fast-forward push; verify publication before claiming synchronization.
+- SSH publication recovered on 2026-10-10 without changing authentication or
+  remotes. Verified checkpoint `e78d10c` and its local ancestors were pushed
+  normally to `origin/main` (previously `79c2684`). Preserve that history.
 - Historical production-code baseline before shared PS2 implementation:
   `f91f8de1546896267bac13adeac00c1659133232`. Shared `package::v1_3` reader
   components now follow the narrow 2026-10-03 approval; production writes remain disabled.
@@ -40,7 +39,7 @@ Existing geometry/corridor inputs are tunable under prior approval, but cannot
 silently change v1 deterministic construction. The user approved new v2 codec dispatch and
 implementation of this exact packet. It includes exact fields,
 typed edges, ordering rules and independently checked draft serialization vectors.
-Implementation is in progress; do not ask again within this scope. Preserve all v1
+The v2 implementation and exact-byte regressions pass; do not ask again within this scope. Preserve all v1
 bytes, typed dependencies, history, accounting and Accepted/Saved semantics.
 
 **Captured-history acceptance failure (2026-10-10):** v2 passes the 12-test session
@@ -55,7 +54,11 @@ this candidate, or erase history to make the result pass. Exact evidence and
 the [unapproved next-format packet](architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#follow-on-review--inventory-and-locator-batch-overlays-unapproved)
 are in the existing repeatable amendment. The packet adds balanced delta indexes
 for inventories/locators; it requires permanent-format approval before code or
-native dispatch. No performance result is claimed for that proposal.
+native dispatch. No performance result is claimed for that proposal. Final session suite passes
+12/12, v1 recovery golden passes, controlled/default-store strict checks pass.
+The default-library compatibility check is inconclusive: rustc slept with almost
+no CPU progress; its cause is unconfirmed and the owned check was stopped. Do not
+count that check as passed. No app build was attempted.
 
 
 **2026-10-10 save-backlog correction active.** User reports prolonged Saving and

@@ -1221,7 +1221,13 @@
           "log": "/private/tmp/ll2a-v2-v1-golden.log"
         },
         "unapproved_packet": "docs/architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#follow-on-review--inventory-and-locator-batch-overlays-unapproved",
-        "default_store_strict": "/private/tmp/ll2a-v2-default-clippy.log"
+        "default_store_strict": "/private/tmp/ll2a-v2-default-clippy.log",
+        "default_library_check": {
+          "status": "INCONCLUSIVE: compiler remained sleeping with almost no CPU progress; owned check stopped, cause unconfirmed",
+          "log": "/private/tmp/ll2a-v2-default-library.log",
+          "note": "No diagnostic error reported. Not counted as a pass; default-store strict and controlled strict passed separately."
+        },
+        "published_checkpoint": "e78d10c"
       }
     }
   }
