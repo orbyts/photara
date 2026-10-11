@@ -342,6 +342,29 @@ fn verify_original_inner(
     Ok(verified)
 }
 
+// V4 binds the prior selected HEAD and authenticates only required old frames.
+// Exact new suffix bytes remain mandatory; legacy codecs keep whole-file checks.
+fn operation_bytes(
+    package: &repeatable::shared::OriginalPackage,
+    plan: &repeatable::RepeatablePlan,
+) -> Result<(), PackageError> {
+    let snapshot = plan.original["original_codec"] == "photara.codec.ps2-repeatable-admission-v4";
+    for (id, expected) in &plan.files {
+        let actual = package.allocations.get(id).ok_or(PackageError::Integrity)?;
+        let old = plan
+            .old
+            .allocations
+            .get(id)
+            .ok_or(PackageError::Integrity)?;
+        check(actual.arena == old.arena && actual.witness == old.witness)?;
+        let start = if snapshot { old.bytes.len() } else { 0 };
+        check(
+            actual.bytes.len() == expected.len()
+                && actual.bytes.get(start..) == expected.get(start..),
+        )?;
+    }
+    Ok(())
+}
 #[expect(
     clippy::too_many_arguments,
     reason = "Plan-bound selected inspection with independent physical observations"
@@ -357,14 +380,7 @@ pub(crate) fn inspect_operation_package(
     stage: usize,
 ) -> Result<super::SettledPackage, PackageError> {
     check(package.manifest == plan.old.manifest && package.allocations.len() == plan.files.len())?;
-    for (id, expected) in &plan.files {
-        check(
-            package
-                .allocations
-                .get(id)
-                .is_some_and(|a| a.bytes == *expected),
-        )?;
-    }
+    operation_bytes(package, plan)?;
     let selected = plan.operation_selection(stage)?;
     let canonical = |v: &Value| photara_core::canonical_json(v).map_err(|_| PackageError::Record);
     let envelope = SelectedEnvelope::parse(
@@ -411,14 +427,7 @@ pub(crate) fn verify_operation_original(
             && package.manifest == plan.old.manifest
             && package.allocations.len() == plan.files.len(),
     )?;
-    for (id, expected) in &plan.files {
-        check(
-            package
-                .allocations
-                .get(id)
-                .is_some_and(|a| a.bytes == *expected),
-        )?;
-    }
+    operation_bytes(&package, plan)?;
     let scope = serde_json::json!({"profile":registration.profile,"incarnation":registration.incarnation.to_string(),"directory":{"device":directory.device.to_string(),"inode":directory.inode.to_string()}});
     check(scope == plan.original["scope"])?;
     let selected = plan.operation_selection(stage)?;

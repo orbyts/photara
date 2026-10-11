@@ -494,7 +494,6 @@ impl VerifiedSession<'_> {
     }
 }
 impl CheckpointSeed {
-    #[cfg(test)]
     pub(crate) fn check_new_operation(&self, operation: &str) -> wire::Result<()> {
         wire::ensure(
             !self.historical.contains(operation) && !self.mutations.contains_key(operation),

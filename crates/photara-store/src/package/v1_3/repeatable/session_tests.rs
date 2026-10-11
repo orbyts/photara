@@ -1662,6 +1662,170 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                             .original_bytes(),
                         first.original_bytes()
                     );
+                    for range in first.original()["payload_recipe"]["allocations"]
+                        .as_array()
+                        .unwrap()
+                    {
+                        assert!(range.get("original_sha256").is_none());
+                        assert_eq!(
+                            range["base_head_sha256"],
+                            hash(&encode(&active.package().package.head))
+                        );
+                    }
+                    for keep_new in [false, true] {
+                        let mut wrong = first.original().clone();
+                        let range = wrong["payload_recipe"]["allocations"][0]
+                            .as_object_mut()
+                            .unwrap();
+                        range.insert("original_sha256".into(), json!("00".repeat(32)));
+                        if !keep_new {
+                            range.remove("base_head_sha256");
+                        }
+                        assert!(
+                            active
+                                .restore_operation(
+                                    active.package(),
+                                    &intent,
+                                    &receipt,
+                                    &encode(&wrong),
+                                    budget()
+                                )
+                                .is_err()
+                        );
+                    }
+                    let finalizer = first.stages()[6]
+                        .loose
+                        .values()
+                        .map(|v| wire::parse(v).unwrap())
+                        .find(|v| v["schema"]["id"] == "photara.storage.finalization-control")
+                        .unwrap();
+                    for write in finalizer["writes"].as_array().unwrap() {
+                        assert!(write.get("original_sha256").is_none());
+                        assert_eq!(
+                            write["base_head_sha256"],
+                            hash(&encode(&active.package().package.head))
+                        );
+                        let mut recipe = write.clone();
+                        recipe.as_object_mut().unwrap().remove("recipe_sha256");
+                        assert_eq!(write["recipe_sha256"], hash(&encode(&recipe)));
+                    }
+                    let prove = |plan: &RepeatablePlan| {
+                        let package = super::selected(plan, 6);
+                        let observed = snapshot(&fixture, &package);
+                        v1_3::reader::verify_operation_original(
+                            package.clone(),
+                            identity(&package),
+                            &observed,
+                            &fixture.registration,
+                            v1_3::DirectoryObservation {
+                                device: 7,
+                                inode: 900,
+                            },
+                            frames(),
+                            &reader,
+                            plan,
+                            6,
+                        )
+                        .unwrap()
+                    };
+                    for after_publication in [false, true] {
+                        let mut writer = Mock {
+                            base: super::fixture(),
+                            current: first.old.clone(),
+                            receipts: BTreeMap::new(),
+                            journals: BTreeMap::new(),
+                            interrupt_append: !after_publication,
+                            interrupt_select: after_publication.then(|| {
+                                (
+                                    first.stages()[5].commit["commit_id"]
+                                        .as_str()
+                                        .unwrap()
+                                        .to_owned(),
+                                    true,
+                                )
+                            }),
+                            fail_stabilize: false,
+                            effects: 0,
+                        };
+                        let interrupted = execute(&mut writer, &held, &first);
+                        assert!(
+                            matches!(
+                                interrupted,
+                                Err(ExecutionError::Effect(EffectFailure::OutcomeUnknown))
+                            ),
+                            "v4 cut {after_publication}: {:?}",
+                            interrupted.err()
+                        );
+                        let retry = active
+                            .restore_operation(
+                                active.package(),
+                                &intent,
+                                &receipt,
+                                &first.original_bytes(),
+                                budget(),
+                            )
+                            .unwrap();
+                        let completed = execute(&mut writer, &held, &retry).unwrap();
+                        assert_eq!(completed.receipt(), &receipt);
+                        assert_eq!(writer.current.head, first.stages()[6].head);
+                        assert_eq!(
+                            execute(&mut writer, &held, &retry).unwrap().receipt(),
+                            &receipt
+                        );
+                        assert_eq!(writer.receipts.len(), 1);
+                    }
+                    let mut bad_head = first_raw.clone();
+                    bad_head["planner"]["corridors"][0]["base_head_sha256"] =
+                        json!("00".repeat(32));
+                    assert!(
+                        active
+                            .compile_operation(
+                                active.package(),
+                                &intent,
+                                &receipt,
+                                &bad_head,
+                                budget()
+                            )
+                            .is_err()
+                    );
+                    for field in ["witness", "extent", "suffix"] {
+                        let mut candidate = super::selected(&first, 6);
+                        let (allocation, bytes) = first
+                            .files
+                            .iter()
+                            .find(|(id, bytes)| {
+                                bytes.len() > first.old.allocations[*id].bytes.len()
+                            })
+                            .unwrap();
+                        let current = candidate.allocations.get_mut(allocation).unwrap();
+                        match field {
+                            "witness" => current.witness["inode"] = json!("9999"),
+                            "extent" => current.bytes.resize(bytes.len() - 1, 0),
+                            _ => {
+                                current.bytes
+                                    [first.old.allocations[allocation].bytes.len() + 16] ^= 1;
+                            }
+                        }
+                        let observed = snapshot(&fixture, &candidate);
+                        assert!(
+                            v1_3::reader::verify_operation_original(
+                                candidate.clone(),
+                                identity(&candidate),
+                                &observed,
+                                &fixture.registration,
+                                v1_3::DirectoryObservation {
+                                    device: 7,
+                                    inode: 900
+                                },
+                                frames(),
+                                &reader,
+                                &first,
+                                6
+                            )
+                            .is_err()
+                        );
+                    }
+                    let first_current = prove(&first);
                     let append = seeded
                         .prepare_mutation(
                             &intent,
@@ -1708,6 +1872,98 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                     let action = json!({"kind":"undo","target":current.undo_targets(&owner)[0]});
                     let (intent, receipt) = super::journal_ps3_tests::next(
                         &current, &receipt, &owner, &action, 640_002,
+                    );
+                    let second_raw = make_raw(&first_current, 660_000);
+                    let second = active
+                        .compile_operation_inner(
+                            &first_current,
+                            &intent,
+                            &receipt,
+                            &second_raw,
+                            budget(),
+                        )
+                        .unwrap();
+                    // Retry must ignore an unrequested archived receipt body,
+                    // while regenerating exactly the same original and new suffix.
+                    let archived = encode(old.proof.roles["active"].receipts.last().unwrap());
+                    let (archive_allocation, archive_at) = old
+                        .package
+                        .allocations
+                        .iter()
+                        .find_map(|(id, a)| {
+                            a.bytes
+                                .windows(archived.len())
+                                .enumerate()
+                                .find_map(|(at, body)| {
+                                    (body == archived
+                                        && at >= 16
+                                        && &a.bytes[at - 16..at - 8] == b"PS2PKD01"
+                                        && u32::from_le_bytes(
+                                            a.bytes[at - 4..at].try_into().unwrap(),
+                                        ) as usize
+                                            == archived.len())
+                                    .then_some((id.clone(), at))
+                                })
+                        })
+                        .unwrap();
+                    let mut dirty = first_current.package.clone();
+                    dirty
+                        .allocations
+                        .get_mut(&archive_allocation)
+                        .unwrap()
+                        .bytes[archive_at] ^= 1;
+                    let observed = snapshot(&fixture, &dirty);
+                    let dirty = v1_3::reader::verify_operation_original(
+                        dirty.clone(),
+                        identity(&dirty),
+                        &observed,
+                        &fixture.registration,
+                        v1_3::DirectoryObservation {
+                            device: 7,
+                            inode: 900,
+                        },
+                        frames(),
+                        &reader,
+                        &first,
+                        6,
+                    )
+                    .unwrap();
+                    let retry = active
+                        .restore_operation(
+                            &dirty,
+                            &intent,
+                            &receipt,
+                            &second.original_bytes(),
+                            budget(),
+                        )
+                        .unwrap();
+                    assert_eq!(retry.original_bytes(), second.original_bytes());
+                    for (allocation, bytes) in &retry.files {
+                        let start = dirty.package.allocations[allocation].bytes.len();
+                        assert_eq!(&bytes[start..], &second.files[allocation][start..]);
+                    }
+                    let clean_retry = prove(&retry);
+                    assert_eq!(
+                        clean_retry.proof.roles["active"].state,
+                        prove(&second).proof.roles["active"].state
+                    );
+                    let mut narrow = budget();
+                    narrow.max_frames = 0;
+                    assert!(
+                        active
+                            .restore_operation(
+                                &dirty,
+                                &intent,
+                                &receipt,
+                                &second.original_bytes(),
+                                narrow
+                            )
+                            .is_err()
+                    );
+                    let second_current = prove(&second);
+                    assert_eq!(
+                        second_current.proof.roles["active"].state["accepted"]["through_ordinal"],
+                        receipt["acceptance_ordinal"]
                     );
                     continued.extend_from_slice(
                         current

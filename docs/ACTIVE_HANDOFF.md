@@ -33,7 +33,8 @@ approved unrequested-archive behavior and efficient exact retry. The concrete
 uses `base_head_sha256` in those two v4-only locations. Old codecs and all
 other fields/checks stay unchanged. Suhail **approved this exact correction on
 2026-10-11**. Implement it and finish the connected v4 gates; do not ask again.
-Normal v4 compilation stays disabled until those implementation gates pass.
+Capability-bound pure v4 compilation and independent package verification now
+pass; native/session runtime dispatch remains gated on the remaining work below.
 Checkpoint/activation work through `6ec0739` is committed locally; SSH publication is
 still unavailable without any authentication/remote changes.
 
@@ -45,13 +46,22 @@ focused tests pass (`/private/tmp/ps2-checkpoint-activation-final.log`), frozen 
 golden passes (`/private/tmp/ps2-checkpoint-activation-v1-golden.log`), strict store
 tests pass (`/private/tmp/ps2-checkpoint-activation-clippy.log`). This is an
 in-memory adapter with no native implementation/effects or Saved grant.
-Live seeding still retains historical undo metadata; persistent on-demand reopen
-and pure-position retirement are unfinished. Test-only v4 compiler scaffolding
-regenerates its first original, but its generated package still fails reader
-verification (`/private/tmp/ps2-checkpoint-activation-focused.log`); do not claim
-v4 publication/two-operation acceptance. Apply the approved two-field correction,
-then finish v4/current-state saving, persistent recovery and disposable native
-qualification/performance. No app replacement has occurred.
+**V4 connected gate passes:** both approved HEAD-commitment fields are implemented.
+Two consecutive operations (edit then undo) produce independently verified clean
+packages. Exact original/suffix regeneration tolerates unrequested archived
+receipt corruption; old/both field names, changed HEAD/witness/extent/suffix and
+altered candidates refuse. Shared-executor partial-append and post-publication
+unknown-outcome retries pass. Archive ownership updates use existing sparse
+locator batches, preserve full charges and keep archive-only objects out of live
+role locators. Thirteen focused tests including frozen v1/v2/v3 chains pass
+(`/private/tmp/ps2-v4-connected-final.log`); strict store tests pass
+(`/private/tmp/ps2-v4-connected-clippy.log`). The earlier generated-reader failure
+is resolved, and the temporary pure-v4 gate is removed. No native adapter or
+session runtime dispatch is enabled by this result.
+Live seeding still retains historical undo metadata; next work is persistent
+on-demand reopen, approved pure-position retirement, then disposable native
+qualification/performance. No app replacement has occurred. Do not claim bounded
+cold recovery or seamless app performance before those gates pass.
 
 **Approved snapshot implementation — package reader integration:** shared Rust
 now parses/adopts AcceptanceBase, audits a complete nonempty post-base suffix,

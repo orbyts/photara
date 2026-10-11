@@ -173,3 +173,49 @@ pub(in super::super) fn build(
     )?;
     Ok((result, checked.nodes.into_iter().map(|(_, v)| v).collect()))
 }
+
+/// Add new archive ownership references without opening historical payloads or
+/// unrelated anchor branches. Existing locator entries remain retained.
+pub(in super::super) fn put_locator(
+    b: &mut Builder,
+    seed: &Value,
+    entries: &[Value],
+    allocation: &str,
+) -> Result<Value> {
+    let prior = overlay::put_basis(
+        |r| read(b, r, Some(allocation)).map_err(|_| crate::package::PackageError::Integrity),
+        seed,
+        PackageUuid::parse(&b.project).map_err(|_| "archive project")?,
+        Family::Locator {
+            role: Some("archive"),
+            allocation,
+        },
+        limits(b, true),
+        entries,
+    )
+    .map_err(|_| "archive scoped locator update")?;
+    if prior.changes.is_empty() {
+        return Ok(seed.clone());
+    }
+    let sequence = prior
+        .sequence
+        .checked_add(1)
+        .ok_or("archive sequence overflow")?;
+    let batch = b.object("photara.storage.locator-overlay-batch", json!({"sequence":sequence.to_string(),"before_count":prior.before.to_string(),"after_count":prior.after.to_string(),"entries":prior.changes}));
+    let batch_ref = write(b, batch, Some(allocation))?;
+    let mut rows = prior.batches;
+    rows.push(json!({"sequence":sequence.to_string(),"batch":batch_ref}));
+    let (index, _) = incremental::tree(
+        b,
+        prior.index.as_ref(),
+        rows,
+        incremental::Spec {
+            name: "photara.storage.locator-overlay-index",
+            field: "sequence",
+            capacity: b.geometry.physical_leaf as usize,
+            allocation: Some(allocation),
+        },
+    )?;
+    let body=b.object("photara.storage.locator-overlay",json!({"role":"archive","allocation_id":allocation,"base":prior.base,"base_count":prior.base_count.to_string(),"batches":index,"through_sequence":sequence.to_string(),"count":prior.after.to_string()}));
+    write(b, body, Some(allocation))
+}

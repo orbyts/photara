@@ -197,7 +197,11 @@ fn decimal(s: &str) -> Result<u64> {
     number(&json!(s))
 }
 type Split = (Vec<Value>, Vec<Value>, BTreeMap<String, usize>);
-fn split(old: &OriginalPackage, files: &BTreeMap<String, super::shared::Bytes>) -> Result<Split> {
+fn split(
+    old: &OriginalPackage,
+    files: &BTreeMap<String, super::shared::Bytes>,
+    checkpoint: bool,
+) -> Result<Split> {
     let mut payload = Vec::new();
     let mut writes = Vec::new();
     let mut stops = BTreeMap::new();
@@ -218,7 +222,11 @@ fn split(old: &OriginalPackage, files: &BTreeMap<String, super::shared::Bytes>) 
             payload.push(span(old, id, bytes, start, stop)?);
         }
         let mut write = span(old, id, bytes, stop, bytes.len())?;
-        write["original_sha256"] = json!(hash(&a.bytes));
+        if checkpoint {
+            write["base_head_sha256"] = json!(hash(&encode(&old.head)));
+        } else {
+            write["original_sha256"] = json!(hash(&a.bytes));
+        }
         write["framed_bytes"] = json!((bytes.len() - stop).to_string());
         write["recipe_sha256"] = json!(hash(&encode(&write)));
         writes.push(write);
@@ -287,10 +295,6 @@ pub(super) fn compile_context(
     memo: Option<&mut super::canonical_memo::CanonicalMemo>,
     checkpoint: Option<(&Value, &Value)>,
 ) -> Result<RepeatablePlan> {
-    ensure(
-        checkpoint.is_none() || cfg!(test),
-        "v4 commitment correction not enabled",
-    )?;
     let old = &original.package;
     let proof = &original.proof;
     let project = &old.manifest["project_id"];
@@ -436,7 +440,11 @@ pub(super) fn compile_context(
     for (id, bytes) in &layout.files {
         let a = &old.allocations[id];
         let mut range = span(old, id, bytes, a.bytes.len(), bytes.len())?;
-        range["original_sha256"] = json!(hash(&a.bytes));
+        if checkpoint.is_some() {
+            range["base_head_sha256"] = json!(hash(&encode(&old.head)));
+        } else {
+            range["original_sha256"] = json!(hash(&a.bytes));
+        }
         allocations.push(range);
     }
     let placement = json!({"generation":number(&oldroot["placement"]["generation"] )?.checked_add(1).ok_or("placement overflow")?.to_string(),"root_placements":layout.root_placements});
@@ -483,7 +491,7 @@ pub(super) fn compile_context(
         .map_err(|_| "inventory node ref")?;
         extra_global.insert(r, crate::package::v1_3::Membership::Ownership);
     }
-    let (payload, writes, payload_ends) = split(old, &layout.files)?;
+    let (payload, writes, payload_ends) = split(old, &layout.files, checkpoint.is_some())?;
     let state = layout.active_state.clone();
     let mut projection = layout.target.clone();
     projection["retention_evidence"] = oldroot["retention_evidence"].clone();

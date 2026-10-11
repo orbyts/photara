@@ -367,4 +367,4 @@ pub(crate) use tests::audit_regressions;
 
 #[path = "overlay_scoped.rs"]
 mod scoped;
-pub(crate) use scoped::lookup;
+pub(crate) use scoped::{lookup, put_basis};

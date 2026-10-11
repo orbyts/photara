@@ -261,10 +261,6 @@ impl<P: PhysicalRecords> Audit<'_, '_, P> {
         Ok(out)
     }
     fn descriptor(&mut self, original: &Value) -> Result<ObjectRef> {
-        if !cfg!(test) && original["original_codec"] == "photara.codec.ps2-repeatable-admission-v4"
-        {
-            return Err(PackageError::UnsupportedVersion);
-        }
         let descriptor = &original["payload_recipe"]["retained_control_inventory"];
         fields(descriptor, &["base", "additions", "result"])?;
         check(

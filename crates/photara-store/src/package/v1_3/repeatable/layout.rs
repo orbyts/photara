@@ -401,7 +401,11 @@ impl Builder {
             "seed frame commitment",
         )?;
         let k = (hash(&frame[16..]), (frame.len() - 16) as u64);
-        self.pool.get(&k).cloned().ok_or("seed canonical object")
+        if let Some(value) = self.pool.get(&k) {
+            return Ok(value.clone());
+        }
+        crate::package::parse_canonical_json(&frame[16..], self.limits.semantic.json)
+            .map_err(|_| "seed canonical object")
     }
     fn inventory_seed(
         &mut self,
@@ -617,6 +621,16 @@ impl Builder {
                     }
                     edges.push(v["by_id"].clone());
                     edges.push(v["by_ordinal"].clone());
+                }
+                "photara.storage.ownership-leaf" => {
+                    for entry in v["entries"].as_array().ok_or("ownership leaf")? {
+                        edges.push(entry["claim"].clone());
+                    }
+                }
+                "photara.storage.ownership-branch" => {
+                    for child in v["children"].as_array().ok_or("ownership branch")? {
+                        edges.push(child["child"].clone());
+                    }
                 }
                 "photara.package.operation-id-leaf" | "photara.package.operation-ordinal-leaf" => {
                     for e in v["entries"].as_array().ok_or("decoder operation leaf")? {
@@ -1042,15 +1056,29 @@ fn compile_change(
         .iter()
         .map(key)
         .collect::<Result<BTreeSet<_>>>()?;
+    let old_archive = if root["schema"]["version"] == 3 {
+        b.closure(&[root["archive_placement"]["ownership"].clone()])?
+    } else {
+        BTreeMap::new()
+    };
     let archive = if matches!(operation, Change::Checkpoint(_)) {
-        Some(b.checkpoint_archive(old, inputs, archive_records)?)
+        Some(b.checkpoint_archive(old, inputs, archive_records, None)?)
+    } else if root["schema"]["version"] == 3 {
+        Some(b.checkpoint_archive(
+            old,
+            inputs,
+            BTreeMap::new(),
+            Some(&root["archive_placement"]),
+        )?)
     } else {
         None
     };
     let mut globals = proof
         .global
         .iter()
-        .filter(|k| !oldsemantic.contains(*k) && !controls.contains(*k))
+        .filter(|k| {
+            !oldsemantic.contains(*k) && !controls.contains(*k) && !old_archive.contains_key(*k)
+        })
         .map(|k| {
             Ok((
                 k.clone(),
@@ -1059,7 +1087,7 @@ fn compile_change(
         })
         .collect::<Result<BTreeMap<_, _>>>()?;
 
-    if archive.is_some() {
+    if matches!(operation, Change::Checkpoint(_)) {
         // Historical implementation/original controls remain archived physically,
         // but are no longer mandatory live global members after the audited base.
         globals.retain(|_, value| {
@@ -1306,6 +1334,7 @@ impl Builder {
         old: &OriginalPackage,
         inputs: &PlannerInputs,
         mut records: BTreeMap<wire::Key, Value>,
+        inherited: Option<&Value>,
     ) -> Result<(Value, BTreeMap<wire::Key, Value>)> {
         let data = &inputs
             .roles
@@ -1392,7 +1421,16 @@ impl Builder {
             .flat_map(|map| map.iter().map(|(key, value)| (key.clone(), value.clone())))
             .collect::<BTreeMap<_, _>>();
         let entries=records.iter().map(|(key,value)| Ok(json!({"object":reference(value),"membership":if tag(value)==2{"ownership"}else{"semantic"},"physical":locations.get(key).ok_or("archive object location")?}))).collect::<Result<Vec<_>>>()?;
-        let locator = self.physical_tree("locator", entries, "object", &inputs.root_placement)?;
+        let locator = if let Some(inherited) = inherited {
+            overlay::put_locator(
+                self,
+                &inherited["locator"],
+                &entries,
+                &inputs.root_placement,
+            )?
+        } else {
+            self.physical_tree("locator", entries, "object", &inputs.root_placement)?
+        };
         Ok((json!({"locator":locator,"ownership":owner}), ownership))
     }
 }

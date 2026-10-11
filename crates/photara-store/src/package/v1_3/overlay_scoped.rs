@@ -207,3 +207,112 @@ pub(crate) fn lookup(
     check(after == base_count)?;
     audit.anchor_lookup(&header["base"], key, base_count)
 }
+
+/// Validated metadata and exact scoped changes for an append-only locator update.
+/// This does not certify unrequested historical branches or payload records.
+pub(crate) struct PutBasis {
+    pub base: Value,
+    pub base_count: u64,
+    pub index: Option<Value>,
+    pub batches: Vec<Value>,
+    pub sequence: u64,
+    pub before: u64,
+    pub after: u64,
+    pub changes: Vec<Value>,
+}
+pub(crate) fn put_basis(
+    mut load: impl FnMut(&Value) -> Result<Value>,
+    root: &Value,
+    project: PackageUuid,
+    family: Family<'_>,
+    limits: TreeLimits,
+    target: &[Value],
+) -> Result<PutBasis> {
+    check(matches!(family, Family::Locator { .. }) && !target.is_empty())?;
+    if target.len() > limits.max_entries {
+        return Err(PackageError::Limit);
+    }
+    let header = load(root)?;
+    let overlay = header["schema"]["id"] == family.prefix();
+    let before = number(&header["count"])?;
+    if before > limits.max_entries as u64 {
+        return Err(PackageError::Limit);
+    }
+    let (base, base_count, index, batches, sequence) = if overlay {
+        let mut audit = Audit {
+            load: &mut load,
+            project,
+            family,
+            limits,
+            nodes: Vec::new(),
+            seen: BTreeSet::new(),
+            work: 0,
+            batch_depths: BTreeMap::new(),
+        };
+        audit.header(&header)?;
+        validate_reference(family, &header["base"])?;
+        let rows = audit.tree(&header["batches"], true, 1)?;
+        let sequence = number(&header["through_sequence"])?;
+        check(sequence > 0 && sequence == rows.len() as u64)?;
+        for (i, row) in rows.iter().enumerate() {
+            check(number(&row["sequence"])? == i as u64 + 1)?;
+        }
+        let count = number(&header["base_count"])?;
+        if count > limits.max_entries as u64 {
+            return Err(PackageError::Limit);
+        }
+        (
+            header["base"].clone(),
+            count,
+            Some(header["batches"].clone()),
+            rows,
+            sequence,
+        )
+    } else {
+        (root.clone(), before, None, Vec::new(), 0)
+    };
+    let mut after = before;
+    let mut changes = Vec::new();
+    let mut previous = None;
+    for value in target {
+        let object = family.object(value)?;
+        let order = (object.sha256.clone(), object.byte_length.get());
+        check(previous.as_ref().is_none_or(|p| p < &order))?;
+        previous = Some(order);
+        let old = if overlay {
+            lookup(&mut load, root, project, family, limits, &object)?
+        } else {
+            let mut audit = Audit {
+                load: &mut load,
+                project,
+                family,
+                limits,
+                nodes: Vec::new(),
+                seen: BTreeSet::new(),
+                work: 0,
+                batch_depths: BTreeMap::new(),
+            };
+            audit.anchor_lookup(root, &object, before)?
+        };
+        if old.as_ref() == Some(value) {
+            continue;
+        }
+        if old.is_none() {
+            after = after.checked_add(1).ok_or(PackageError::Limit)?;
+        }
+        if after > limits.max_entries as u64 {
+            return Err(PackageError::Limit);
+        }
+        changes.push(json!({"object":value["object"],"change":{"kind":"put","membership":value["membership"],"physical":value["physical"]}}));
+    }
+    Ok(PutBasis {
+        base,
+        base_count,
+        index,
+        batches,
+        sequence,
+        before,
+        after,
+        changes,
+    })
+}

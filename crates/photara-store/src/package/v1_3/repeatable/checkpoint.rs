@@ -328,6 +328,5 @@ pub use plan::{TurnoverIds, TurnoverPlan};
 mod activate;
 pub use activate::{ActivatedCheckpoint, ActivationLimits, CheckpointIo, activate};
 
-#[cfg(test)]
 #[path = "checkpoint_continue.rs"]
 mod continuation;
