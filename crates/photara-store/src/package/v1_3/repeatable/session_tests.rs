@@ -5,6 +5,78 @@ use super::super::{
     session::*,
 };
 use super::*;
+use crate::package::PackageError;
+struct Archived<'a> {
+    objects: BTreeMap<super::super::wire::Key, Value>,
+    stream: &'a Value,
+    bytes: &'a [u8],
+    reads: std::sync::atomic::AtomicUsize,
+}
+impl super::super::checkpoint::CheckpointRecords for Archived<'_> {
+    fn record(&self, reference: &Value, max: usize) -> Result<Vec<u8>, PackageError> {
+        self.reads
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let value = self
+            .objects
+            .get(&super::super::wire::key(reference).map_err(|_| PackageError::Record)?)
+            .ok_or(PackageError::Integrity)?;
+        let bytes = encode(value);
+        if bytes.len() > max {
+            return Err(PackageError::Limit);
+        }
+        Ok(bytes)
+    }
+    fn frame(
+        &self,
+        stream: package::PackageUuid,
+        offset: u64,
+        length: usize,
+    ) -> Result<Vec<u8>, PackageError> {
+        if self.stream != &json!(stream.to_string()) {
+            return Err(PackageError::Integrity);
+        }
+        let start = usize::try_from(offset).map_err(|_| PackageError::Limit)?;
+        let end = start.checked_add(length).ok_or(PackageError::Limit)?;
+        self.bytes
+            .get(start..end)
+            .map(<[u8]>::to_vec)
+            .ok_or(PackageError::Integrity)
+    }
+}
+struct LocalRecords(BTreeMap<super::super::wire::Key, Value>);
+impl super::super::checkpoint::CheckpointRecords for LocalRecords {
+    fn record(&self, reference: &Value, max: usize) -> Result<Vec<u8>, package::PackageError> {
+        let value = self
+            .0
+            .get(&super::super::wire::key(reference).map_err(|_| package::PackageError::Record)?)
+            .ok_or(package::PackageError::Integrity)?;
+        let bytes = encode(value);
+        if bytes.len() > max {
+            return Err(package::PackageError::Limit);
+        }
+        Ok(bytes)
+    }
+    fn frame(
+        &self,
+        _: package::PackageUuid,
+        _: u64,
+        _: usize,
+    ) -> Result<Vec<u8>, package::PackageError> {
+        Err(package::PackageError::Integrity)
+    }
+}
+struct Cold(Option<super::super::checkpoint::ReopenState>);
+impl super::super::checkpoint::CheckpointRecoveryIo for Cold {
+    type Lease = ();
+    fn read_checkpoint(
+        &mut self,
+        _: &crate::package::planning::io::RegisteredCooperativeLease<()>,
+        _: ActivationLimits<'_>,
+    ) -> Result<super::super::checkpoint::ReopenState, package::PackageError> {
+        self.0.take().ok_or(package::PackageError::Integrity)
+    }
+}
+
 fn limits() -> JournalLimits {
     JournalLimits {
         json: support::limits().json,
@@ -1300,14 +1372,19 @@ fn hypothetical_journal_reuses_only_exact_canonical_prefix_and_limits() {
 }
 
 #[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "Existing history corpus covers requested lookup and corruption without a second fixture"
+)]
 fn session_checkpoint_history_requires_drained_exact_mutation_evidence() {
     use super::super::checkpoint::{CheckpointIdentity, PreparedHistory};
+    let reader = support::limits();
     let mut session = open();
     let (intent, receipt) = edit(&session, 510_001, 35);
     session
         .submit(&intent, &receipt, &json!({"kind":"edit"}), rid(510_002), 0)
         .unwrap();
-    let inspect = |io: &Backend, drained: bool| {
+    let inspect = |io: &Backend, drained: bool, retired: bool| {
         let current = io.original();
         let base = verify(&io.mock.base);
         let journal = io.parsed();
@@ -1333,6 +1410,16 @@ fn session_checkpoint_history_requires_drained_exact_mutation_evidence() {
             return;
         }
         let history = result.unwrap();
+        let (_, undo) = view.checkpoint_source(&current).unwrap();
+        assert_eq!(undo.is_empty(), retired);
+        assert_eq!(
+            view.through(),
+            Some(view.checkpoint_target()["through"].clone())
+        );
+        assert_eq!(
+            view.accepted_frame(),
+            Some(view.checkpoint_target()["accepted_frame"].clone())
+        );
         let entry = history
             .lookup_objects()
             .values()
@@ -1377,11 +1464,102 @@ fn session_checkpoint_history_requires_drained_exact_mutation_evidence() {
             serde_json::from_slice(&io.bytes[offset + 4..offset + 4 + payload]).unwrap();
         assert_eq!(archived["record"], reference(&record));
         assert_eq!(record["body"]["semantic_intent"], intent);
+        let mut objects = history.lookup_objects().clone();
+        objects.insert(
+            super::super::wire::key(&reference(history.archive())).unwrap(),
+            history.archive().clone(),
+        );
+        let mut local = history.archive().clone();
+        for field in ["archive_id", "previous", "segments"] {
+            local.as_object_mut().unwrap().remove(field);
+        }
+        local["schema"]["id"] = json!("photara.session.checkpoint-base");
+        local["checkpoint"] = reference(&receipt);
+        local["package_head"] = current.package.head.clone();
+        local["package_commit"] = reference(&current.package.commit);
+        local["journal_id"] = journal.header()["journal_id"].clone();
+        local["through"] = json!({"record_id":record["record_id"],"checksum":archived["checksum"],"sequence":record["sequence"]});
+        local["mutation"] = Value::Null;
+        local["accepted_frame"] = Value::Null;
+        local["coordinate"] = view.coordinate();
+        local["undo_roots"] = json!([]);
+        local["lookup"] = history.lookup().clone();
+        local["archive"] = reference(history.archive());
+        let local =
+            super::super::checkpoint::LocalBase::parse(&encode(&local), &identity, reader.json)
+                .unwrap();
+        let source = Archived {
+            objects,
+            stream: &journal.header()["stream_id"],
+            bytes: &io.bytes,
+            reads: std::sync::atomic::AtomicUsize::new(0),
+        };
+        let operation =
+            package::PackageUuid::parse(intent["operation_id"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            local
+                .lookup_mutation(&source, &identity, operation, &reader)
+                .unwrap(),
+            Some(record.clone())
+        );
+        assert!(
+            source.reads.load(std::sync::atomic::Ordering::Relaxed) <= reader.tree.max_depth + 2
+        );
+        let missing = package::PackageUuid::parse(&uid(599_999)).unwrap();
+        assert!(
+            local
+                .lookup_operation(&source, &identity, missing, &reader)
+                .unwrap()
+                .is_none()
+        );
+        let mut damaged = io.bytes.clone();
+        damaged[offset + 4] ^= 1;
+        let damaged = Archived {
+            objects: source.objects.clone(),
+            stream: source.stream,
+            bytes: &damaged,
+            reads: std::sync::atomic::AtomicUsize::new(0),
+        };
+        assert!(
+            local
+                .lookup_mutation(&damaged, &identity, operation, &reader)
+                .is_err()
+        );
+        let mut tight = reader;
+        tight.tree.max_pages = 0;
+        assert!(
+            local
+                .lookup_mutation(&source, &identity, operation, &tight)
+                .is_err()
+        );
     };
-    inspect(session.io_mut(), false);
+    inspect(session.io_mut(), false, true);
     let target = session.begin_flush("save-now", rid(510_004)).unwrap();
     session.finish_flush(&target).unwrap();
-    inspect(session.io_mut(), true);
+    inspect(session.io_mut(), true, true);
+    let mut command = request().0["command"].clone();
+    let node = command["envelope"]["command"]["node_id"].clone();
+    // A batch is not a trivial standalone position original. Conservatively
+    // retain its entire dependency-linked chain, including the preceding move.
+    command["envelope"]["command"] = json!({"kind":"batch","commands":[
+        {"kind":"set-node-position","node_id":node,"x":40,"y":41},
+        {"kind":"set-node-position","node_id":node,"x":42,"y":43}
+    ]});
+    let (intent, receipt) = session
+        .prepare_graph(
+            command,
+            package::PackageUuid::parse(&uid(510_005)).unwrap(),
+            "2026-09-27T00:00:00.000Z",
+            &request().1["provenance"],
+            &json!({"kind":"edit"}),
+        )
+        .unwrap();
+    session
+        .submit(&intent, &receipt, &json!({"kind":"edit"}), rid(510_006), 0)
+        .unwrap();
+    let target = session.begin_flush("save-now", rid(510_007)).unwrap();
+    session.finish_flush(&target).unwrap();
+    inspect(session.io_mut(), true, false);
 }
 
 #[test]
@@ -2001,6 +2179,188 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                         active
                             .verify_session(&suffix, frames(), &reader, tighter)
                             .is_err()
+                    );
+                    // Cold recovery starts at each current included package,
+                    // not by replaying the turnover graph through saved history.
+                    let mut records = history.lookup_objects().clone();
+                    for value in [history.archive(), plan.original(), selector.value()] {
+                        records.insert(
+                            super::super::wire::key(&reference(value)).unwrap(),
+                            value.clone(),
+                        );
+                    }
+                    let records = std::sync::Arc::new(LocalRecords(records));
+                    let mut settled = active.segment().to_vec();
+                    let mut recovered = None;
+                    let mut first_body = None;
+                    for (n, compiled) in [&first, &second].into_iter().enumerate() {
+                        let checkpoint = recovered.as_ref().unwrap_or(&active);
+                        let parsed = Journal::read(&settled, active.header(), limits).unwrap();
+                        let session = checkpoint
+                            .verify_session(&parsed, frames(), &reader, budget())
+                            .unwrap();
+                        let intent_id = rid(690_001 + n as u64 * 3);
+                        settled.extend_from_slice(
+                            session
+                                .prepare_snapshot_intent(compiled, intent_id, limits)
+                                .unwrap()
+                                .bytes(),
+                        );
+                        let parsed = Journal::read(&settled, active.header(), limits).unwrap();
+                        let session = checkpoint
+                            .verify_session(&parsed, frames(), &reader, budget())
+                            .unwrap();
+                        let body = &suffix.records()[n + 1].value()["body"];
+                        let action = if n == 0 {
+                            body["action"].clone()
+                        } else {
+                            json!({"kind":"undo","target":session.undo_targets(&body["owner"])[0]})
+                        };
+                        let mutation = session
+                            .prepare_mutation(
+                                &body["semantic_intent"],
+                                &body["operation_receipt"],
+                                &body["owner"],
+                                &action,
+                                rid(640_002 + n as u64),
+                                limits,
+                            )
+                            .unwrap();
+                        if n == 0 {
+                            first_body = Some(mutation.record().value()["body"].clone());
+                        }
+                        settled.extend_from_slice(mutation.bytes());
+                        let parsed = Journal::read(&settled, active.header(), limits).unwrap();
+                        let selected = prove(compiled);
+                        let before = if n == 0 {
+                            let observed = snapshot(&fixture, &clean.package);
+                            plan.verify_candidate(
+                                clean.package.public(),
+                                3,
+                                identity(&clean.package),
+                                &observed,
+                                &fixture.registration,
+                                v1_3::DirectoryObservation {
+                                    device: 7,
+                                    inode: 900,
+                                },
+                                frames(),
+                                &reader,
+                            )
+                            .unwrap()
+                            .unwrap()
+                        } else {
+                            prove(&first)
+                        };
+                        let mut pending = Cold(Some(super::super::checkpoint::ReopenState {
+                            selector: encode(active.selector().value()),
+                            base: encode(active.base().value()),
+                            header: active.header().clone(),
+                            segment: settled.clone(),
+                            current: before,
+                            records: records.clone(),
+                        }));
+                        let pending = super::super::checkpoint::reopen(
+                            &mut pending,
+                            &held,
+                            &id,
+                            activation_limits(),
+                        )
+                        .unwrap();
+                        let pending_view = pending
+                            .verify_session(&parsed, frames(), &reader, budget())
+                            .unwrap();
+                        assert_eq!(pending_view.coordinate(), body["result"]);
+                        assert_ne!(
+                            pending_view.checkpoint_target()["coordinate"],
+                            pending_view.coordinate()
+                        );
+                        assert!(
+                            pending_view
+                                .prepare_mutation(
+                                    &body["semantic_intent"],
+                                    &body["operation_receipt"],
+                                    &body["owner"],
+                                    &action,
+                                    rid(640_002 + n as u64),
+                                    limits
+                                )
+                                .unwrap()
+                                .existing()
+                        );
+                        settled.extend_from_slice(
+                            pending
+                                .prepare_receipt(
+                                    &parsed,
+                                    &selected,
+                                    compiled,
+                                    intent_id.record_id,
+                                    rid(690_003 + n as u64 * 3),
+                                    limits,
+                                )
+                                .unwrap()
+                                .bytes(),
+                        );
+                        let mut cold = Cold(Some(super::super::checkpoint::ReopenState {
+                            selector: encode(active.selector().value()),
+                            base: encode(active.base().value()),
+                            header: active.header().clone(),
+                            segment: settled.clone(),
+                            current: selected,
+                            records: records.clone(),
+                        }));
+                        let opened = super::super::checkpoint::reopen(
+                            &mut cold,
+                            &held,
+                            &id,
+                            activation_limits(),
+                        )
+                        .unwrap();
+                        let parsed = Journal::read(&settled, active.header(), limits).unwrap();
+                        let opened_session = opened
+                            .verify_session(&parsed, frames(), &reader, budget())
+                            .unwrap();
+                        assert_eq!(opened_session.coordinate(), body["result"]);
+                        assert_eq!(
+                            opened_session.through(),
+                            Some(
+                                json!({"record_id":uid(640_002+n as u64),"record_checksum":parsed.records().iter().find(|r|r.value()["record_id"]==uid(640_002+n as u64)).unwrap().checksum()})
+                            )
+                        );
+                        assert_eq!(
+                            opened_session.accepted_frame(),
+                            Some(body["accepted_frame"].clone())
+                        );
+                        let old = first_body.as_ref().unwrap();
+                        let retried = opened
+                            .original_mutation(
+                                &old["semantic_intent"],
+                                &old["owner"],
+                                &old["action"],
+                                frames(),
+                                &reader,
+                            )
+                            .unwrap()
+                            .unwrap();
+                        assert_eq!(retried["body"], *old);
+                        let mut wrong = old["owner"].clone();
+                        wrong["attachment_generation"] = json!("999");
+                        assert!(
+                            opened
+                                .original_mutation(
+                                    &old["semantic_intent"],
+                                    &wrong,
+                                    &old["action"],
+                                    frames(),
+                                    &reader
+                                )
+                                .is_err()
+                        );
+                        recovered = Some(opened);
+                    }
+                    assert_eq!(
+                        recovered.unwrap().package().package.head,
+                        second_current.package.head
                     );
                     continued.pop();
                     let torn = Journal::read(&continued, active.header(), limits).unwrap();

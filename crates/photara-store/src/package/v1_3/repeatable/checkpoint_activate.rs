@@ -267,3 +267,178 @@ pub fn activate<I: CheckpointIo>(
         seed: history.seed.clone(),
     })
 }
+
+/// Fresh registered observations for cold recovery. These are untrusted inputs
+/// until `reopen` authenticates the selected base and included journal evidence.
+pub struct ReopenState {
+    pub selector: Vec<u8>,
+    pub base: Vec<u8>,
+    pub header: Value,
+    pub segment: Vec<u8>,
+    pub current: VerifiedOriginal,
+    pub records: std::sync::Arc<dyn super::CheckpointRecords>,
+}
+/// Registered cold-open boundary. The implementation checks the held lease,
+/// current authority, exact namespace/handle pins and fresh independent package
+/// observation. It never chooses an arbitrary well-formed replacement selector.
+pub trait CheckpointRecoveryIo {
+    type Lease;
+    /// Read the actually selected immutable base/segment and current package.
+    /// # Errors
+    /// Refuses missing registration, changed pins, pending/unknown custody,
+    /// missing files, or failed independent current package verification.
+    fn read_checkpoint(
+        &mut self,
+        lease: &RegisteredCooperativeLease<Self::Lease>,
+        limits: ActivationLimits<'_>,
+    ) -> Result<ReopenState, PackageError>;
+}
+fn retained(
+    source: &dyn super::CheckpointRecords,
+    reference: &Value,
+    limits: &ReaderLimits,
+) -> Result<Value, PackageError> {
+    crate::package::v1_3::selected::json_ref(reference)?;
+    let length = usize::try_from(tree::number(&reference["byte_length"])?)
+        .map_err(|_| PackageError::Limit)?;
+    if length > limits.json.max_bytes {
+        return Err(PackageError::Limit);
+    }
+    let bytes = source.record(reference, length)?;
+    check(bytes.len() == length && wire::hash(&bytes) == reference["sha256"])?;
+    crate::package::parse_canonical_json(&bytes, limits.json)
+}
+/// Recover only from registered selected custody plus independently verified
+/// current inclusion. No old authored transition is replayed to invent a base.
+/// Pending maintenance remains refused here and must use its original retry.
+/// # Errors
+/// Refuses substituted selectors/base/receipt, current-base mismatch, missing
+/// included checkpoint or historical lookup evidence, or any changed bounds.
+#[expect(
+    clippy::too_many_lines,
+    reason = "One ordered exact selector, base and package binding proof"
+)]
+pub fn reopen<I: CheckpointRecoveryIo>(
+    io: &mut I,
+    lease: &RegisteredCooperativeLease<I::Lease>,
+    identity: &CheckpointIdentity,
+    limits: ActivationLimits<'_>,
+) -> Result<ActivatedCheckpoint, PackageError> {
+    let state = io.read_checkpoint(lease, limits)?;
+    let selector = LocalSelection::parse(&state.selector, identity, limits.reader.json)?;
+    check(
+        selector.value()["pending"].is_null()
+            && selector.value()["selected"]["format"] == "PHPSJ002",
+    )?;
+    let base = LocalBase::parse(&state.base, identity, limits.reader.json)?;
+    base.check_header(&state.header)?;
+    let header_bytes = Journal::create(&state.header, limits.journal)?;
+    check(
+        selector.value()["selected"]
+            == json!({"format":"PHPSJ002","stream_id":state.header["stream_id"],"header_sha256":wire::hash(&header_bytes),"base":wire::reference(base.value())}),
+    )?;
+    let journal = Journal::read(&state.segment, &state.header, limits.journal)?;
+    let first = journal
+        .records()
+        .first()
+        .ok_or(PackageError::Integrity)?
+        .value();
+    check(
+        first["kind"] == "CheckpointBaseReceipt"
+            && first["body"]["journal_base"] == wire::reference(base.value())
+            && first["body"]["selected_head"] == base.value()["package_head"]
+            && first["body"]["selected_commit"] == base.value()["package_commit"],
+    )?;
+    let original = retained(
+        state.records.as_ref(),
+        &first["body"]["original"],
+        limits.reader,
+    )?;
+    tree::fields(
+        &original,
+        &[
+            "schema",
+            "project_id",
+            "library_id",
+            "bootstrap_sha256",
+            "extensions",
+            "maintenance_id",
+            "scope",
+            "old",
+            "target",
+            "journal",
+            "attempt",
+            "writes",
+        ],
+    )?;
+    check(
+        original["schema"]
+            == json!({"id":"photara.storage.checkpoint-turnover-original","version":1})
+            && original["extensions"] == json!({})
+            && original["scope"] == state.current.scope
+            && original["maintenance_id"] == first["record_id"]
+            && first["record_id"] == first["body"]["maintenance_id"]
+            && original["target"]["base"] == base.value()["checkpoint"]
+            && original["journal"]["next_stream_id"] == state.header["stream_id"]
+            && original["journal"]["through"] == base.value()["through"]
+            && original["journal"]["lookup"] == base.value()["lookup"]
+            && original["journal"]["archive"] == base.value()["archive"],
+    )?;
+    for key in ["project_id", "library_id", "bootstrap_sha256"] {
+        check(original[key] == base.value()[key])?;
+    }
+    let old = retained(
+        state.records.as_ref(),
+        &original["old"]["selector"],
+        limits.reader,
+    )?;
+    let old = LocalSelection::parse(&wire::encode(&old), identity, limits.reader.json)?;
+    let pending = successor(
+        &old,
+        wire::reference(&original),
+        old.value()["selected"].clone(),
+        identity,
+        limits.reader,
+    )?;
+    let expected = successor(
+        &pending,
+        Value::Null,
+        selector.value()["selected"].clone(),
+        identity,
+        limits.reader,
+    )?;
+    check(
+        expected.value() == selector.value()
+            && first["session_generation"] == pending.value()["generation"],
+    )?;
+    crate::package::v1_3::reader::snapshot_base_binding(
+        &state.current,
+        &crate::package::v1_3::selected::json_ref(&base.value()["checkpoint"])?,
+        limits.frames,
+        limits.reader,
+    )?;
+    let history = std::sync::Arc::new(super::lookup::History {
+        base: base.clone(),
+        source: state.records,
+        identity: identity.clone(),
+        limits: *limits.reader,
+    });
+    let seed = crate::package::v1_3::repeatable::journal::session::CheckpointSeed::recover(
+        &base,
+        history,
+        &state.current,
+        &journal,
+        limits.frames,
+        limits.reader,
+        limits.planner,
+    )?;
+    let segment = journal.base_prefix()?.to_vec();
+    Ok(ActivatedCheckpoint {
+        base,
+        selector,
+        header: state.header,
+        segment,
+        clean: state.current,
+        seed,
+    })
+}

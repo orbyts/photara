@@ -24,19 +24,21 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
-**Approved next work — two inherited v4 commitments:** implementation
-found whole-allocation `original_sha256` fields in
-`payload_recipe.allocations[*]` and finalization `writes[*]`, in addition to the
-corridor field already corrected by the approved packet. They conflict with the
-approved unrequested-archive behavior and efficient exact retry. The concrete
-[two-field v4 correction](architecture/PS2_RETENTION_STORAGE_DECISION.md#narrow-v4-commitment-correction--pending-approval-2026-10-11)
-uses `base_head_sha256` in those two v4-only locations. Old codecs and all
-other fields/checks stay unchanged. Suhail **approved this exact correction on
-2026-10-11**. Implement it and finish the connected v4 gates; do not ask again.
-Capability-bound pure v4 compilation and independent package verification now
-pass; native/session runtime dispatch remains gated on the remaining work below.
-Checkpoint/activation work through `6ec0739` is committed locally; SSH publication is
-still unavailable without any authentication/remote changes.
+**Current work — efficient checkpoint recovery:** the approved two-field v4
+commitment correction is implemented and verified in local commit `3015282`.
+Shared v4 save/retry and cold-reopen tests pass, with on-demand archived
+dedupe and conservative position-only undo retirement at turnover. Next are
+repeated turnover, native original-bound reconciliation/adapter, and measured
+save/reopen/resource-use gates. The running review app has not been replaced;
+this is not hands-on performance acceptance.
+
+The [two-field v4 correction](architecture/PS2_RETENTION_STORAGE_DECISION.md#narrow-v4-commitment-correction--pending-approval-2026-10-11)
+was approved by Suhail on **2026-10-11**. Both v4-only inherited commitments now
+use `base_head_sha256`; old codecs and all other checks retain their meanings.
+Do not ask again. Native/session runtime dispatch remains gated on the remaining
+implementation and qualification. Normal SSH publication of `3015282` failed
+with repository access unavailable; local commits are preserved. Do not change
+authentication or remotes to work around this.
 
 The independent activation slice now passes: registered local-selector protocol
 with five post-effect cuts, exact retry and third-selector refusal; PHPSJ002
@@ -58,10 +60,25 @@ role locators. Thirteen focused tests including frozen v1/v2/v3 chains pass
 (`/private/tmp/ps2-v4-connected-clippy.log`). The earlier generated-reader failure
 is resolved, and the temporary pure-v4 gate is removed. No native adapter or
 session runtime dispatch is enabled by this result.
-Live seeding still retains historical undo metadata; next work is persistent
-on-demand reopen, approved pure-position retirement, then disposable native
-qualification/performance. No app replacement has occurred. Do not claim bounded
-cold recovery or seamless app performance before those gates pass.
+**Cold-reopen gate passes:** registered recovery checks selector lineage,
+original-bound BaseReceipt and selected AcceptanceBase, reconstructs Core from
+the current independently verified package, and replays only pending semantic
+edits. Requested archive lookups authenticate bounded paths/frames and cross-check
+portable receipts. Two consecutive saves reopen correctly; an interruption after
+Intent + Accepted Mutation resumes and completes using the reopened capability.
+Original retry and changed-owner refusal pass. Turnover retires only entirely
+proven single-position chains; a Batch retains its full dependency chain. This
+is not new configuration/add/delete/connect command support. Latest acceptance
+links remain distinct from retained undo order. Included PHPSJ002 suffix undo
+remains available until its next turnover.
+Thirteen focused and compatibility cases pass in 8.46s
+(`/private/tmp/ps2-checkpoint-reopen-final.log`); strict store tests pass in 5.38s
+(`/private/tmp/ps2-checkpoint-reopen-clippy.log`). Existing codecs remain unchanged.
+Remaining: repeated turnover (current preparation still requires StateRoot2),
+original-bound reconciliation when the package advanced before local receipt,
+native adapter/dispatch and disposable performance qualification. Existing stored
+bytes/charges are retained; no deletion, native effects or app replacement.
+Do not claim indefinitely bounded recovery or seamless app performance yet.
 
 **Approved snapshot implementation — package reader integration:** shared Rust
 now parses/adopts AcceptanceBase, audits a complete nonempty post-base suffix,

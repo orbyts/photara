@@ -604,7 +604,7 @@ pub(crate) fn snapshot_base_binding(
         .roles
         .get("active")
         .ok_or(PackageError::Integrity)?;
-    check(active.state["schema"]["version"] == 3 && active.receipts.is_empty())?;
+    check(active.state["schema"]["version"] == 3)?;
     let reference = super::super::selected::json_ref(&package.commit["root_set"]["active"])?;
     let placement = PhysicalTree::new(
         &provider,
@@ -679,4 +679,150 @@ pub(crate) fn verify_checkpoint_original(
         limits,
         Some(&selected),
     )
+}
+
+struct Pinned<'a, P> {
+    provider: &'a P,
+    allowed: BTreeSet<PackageUuid>,
+}
+impl<P: PhysicalRecords> PhysicalRecords for Pinned<'_, P> {
+    fn resolve(&self, r: &PhysicalRef, kind: FrameKind) -> Result<Value, PackageError> {
+        check(self.allowed.contains(&r.allocation_id))?;
+        self.provider.resolve(r, kind)
+    }
+    fn resolve_json(
+        &self,
+        r: &PhysicalRef,
+        kind: FrameKind,
+        object: &ObjectRef,
+    ) -> Result<Value, PackageError> {
+        check(self.allowed.contains(&r.allocation_id))?;
+        self.provider.resolve_json(r, kind, object)
+    }
+}
+
+/// Scoped historical lookup from the same owned, independently verified bytes.
+/// Archive custody was audited when this unforgeable wrapper was constructed;
+/// requested paths/frames are authenticated again without rescanning payloads.
+#[expect(
+    clippy::too_many_lines,
+    reason = "Scoped current or historical reciprocal receipt path with archive fence"
+)]
+pub(crate) fn snapshot_receipt(
+    original: &repeatable::VerifiedOriginal,
+    operation: PackageUuid,
+    frames: FrameLimits,
+    limits: &ReaderLimits,
+) -> Result<Option<Value>, PackageError> {
+    use super::super::{
+        Locator, LogicalTree, LogicalTreeKind, Membership, PhysicalTree, PhysicalTreeKind,
+    };
+    let package = original.shared_package();
+    let project = PackageUuid::parse(
+        package.manifest["project_id"]
+            .as_str()
+            .ok_or(PackageError::Record)?,
+    )?;
+    check(package.commit["root_set"]["schema"]["version"] == 3)?;
+    let provider = Bytes {
+        package,
+        inspection: &(),
+        frames,
+        snapshot: true,
+        checked: RefCell::new(BTreeMap::new()),
+    };
+    let active = &original.proof.roles["active"].state;
+    let active_ref = super::super::selected::json_ref(&package.commit["root_set"]["active"])?;
+    let placement = PhysicalTree::new(
+        &provider,
+        project,
+        PhysicalTreeKind::RootPlacement,
+        limits.tree,
+    )
+    .lookup(
+        &super::super::selected::physical(
+            &package.commit["root_set"]["placement"]["root_placements"],
+        )?,
+        &active_ref,
+    )?
+    .ok_or(PackageError::Integrity)?;
+    let locator = Locator::new(
+        &provider,
+        project,
+        super::super::selected::physical(&placement["locator"])?,
+        limits.tree,
+    );
+    let index = locator.json(
+        &super::super::selected::json_ref(&active["operation_index"])?,
+        Membership::Semantic,
+    )?;
+    let identity = SelectionIdentity {
+        project,
+        library: PackageUuid::parse(
+            package.commit["root_set"]["library_id"]
+                .as_str()
+                .ok_or(PackageError::Record)?,
+        )?,
+        bootstrap_sha256: digest(
+            &photara_core::canonical_json(&package.manifest).map_err(|_| PackageError::Record)?,
+        ),
+    };
+    if let Some(receipt) = original.proof.roles["active"]
+        .receipts
+        .iter()
+        .find(|r| r["operation_id"] == operation.to_string())
+    {
+        let entry = LogicalTree::new(&locator, project, LogicalTreeKind::OperationId, limits.tree)
+            .lookup(
+                &super::super::selected::json_ref(&index["by_id"])?,
+                &super::super::LogicalKey::Id(operation),
+            )?
+            .ok_or(PackageError::Integrity)?;
+        let reciprocal = LogicalTree::new(
+            &locator,
+            project,
+            LogicalTreeKind::OperationOrdinal,
+            limits.tree,
+        )
+        .lookup(
+            &super::super::selected::json_ref(&index["by_ordinal"])?,
+            &super::super::LogicalKey::Ordinal(number(&entry["acceptance_ordinal"])?),
+        )?;
+        check(reciprocal.as_ref() == Some(&entry))?;
+        let value = locator.json(
+            &super::super::selected::json_ref(&entry["receipt"])?,
+            Membership::Semantic,
+        )?;
+        check(value == *receipt)?;
+        return crate::package::parse_canonical_json(
+            &photara_core::canonical_json(&value).map_err(|_| PackageError::Record)?,
+            limits.json,
+        )
+        .map(Some);
+    }
+    let base = super::super::snapshot::AcceptanceBase::parse(
+        &photara_core::canonical_json(&locator.json(
+            &super::super::selected::json_ref(&index["base"])?,
+            Membership::Semantic,
+        )?)
+        .map_err(|_| PackageError::Record)?,
+        &identity,
+        limits.json,
+    )?;
+    let archive = &package.commit["root_set"]["archive_placement"];
+    let root = super::super::selected::physical(&archive["locator"])?;
+    let locator = Locator::new(&provider, project, root.clone(), limits.tree);
+    let ownership = LogicalTree::new(&locator, project, LogicalTreeKind::Ownership, limits.tree)
+        .audit(&super::super::selected::json_ref(&archive["ownership"])?)?;
+    let allowed = ownership
+        .entries
+        .iter()
+        .map(|row| super::super::selected::nonnil(&row["allocation_id"]))
+        .collect::<Result<BTreeSet<_>, _>>()?;
+    let pinned = Pinned {
+        provider: &provider,
+        allowed,
+    };
+    let archive = Locator::new(&pinned, project, root, limits.tree);
+    base.lookup(&archive, &identity, operation, None, limits.tree)
 }

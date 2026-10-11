@@ -186,6 +186,7 @@ impl<'a> PreparedHistory<'a> {
             .get("active")
             .ok_or(PackageError::Integrity)?;
         let base = checkpoint.value();
+        check(active.receipts.is_empty())?;
         crate::package::v1_3::reader::snapshot_base_binding(
             clean,
             &crate::package::v1_3::selected::json_ref(&wire::reference(base))?,

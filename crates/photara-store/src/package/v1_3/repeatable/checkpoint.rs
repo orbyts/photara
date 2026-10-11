@@ -11,6 +11,20 @@ pub struct CheckpointIdentity {
     pub device: PackageUuid,
     pub incarnation: PackageUuid,
 }
+impl Clone for CheckpointIdentity {
+    fn clone(&self) -> Self {
+        Self {
+            package: SelectionIdentity {
+                project: self.package.project,
+                library: self.package.library,
+                bootstrap_sha256: self.package.bootstrap_sha256.clone(),
+            },
+            device: self.device,
+            incarnation: self.incarnation,
+        }
+    }
+}
+
 fn check(value: bool) -> Result<(), PackageError> {
     if value {
         Ok(())
@@ -74,6 +88,7 @@ fn head(value: &Value, identity: &CheckpointIdentity) -> Result<(), PackageError
 }
 /// Canonical local base with exact structural references. Package/journal
 /// adoption must independently validate every referenced commitment.
+#[derive(Clone)]
 pub struct LocalBase {
     value: Value,
 }
@@ -320,13 +335,20 @@ impl LocalArchive {
 mod history;
 pub use history::PreparedHistory;
 
+#[path = "checkpoint_lookup.rs"]
+pub(crate) mod lookup;
+pub use lookup::CheckpointRecords;
+
 #[path = "checkpoint_plan.rs"]
 mod plan;
 pub use plan::{TurnoverIds, TurnoverPlan};
 
 #[path = "checkpoint_activate.rs"]
 mod activate;
-pub use activate::{ActivatedCheckpoint, ActivationLimits, CheckpointIo, activate};
+pub use activate::{
+    ActivatedCheckpoint, ActivationLimits, CheckpointIo, CheckpointRecoveryIo, ReopenState,
+    activate, reopen,
+};
 
 #[path = "checkpoint_continue.rs"]
 mod continuation;

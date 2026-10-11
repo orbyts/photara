@@ -9,6 +9,37 @@ use crate::package::v1_3::repeatable::{
 use serde_json::{Value, json};
 
 impl ActivatedCheckpoint {
+    /// Prepare the original-bound journal completion after independently
+    /// verifying the clean selected package. Journal barriers remain required.
+    /// # Errors
+    /// Refuses a different local base, selected plan, scope or original intent.
+    pub fn prepare_receipt(
+        &self,
+        journal: &super::super::journal::Journal,
+        current: &VerifiedOriginal,
+        plan: &RepeatablePlan,
+        intent: crate::package::PackageUuid,
+        identity: super::super::journal::JournalRecordIdentity,
+        limits: super::super::journal::JournalLimits,
+    ) -> Result<super::super::journal::JournalAppend, PackageError> {
+        self.base().check_header(journal.header())?;
+        journal.snapshot_receipt(current, plan, intent, identity, limits)
+    }
+    /// Authenticate an original local retry without adding it to the new
+    /// segment or resurrecting retired undo history. This is not Saved.
+    /// # Errors
+    /// Refuses changed intent, owner/action, requested archive or package receipt.
+    pub fn original_mutation(
+        &self,
+        intent: &Value,
+        owner: &Value,
+        action: &Value,
+        frames: crate::package::v1_3::FrameLimits,
+        reader: &crate::package::v1_3::ReaderLimits,
+    ) -> Result<Option<Value>, PackageError> {
+        self.seed
+            .original_mutation(&self.clean, intent, owner, action, frames, reader)
+    }
     /// Compile a new graph admission from the selected snapshot base. This pure
     /// method performs no admission, journal append, authority check or effects.
     /// # Errors

@@ -364,14 +364,19 @@ fn body(record: &Value, header: &Value) -> Result<(), PackageError> {
                     "accepted_frame",
                 ],
             )?;
-            check(matches!(
-                body["original"]["original_codec"].as_str(),
-                Some(
-                    "photara.codec.ps2-repeatable-admission-v1"
-                        | "photara.codec.ps2-repeatable-admission-v2"
-                        | "photara.codec.ps2-repeatable-admission-v3"
-                )
-            ))?;
+            let codec = body["original"]["original_codec"].as_str();
+            check(
+                matches!(
+                    codec,
+                    Some(
+                        "photara.codec.ps2-repeatable-admission-v1"
+                            | "photara.codec.ps2-repeatable-admission-v2"
+                            | "photara.codec.ps2-repeatable-admission-v3"
+                    )
+                ) || (codec == Some("photara.codec.ps2-repeatable-admission-v4")
+                    && header["format_version"] == 2
+                    && body["original"]["payload_recipe"]["checkpoint_base"] == header["base"]),
+            )?;
             let receipt = &body["operation_receipt"];
             let original = &body["original"];
             let intent = &body["semantic_intent"];
@@ -484,6 +489,40 @@ fn payload(bytes: &[u8], limits: JournalLimits, work: &mut usize) -> Result<Valu
     parse_canonical_json(bytes, limits.json)
 }
 impl Journal {
+    pub(crate) fn snapshot_receipt(
+        &self,
+        current: &super::VerifiedOriginal,
+        plan: &RepeatablePlan,
+        intent: PackageUuid,
+        identity: JournalRecordIdentity,
+        limits: JournalLimits,
+    ) -> Result<JournalAppend, PackageError> {
+        check(
+            self.header["format_version"] == 2
+                && plan.original["payload_recipe"]["checkpoint_base"] == self.header["base"]
+                && current.package.head == plan.stages[6].head
+                && current.package.commit == plan.stages[6].commit
+                && current.scope == plan.original["scope"],
+        )?;
+        check(self.records.iter().any(|record| {
+            record.value["kind"] == "Mutation"
+                && record.value["body"]["operation_receipt"] == plan.prepared.receipt
+                && record.value["body"]["semantic_intent"] == intent_body(plan)["semantic_intent"]
+        }))?;
+        let verified = VerifiedJournal {
+            journal: self,
+            plans: BTreeMap::from([(
+                intent.to_string(),
+                CheckpointPlan::from_plan(plan, limits.json)?,
+            )]),
+        };
+        verified.prepare_receipt(plan, intent, identity, limits)
+    }
+    pub(crate) fn base_prefix(&self) -> Result<&[u8], PackageError> {
+        let first = self.records.first().ok_or(PackageError::Integrity)?;
+        check(first.value["kind"] == "CheckpointBaseReceipt")?;
+        Ok(&self.bytes[..first.frame_end])
+    }
     /// Creates only the approved exact header bytes, with explicit process bounds.
     /// # Errors
     /// Refuses unsupported/malformed header fields or caller byte/work ceilings.
@@ -1178,6 +1217,22 @@ pub(crate) fn validate_detached_checkpoint(value: &Value) -> Result<(), PackageE
     }
     let receipt = &value["body"]["operation_receipt"];
     let header = json!({"project_id":value["project_id"],"incarnation_id":value["incarnation_id"],"library_id":receipt["library_id"],"bootstrap_sha256":receipt["bootstrap_sha256"],"journal_id":receipt["journal_id"]});
+    let sequence = n(&value["sequence"])?;
+    check(sequence > 0)?;
+    envelope(value, &header, sequence)
+}
+
+pub(super) fn validate_archived_mutation(
+    value: &Value,
+    identity: &super::checkpoint::CheckpointIdentity,
+) -> Result<(), PackageError> {
+    check(value["kind"] == "Mutation")?;
+    check(matches!(value["format_version"].as_u64(), Some(1 | 2)))?;
+    let receipt = &value["body"]["operation_receipt"];
+    let header = json!({"format_version":value["format_version"],"sequence_base":"0",
+        "project_id":identity.package.project.to_string(),"library_id":identity.package.library.to_string(),
+        "bootstrap_sha256":identity.package.bootstrap_sha256.as_str(),
+        "incarnation_id":identity.incarnation.to_string(),"journal_id":receipt["journal_id"]});
     let sequence = n(&value["sequence"])?;
     check(sequence > 0)?;
     envelope(value, &header, sequence)

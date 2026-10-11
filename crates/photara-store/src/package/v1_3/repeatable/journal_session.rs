@@ -15,6 +15,8 @@ use std::sync::Arc;
 #[cfg(any(test, feature = "controlled-disposable"))]
 #[path = "journal_session_cache.rs"]
 pub(crate) mod cache;
+#[path = "journal_session_recover.rs"]
+mod recover;
 type Objects = BTreeMap<wire::Key, Value>;
 
 fn checked<T>(result: wire::Result<T>) -> Result<T, PackageError> {
@@ -468,6 +470,7 @@ pub struct VerifiedSession<'a> {
     sequence: u64,
     mutations: BTreeMap<String, MutationEvidence>,
     historical: BTreeSet<String>,
+    history: Option<Arc<super::super::checkpoint::lookup::History>>,
     order: Vec<String>,
     checkpointed: usize,
     completed: Option<Value>,
@@ -480,23 +483,54 @@ pub struct VerifiedSession<'a> {
 pub(crate) struct CheckpointSeed {
     mutations: BTreeMap<String, MutationEvidence>,
     historical: BTreeSet<String>,
+    history: Option<Arc<super::super::checkpoint::lookup::History>>,
     order: Vec<String>,
     checkpoint_target: Value,
+    start: usize,
 }
 impl VerifiedSession<'_> {
     pub(crate) fn checkpoint_seed(&self) -> CheckpointSeed {
+        let retire_positions = self.mutations.values().all(|m| pure_position(&m.record));
+        let mutations = self
+            .mutations
+            .iter()
+            .filter(|_| !retire_positions)
+            .map(|(id, m)| (id.clone(), m.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let mut historical = self.historical.clone();
+        historical.extend(
+            self.mutations
+                .keys()
+                .filter(|id| !mutations.contains_key(*id))
+                .cloned(),
+        );
         CheckpointSeed {
-            mutations: self.mutations.clone(),
-            historical: self.historical.clone(),
-            order: self.order.clone(),
+            order: self
+                .order
+                .iter()
+                .filter(|id| mutations.contains_key(*id))
+                .cloned()
+                .collect(),
+            mutations,
+            historical,
+            history: self.history.clone(),
             checkpoint_target: self.checkpoint_target.clone(),
+            start: 1,
         }
     }
 }
 impl CheckpointSeed {
     pub(crate) fn check_new_operation(&self, operation: &str) -> wire::Result<()> {
         wire::ensure(
-            !self.historical.contains(operation) && !self.mutations.contains_key(operation),
+            !self.historical.contains(operation)
+                && !self.mutations.contains_key(operation)
+                && !self
+                    .history
+                    .as_ref()
+                    .map(|history| history.contains(operation))
+                    .transpose()
+                    .map_err(|_| "checkpoint history lookup")?
+                    .unwrap_or(false),
             "archived original operation",
         )
     }
@@ -518,10 +552,10 @@ impl CheckpointSeed {
         )?;
         // Until v4 checkpoint verification is connected, only actual local
         // semantic/lifecycle suffix records can be replayed from this capability.
-        check(journal.records.iter().skip(1).all(|r| {
+        check(journal.records.iter().skip(self.start).all(|r| {
             !matches!(
                 r.value["kind"].as_str(),
-                Some("CheckpointIntent" | "CheckpointReceipt" | "CheckpointBaseReceipt")
+                Some("CheckpointReceipt" | "CheckpointBaseReceipt")
             )
         }))?;
         let clean = activated.package();
@@ -534,8 +568,7 @@ impl CheckpointSeed {
         ))?;
         check(
             serde_json::to_value(logical.coordinate()).map_err(|_| PackageError::Record)?
-                == base.value()["coordinate"]
-                && self.checkpoint_target["coordinate"] == base.value()["coordinate"],
+                == self.checkpoint_target["coordinate"],
         )?;
         let active = clean
             .proof
@@ -560,16 +593,17 @@ impl CheckpointSeed {
             },
             mutations: self.mutations.clone(),
             historical: self.historical.clone(),
+            history: self.history.clone(),
             order: self.order.clone(),
             checkpointed: self.order.len(),
-            completed: Some(record_link(&journal.records[0])),
+            completed: Some(record_link(&journal.records[self.start - 1])),
             checkpoint_target: self.checkpoint_target.clone(),
         };
         VerifiedJournal {
             journal,
             plans: BTreeMap::new(),
         }
-        .extend_session(state, 1, limits)
+        .extend_session(state, self.start, limits)
     }
 }
 impl<'a> VerifiedJournal<'a> {
@@ -633,6 +667,7 @@ impl<'a> VerifiedJournal<'a> {
                         .ok_or(PackageError::Record)
                 })
                 .collect::<Result<_, _>>()?,
+            history: None,
             order: Vec::new(),
             checkpointed: 0,
             completed: None,
@@ -706,7 +741,7 @@ impl<'a> VerifiedJournal<'a> {
                     // Initial checkpoint-only history preserves its older logical
                     // sequence variants; PS3 preludes after a Mutation use the
                     // exact contiguous local sequence.
-                    if !session.order.is_empty() {
+                    if !session.order.is_empty() || self.journal.header["format_version"] == 2 {
                         session.validate_checkpoint_intent(&record.value["body"], false)?;
                     }
                 }
@@ -726,14 +761,24 @@ impl VerifiedSession<'_> {
     #[must_use]
     pub fn through(&self) -> Option<Value> {
         self.order
-            .last()
+            .get(self.checkpointed..)
+            .and_then(|pending| pending.last())
             .map(|id| record_link(&self.mutations[id].record))
+            .or_else(|| {
+                (!self.checkpoint_target["through"].is_null())
+                    .then(|| self.checkpoint_target["through"].clone())
+            })
     }
     #[must_use]
     pub fn accepted_frame(&self) -> Option<Value> {
         self.order
-            .last()
+            .get(self.checkpointed..)
+            .and_then(|pending| pending.last())
             .map(|id| self.mutations[id].record.value["body"]["accepted_frame"].clone())
+            .or_else(|| {
+                (!self.checkpoint_target["accepted_frame"].is_null())
+                    .then(|| self.checkpoint_target["accepted_frame"].clone())
+            })
     }
     #[must_use]
     pub fn checkpoint_target(&self) -> &Value {
@@ -887,12 +932,17 @@ impl VerifiedSession<'_> {
         owner: &Value,
         action: &Value,
     ) -> Result<(Value, VerifiedClosure, Objects, Objects), PackageError> {
+        let operation = intent["operation_id"]
+            .as_str()
+            .ok_or(PackageError::Record)?;
         check(
-            !self.historical.contains(
-                intent["operation_id"]
-                    .as_str()
-                    .ok_or(PackageError::Record)?,
-            ),
+            !self.historical.contains(operation)
+                && !self
+                    .history
+                    .as_ref()
+                    .map(|history| history.contains(operation))
+                    .transpose()?
+                    .unwrap_or(false),
         )?;
         let preliminary = json!({"semantic_intent":intent,"operation_receipt":receipt,"accepted_frame":plan::journal_frame(receipt)});
         intent_receipt(&preliminary, &self.journal.header)?;
@@ -1024,6 +1074,26 @@ impl VerifiedSession<'_> {
             plans: BTreeMap::new(),
         }
         .prepare(kind, body, identity, limits)
+    }
+    /// Prepare a v4 intent from this independently seeded semantic prefix.
+    /// # Errors
+    /// Refuses an unbound legacy stream, stale coordinate or changed original.
+    pub fn prepare_snapshot_intent(
+        &self,
+        plan: &RepeatablePlan,
+        identity: JournalRecordIdentity,
+        limits: JournalLimits,
+    ) -> Result<JournalAppend, PackageError> {
+        check(
+            self.journal.header["format_version"] == 2
+                && plan.original["payload_recipe"]["checkpoint_base"]
+                    == self.journal.header["base"],
+        )?;
+        let verified = VerifiedJournal {
+            journal: self.journal,
+            plans: BTreeMap::new(),
+        };
+        self.prepare_checkpoint_intent(&verified, plan, identity, limits)
     }
     /// Binds a checkpoint to the actual next accepted Mutation. Legacy checkpoint
     /// preparation cannot bypass local prefix verification once Mutations exist.
@@ -1247,6 +1317,13 @@ fn inverse(
     Ok(derived)
 }
 
+fn pure_position(record: &JournalRecord) -> bool {
+    let intent = &record.value["body"]["semantic_intent"];
+    intent["boundary"] == "single"
+        && intent["undo_group_id"].is_null()
+        && intent["command"]["envelope"]["command"]["kind"] == "set-node-position"
+}
+
 impl<'a> VerifiedSession<'a> {
     /// A turnover source must be a complete, fully checkpointed local prefix.
     /// Preserve every local undo target initially; retirement is a separate
@@ -1292,9 +1369,11 @@ impl<'a> VerifiedSession<'a> {
                 )?;
             }
         }
+        let retire_positions = self.mutations.values().all(|m| pure_position(&m.record));
         let mut roots = self
             .order
             .iter()
+            .filter(|_| !retire_positions)
             .map(|id| operation_target(&self.mutations[id].record))
             .collect::<Vec<_>>();
         roots.sort_by_key(|v| {
