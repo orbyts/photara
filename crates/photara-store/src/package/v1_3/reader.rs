@@ -1043,8 +1043,8 @@ pub fn inspect_recovery<P: PhysicalRecords, M: BlobMetadata + AllocationInspecti
 mod original;
 pub use original::{DirectoryObservation, verify_original};
 pub(crate) use original::{
-    audit_checkpoint_adoption, snapshot_base_binding, snapshot_core_objects, snapshot_receipt,
-    verify_shared_original,
+    audit_checkpoint_adoption, snapshot_base_binding, snapshot_core_objects, snapshot_entries,
+    snapshot_receipt, verify_shared_original,
 };
 pub(crate) use original::{
     inspect_operation_package, verify_checkpoint_original, verify_operation_original,

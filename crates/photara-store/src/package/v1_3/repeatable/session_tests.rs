@@ -2358,10 +2358,139 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                         );
                         recovered = Some(opened);
                     }
+                    let recovered = recovered.unwrap();
                     assert_eq!(
-                        recovered.unwrap().package().package.head,
+                        recovered.package().package.head,
                         second_current.package.head
                     );
+                    let parsed = Journal::read(&settled, recovered.header(), limits).unwrap();
+                    let session = recovered
+                        .verify_session(&parsed, frames(), &reader, budget())
+                        .unwrap();
+                    let next_history = PreparedHistory::prepare_next(
+                        &session,
+                        recovered.package(),
+                        &id,
+                        package::PackageUuid::parse(&uid(700_003)).unwrap(),
+                        (2, 2),
+                        &reader,
+                        recovered.base(),
+                        records.as_ref(),
+                    )
+                    .unwrap();
+                    assert_eq!(
+                        next_history.archive()["previous"],
+                        recovered.base().value()["archive"]
+                    );
+                    let mut next_attempt = super::attempt(recovered.package(), 710_000);
+                    next_attempt.selectors.truncate(4);
+                    let mut next_raw = serde_json::to_value(next_attempt).unwrap();
+                    next_raw["planner"]["codec"] =
+                        json!("photara.codec.ps2-checkpoint-turnover-layout-v1");
+                    for corridor in next_raw["planner"]["corridors"].as_array_mut().unwrap() {
+                        corridor.as_object_mut().unwrap().remove("original_sha256");
+                        corridor["base_head_sha256"] =
+                            json!(hash(&encode(&recovered.package().package.head)));
+                    }
+                    let next_plan = TurnoverPlan::compile_inner(
+                        &next_history,
+                        recovered.selector(),
+                        TurnoverIds {
+                            maintenance_id: uid(720_000),
+                            checkpoint_id: uid(720_001),
+                            next_stream_id: uid(720_002),
+                        },
+                        next_raw,
+                        budget(),
+                    )
+                    .unwrap();
+                    let next_restored = TurnoverPlan::restore(
+                        &next_history,
+                        recovered.selector(),
+                        &encode(next_plan.original()),
+                        &encode(next_plan.acceptance_base()),
+                        budget(),
+                    )
+                    .unwrap();
+                    assert_eq!(next_plan.files, next_restored.files);
+                    let mut next_package = recovered.package().package.clone();
+                    let selected = &next_plan.stages()[3];
+                    next_package.head = selected.head.clone();
+                    next_package.commit = selected.commit.clone();
+                    next_package.loose = selected.loose.clone();
+                    for (allocation, bytes) in &next_plan.files {
+                        next_package.allocations.get_mut(allocation).unwrap().bytes = bytes.clone();
+                    }
+                    let mut next_io = CheckpointMemory {
+                        fixture: &fixture,
+                        package: next_package,
+                        selector: encode(recovered.selector().value()),
+                        original: None,
+                        installed: None,
+                        fail_after: None,
+                        effects: 0,
+                    };
+                    let next_clean = next_io
+                        .verify(&next_plan)
+                        .expect("second turnover clean reader");
+                    let next_base = v1_3::snapshot::AcceptanceBase::parse(
+                        &encode(next_plan.acceptance_base()),
+                        &id.package,
+                        reader.json,
+                    )
+                    .unwrap();
+                    next_history
+                        .bind_package(&next_base, &next_clean, &id, frames(), &reader, budget())
+                        .expect("second turnover base binding");
+                    let rotated = activate(
+                        &mut next_io,
+                        &held,
+                        &next_plan,
+                        &next_history,
+                        recovered.selector(),
+                        &id,
+                        activation_limits(),
+                    )
+                    .unwrap();
+                    assert_eq!(rotated.base().value()["coordinate"], session.coordinate());
+                    assert_eq!(rotated.base().value()["undo_roots"], json!([]));
+                    assert_eq!(
+                        rotated.base().value()["archive"],
+                        reference(next_history.archive())
+                    );
+                    let mut next_records = records.0.clone();
+                    next_records.extend(next_history.lookup_objects().clone());
+                    for value in [
+                        next_history.archive(),
+                        next_plan.original(),
+                        recovered.selector().value(),
+                    ] {
+                        next_records.insert(wire::key(&reference(value)).unwrap(), value.clone());
+                    }
+                    let mut cold = Cold(Some(super::super::checkpoint::ReopenState {
+                        selector: encode(rotated.selector().value()),
+                        base: encode(rotated.base().value()),
+                        header: rotated.header().clone(),
+                        segment: rotated.segment().to_vec(),
+                        current: next_io.verify(&next_plan).unwrap(),
+                        records: std::sync::Arc::new(LocalRecords(next_records)),
+                    }));
+                    let reopened = super::super::checkpoint::reopen(
+                        &mut cold,
+                        &held,
+                        &id,
+                        activation_limits(),
+                    )
+                    .unwrap();
+                    let parsed =
+                        Journal::read(reopened.segment(), reopened.header(), limits).unwrap();
+                    let view = reopened
+                        .verify_session(&parsed, frames(), &reader, budget())
+                        .unwrap();
+                    assert_eq!(view.coordinate(), session.coordinate());
+                    assert_eq!(view.through(), session.through());
+                    assert_eq!(view.accepted_frame(), session.accepted_frame());
+                    assert!(view.undo_targets(&owner).is_empty());
                     continued.pop();
                     let torn = Journal::read(&continued, active.header(), limits).unwrap();
                     assert!(

@@ -28,7 +28,7 @@ experiment reports are reference material only.
 commitment correction is implemented and verified in local commit `3015282`.
 Shared v4 save/retry and cold-reopen tests pass, with on-demand archived
 dedupe and conservative position-only undo retirement at turnover. Next are
-repeated turnover, native original-bound reconciliation/adapter, and measured
+native original-bound reconciliation/adapter and measured
 save/reopen/resource-use gates. The running review app has not been replaced;
 this is not hands-on performance acceptance.
 
@@ -73,10 +73,23 @@ links remain distinct from retained undo order. Included PHPSJ002 suffix undo
 remains available until its next turnover.
 Thirteen focused and compatibility cases pass in 8.46s
 (`/private/tmp/ps2-checkpoint-reopen-final.log`); strict store tests pass in 5.38s
-(`/private/tmp/ps2-checkpoint-reopen-clippy.log`). Existing codecs remain unchanged.
-Remaining: repeated turnover (current preparation still requires StateRoot2),
-original-bound reconciliation when the package advanced before local receipt,
-native adapter/dispatch and disposable performance qualification. Existing stored
+(`/private/tmp/ps2-checkpoint-reopen-clippy.log`). The wider existing session
+suite also passes 21/21 in 10.51s
+(`/private/tmp/ps2-checkpoint-reopen-session-regression.log`). Existing codecs remain unchanged.
+**Repeated turnover passes:** StateRoot3/PHPSJ002 now folds the authenticated
+prior receipt/local lookup metadata with the current suffix, links the retained
+archive descriptor, and activates a second checkpoint. Fresh cold reopen preserves
+latest coordinate/through/frame and retires the completed pure-position undo
+chain. Old retained controls move to archive placement, retaining all bytes and
+charges. Six focused checks pass in 5.53s
+(`/private/tmp/ps2-checkpoint-rotation-final.log`), with ten snapshot/journal
+compatibility checks in 0.43s (`/private/tmp/ps2-checkpoint-rotation-compat.log`).
+Strict store checks pass in 29.48s
+(`/private/tmp/ps2-checkpoint-rotation-clippy.log`).
+This implementation still rebuilds historical index metadata at turnover, so it
+is a correctness bridge, not constant-cost maintenance or performance acceptance.
+Remaining: original-bound reconciliation when the package advanced before local
+receipt, native adapter/dispatch and disposable performance qualification. Existing stored
 bytes/charges are retained; no deletion, native effects or app replacement.
 Do not claim indefinitely bounded recovery or seamless app performance yet.
 

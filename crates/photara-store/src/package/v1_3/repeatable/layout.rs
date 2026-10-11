@@ -40,6 +40,25 @@ pub(super) struct Builder {
     corridors: BTreeMap<String, u64>,
 }
 impl Builder {
+    pub(super) fn checkpoint_indexes(
+        &mut self,
+        entries: Vec<Value>,
+    ) -> Result<(Value, Value, Vec<Value>)> {
+        let (by_id, mut nodes) = self.tree(
+            "photara.package.operation-id",
+            entries.clone(),
+            "operation_id",
+            self.geometry.operation_leaf as usize,
+        )?;
+        let (by_ordinal, ordinal_nodes) = self.tree(
+            "photara.package.operation-ordinal",
+            entries,
+            "acceptance_ordinal",
+            self.geometry.operation_leaf as usize,
+        )?;
+        nodes.extend(ordinal_nodes);
+        Ok((by_id, by_ordinal, nodes))
+    }
     fn object(&self, name: &str, mut value: Value) -> Value {
         value["schema"] = json!({"id":name,"version":1});
         value["project_id"] = json!(self.project);
@@ -790,26 +809,26 @@ pub(crate) fn compile(
 
 pub(super) fn compile_checkpoint(
     b: Builder,
-    old: &OriginalPackage,
-    proof: &OriginalProof,
+    verified: &super::VerifiedOriginal,
     base: &Value,
+    index_nodes: &[Value],
     inputs: &PlannerInputs,
     limits: Limits,
 ) -> Result<Layout> {
     compile_change(
         b,
-        old,
-        proof,
-        Change::Checkpoint(base),
+        &verified.package,
+        &verified.proof,
+        Change::Checkpoint(base, index_nodes, &verified.empty_hold),
         inputs,
-        &BTreeMap::new(),
+        &verified.retained_controls,
         limits,
     )
 }
 #[derive(Clone, Copy)]
 enum Change<'a> {
     Graph(&'a PreparedChange),
-    Checkpoint(&'a Value),
+    Checkpoint(&'a Value, &'a [Value], &'a crate::package::ObjectRef),
 }
 #[expect(
     clippy::too_many_lines,
@@ -828,8 +847,7 @@ fn compile_change(
         old,
         proof,
         limits,
-        matches!(operation, Change::Graph(_))
-            && proof.roles["active"].state["schema"]["version"] == 3,
+        proof.roles["active"].state["schema"]["version"] == 3,
     )?;
     ensure(
         !b.pool.collision(&inputs.active_root_id, true),
@@ -970,10 +988,10 @@ fn compile_change(
             active["journal_inclusion"] = journal;
             active["predecessor"] = json!({"root_sha256":root["active"]["sha256"],"authored_revision":oldactive["authored_revision"]});
         }
-        Change::Checkpoint(base) => {
+        Change::Checkpoint(base, index_nodes, _) => {
             let old_index = get(&b.pool, &oldactive["operation_index"])?;
             ensure(
-                oldactive["schema"]["version"] == 2
+                matches!(oldactive["schema"]["version"].as_u64(), Some(2 | 3))
                     && base["schema"]
                         == json!({"id":"photara.package.acceptance-base","version":1})
                     && base["source_state"] == reference(&oldactive)
@@ -981,11 +999,25 @@ fn compile_change(
                         == json!({"commit_id":old.commit["commit_id"],"commit_sha256":hash(&encode(&old.commit))})
                     && base["accepted"] == oldactive["accepted"]
                     && base["journal_inclusion"] == oldactive["journal_inclusion"]
-                    && base["receipts_by_id"] == old_index["by_id"]
-                    && base["receipts_by_ordinal"] == old_index["by_ordinal"],
+                    && (oldactive["schema"]["version"] == 3
+                        || (base["receipts_by_id"] == old_index["by_id"]
+                            && base["receipts_by_ordinal"] == old_index["by_ordinal"])),
                 "checkpoint exact old operation base",
             )?;
             archive_records = b.closure(&[oldactive["operation_index"].clone()])?;
+            for node in *index_nodes {
+                archive_records.insert(key(&reference(node))?, node.clone());
+            }
+            for retained in retained_controls.keys() {
+                let k = (
+                    retained.sha256.as_str().to_owned(),
+                    retained.byte_length.get(),
+                );
+                archive_records.insert(
+                    k.clone(),
+                    b.pool.get(&k).cloned().ok_or("archived retained control")?,
+                );
+            }
             for bytes in old.loose.values() {
                 let value = wire::parse(bytes)?;
                 archive_records.insert(key(&reference(&value))?, value);
@@ -1061,8 +1093,13 @@ fn compile_change(
     } else {
         BTreeMap::new()
     };
-    let archive = if matches!(operation, Change::Checkpoint(_)) {
-        Some(b.checkpoint_archive(old, inputs, archive_records, None)?)
+    let archive = if matches!(operation, Change::Checkpoint(..)) {
+        Some(b.checkpoint_archive(
+            old,
+            inputs,
+            archive_records,
+            (root["schema"]["version"] == 3).then_some(&root["archive_placement"]),
+        )?)
     } else if root["schema"]["version"] == 3 {
         Some(b.checkpoint_archive(
             old,
@@ -1087,28 +1124,36 @@ fn compile_change(
         })
         .collect::<Result<BTreeMap<_, _>>>()?;
 
-    if matches!(operation, Change::Checkpoint(_)) {
+    if let Change::Checkpoint(_, _, empty_hold) = operation {
+        let retired = retained_controls
+            .keys()
+            .filter(|r| *r != empty_hold)
+            .map(|r| (r.sha256.as_str().to_owned(), r.byte_length.get()))
+            .collect::<BTreeSet<_>>();
         // Historical implementation/original controls remain archived physically,
         // but are no longer mandatory live global members after the audited base.
-        globals.retain(|_, value| {
-            !matches!(
-                value["schema"]["id"].as_str(),
-                Some(
-                    "photara.storage.original-admission"
-                        | "photara.storage.operation-phase"
-                        | "photara.storage.finalization-control"
-                        | "photara.storage.retained-control-inventory-leaf"
-                        | "photara.storage.retained-control-inventory-branch"
+        globals.retain(|k, value| {
+            !retired.contains(k)
+                && !matches!(
+                    value["schema"]["id"].as_str(),
+                    Some(
+                        "photara.storage.original-admission"
+                            | "photara.storage.operation-phase"
+                            | "photara.storage.finalization-control"
+                            | "photara.storage.retained-control-inventory-leaf"
+                            | "photara.storage.retained-control-inventory-branch"
+                    )
                 )
-            )
         });
     }
-    for r in retained_controls.keys() {
-        let k = (r.sha256.as_str().to_owned(), r.byte_length.get());
-        globals.insert(
-            k.clone(),
-            b.pool.get(&k).cloned().ok_or("retained terminal control")?,
-        );
+    if matches!(operation, Change::Graph(_)) {
+        for r in retained_controls.keys() {
+            let k = (r.sha256.as_str().to_owned(), r.byte_length.get());
+            globals.insert(
+                k.clone(),
+                b.pool.get(&k).cloned().ok_or("retained terminal control")?,
+            );
+        }
     }
 
     if let Some((_, nodes)) = &retained {

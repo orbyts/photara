@@ -69,7 +69,14 @@ fn inputs(raw: &Value, old: &OriginalPackage) -> Result<Attempt> {
         let allocation = old.allocations.get(id).ok_or("registered corridor")?;
         let map = corridor.as_object_mut().ok_or("corridor")?;
         map.remove("base_head_sha256");
-        map.insert("original_sha256".into(), json!(hash(&allocation.bytes)));
+        map.insert(
+            "original_sha256".into(),
+            if old.commit["root_set"]["schema"]["version"] == 3 {
+                json!(expected_head)
+            } else {
+                json!(hash(&allocation.bytes))
+            },
+        );
     }
     serde_json::from_value(normalized).map_err(|_| "exact turnover attempt")
 }
@@ -106,7 +113,10 @@ impl TurnoverPlan {
         let segment = &history.archive()["segments"][0];
         ensure(
             selected["pending"].is_null()
-                && selected["selected"]["format"] == "PHPSJ001"
+                && matches!(
+                    selected["selected"]["format"].as_str(),
+                    Some("PHPSJ001" | "PHPSJ002")
+                )
                 && selected["selected"]["stream_id"] == segment["stream_id"]
                 && selected["selected"]["header_sha256"] == segment["header_sha256"]
                 && selected["project_id"] == old.manifest["project_id"]
@@ -146,26 +156,57 @@ impl TurnoverPlan {
                     .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)),
             "attempt identity",
         )?;
-        attempt.planner.validate(old, &verified.proof, limits)?;
-        let builder = layout::Builder::load(old, &attempt.planner, limits)?;
+        let snapshot = old.commit["root_set"]["schema"]["version"] == 3;
+        if snapshot {
+            attempt
+                .planner
+                .validate_context(old, &verified.proof, limits, true)?;
+        } else {
+            attempt.planner.validate(old, &verified.proof, limits)?;
+        }
+        let mut builder = if snapshot {
+            layout::Builder::load_selected(verified, &attempt.planner, limits)?
+        } else {
+            layout::Builder::load(old, &attempt.planner, limits)?
+        };
         let active = &verified.proof.roles.get("active").ok_or("active")?.state;
         let index = builder
             .pool
             .get(&key(&active["operation_index"])?)
-            .ok_or("old receipt index")?;
+            .ok_or("old receipt index")?
+            .clone();
+        let (by_id, by_ordinal, index_nodes) = if snapshot {
+            let mut reader = history.reader;
+            reader.json = limits.semantic.json;
+            let frames = crate::package::v1_3::FrameLimits {
+                json: limits.semantic.json,
+                max_frames: limits.max_frames,
+                max_allocation_bytes: usize::try_from(limits.max_allocation_bytes)
+                    .map_err(|_| "allocation platform limit")?,
+            };
+            let entries = crate::package::v1_3::reader::snapshot_entries(verified, frames, &reader)
+                .map_err(|_| "prior authenticated receipt indexes")?;
+            builder.checkpoint_indexes(entries)?
+        } else {
+            (
+                index["by_id"].clone(),
+                index["by_ordinal"].clone(),
+                Vec::new(),
+            )
+        };
         let base = common(
             old,
             "photara.package.acceptance-base",
             json!({
             "checkpoint_id":ids.checkpoint_id,"source_commit":{"commit_id":old.commit["commit_id"],"commit_sha256":old.head["commit_sha256"]},"source_state":reference(active),
             "authored_revision":active["authored_revision"],"authored_sha256":active["authored"]["sha256"],"accepted":active["accepted"],"journal_inclusion":active["journal_inclusion"],
-            "receipts_by_id":index["by_id"],"receipts_by_ordinal":index["by_ordinal"],"receipt_count":active["accepted"]["through_ordinal"]}),
+            "receipts_by_id":by_id,"receipts_by_ordinal":by_ordinal,"receipt_count":active["accepted"]["through_ordinal"]}),
         );
         let layout = layout::compile_checkpoint(
             builder,
-            old,
-            &verified.proof,
+            verified,
             &base,
+            &index_nodes,
             &attempt.planner,
             limits,
         )?;

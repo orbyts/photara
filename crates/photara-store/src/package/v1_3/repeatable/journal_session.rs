@@ -1339,7 +1339,7 @@ impl<'a> VerifiedSession<'a> {
             .ok_or(PackageError::Integrity)?;
         check(
             self.journal.tail == super::JournalTail::Complete
-                && self.journal.header["format_version"] == 1
+                && matches!(self.journal.header["format_version"].as_u64(), Some(1 | 2))
                 && !self.journal.records.is_empty()
                 && self.head == current.package.head
                 && self.checkpointed == self.order.len()

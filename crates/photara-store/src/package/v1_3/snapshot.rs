@@ -124,6 +124,53 @@ impl AcceptanceBase {
         &self.value
     }
 
+    /// Turnover reads authenticated index metadata, never unrelated receipt
+    /// payloads. Initial adoption already established their semantic coverage.
+    pub(crate) fn index_entries(
+        &self,
+        archive: &impl LogicalRecords,
+        identity: &SelectionIdentity,
+        limits: TreeLimits,
+    ) -> Result<Vec<Value>, PackageError> {
+        exact_common(&self.value, identity)?;
+        let by_id = LogicalTree::new(
+            archive,
+            identity.project,
+            LogicalTreeKind::OperationId,
+            limits,
+        )
+        .audit(&json_ref(&self.value["receipts_by_id"])?)?;
+        let by_ordinal = LogicalTree::new(
+            archive,
+            identity.project,
+            LogicalTreeKind::OperationOrdinal,
+            limits,
+        )
+        .audit(&json_ref(&self.value["receipts_by_ordinal"])?)?;
+        let count = number(&self.value["receipt_count"])?;
+        if by_id.entries.len() as u64 != count || by_ordinal.entries.len() as u64 != count {
+            return Err(PackageError::Integrity);
+        }
+        let mut ordered = BTreeMap::new();
+        for entry in by_id.entries {
+            entry_fields(&entry)?;
+            let ordinal = number(&entry["acceptance_ordinal"])?;
+            if ordered.insert(ordinal, entry).is_some() {
+                return Err(PackageError::Integrity);
+            }
+        }
+        for (index, entry) in by_ordinal.entries.iter().enumerate() {
+            let ordinal = u64::try_from(index)
+                .map_err(|_| PackageError::Limit)?
+                .checked_add(1)
+                .ok_or(PackageError::Limit)?;
+            if ordered.get(&ordinal) != Some(entry) {
+                return Err(PackageError::Integrity);
+            }
+        }
+        Ok(by_ordinal.entries)
+    }
+
     /// Authenticates one exact historical receipt through both reciprocal index
     /// paths. Unvisited archive bytes are intentionally not audited.
     /// # Errors
@@ -179,7 +226,7 @@ impl AcceptanceBase {
         Ok(Some(receipt))
     }
 }
-fn object_ref(value: &Value) -> Result<ObjectRef, PackageError> {
+pub(super) fn object_ref(value: &Value) -> Result<ObjectRef, PackageError> {
     let bytes = photara_core::canonical_json(value).map_err(|_| PackageError::Record)?;
     Ok(ObjectRef {
         kind: super::super::ObjectKind::Json,

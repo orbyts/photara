@@ -32,6 +32,73 @@ struct Read<'a, R: ?Sized> {
     seen: BTreeSet<wire::Key>,
 }
 impl<R: CheckpointRecords + ?Sized> Read<'_, R> {
+    fn collect(&mut self, reference: &Value, depth: usize) -> Result<Vec<Value>, PackageError> {
+        if depth > self.limits.tree.max_depth {
+            return Err(PackageError::Limit);
+        }
+        let page = self.record(reference)?;
+        let leaf = page["schema"]["id"] == "photara.session.checkpoint-operation-lookup-leaf";
+        common(
+            &page,
+            if leaf {
+                "photara.session.checkpoint-operation-lookup-leaf"
+            } else {
+                "photara.session.checkpoint-operation-lookup-branch"
+            },
+            if leaf {
+                &["count", "entries"]
+            } else {
+                &["count", "children"]
+            },
+            self.identity,
+        )?;
+        let mut entries = Vec::new();
+        if leaf {
+            let rows = page["entries"].as_array().ok_or(PackageError::Record)?;
+            if rows.len() > self.limits.tree.max_leaf_entries {
+                return Err(PackageError::Limit);
+            }
+            entries.extend(rows.iter().cloned());
+        } else {
+            let rows = page["children"].as_array().ok_or(PackageError::Record)?;
+            check(rows.len() >= 2)?;
+            if rows.len() > self.limits.tree.max_branch_children {
+                return Err(PackageError::Limit);
+            }
+            for row in rows {
+                tree::fields(row, &["first", "last", "count", "child"])?;
+                let children = self.collect(&row["child"], depth + 1)?;
+                check(
+                    !children.is_empty()
+                        && children.first().ok_or(PackageError::Integrity)?["operation_id"]
+                            == row["first"]
+                        && children.last().ok_or(PackageError::Integrity)?["operation_id"]
+                            == row["last"]
+                        && children.len() as u64 == tree::number(&row["count"])?,
+                )?;
+                if entries
+                    .len()
+                    .checked_add(children.len())
+                    .ok_or(PackageError::Limit)?
+                    > self.limits.tree.max_entries
+                {
+                    return Err(PackageError::Limit);
+                }
+                entries.extend(children);
+            }
+        }
+        if entries.len() > self.limits.tree.max_entries {
+            return Err(PackageError::Limit);
+        }
+        check(entries.len() as u64 == tree::number(&page["count"])?)?;
+        let mut prior = None;
+        for entry in &entries {
+            let operation = Self::entry(entry)?;
+            check(prior.is_none_or(|old| old < operation))?;
+            prior = Some(operation);
+        }
+        Ok(entries)
+    }
     fn record(&mut self, reference: &Value) -> Result<Value, PackageError> {
         selected::json_ref(reference)?;
         let key = wire::key(reference).map_err(|_| PackageError::Record)?;
@@ -191,6 +258,21 @@ impl<R: CheckpointRecords + ?Sized> Read<'_, R> {
     }
 }
 impl LocalBase {
+    pub(crate) fn entries(
+        &self,
+        source: &(impl CheckpointRecords + ?Sized),
+        identity: &CheckpointIdentity,
+        limits: &ReaderLimits,
+    ) -> Result<Vec<Value>, PackageError> {
+        LocalBase::parse(&wire::encode(self.value()), identity, limits.json)?;
+        Read {
+            source,
+            identity,
+            limits,
+            seen: BTreeSet::new(),
+        }
+        .collect(&self.value()["lookup"], 0)
+    }
     /// Resolve one authenticated local dedupe path, without reading unrelated
     /// archive payloads. A null local member proves no local ownership.
     /// # Errors

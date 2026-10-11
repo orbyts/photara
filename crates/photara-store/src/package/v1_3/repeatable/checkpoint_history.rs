@@ -1,4 +1,4 @@
-//! Deterministic first-turnover local history from independent journal/package
+//! Deterministic turnover local history from independent journal/package
 //! proofs. This prepares immutable bytes only; publication retains all barriers.
 use super::{CheckpointIdentity, LocalArchive, check};
 use crate::package::v1_3::repeatable::{VerifiedOriginal, journal::VerifiedSession, wire};
@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 pub struct PreparedHistory<'a> {
     pub(super) source: &'a VerifiedOriginal,
     pub(super) seed: super::super::journal::session::CheckpointSeed,
+    pub(super) reader: ReaderLimits,
     archive: Value,
     lookup: Value,
     objects: BTreeMap<(String, u64), Value>,
@@ -34,6 +35,52 @@ impl<'a> PreparedHistory<'a> {
         geometry: (usize, usize),
         limits: &ReaderLimits,
     ) -> Result<Self, PackageError> {
+        Self::prepare_inner(
+            session, current, identity, archive_id, geometry, limits, None,
+        )
+    }
+    /// Fold the current drained segment into its exact prior authenticated local
+    /// lookup. Previous segments remain immutable and are not replayed.
+    /// # Errors
+    /// Refuses a different prior base, malformed lookup, overlapping operation
+    /// identity, changed current binding, pending work or existing bounds.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Explicit bounded turnover inputs"
+    )]
+    pub fn prepare_next(
+        session: &VerifiedSession<'_>,
+        current: &'a VerifiedOriginal,
+        identity: &CheckpointIdentity,
+        archive_id: PackageUuid,
+        geometry: (usize, usize),
+        limits: &ReaderLimits,
+        previous: &super::LocalBase,
+        records: &dyn super::CheckpointRecords,
+    ) -> Result<Self, PackageError> {
+        Self::prepare_inner(
+            session,
+            current,
+            identity,
+            archive_id,
+            geometry,
+            limits,
+            Some((previous, records)),
+        )
+    }
+    #[expect(
+        clippy::too_many_lines,
+        reason = "One exact old-base plus drained-suffix history fold"
+    )]
+    fn prepare_inner(
+        session: &VerifiedSession<'_>,
+        current: &'a VerifiedOriginal,
+        identity: &CheckpointIdentity,
+        archive_id: PackageUuid,
+        geometry: (usize, usize),
+        limits: &ReaderLimits,
+        previous: Option<(&super::LocalBase, &dyn super::CheckpointRecords)>,
+    ) -> Result<Self, PackageError> {
         let (journal, undo) = session.checkpoint_source(current)?;
         check(!archive_id.as_uuid().is_nil())?;
         let header = journal.header();
@@ -54,9 +101,31 @@ impl<'a> PreparedHistory<'a> {
             .roles
             .get("active")
             .ok_or(PackageError::Integrity)?;
-        // Subsequent turnover needs the already-bound prior archive lookup, not
-        // a fabricated flattened history. Keep that route fail closed for now.
-        check(active.state["schema"]["version"] == 2)?;
+        let mut entries = BTreeMap::new();
+        let previous_archive = if let Some((base, records)) = previous {
+            check(active.state["schema"]["version"] == 3)?;
+            base.check_header(header)?;
+            for entry in base.entries(records, identity, limits)? {
+                let operation = entry["operation_id"]
+                    .as_str()
+                    .ok_or(PackageError::Record)?
+                    .to_owned();
+                check(entries.insert(operation, entry).is_none())?;
+            }
+            let prior_count = active.receipts.first().map_or_else(
+                || tree::number(&active.state["accepted"]["through_ordinal"]),
+                |receipt| {
+                    tree::number(&receipt["acceptance_ordinal"])?
+                        .checked_sub(1)
+                        .ok_or(PackageError::Integrity)
+                },
+            )?;
+            check(entries.len() as u64 == prior_count)?;
+            base.value()["archive"].clone()
+        } else {
+            check(active.state["schema"]["version"] == 2)?;
+            Value::Null
+        };
         check(
             active.state["journal_inclusion"].is_null()
                 || active.state["journal_inclusion"]["journal_id"] == header["journal_id"],
@@ -72,7 +141,6 @@ impl<'a> PreparedHistory<'a> {
                 check(local.insert(operation.to_owned(), (index, body)).is_none())?;
             }
         }
-        let mut entries = BTreeMap::new();
         for receipt in &active.receipts {
             let operation = receipt["operation_id"]
                 .as_str()
@@ -98,7 +166,7 @@ impl<'a> PreparedHistory<'a> {
         let archive = record(
             identity,
             "photara.session.checkpoint-archive",
-            json!({"archive_id":archive_id.to_string(),"previous":null,"segments":[journal.checkpoint_segment()?]}),
+            json!({"archive_id":archive_id.to_string(),"previous":previous_archive,"segments":[journal.checkpoint_segment()?]}),
         );
         LocalArchive::parse(&wire::encode(&archive), identity, limits.json)?;
         let last = journal.records().last().ok_or(PackageError::Integrity)?;
@@ -119,6 +187,7 @@ impl<'a> PreparedHistory<'a> {
         Ok(Self {
             source: current,
             seed: session.checkpoint_seed(),
+            reader: *limits,
             archive,
             lookup,
             objects,
@@ -157,6 +226,7 @@ impl<'a> PreparedHistory<'a> {
     ) -> Result<super::LocalBase, PackageError> {
         crate::package::v1_3::reader::audit_checkpoint_adoption(
             self.source,
+            clean,
             checkpoint,
             &identity.package,
             frames,

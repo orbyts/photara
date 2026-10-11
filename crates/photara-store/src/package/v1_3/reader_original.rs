@@ -449,6 +449,7 @@ pub(crate) fn verify_operation_original(
 /// full reciprocal operation audit; a claimed base is never enough by itself.
 pub(crate) fn audit_checkpoint_adoption(
     original: &repeatable::VerifiedOriginal,
+    clean: &repeatable::VerifiedOriginal,
     base: &super::super::snapshot::AcceptanceBase,
     identity: &SelectionIdentity,
     frames: FrameLimits,
@@ -468,6 +469,29 @@ pub(crate) fn audit_checkpoint_adoption(
         .roles
         .get("active")
         .ok_or(PackageError::Integrity)?;
+    if active.state["schema"]["version"] == 3 {
+        let value = base.value();
+        check(
+            value["source_commit"]
+                == serde_json::json!({"commit_id":package.commit["commit_id"],"commit_sha256":package.head["commit_sha256"]})
+                && value["source_state"]
+                    == serde_json::to_value(super::super::snapshot::object_ref(&active.state)?)
+                        .map_err(|_| PackageError::Record)?
+                && value["authored_revision"] == active.state["authored_revision"]
+                && value["authored_sha256"] == active.state["authored"]["sha256"]
+                && value["accepted"] == active.state["accepted"]
+                && value["journal_inclusion"] == active.state["journal_inclusion"],
+        )?;
+        snapshot_base_binding(
+            clean,
+            &super::super::snapshot::object_ref(value)?,
+            frames,
+            limits,
+        )?;
+        return check(
+            snapshot_entries(original, frames, limits)? == snapshot_entries(clean, frames, limits)?,
+        );
+    }
     let reference = super::super::selected::json_ref(&package.commit["root_set"]["active"])?;
     let placement = PhysicalTree::new(
         &provider,
@@ -704,16 +728,31 @@ impl<P: PhysicalRecords> PhysicalRecords for Pinned<'_, P> {
 /// Scoped historical lookup from the same owned, independently verified bytes.
 /// Archive custody was audited when this unforgeable wrapper was constructed;
 /// requested paths/frames are authenticated again without rescanning payloads.
-#[expect(
-    clippy::too_many_lines,
-    reason = "Scoped current or historical reciprocal receipt path with archive fence"
-)]
 pub(crate) fn snapshot_receipt(
     original: &repeatable::VerifiedOriginal,
     operation: PackageUuid,
     frames: FrameLimits,
     limits: &ReaderLimits,
 ) -> Result<Option<Value>, PackageError> {
+    snapshot_history(original, Some(operation), frames, limits).map(|value| value.0)
+}
+pub(crate) fn snapshot_entries(
+    original: &repeatable::VerifiedOriginal,
+    frames: FrameLimits,
+    limits: &ReaderLimits,
+) -> Result<Vec<Value>, PackageError> {
+    snapshot_history(original, None, frames, limits).map(|value| value.1)
+}
+#[expect(
+    clippy::too_many_lines,
+    reason = "Shared exact current and fenced archive lookup"
+)]
+fn snapshot_history(
+    original: &repeatable::VerifiedOriginal,
+    operation: Option<PackageUuid>,
+    frames: FrameLimits,
+    limits: &ReaderLimits,
+) -> Result<(Option<Value>, Vec<Value>), PackageError> {
     use super::super::{
         Locator, LogicalTree, LogicalTreeKind, Membership, PhysicalTree, PhysicalTreeKind,
     };
@@ -770,8 +809,9 @@ pub(crate) fn snapshot_receipt(
     if let Some(receipt) = original.proof.roles["active"]
         .receipts
         .iter()
-        .find(|r| r["operation_id"] == operation.to_string())
+        .find(|r| operation.is_some_and(|id| r["operation_id"] == id.to_string()))
     {
+        let operation = operation.ok_or(PackageError::Integrity)?;
         let entry = LogicalTree::new(&locator, project, LogicalTreeKind::OperationId, limits.tree)
             .lookup(
                 &super::super::selected::json_ref(&index["by_id"])?,
@@ -798,7 +838,7 @@ pub(crate) fn snapshot_receipt(
             &photara_core::canonical_json(&value).map_err(|_| PackageError::Record)?,
             limits.json,
         )
-        .map(Some);
+        .map(|value| (Some(value), Vec::new()));
     }
     let base = super::super::snapshot::AcceptanceBase::parse(
         &photara_core::canonical_json(&locator.json(
@@ -824,5 +864,26 @@ pub(crate) fn snapshot_receipt(
         allowed,
     };
     let archive = Locator::new(&pinned, project, root, limits.tree);
-    base.lookup(&archive, &identity, operation, None, limits.tree)
+    if let Some(operation) = operation {
+        return base
+            .lookup(&archive, &identity, operation, None, limits.tree)
+            .map(|value| (value, Vec::new()));
+    }
+    let mut entries = base.index_entries(&archive, &identity, limits.tree)?;
+    let mut operations = entries
+        .iter()
+        .map(|entry| super::super::selected::nonnil(&entry["operation_id"]))
+        .collect::<Result<BTreeSet<_>, _>>()?;
+    for receipt in &original.proof.roles["active"].receipts {
+        check(
+            operations.insert(super::super::selected::nonnil(&receipt["operation_id"])?)
+                && number(&receipt["acceptance_ordinal"])? == entries.len() as u64 + 1,
+        )?;
+        entries.push(serde_json::json!({"operation_id":receipt["operation_id"],"request_sha256":receipt["request_sha256"],"acceptance_ordinal":receipt["acceptance_ordinal"],"receipt":super::super::snapshot::object_ref(receipt)?}));
+    }
+    if entries.len() > limits.tree.max_entries {
+        return Err(PackageError::Limit);
+    }
+    check(entries.len() as u64 == number(&active["accepted"]["through_ordinal"])?)?;
+    Ok((None, entries))
 }
