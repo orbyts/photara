@@ -6,8 +6,8 @@
 The current priority is durable latest Graph state with bounded useful undo and
 separate run/output evidence. Existing v1_3 sealed roots need a finite acceptance
 base and indexed old receipts to remove obsolete autosave ancestry from normal
-save/reopen work. User direction is confirmed; the drafted snapshot-recovery
-semantics and exact reader/recovery/format remain review gates before implementation. Neither
+save/reopen work. User direction and snapshot-recovery semantics are approved. Exact permanent
+reader/recovery encodings remain the next review boundary before enablement. Neither
 unlimited movement history nor a larger cache is the product goal.
 PS0/BR0/PS1 are accepted. The shared reader/repeatable writer and approved PHPSJ001
 checkpoint subset pass consecutive-operation, persisted-restart and native

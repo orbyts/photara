@@ -43,17 +43,30 @@ direction; do not ask for that product direction again.
 See [latest-state checkpoint proposal](architecture/PROJECT_SESSION_DURABILITY.md#latest-state-useful-history-and-sealed-checkpoints--2026-10-11-proposal).
 The [acceptance-base turnover packet](architecture/PS2_RETENTION_STORAGE_DECISION.md#acceptance-base-turnover-packet--proposed-2026-10-11-not-frozen)
 is now drafted. v1_3 already has sealed roots; the missing change is its acceptance
-base, suffix replay and indexed historical receipt traversal. The recommended
-narrow decision is **snapshot recovery semantics**: fully audit at turnover, then
+base, suffix replay and indexed historical receipt traversal. The user approved
+**snapshot recovery semantics** on 2026-10-11: fully audit at turnover, then
 validate complete current/previous/pinned closure and pending suffix; validate
 archived history through authenticated lookup when requested. Unrequested,
 unpinned archive corruption no longer blocks sound current state. Current/recovery
 and requested dedupe/history corruption still refuses. No checksum is treated as
 issuer authentication; current authority, custody and rollback checks remain.
-This integrity/traversal change needs explicit review; field sets are a draft,
-not a frozen byte protocol. After that decision finish exact dispatch/base-pointer
-encodings and refusal vectors before permanent-format approval/implementation.
-No code or native data changed during this design pass. Existing data remains
+This integrity/traversal decision is approved; do not request it again. The
+[consolidated candidate byte packet](architecture/PS2_RETENTION_STORAGE_DECISION.md#consolidated-candidate-byte-contract--review-draft-2026-10-11)
+now defines proposed reader1.4/feature dispatch, acceptance base and suffix index,
+archive placement, selected-record allocation claims, PHPSJ002/local selector,
+acyclic turnover and v4 continuation corridors. Old formats retain exact meanings.
+The four documented canonical vectors were independently reproduced against the
+existing integrated corpus and pinned by Rust tests. Three isolated candidate tests
+pass (exact adoption/empty suffix, requested-vs-unrequested frame corruption,
+identity/extent/overlap refusals and explicit dependency-cycle negatives); strict
+store lib/tests lint passes. Logs: `/private/tmp/ps2-checkpoint-candidate-tests.log`
+and `/private/tmp/ps2-checkpoint-candidate-clippy.log`. The packet is reviewable for
+the remaining permanent-format boundary; no runtime format is enabled. Complete
+nonempty suffix/placement/accounting, actual phase/crash and native performance
+validation remain implementation gates. Do not present the packet as qualification
+or deletion authorization. Snapshot semantics do not need approval again; proposed
+new IDs/versions/framing/dispatch are still unfrozen.
+Only isolated test code changed during this candidate pass; no native data changed. Existing data remains
 untouched. User direction does not authorize
 real-library conversion, deletion, arbitrary undo/output expiry or numeric limits.
 The earlier [custody reuse proposal](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md#live-session-immutable-prefix-custody-reuse--pending-approval)

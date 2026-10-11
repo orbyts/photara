@@ -191,74 +191,8 @@ piece is a finite acceptance/recovery base: `operations::audit_operations` still
 enumerates lifetime receipts and recomputes both prefixes; repeatable originals
 retain all predecessor controls and exact allocation prefixes.
 
-### Exact proposed data delta
-
-Reuse canonical JSON, checked Id/Digest/Decimal, existing JSON ObjectRef (`JRef`),
-physical references, receipt v1 and accepted/journal-prefix hash domains. New
-records reject unknown fields and require `extensions:{}`. All records carry
-`project_id`, `library_id`, `bootstrap_sha256` matching the selected package.
-The following field sets are in addition to those identity/schema/extension fields.
-
-| Draft record | Exact proposed fields and typed references |
-| --- | --- |
-| `AcceptanceBase` | `checkpoint_id:Id`, `source_commit:{commit_id:Id,commit_sha256:Digest}`, `source_state:JRef`, `authored_revision:Decimal`, `authored_sha256:Digest`, `accepted:{through_ordinal:Decimal,prefix_sha256:Digest}`, `journal_inclusion:<existing StateRoot inclusion object>`, `receipts_by_id:JRef`, `receipts_by_ordinal:JRef`, `receipt_count:Decimal`. Source commit/state are **provenance commitments**, not traversal edges. Both receipt roots are the existing typed operation-ID/ordinal tree encodings, preserving exact receipt entries; they belong to the historical lookup class below. `receipt_count` equals accepted ordinal. No portable edge points into the device-local journal. |
-| `CheckpointOperationIndex` | `base:JRef`, `accepted:<existing accepted object>`, `by_id:JRef`, `by_ordinal:JRef`. Base selects `AcceptanceBase`; both trees select only post-base receipts, using existing tree/receipt encodings. Suffix ordinals are contiguous from base ordinal+1; recompute existing acceptance/journal hashes starting at the base commitments. Validate receipt before/after continuity from the base authored coordinate to selected current authored state. |
-| `JournalBase` (device-local) | `checkpoint:JRef`, `journal_id:Id`, `through:{record_id:Id,checksum:Digest,sequence:Decimal}`, `mutation:null|{record_id:Id,checksum:Digest}`, `accepted_frame:null|<existing AcceptedFrameV1>`, `coordinate:<existing PS3 Coordinate>`, `undo_roots:[<existing OperationTarget>]`, `archive:JRef`. `checkpoint` selects the package AcceptanceBase; `through` is a complete PHPSJ001 outer-record boundary; Mutation/frame and coordinate must equal independently verified inclusion there. Sorted unique undo roots preserve existing owner/action/patch evidence; this first slice removes only eligible completed move targets, preserving structural targets and redo dependencies. `archive` selects the exact archived journal segments and original recovery material below. |
-| `HistoryArchive` (device-local) | `archive_id:Id`, `previous:null|JRef`, `segments:[{journal_id:Id,first_sequence:Decimal,last_sequence:Decimal,byte_length:Decimal,sha256:Digest}]`, `originals:JRef`, `receipts:JRef`. Segments sort by journal ID then sequence, have no overlap, and retain exact bytes; originals and receipts use authenticated inventories of exact existing records. `previous` is a historical lookup edge, not a current-state traversal edge. Archive location/pins are local registration data, never portable host paths. Original/receipt inventory refs resolve in this registered archive namespace; they do not inject journal bytes into portable authored closure. |
-
-No generic replacement RootSet is needed. A new required reader/codec dispatch
-would permit the existing StateRoot field layout to select
-`CheckpointOperationIndex`, with the base's coordinate as the suffix starting
-point. Existing RootSet active/recovery/pinned roles, per-role locator/ownership,
-authored/history/resource roots and conversion evidence remain mandatory. The
-root inventory rules must explicitly distinguish **current closure** from
-**historical lookup edges**; existing inventories cannot silently omit old
-receipt/control edges. Historical lookup pages and archived allocations remain
-located, authenticated and fully charged; they are not free or deleted bytes.
-The new admission dispatch binds the exact selected base and suffix, rather than
-recursively retaining every completed pre-base original. Unresolved originals
-remain full current recovery dependencies with their exact old inputs.
-
-Receipt lookup checks suffix first, then the base's indexed archive. Return the
-exact original receipt only after checking request digest, identity, index path
-and actual receipt bytes; changed request reuse refuses. New admission proves
-absence in both indexes before assigning the next ordinal. No dedupe expiry or
-incarnation reset is proposed. The full reciprocal indexes/prefixes remain
-available for explicit historical audit. Undo retirement never removes receipts.
-
-### Turnover and original retry
-
-Turnover is storage maintenance, not an authored mutation: it adds no operation
-receipt, authored revision or user undo step. Persist one original maintenance
-identity and exact `{old_head,old_commit,source_state,target_base,target_state,
-target_head,target_commit,journal_base,archive,byte_manifest,reserve,planner}`
-before effects. `old_head/commit` and `target_head/commit` use existing exact
-objects; refs identify complete candidate bytes, `byte_manifest` uses the existing
-admitted allocation/range/hash representation, and reserve/planner retain the
-existing finite bounds/accounting rules. This is a proposed new maintenance
-dispatch, not a reinterpretation of Graph IntentV1 or a fabricated no-op edit.
-
-First adoption fully audits the source, exact accepted/journal inclusion, receipt
-indexes and all retained dependencies. Later turnover extends an independently
-verified base with its fully validated suffix. Only checkpointed, resolved move
-undo targets may leave the useful-history roots; mixed structural transactions,
-unknown commands, pinned snapshots and run/resource dependencies remain retained.
-Latest authored bytes and opaque fields are copied exactly. Keep one complete
-previous base/state and all reader/unresolved-operation pins. No production undo
-budget is chosen, and this slice does not evict structural undo.
-
-Write/sync candidate bytes and archive/index records, then verify the complete
-candidate live/recovery closure and exact new inclusion. Atomically replace HEAD
-under expected-old CAS and the existing qualified barriers. Append a local
-turnover receipt binding `{maintenance_id,old_head,new_head,base,journal_base}`
-only after selected verification/barriers; then durably select the journal base
-for suffix replay. HEAD remains the package authority: old HEAD selects old replay;
-new HEAD with missing receipt/base pointer reconstructs the same maintenance
-outcome; an ahead pointer with old/unrelated HEAD freezes as rollback/conflict.
-Unknown outcomes retain all bytes and original identity, reissue required barriers,
-and never create a new maintenance attempt to escape the uncertainty. A new local
-journal-base record/index selection must receive its own reviewed encoding; the
-PHPSJ001 header and existing checkpoint bodies are not rewritten.
+The initial field sketch is superseded by the consolidated candidate byte contract
+below; there is one proposed field/dispatch packet, not two competing formats.
 
 ### Accounting, compatibility and the precise remaining boundary
 
@@ -271,7 +205,7 @@ No credit follows merely from changing inventory membership or closing a reader.
 Existing quotas still refuse before admission; archival storage is not made bounded
 by calling hot replay bounded. A later reclamation protocol is separate work.
 
-**Recommended single review decision: snapshot recovery semantics.** After the
+**Snapshot recovery semantics — approved by the user 2026-10-11.** After the
 trusted writer fully audits the old path and durably publishes the original-bound
 turnover, the new checkpoint becomes the recovery base. On future opens, require
 complete verification of its current/previous/pinned content closures, current
@@ -298,13 +232,13 @@ admission paths.
 The alternative is to retain the old historical-validation claim at every cold
 open, either paying a full archive audit or adding a separately trusted local
 validation certificate with issuer/invalidation rules. **That is not recommended
-for this latest-state slice**, and no certificate is proposed here. Approval of
-snapshot recovery semantics is the precise remaining proof-obligation decision;
+for this latest-state slice**, and no certificate is proposed here. The user approved
+this proof-obligation change on 2026-10-11;
 it avoids presenting unlimited historical replay as necessary to save the latest
-positions. The field table is a review draft, not yet a frozen encoding packet.
+positions. The consolidated field packet below remains a review draft, not frozen dispatch.
 
 Freeze exact new dispatch/feature/minimum-reader and local base-pointer
-bytes only after resolving that narrow boundary and validating acyclic typed edges.
+bytes only after validating acyclic typed edges and the concrete encoding packet.
 Old readers must refuse; old packages and retries remain intact, with opt-in
 conversion and no silent migration. Use existing corpus tests for repeated move
 turnovers, retained structural undo/run dependencies, exact old-ID retries,
@@ -315,3 +249,231 @@ Do not claim bounded lifetime storage, constant cost for arbitrary live content,
 or solved cold replay before those results. This focuses the next review on a
 verified acceptance base, rather than making the optional live custody cache the
 product's retention architecture.
+
+## Consolidated candidate byte contract — review draft, 2026-10-11
+
+Snapshot-recovery semantics above are approved. **The identifiers, encodings and
+new dispatch below are proposed, not approved or implemented.** This section
+supersedes the earlier field sketch where they differ. It is one bounded packet:
+latest-position turnover, exact old-operation lookup, no deletion, no new commands,
+no production thresholds, and no arbitrary import or real-library conversion.
+Validation items at the end remain open; this is not qualification evidence.
+
+### Dispatch and exact package records
+
+Propose selected commit `minimum_reader:{major:1,minor:4}` and required feature
+`photara.snapshot-recovery.v1`, retaining commit/head v1 bytes and field meanings.
+The original bootstrap manifest and its hash do not change. Admission explicitly
+checks the old manifest plus upgraded selected commit; an unsupported reader must
+refuse before interpreting a root. All old v1/v2/v3 originals dispatch unchanged.
+Proposed new names were searched against existing source/proposal identifiers;
+version additions must dispatch by the complete `(id,version)` pair.
+
+Use existing canonical JSON, Id, Digest, Decimal, JRef (including `kind:"json"`),
+PhysicalRef, ReceiptV1 and accepted/journal-prefix domains. `Common` below means
+exact `schema,project_id,library_id,bootstrap_sha256,extensions`, with matching
+identities and `extensions:{}` for newly introduced records. Retained existing
+objects preserve all optional bytes. No field implicitly denotes authority.
+
+| Proposed schema | Exact fields beyond Common and reference meaning |
+| --- | --- |
+| `photara.package.acceptance-base` v1 | `checkpoint_id:Id,source_commit:{commit_id:Id,commit_sha256:Digest},source_state:JRef,authored_revision:Decimal,authored_sha256:Digest,accepted:{through_ordinal:Decimal,prefix_sha256:Digest},journal_inclusion:null\|<existing StateRoot inclusion>,receipts_by_id:JRef,receipts_by_ordinal:JRef,receipt_count:Decimal`. Source commit/state are provenance commitments, not traversal edges. Receipt roots select existing operation-ID/ordinal trees as historical lookup edges. Count equals accepted ordinal; zero acceptance has null inclusion. Nonzero inclusion's resulting coordinate equals the base authored coordinate. No edge points into a device-local journal. |
+| `photara.package.operation-index` v3 | `base:JRef,accepted:<existing accepted object>,by_id:JRef,by_ordinal:JRef`. Base selects acceptance-base v1. Trees contain only the post-base suffix, using unchanged tree/receipt encodings. Both contain exactly the same entries, unique by operation ID, with contiguous ordinals from base ordinal+1. Replay existing prefix domains from the base, validating receipt before/after continuity and final selected coordinate. Empty suffix has the base coordinate, not ordinal zero. |
+| `photara.package.state-root` v3 | Exact v2 field set; `operation_index` selects v3. Authored/history/resource-state and explicit pin semantics are unchanged. Inventory includes the base object and complete suffix closure, but not base receipt-tree descendants. Those are historical lookup edges. |
+| `photara.package.root-set` v3 | Exact v2 fields plus `archive_placement:{locator:PhysicalRef,ownership:JRef}`. Existing placements continue to cover each distinct active/recovery/pinned StateRoot. Archive locator maps historical receipt/index objects with their existing semantic/ownership membership; its ownership claims cover their physical allocations. Global inventory includes current role closures and archive ownership metadata, not historical receipt/index descendants. Physical locator pages remain authenticated implementation edges, never inventory themselves. |
+| `photara.storage.allocation-claim` v2 | Exact `schema,project_id,extensions,allocation_id,arena,layout,owned_extent,verification,sealed,sealed_charge`. `layout` is exactly `framed-json`; `verification` is exactly `selected-records`; other fields preserve v1 meaning. This explicitly replaces v1's whole `authenticated_prefix` obligation for this new dispatch only. Whole-Blob claims remain v1. |
+
+For claim v2, freshly verify registered identity, safe handle/name binding, extent,
+charge and sealed-charge agreement. Each current or requested frame must validate
+actual offset/length, tag/header, canonical body and physical/logical hashes;
+overlap, conflicting aliases and out-of-extent references refuse. Do not scan
+unselected historical frames merely to claim whole-pack canonical validity: that
+claim is no longer made. New writes still validate every admitted suffix byte,
+including padding, before publication. An old claim v1 always retains its old
+full-prefix obligation, even under an upgraded outer commit.
+
+Historical receipt lookup searches suffix then base by-ID tree; authenticate each
+accessed path and the exact receipt. Same ID/request returns the original receipt;
+changed request refuses. Prove absence in both before assigning a new ordinal.
+Full reciprocal coverage and old prefix validity are checked at initial adoption;
+subsequent turnover folds the fully verified suffix into the base indexes, retaining
+all entries. Old immutable subtrees may be reused by commitment. Scoped lookup is
+not a claim that unvisited history was audited on this open. Existing page/depth/
+entry/byte budgets apply to visited work and full-audit operations respectively;
+cache exhaustion changes speed, not admission. No dedupe expiry/reset is introduced.
+
+### Exact device-local base and selection
+
+Propose these separate local records; none becomes a portable authored edge.
+Each carries Common plus `device_id:Id,incarnation_id:Id` bound to registration.
+`Link` is `{record_id:Id,checksum:Digest,sequence:Decimal}`. `ArchivedRecord` is
+`{stream_id:Id,offset:Decimal,byte_length:Decimal,record:JRef,checksum:Digest}`;
+its range contains one complete journal frame, whose payload is the exact JRef.
+
+| Proposed schema | Additional exact fields |
+| --- | --- |
+| `photara.session.checkpoint-base` v1 | `checkpoint:JRef,package_head:<HeadV1>,package_commit:JRef,journal_id:Id,through:Link,mutation:null\|Link,accepted_frame:null\|<AcceptedFrameV1>,coordinate:<PS3 Coordinate>,undo_roots:[<existing OperationTarget>],lookup:JRef,archive:JRef`. Package checkpoint selects AcceptanceBase; other package commitments select the verified clean turnover result. Through is the old segment's complete outer-record boundary; Mutation/frame identify its actual accepted projection. Undo targets sort by operation ID, then Mutation link; no duplicates. |
+| `photara.session.checkpoint-operation-lookup-leaf/branch` v1 | Reuse the existing operation-ID tree's exact `count,entries` or `count,children` grammar/ranges/order. Entry is `{operation_id:Id,request_sha256:Digest,receipt:JRef,local:null\|{mutation:ArchivedRecord,owner_sha256:Digest,action_sha256:Digest}}`. Null is allowed only for inherited receipts lacking PS3 Mutation evidence. Resolve exact old owner/action/receipt before a local retry; never manufacture undo ownership. |
+| `photara.session.checkpoint-archive` v1 | `archive_id:Id,previous:null\|JRef,segments:[{stream_id:Id,journal_id:Id,header_sha256:Digest,byte_length:Decimal,sha256:Digest,first_sequence:Decimal,last_sequence:Decimal,last_checksum:Digest}]`. Sort by journal ID then first sequence, no overlap. Previous is a historical lookup edge. Exact files and safe pins are separately registered; no embedded host paths. Segment ranges are closed before turnover and never rewritten. |
+| `photara.session.checkpoint-selection` v1 | `generation:Decimal,previous_sha256:null\|Digest,selected:{format:"PHPSJ001"\|"PHPSJ002",stream_id:Id,header_sha256:Digest,base:null\|JRef},pending:null\|JRef`. Base is null exactly for PHPSJ001. Pending selects the one original maintenance record. Generation increases by one per exact CAS replacement; previous digest is nonedge provenance. |
+
+Propose `PHPSJ002` framing with the same 8-byte magic/LE-u32 length/SHA-256 chain
+construction as PHPSJ001, using the new magic in its header hash domain. Header
+has the exact PHPSJ001 field set, `format_version:2`, plus
+`base:JRef,sequence_base:Decimal,previous_segment:{stream_id:Id,header_sha256:Digest,last:Link}`.
+Use a fresh stream ID but preserve logical journal ID and incarnation. Base selects
+the local checkpoint-base; sequence_base equals its through.sequence. Envelopes
+retain the existing exact fields with `format_version:2`, and outer sequence starts
+at sequence_base+1. Mutation logical sequence/acceptance ordinal continue from the
+base; they are not reset or confused with outer sequence. Existing bodies are
+unchanged. The sole new kind, `CheckpointBaseReceipt`, has exact body
+`{maintenance_id:Id,original:JRef,journal_base:JRef,selected_head:<HeadV1>,selected_commit:JRef}`;
+it is the first record and changes no authored/accepted coordinate. Its package
+and base commitments must agree. It is appended only after fresh clean selection
+verification and barriers; its own barriers precede selecting the new segment.
+
+The local selector is one canonical file in the independently registered journal
+namespace, atomically replaced under exact-old-byte CAS with file/directory/full
+barriers. Its pathname is registrar-supplied, not an arbitrary caller path. On
+first adoption, establish a selector for the existing PHPSJ001 header under that
+lease; do not rewrite its header. A pending selector is persisted before package
+effects. Unknown selector publication is reconciled against only exact old/new
+bytes, never an arbitrary well-formed successor. Old segments remain retained.
+
+### Acyclic original and maintenance phases
+
+Propose `photara.storage.checkpoint-turnover-original` v1 with Common plus exact
+`maintenance_id:Id,scope:<existing registered scope>,old:{head:<HeadV1>,commit:<CommitV1>,selector:JRef},target:{base:JRef,state:JRef,recovery:JRef,pinned_roots:JRef,archive_placement:{locator:PhysicalRef,ownership:JRef}},journal:{next_stream_id:Id,through:Link,lookup:JRef,archive:JRef},attempt:<existing Attempt field set>,writes:[Write]`.
+Attempt preserves token/nonce, finite reserves/geometry and fixed IDs; its selectors
+array has exactly four entries in the order below. `Write` is exactly
+`{allocation_id:Id,arena:"data"\|"metadata",witness:<existing device/inode object>,original_end:Decimal,maximum_end:Decimal,target_end:Decimal,suffix_sha256:Digest}`,
+sorted by allocation ID. Writes only use existing registered allocations; no new
+enrollment, quota expansion or retirement is part of this slice. Target closure
+bytes precede original construction and contain no reference back to it. The
+original contains neither its own reference nor candidate HEAD/commit hashes.
+Those selectors are regenerated deterministically from it, avoiding a digest cycle.
+
+Propose `photara.storage.checkpoint-turnover-phase` v1 with Common plus
+`maintenance_id:Id,original:JRef,stage:"reserved"\|"written"\|"published"\|"clean",consumed:Decimal,remaining:Decimal`.
+Use existing hold/accounting-envelope machinery with explicit new original/phase
+dispatch. Reserved selects old content and the finite original hold; written is
+selected only after exact payload barriers; published selects new roots and
+charges actual admitted growth once; clean selects the new roots and empty holds
+only after cleanup barriers and zero remaining liability. Original and phases are
+loose controls outside their own inventories; no phase refers to its containing
+HEAD. The fixed four selector IDs and existing timestamp from the old commit make
+regeneration deterministic; maintenance never changes authored revision or emits
+an authored operation/undo receipt. Local pending still retains the original when
+clean removes its package hold, until the new segment/receipt/selector is durable.
+
+The proposed graph continuation dispatch is
+`photara.codec.ps2-repeatable-admission-v4` / `photara.codec.ps2-repeatable-layout-v4`.
+It retains v3 fields except that `payload_recipe` adds `checkpoint_base:JRef` and
+its retained-control inventory is limited to post-base originals plus unresolved
+pins. Planner corridor entries keep their v3 fields except `original_sha256` is
+replaced by `base_head_sha256:Digest`, equal to SHA-256 of exact canonical old HEAD.
+Old snapshot/current/recovery/pinned objects are verified through their selected
+frames; witness/old extent and every appended suffix byte remain exact retry
+checks. Unread pre-base archive bytes are not a promised whole-prefix proof.
+Turnover Attempt uses `photara.codec.ps2-checkpoint-turnover-layout-v1` with that
+same corridor shape. Persist all original planner inputs once. No v1/v2/v3 record
+is reinterpreted by this dispatch; persisted old retries keep their full old checks.
+
+### Selection, pins, accounting and failure table
+
+Turnover first drains a finite Accepted target and resolves every affected attempt.
+First adoption audits the old path fully. Retire from undo selection only completed
+pure-position edit/undo/redo chains whose entire command is set-node-position or
+a batch solely of those commands. Keep all structural/mixed/unknown actions,
+explicit history, run/resource dependencies and unresolved reader/recovery pins.
+Position undo beyond the new base is unavailable; exact receipts remain retrievable.
+Latest authored/opaque bytes are unchanged. No output/run codec is introduced.
+
+| Observed durable state after interruption | Required action |
+| --- | --- |
+| Old selector, no pending original | Old reader/journal path remains authoritative. A bare unselected candidate is not adoption. |
+| Pending original, old/reserved/written package | Revalidate old scope and exact original; resume its exact writes/stages or preserve/freeze. Never allocate replacement IDs. |
+| New published/clean package, old segment selected | Reconcile the original, verify current/previous/pinned closure and barriers; regenerate the same local base/new segment/receipt. Do not replay included moves. |
+| New segment receipt durable, selector uncertain | Compare exact old/new selector bytes; reissue barriers, finish the same CAS outcome. |
+| New selector, package old/unrelated/missing | Freeze as rollback/replacement; preserve both domains. A local pointer cannot advance package HEAD. |
+| Corrupt pending/current dependency or requested archived receipt | Refuse the affected action; do not truncate, skip, invent Saved or treat old ID as new. |
+
+The first previous root may still be v2 with v1 claims and lifetime audit obligations;
+it must retain those checks. Only a later turnover may rotate it to a complete
+new-profile previous checkpoint, after new publication/receipt/base selection and
+all old reader/unresolved pins release. Do not promise bounded first-adoption or
+first-previous-root work. Ordinary previous roots are independently complete;
+predecessor hashes are not substitutes for their content.
+
+Archive and mixed live/archive allocations retain full existing ledger charges,
+observations, extent and namespace accounting. Charge each inode once across roles;
+never credit inventory removal, a closed pin or an obsolete original. Reserve
+simultaneous old/new controls, payload, local base/index/segment and temporary
+selector names before effects. Actual charge/extent above the original bound
+freezes with the old hold; limits are not increased. Existing sealed-charge,
+retained-file and Blob semantics remain unchanged. No-deletion turnover bounds
+hot semantic work, **not total disk use or lifetime index metadata**.
+
+### Readiness and bounded validation
+
+The above is an exact proposed field/dispatch packet, not a completed implementation
+proof. The test-only candidate checks below make the listed subset reviewable;
+they do not qualify a runtime implementation. Before enablement, prove exact
+current versus archive inventory partition, physical archive placement ownership
+and local lookup; implement nonempty suffix continuity/coverage; validate all four
+phase selector outputs and local two-domain crash cuts; and size simultaneous
+controls under existing limits. These are implementation validation obligations,
+not new product-policy questions. The dependency-shape test is not proof of a
+complete regenerated maintenance transaction. Any
+contradiction found must amend this single packet before permanent dispatch.
+
+Implement in order: pure candidate parser/typed-edge and canonical vectors using
+the existing corpus; adoption plus repeated pure-position turnovers with exact
+old/new retry/refusal; local segment/selector reconciliation and accounting faults;
+then one existing disposable native qualification. Build-gated work counters must
+separate full adoption, old-profile previous-root work, mature current/suffix/index
+work and requested historical audit. Measure same-input CPU/latency, live/peak
+memory, bytes read and full physical charge. Existing frozen vectors/reader refusal
+and unsupported-command behavior stay covered. No native enablement, personal data
+migration, deletion or production budget follows merely from accepting these names.
+
+### Bounded candidate-vector check
+
+Using only `proposals/ps2/integrated/linked.json` (file SHA-256
+`6de4a73749c539ad98f3dfa1b68e2687473cf70ded8328a95b1c3575c6d43e4a`),
+the proposed base takes the existing active StateRoot, its exact accepted/inclusion
+coordinates and operation-index v2 roots, the exact bootstrap commit ID/hash,
+and checkpoint ID `96000000-0000-4000-8000-000000009901`. All Common fields
+come from that StateRoot; source_state is its existing JRef; authored_sha256 is
+its authored JRef digest. Two existing-schema empty operation-ID/ordinal leaves
+use the same Project, count `"0"`, entries `[]`, extensions `{}`. Index v3 selects
+the resulting base plus those empty leaves and preserves the base accepted value.
+Sorted-key, compact, UTF-8 canonical encoding through the existing corpus recipe
+produced:
+
+| Candidate | Bytes | SHA-256 |
+| --- | ---: | --- |
+| AcceptanceBase v1 | 1,424 | `8f6944120c4526f0a206489a9d8891d98bd50f27b1705d8d4b1ad42bd11a1d8e` |
+| Existing empty operation-ID leaf v1 | 158 | `5913c637d24acc366d39a4c04c37716dffa4db028ebea70bba9e7b6b0b7313b4` |
+| Existing empty operation-ordinal leaf v1 | 163 | `ce4323a8968a9ad3cac51a15d7c76c86a3286ea72493813184eb5a83ab67af32` |
+| Empty-suffix operation-index v3 | 752 | `31d45052d27bded73f69aeea28337fce97e1df69ac81e3946ba7f2cb3e26bab1` |
+
+This bounded check verified coordinate agreement, canonical bytes and the local
+acyclic base→historical roots / suffix index→base graph. A source/proposal search
+found no existing uses of the newly named schema prefixes, feature or PHPSJ002
+magic outside this packet. It does **not** validate whole-package placement,
+maintenance selectors, local crash recovery, physical accounting or performance;
+those explicit implementation gates above still apply. No production parser or
+writer was added, and no package/journal/fixture file was modified.
+
+
+The isolated `repeatable::tests::checkpoint_candidate_tests` module additionally
+pins these four vectors through Rust canonical encoding. It checks exact adoption
+identity/coordinate/index commitments and empty-suffix schema/edges; uses the
+existing frame decoder to refuse requested corruption, malformed canonical bodies,
+overlap, wrong physical/logical identity and extent; and distinguishes corruption
+in an unrequested former frame **inside the fully observed owned extent** from
+corruption in that same frame when requested. Its explicit proposed typed-edge
+graph excludes provenance commitments and rejects introduced maintenance/local-base
+cycles. It provides no production dispatch, authority, charge reservation, complete
+nonempty-index parser or filesystem barrier evidence.

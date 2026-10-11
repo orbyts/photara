@@ -845,3 +845,6 @@ mod session_tests;
 
 #[path = "compiler_benchmark.rs"]
 mod compiler_benchmark;
+
+#[path = "checkpoint_candidate_tests.rs"]
+mod checkpoint_candidate_tests;
