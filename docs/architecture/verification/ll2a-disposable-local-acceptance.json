@@ -1478,6 +1478,13 @@
           "default_store_strict": "PASS",
           "logs_prefix": "/private/tmp/ll2a-v3-borrow-",
           "note": "Exact v1/v2/v3 vectors unchanged; all writers exited normally. No app handover."
+        },
+        "checkpoint": {
+          "code_commit": "4b59016",
+          "remote_status": "Normal SSH push and subsequent bounded ls-remote failed; publication unverified",
+          "next_boundary": "UNAPPROVED control-installation grouped-full-sync proposal in PS2_MACOS_STORAGE_QUALIFICATION.md",
+          "writers": "all stopped",
+          "app_handover": false
         }
       }
     }

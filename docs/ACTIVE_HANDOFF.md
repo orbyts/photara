@@ -24,6 +24,17 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
+**Current approval boundary:** the verified v3 implementation is committed locally
+as `4b59016`. Normal SSH push and a bounded remote read both failed; do not claim
+it reached GitHub or change authentication/remotes. All writers remain stopped.
+The next proposed storage-adapter change is the narrow
+[control-installation grouped-full-sync review](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md#unapproved-review-same-device-phase-group-full-sync--2026-10-10).
+It is UNAPPROVED and unqualified. It changes the explicitly approved per-file
+full-sync sequence; obtain this narrow review before implementation/native trials.
+The packet does not promise instant Saved or resolve cold replay/memory by itself.
+Independent packed-role proof reuse remains an ordinary internal optimization;
+no further schema or product boundary is implied for it.
+
 **Active gate — LL2a autosave performance remains unaccepted.** The v3 delta-index
 format and narrow inventory-root version-2 correction were approved on 2026-10-10.
 Implementation, exact v1/v2/v3 vectors, 15 session regressions and 5 reader tests, retry/context guards,

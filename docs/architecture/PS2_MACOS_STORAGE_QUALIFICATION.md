@@ -282,3 +282,64 @@ continuity across arbitrary remounts/reboots, and no automatic physical-pin rebi
 is approved. Its generation-3 mount was cleanly detached without conversion.
 The fresh instance tests integration without rewriting that old registration.
 General APFS/provider-managed/unknown storage remains unqualified for writes.
+
+## UNAPPROVED review: same-device phase-group full-sync — 2026-10-10
+
+**Proposal only; not qualified or enabled.** The approved profile above requires
+`fsync` followed by `F_FULLFSYNC` on written files. This proposal would permit a
+qualified adapter to `fsync` every file in one explicitly closed write group,
+then issue one `F_FULLFSYNC` on a retained, supported descriptor on that same
+verified device. It changes adapter durability ordering, not package/journal
+bytes, original IDs, accounting, retention, or the meaning of `Accepted`/`Saved`.
+The current adapter remains authoritative until the review and evidence below pass.
+
+The conditional data-persistence basis is the installed **macOS SDK 27.0**
+`usr/share/man/man2/fcntl.2`, lines 239–254, SHA-256
+`9b16ec920ad681d1af2256b2c76d408c7b8506b7cad13aa00d035ba4385787a7`:
+its same-device guarantee covers data previously fsynced before full-sync and
+lists APFS support. Preserve that source and pin the actual SDK/OS/filesystem/
+adapter configuration in the qualification report. This is conditional platform
+reasoning, **not proof of directory-entry persistence**; the older Apple manuals
+linked above do not close that namespace obligation.
+
+The first implementation candidate is deliberately limited to the immutable
+control installation inside one `Native::select` call:
+
+| Required boundary | Proposed treatment |
+| --- | --- |
+| Original CheckpointIntent and Mutation journal admission | Preserve each existing journal file/directory barrier and acknowledgement boundary. Never group across admission or across package/journal devices. |
+| Payload and finalizer append phases | Preserve existing per-append barriers for this first slice; no deferred completion of a `RepeatableIo::append` call. |
+| One selected-stage installation | Check/write the exact stage controls, immutable commit, and `HEAD.next`; fsync each retained file descriptor, including exact preexisting retry files. Fsync the pinned parent directory after all group name creations, then full-sync the designated same-device descriptor after all file and directory fsyncs. This proposed consolidation of pre-publication namespace barriers is explicitly subject to the namespace qualification below; every created name must be covered. Complete the group before the existing expected-HEAD recheck and rename. |
+| HEAD replacement and subsequent cleanup | Preserve the distinct post-rename directory barrier and post-cleanup barrier. Never merge a group across a rename, selected stage, cleanup boundary, or another operation. No new cleanup/deletion is authorized. |
+| Selected clean proof and CheckpointReceipt | Preserve fresh selected-closure verification, package HEAD/directory barriers, then the receipt append and its separate journal barriers. Only the fully completed sequence permits Saved. |
+
+Keep pinned handles, positive provider classification, exclusive lease, device/
+volume/mount identity and charge checks throughout. A group has an explicit file
+set and no writes after an individual fsync without another fsync. Any failed,
+interrupted, unsupported or unknown result freezes progress under the original
+attempt. Retry verifies exact original bytes/HEAD and reissues the entire relevant
+group plus namespace barriers; equal bytes alone are not durability evidence.
+Restart reconstructs the group from the original stage, never an in-memory
+“already flushed” flag. Device mismatch or managed/unknown provider refuses;
+there is no plain-fsync, `sync_all`, cross-device, or weaker-Saved fallback.
+
+Qualification must first document a syscall dependency trace for this exact
+group, supported full-sync descriptor, and proposed pre-publication namespace ordering against
+the pinned SDK contract. Then use the existing owned disposable harness to cut
+before/after each file fsync, group full-sync, namespace barrier and HEAD rename;
+inject failures/unknown outcomes; and verify original retry, old-or-new selected
+closure, no premature acknowledgement, and retained accounting. Include
+same-device identity-loss and different-device refusal, process restart, and the
+already authorized clean-remount checks. Record exact binaries, syscall traces,
+file/selector hashes and baseline/grouped latency and CPU. These experiments do
+not prove power-loss behavior or qualify arbitrary APFS hardware; the existing
+conditional failure model and separate namespace review remain necessary.
+
+**Requested narrow approval:** permit implementation and disposable qualification
+of this control-installation grouping only; enable it only after the specified
+configuration-bound review/evidence passes. No general storage admission follows.
+The latest unchanged adapter still takes about 4.5 seconds per measured save;
+507 barrier calls include 360 nearly free calls, while 147 account for about
+1.785 seconds across two saves. Grouping is therefore an unmeasured candidate,
+not a promise of instant Saved or a solution to cold historical replay and memory
+costs. No further native writes or adapter changes have been performed.
