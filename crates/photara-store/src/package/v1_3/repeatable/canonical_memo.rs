@@ -1,12 +1,27 @@
-//! Bounded canonical decoding memo, never semantic/physical authority.
-use super::{restart::value_storage, wire};
+//! Bounded canonical-validation certificates, never semantic/physical authority.
+use super::wire;
 use crate::package::{JsonLimits, parse_canonical_json};
 use serde_json::Value;
 use std::collections::{BTreeMap, VecDeque};
+#[derive(Clone, Debug)]
+pub(super) struct Summary {
+    pub root: Option<String>,
+    pub association: Option<String>,
+}
+impl Summary {
+    pub(super) fn from_value(v: &Value) -> Self {
+        Self {
+            root: (v["schema"]["id"] == "photara.package.state-root")
+                .then(|| v["root_id"].as_str().map(str::to_owned))
+                .flatten(),
+            association: v["association_id"].as_str().map(str::to_owned),
+        }
+    }
+}
 #[derive(Default)]
 pub(super) struct CanonicalMemo {
     bounds: Option<[usize; 4]>,
-    entries: BTreeMap<wire::Key, (Value, usize)>,
+    entries: BTreeMap<wire::Key, (Summary, usize)>,
     order: VecDeque<wire::Key>,
     pub(super) bytes: usize,
     maximum: Option<usize>,
@@ -26,13 +41,13 @@ impl CanonicalMemo {
             }
         }
     }
-    pub(super) fn parse(
+    pub(super) fn validate(
         &mut self,
         raw: &[u8],
         key: &wire::Key,
         limits: JsonLimits,
         maximum: usize,
-    ) -> wire::Result<(Value, bool)> {
+    ) -> wire::Result<Summary> {
         let maximum = maximum.min(self.maximum.unwrap_or(maximum));
         let bounds = [
             limits.max_bytes,
@@ -47,23 +62,28 @@ impl CanonicalMemo {
             self.bounds = Some(bounds);
         }
         self.trim(maximum);
-        // The caller just hashes the actual immutable frame body. No offset,
-        // witness, schema or previous Saved token substitutes for these bytes.
-        if let Some((value, _)) = self.entries.get(key) {
-            return Ok((value.clone(), false));
+        // Caller freshly hashed exact immutable bytes; changed parser limits clear certificates.
+        if let Some((summary, _)) = self.entries.get(key) {
+            return Ok(summary.clone());
         }
         let value =
             parse_canonical_json(raw, limits).map_err(|_| "original canonical record budget")?;
-        if let Some(cost) = value_storage(&value)
-            .and_then(|n| n.checked_add(key.0.capacity()))
-            .and_then(|n| n.checked_add(256))
+        super::layout::count_decode();
+        let summary = Summary::from_value(&value);
+        if let Some(cost) = key
+            .0
+            .capacity()
+            .checked_mul(2)
+            .and_then(|n| n.checked_add(512))
+            .and_then(|n| n.checked_add(summary.root.as_ref().map_or(0, String::capacity)))
+            .and_then(|n| n.checked_add(summary.association.as_ref().map_or(0, String::capacity)))
             .filter(|n| *n <= maximum)
         {
             self.trim(maximum - cost);
-            self.entries.insert(key.clone(), (value.clone(), cost));
+            self.entries.insert(key.clone(), (summary.clone(), cost));
             self.order.push_back(key.clone());
             self.bytes += cost;
         }
-        Ok((value, true))
+        Ok(summary)
     }
 }

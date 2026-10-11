@@ -80,8 +80,10 @@ struct JournalResume {
     head: Value,
 }
 #[cfg(any(test, feature = "controlled-disposable"))]
+#[cfg_attr(test, derive(Clone))]
 pub(super) struct JournalMemo {
     key: String,
+    snapshot: restart::snapshot_memo::PrefixSnapshot,
     resume: JournalResume,
     observations: restart::snapshot_memo::Observations,
     pub(super) cost: usize,
@@ -302,6 +304,7 @@ fn body(record: &Value, header: &Value) -> Result<(), PackageError> {
                 Some(
                     "photara.codec.ps2-repeatable-admission-v1"
                         | "photara.codec.ps2-repeatable-admission-v2"
+                        | "photara.codec.ps2-repeatable-admission-v3"
                 )
             ))?;
             let receipt = &body["operation_receipt"];
@@ -544,20 +547,52 @@ impl Journal {
     ) -> Result<VerifiedJournal<'a>, PackageError> {
         memo.trim(context.planner, context.max_originals);
         let key = restart::CompiledPlans::snapshot_key(current, context);
-        let hit = if let Some(entry) = &memo.journal {
-            entry.key == key
-                && self.bytes.starts_with(&entry.resume.prefix)
-                && entry.observations.matches(context.inspection)?
-        } else {
-            false
-        };
+        let mut prior_observations = None;
+        if let Some(entry) = &memo.journal
+            && self.bytes.starts_with(&entry.resume.prefix)
+        {
+            if entry.key == key && entry.observations.matches(context.inspection)? {
+                prior_observations = Some(entry.observations.clone());
+            } else {
+                // A changed selected HEAD can use historical metadata only if
+                // this invocation will fully prove its new completed receipt.
+                // Interrupted/unknown selectors conservatively use cold replay.
+                let proves_current = entry.resume.original.selector_matches(current)
+                    || self.records.iter().skip(entry.resume.count).any(|r| {
+                        r.value["kind"] == "CheckpointReceipt"
+                            && r.value["body"]["selected_head"] == current.head
+                            && r.value["body"]["selected_commit"] == current.commit
+                    });
+                let tips = entry.resume.original.tips(context.reader.json)?;
+                if proves_current
+                    && entry.snapshot.matches(
+                        current,
+                        &restart::CompiledPlans::snapshot_context(current, context),
+                        &tips,
+                        context.inspection,
+                        (
+                            u64::try_from(context.frames.max_allocation_bytes)
+                                .map_err(|_| PackageError::Limit)?
+                                .min(context.planner.max_allocation_bytes),
+                            context.planner.max_total_allocation_bytes,
+                        ),
+                    )?
+                {
+                    prior_observations = entry.observations.extended(context.inspection, &tips)?;
+                }
+            }
+        }
+        let hit = prior_observations.is_some();
         #[cfg(test)]
         if hit {
             memo.journal_hits += 1;
         }
         let (seed, observations) = if hit {
             let entry = memo.journal.as_ref().ok_or(PackageError::Integrity)?;
-            (Some(entry.resume.clone()), entry.observations.clone())
+            (
+                Some(entry.resume.clone()),
+                prior_observations.ok_or(PackageError::Integrity)?,
+            )
         } else {
             (None, restart::snapshot_memo::Observations::default())
         };
@@ -575,13 +610,19 @@ impl Journal {
         let (verified, resume) = self.verify_inner(current, &fresh, Some(memo), seed.as_ref())?;
         if let Some(resume) = resume {
             let observations = recording.finish();
+            let snapshot = restart::snapshot_memo::PrefixSnapshot::new(
+                current,
+                restart::CompiledPlans::snapshot_context(current, context),
+            );
             let cost = resume
                 .cost()
                 .and_then(|v| v.checked_add(observations.cost()?))
+                .and_then(|v| v.checked_add(snapshot.cost()?))
                 .and_then(|v| v.checked_add(key.capacity()));
             if let Some(cost) = cost.filter(|c| *c <= memo.raw_maximum(context.planner) / 8) {
                 memo.journal = Some(JournalMemo {
                     key,
+                    snapshot,
                     resume,
                     observations,
                     cost,

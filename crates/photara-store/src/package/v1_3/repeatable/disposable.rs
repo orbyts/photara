@@ -336,7 +336,7 @@ fn attempt(old: &VerifiedOriginal, n: u64) -> std::io::Result<Attempt> {
             })
             .collect(),
         planner: PlannerInputs {
-            codec: "photara.codec.ps2-repeatable-layout-v1".into(),
+            codec: "photara.codec.ps2-repeatable-layout-v3".into(),
             active_root_id: uid(n),
             associations,
             roles,
@@ -365,6 +365,7 @@ fn request() -> (Value, Value) {
     serde_json::from_str(r#"[{"bootstrap_sha256":"e5cfd9582ed8bd0ee07890d933e4dac52dff15a80fc7345c8494e1b2baac1a5d","boundary":"single","command":{"envelope":{"command":{"kind":"set-node-position","node_id":"62000000-0000-4000-8000-000000020103","x":13,"y":14},"command_id":"50000000-0000-4000-8000-000000000040","expected_revision":2,"graph_id":"62000000-0000-4000-8000-000000020018"},"kind":"graph"},"domain":"photara.package.operation-intent.v1","expected":{"authored_digest":"1f8e9536722aaa1fd85e0baa1ddb874170eb0f67514e81954efbbd45ebe1b039","graphs":{"62000000-0000-4000-8000-000000020018":{"envelope_digest":"a642cd4c56712e57dc68a0171b1fe8d8c84df7da2bd3777f146d7ab0ae01216f","payload_digest":"3431e94ad706b16aa457a234394fb95a81f2674abf32c90bbf5e1d1ede6b07da","revision":"2","semantic_digest":"3431e94ad706b16aa457a234394fb95a81f2674abf32c90bbf5e1d1ede6b07da"}},"revision":"3"},"library_id":"10000000-0000-4000-8000-000000000002","operation_id":"50000000-0000-4000-8000-000000000040","project_id":"10000000-0000-4000-8000-000000000001","undo_group_id":null,"updated_at":"2026-09-27T00:00:00.000Z","version":1},{"acceptance_ordinal":"4","after":{"digest":"57736c507c91b2bb99ae31b12ac93560c1446ccb39ac78a1006a4d1d797b0cf3","revision":"4"},"before":{"digest":"1f8e9536722aaa1fd85e0baa1ddb874170eb0f67514e81954efbbd45ebe1b039","revision":"3"},"bootstrap_sha256":"e5cfd9582ed8bd0ee07890d933e4dac52dff15a80fc7345c8494e1b2baac1a5d","extensions":{},"journal_id":"50000000-0000-4000-8000-000000000001","journal_sequence":"19","library_id":"10000000-0000-4000-8000-000000000002","operation_id":"50000000-0000-4000-8000-000000000040","outcome":"accepted","project_id":"10000000-0000-4000-8000-000000000001","provenance":{"actor":{"actor_id":"50000000-0000-4000-8000-000000000051","kind":"photara.gui"},"effective_scope":{"actions":71,"project_id":"10000000-0000-4000-8000-000000000001"},"grant_ref":{"kind":"photara.project-grant","reference_id":"50000000-0000-4000-8000-000000000052"},"grantor":{"account_id":"50000000-0000-4000-8000-000000000050","kind":"account"},"policy_decision_sha256":"fd922ec9dce398d773fb5cb500ec930113dd333039b244f200e8943b4ee6a85a","principal":{"account_id":"50000000-0000-4000-8000-000000000050","kind":"account"}},"request_sha256":"6b2a5b540e4ca555d6fb9a4bbf657bb0b566ac2b6ada51e1eb1bde641a45186d","schema":{"id":"photara.package.operation-receipt","version":1},"undo_group_id":null}]"#).expect("fixed disposable command template")
 }
 
+#[cfg(test)]
 fn snapshot(base: &support::Fixture, p: &OriginalPackage) -> support::Fixture {
     let mut f = support::Fixture::from_value(base.data.clone())
         .expect("previously validated immutable registration");
@@ -391,15 +392,33 @@ fn snapshot(base: &support::Fixture, p: &OriginalPackage) -> support::Fixture {
     f
 }
 
+#[cfg(test)]
+pub(crate) fn check_borrowed_snapshot(data: Value, package: &OriginalPackage) {
+    native::check_borrowed_snapshot(data, package);
+}
+
 fn selected(plan: &RepeatablePlan, stage: usize) -> OriginalPackage {
-    let mut p = plan.old.clone();
-    p.head = plan.stages[stage].head.clone();
-    p.commit = plan.stages[stage].commit.clone();
-    p.loose = plan.stages[stage].loose.clone();
-    for (id, b) in &plan.files {
-        p.allocations.get_mut(id).unwrap().bytes.clone_from(b);
+    OriginalPackage {
+        manifest: plan.old.manifest.clone(),
+        head: plan.stages[stage].head.clone(),
+        commit: plan.stages[stage].commit.clone(),
+        loose: plan.stages[stage].loose.clone(),
+        allocations: plan
+            .old
+            .allocations
+            .iter()
+            .map(|(id, old)| {
+                (
+                    id.clone(),
+                    Allocation {
+                        bytes: plan.files[id].clone(),
+                        arena: old.arena.clone(),
+                        witness: old.witness.clone(),
+                    },
+                )
+            })
+            .collect(),
     }
-    p
 }
 
 /// Serialized handle to one explicitly registered private image. Drop releases

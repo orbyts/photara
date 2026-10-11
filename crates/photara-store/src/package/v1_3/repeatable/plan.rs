@@ -410,9 +410,14 @@ pub(super) fn compile_cached(
         json!({"token":attempt.token,"kind":"graph","nonce":attempt.nonce,"scope":original.scope,"original_codec":"photara.codec.ps2-repeatable-admission-v1","request":{"operation_id":receipt["operation_id"],"request_sha256":receipt["request_sha256"],"intent":reference(intent),"receipt":reference(receipt)},"old":{"head":old.head,"commit":old.commit,"envelope":envelope,"ledger":ledger,"overlay":overlay,"states":old_states},"semantic_target":layout.target,"payload_recipe":{"codec":"photara.codec.ps2-repeatable-layout-v1","planner":attempt,"retained_controls":retained_controls.iter().map(|(r,m)| json!({"record":r,"membership":match m {crate::package::v1_3::Membership::Ownership=>"ownership",crate::package::v1_3::Membership::Semantic=>"semantic",crate::package::v1_3::Membership::Blob=>"blob"}})).collect::<Vec<_>>(),"allocations":allocations,"base_inventory":layout.base_inventory,"target_placement":placement},"old_hold":envelope["holds"],"generation_plan":null,"retention_intent":null,"reserve":reserve.to_string(),"cleanup_bound":cleanup.to_string(),"project_limit":attempt.project_limit,"control_bounds":{"aggregate_control_bytes":attempt.aggregate_control_bytes,"aggregate_control_count":attempt.aggregate_control_count,"phase_bytes":attempt.phase_bytes,"finalization_bytes":attempt.finalization_bytes,"marker_bytes":"0","newborn_binding_bytes":"0"}}),
     );
     if let Some(inventory) = &layout.retained_inventory {
-        original_record["original_codec"] = json!("photara.codec.ps2-repeatable-admission-v2");
-        original_record["payload_recipe"]["codec"] =
-            json!("photara.codec.ps2-repeatable-layout-v2");
+        original_record["original_codec"] = json!(if attempt.planner.codec
+            == "photara.codec.ps2-repeatable-layout-v3"
+        {
+            "photara.codec.ps2-repeatable-admission-v3"
+        } else {
+            "photara.codec.ps2-repeatable-admission-v2"
+        });
+        original_record["payload_recipe"]["codec"] = json!(attempt.planner.codec);
         let recipe = original_record["payload_recipe"]
             .as_object_mut()
             .ok_or("recipe")?;

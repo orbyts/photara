@@ -476,9 +476,50 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
     let j = Journal::read(&bytes, &h, limits()).unwrap();
     let checked = j.verify(&after2, &ctx2).unwrap();
     assert_eq!(checked.records().len(), 4);
+    // A changed selector without its new completed receipt cannot use the
+    // historical prefix shortcut. Nor can altered current loose controls.
+    let retained_prefix = memo.journal.clone();
+    let mut guards = restart::CompiledPlans::default();
+    guards.journal = retained_prefix.clone();
+    let prior_hits = guards.journal_hits;
+    pending.verify_cached(&after2, &ctx2, &mut guards).unwrap();
+    assert_eq!(guards.journal_hits, prior_hits);
+    guards.journal = retained_prefix.clone();
+    let mut missing_control = after1.clone();
+    missing_control.loose.pop_first();
+    let _ = pending.verify_cached(&missing_control, &ctx1, &mut guards);
+    assert_eq!(guards.journal_hits, prior_hits);
+    assert!(
+        guards
+            .current_original(&missing_control, &ctx1)
+            .unwrap()
+            .is_none()
+    );
+    guards.journal = retained_prefix.clone();
+    let mut smaller = context(&observed2, &id, &reader);
+    smaller.max_originals = 1;
+    assert!(j.verify_cached(&after2, &smaller, &mut guards).is_err());
+    assert_eq!(guards.journal_hits, prior_hits);
+    guards.journal = retained_prefix.clone();
+    let mut changed_scope = context(&observed2, &id, &reader);
+    changed_scope.directory.inode += 1;
+    assert!(
+        j.verify_cached(&after2, &changed_scope, &mut guards)
+            .is_err()
+    );
+    assert_eq!(guards.journal_hits, prior_hits);
+    guards.journal = retained_prefix;
     let before = std::time::Instant::now();
     let cached = j.verify_cached(&after2, &ctx2, &mut memo).unwrap();
     let growth = before.elapsed();
+    assert_eq!(
+        memo.journal_replayed, 2,
+        "append-only new HEAD proves only new intent/receipt, never skips its closure"
+    );
+    assert_eq!(
+        cached.retained_metadata_bytes(),
+        checked.retained_metadata_bytes()
+    );
     assert_eq!(
         memo.compilations, 2,
         "only the new original compiles as history grows"

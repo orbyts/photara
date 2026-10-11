@@ -2,8 +2,8 @@
 //! No production lease constructor, public filesystem path, or network service.
 use super::{
     BTreeMap, CHECKPOINT, EffectFailure, IoResult, Native, NativeLease, PlannerInputs,
-    RepeatablePlan, RestartContext, Value, VerifiedOriginal, attempt, barrier, budget, canonical,
-    execute, frames, hash, identity, invalid, journal, json, number, package, read,
+    RepeatablePlan, RestartContext, Timing, Value, VerifiedOriginal, attempt, barrier, budget,
+    canonical, execute, frames, hash, identity, invalid, journal, json, number, package, read,
     record_identity, reference, regular, request, restart, snapshot, support, uncertain, v1_3,
 };
 use crate::package::v1_3::repeatable::session::{
@@ -30,10 +30,10 @@ struct Host {
 impl Host {
     fn context<'a>(
         &'a self,
-        observed: &'a support::Fixture,
+        observed: &'a super::Snapshot<'_>,
         id: &'a v1_3::SelectionIdentity,
         reader: &'a v1_3::ReaderLimits,
-    ) -> RestartContext<'a, support::Fixture> {
+    ) -> RestartContext<'a, super::Snapshot<'a>> {
         RestartContext {
             inspection: observed,
             registration: &self.io.base.registration,
@@ -49,6 +49,7 @@ impl Host {
         }
     }
     fn header_original(&self) -> IoResult<VerifiedOriginal> {
+        let _timing = Timing::new("header-original");
         let current = self.io.current()?;
         let j = self.io.checkpoint()?;
         let raw = if let Some(first) = j
@@ -95,7 +96,7 @@ impl Host {
         }
         if current.head == self.io.journal_header["base_head"] {
             v1_3::verify_original(
-                current,
+                current.clone(),
                 id,
                 &observed,
                 &self.io.base.registration,
@@ -109,7 +110,7 @@ impl Host {
                 restart::restore_plan_cached(&current, &ctx, &mut self.io.compiled.borrow_mut())
                     .map_err(|_| invalid())?;
             v1_3::reader::verify_operation_original(
-                current,
+                current.clone(),
                 id,
                 &observed,
                 &self.io.base.registration,
@@ -123,6 +124,7 @@ impl Host {
         }
     }
     fn persisted(&self, operation: &Value) -> IoResult<RepeatablePlan> {
+        let _timing = Timing::new("persisted-original");
         let current = self.io.current()?;
         let j = self.io.checkpoint()?;
         let b = &j
@@ -148,6 +150,7 @@ impl Host {
         .map_err(|_| invalid())
     }
     fn execute_original(&mut self, operation: &Value) -> IoResult<()> {
+        let _timing = Timing::new("execute-original-total");
         let plan = self
             .persisted(operation)
             .map_err(|e| std::io::Error::other(format!("restore original: {e}")))?;
@@ -160,6 +163,7 @@ impl Host {
             &plan,
             Some((&base, self.seed.as_ref().expect("initialized header seed"))),
         )?;
+        let _execute_timing = Timing::new("executor-effects-and-checks");
         execute(&mut self.io, &self.lease, &plan)
             .map_err(|e| std::io::Error::other(format!("native checkpoint execute: {e:?}")))?;
         Ok(())
@@ -245,6 +249,7 @@ impl SessionIo for Host {
         &self,
         j: &'a journal::Journal,
     ) -> Result<journal::VerifiedJournal<'a>, SessionError> {
+        let _timing = Timing::new("journal-verify");
         let current = self.io.current().map_err(session_error)?;
         let observed = snapshot(&self.io.base, &current);
         let id = identity(&current);
@@ -262,6 +267,7 @@ impl SessionIo for Host {
         inputs: &PlannerInputs,
         limits: super::super::Limits,
     ) -> Result<journal::VerifiedSession<'a>, SessionError> {
+        let _timing = Timing::new("session-replay");
         Ok(verified.verify_session_cached(
             base,
             inputs,

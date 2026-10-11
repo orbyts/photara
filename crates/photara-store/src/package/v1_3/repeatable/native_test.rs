@@ -34,6 +34,29 @@ const CHECKPOINT: &str = "checkpoint.phpsj";
 fn invalid() -> std::io::Error {
     std::io::ErrorKind::InvalidData.into()
 }
+struct Timing {
+    label: &'static str,
+    start: Option<std::time::Instant>,
+}
+impl Timing {
+    fn new(label: &'static str) -> Self {
+        Self {
+            label,
+            start: std::env::var_os("PHOTARA_PS3_TRACE_TIMINGS").map(|_| std::time::Instant::now()),
+        }
+    }
+}
+impl Drop for Timing {
+    fn drop(&mut self) {
+        if let Some(start) = self.start {
+            eprintln!(
+                "private session timing: {} {:.3}ms",
+                self.label,
+                start.elapsed().as_secs_f64() * 1000.0
+            );
+        }
+    }
+}
 fn pin(f: &File) -> IoResult<Pin> {
     let m = f.metadata()?;
     Ok([m.dev(), m.ino()])
@@ -86,6 +109,7 @@ fn read(root: &File, name: &str) -> IoResult<Vec<u8>> {
     Ok(b)
 }
 fn barrier(f: &File) -> IoResult<()> {
+    let _timing = Timing::new("barrier");
     fsync(f)?;
     fcntl_fullfsync(f)?;
     Ok(())
@@ -490,7 +514,7 @@ struct Native {
     intent_record: Option<Value>,
     published_head: Value,
     completed_head: Value,
-    ceiling: Option<support::Fixture>,
+    ceiling: Option<BTreeMap<package::PackageUuid, u64>>,
     namespace_allowance: u64,
     session_mode: bool,
     local_provenance: Option<Value>,
@@ -502,13 +526,145 @@ struct Native {
 // Current observations preserve separately captured original highwaters. The
 // shared synthetic helper uses rounded logical lengths; native prepaid storage
 // must never lose its measured registration when assembling a current view.
-fn snapshot(base: &support::Fixture, p: &OriginalPackage) -> support::Fixture {
-    let mut observed = super::snapshot(base, p);
-    for (id, allocation) in &mut observed.allocations {
-        allocation.charge = allocation.charge.max(base.allocations[id].charge);
-    }
-    observed
+struct Snapshot<'a> {
+    base: &'a support::Fixture,
+    package: &'a OriginalPackage,
 }
+fn snapshot<'a>(base: &'a support::Fixture, package: &'a OriginalPackage) -> Snapshot<'a> {
+    Snapshot { base, package }
+}
+impl v1_3::AllocationInspection for Snapshot<'_> {
+    fn observe(
+        &self,
+        id: package::PackageUuid,
+    ) -> Result<v1_3::AllocationObservation, package::PackageError> {
+        let original = self
+            .base
+            .allocations
+            .get(&id)
+            .ok_or(package::PackageError::Integrity)?;
+        let bytes = &self
+            .package
+            .allocations
+            .get(&id.to_string())
+            .ok_or(package::PackageError::Integrity)?
+            .bytes;
+        Ok(v1_3::AllocationObservation {
+            arena: original.arena,
+            layout: original.layout,
+            extent: bytes.len() as u64,
+            registered_charge: original
+                .charge
+                .max((bytes.len() as u64).max(1).div_ceil(4096) * 4096),
+            device: original.device,
+            inode: original.inode,
+        })
+    }
+    fn framed_prefix_digest(
+        &self,
+        id: package::PackageUuid,
+        length: u64,
+        maximum: u64,
+    ) -> Result<package::Sha256Hex, package::PackageError> {
+        let original = self
+            .base
+            .allocations
+            .get(&id)
+            .ok_or(package::PackageError::Integrity)?;
+        if length > maximum || original.layout != v1_3::AllocationLayout::FramedJson {
+            return Err(package::PackageError::Limit);
+        }
+        let bytes = &self
+            .package
+            .allocations
+            .get(&id.to_string())
+            .ok_or(package::PackageError::Integrity)?
+            .bytes;
+        let prefix = bytes
+            .get(..usize::try_from(length).map_err(|_| package::PackageError::Limit)?)
+            .ok_or(package::PackageError::Integrity)?;
+        package::Sha256Hex::parse(&hash(prefix))
+    }
+}
+fn charges(
+    base: &support::Fixture,
+    package: &OriginalPackage,
+) -> BTreeMap<package::PackageUuid, u64> {
+    package
+        .allocations
+        .iter()
+        .map(|(id, a)| {
+            let id = package::PackageUuid::parse(id).expect("validated allocation identity");
+            (
+                id,
+                base.allocations[&id]
+                    .charge
+                    .max((a.bytes.len() as u64).max(1).div_ceil(4096) * 4096),
+            )
+        })
+        .collect()
+}
+
+#[cfg(test)]
+pub(super) fn check_borrowed_snapshot(data: Value, package: &OriginalPackage) {
+    use v1_3::AllocationInspection;
+    let mut base = support::Fixture::from_value(data).unwrap();
+    // Independent native prepayment may exceed current logical extent.
+    for a in base.allocations.values_mut() {
+        a.charge += 4096;
+    }
+    let mut copied = super::snapshot(&base, package);
+    for (id, a) in &mut copied.allocations {
+        a.charge = a.charge.max(base.allocations[id].charge);
+    }
+    let borrowed = snapshot(&base, package);
+    let ceiling = charges(&base, package);
+    for (id, old) in &copied.allocations {
+        let a = borrowed.observe(*id).unwrap();
+        let b = copied.observe(*id).unwrap();
+        assert_eq!(
+            (
+                a.arena,
+                a.layout,
+                a.extent,
+                a.registered_charge,
+                a.device,
+                a.inode
+            ),
+            (
+                b.arena,
+                b.layout,
+                b.extent,
+                b.registered_charge,
+                b.device,
+                b.inode
+            )
+        );
+        assert_eq!(ceiling[id], old.charge);
+        for length in [0, old.bytes.len() as u64] {
+            assert_eq!(
+                borrowed.framed_prefix_digest(*id, length, length),
+                copied.framed_prefix_digest(*id, length, length)
+            );
+        }
+        assert!(
+            borrowed
+                .framed_prefix_digest(*id, old.bytes.len() as u64 + 1, u64::MAX)
+                .is_err()
+        );
+        assert!(borrowed.framed_prefix_digest(*id, 1, 0).is_err());
+    }
+    eprintln!(
+        "native observation copied_bytes={} borrowed_owned_pack_bytes=0 ceiling_entries={}",
+        copied
+            .allocations
+            .values()
+            .map(|a| a.bytes.len())
+            .sum::<usize>(),
+        ceiling.len()
+    );
+}
+
 fn journal_limits(standing: u64) -> journal::JournalLimits {
     let bytes = usize::try_from(standing).expect("bounded fixture standing pool");
     journal::JournalLimits {
@@ -809,10 +965,11 @@ impl Native {
         plan: &RepeatablePlan,
         stage: usize,
     ) -> Result<(), ExecutionError> {
+        let _timing = Timing::new("candidate-check");
         self.pins()
             .map_err(|_| ExecutionError::InvalidObservation)?;
         let observed = snapshot(&self.base, p);
-        self.footprint(&observed)
+        self.footprint(&charges(&self.base, p))
             .map_err(|_| ExecutionError::InvalidObservation)?;
         let identity = identity(p);
         let reader = support::limits();
@@ -846,7 +1003,7 @@ impl Native {
                 .insert(hash(&canonical(&stage.commit)), canonical(&stage.commit));
         }
     }
-    fn footprint(&self, ceiling: &support::Fixture) -> IoResult<Value> {
+    fn footprint(&self, ceiling: &BTreeMap<package::PackageUuid, u64>) -> IoResult<Value> {
         use v1_3::native_profile::{check_charge, measure_allocation};
         let unit = self.base.registration.charge_unit;
         let mut allocations = Vec::new();
@@ -855,11 +1012,11 @@ impl Native {
             measure_allocation(&self.evidence).map_err(|_| invalid())?,
         ];
         let mut owned = std::collections::BTreeSet::new();
-        for (id, a) in &ceiling.allocations {
+        for (id, charge) in ceiling {
             let name = pack_name(&id.to_string());
             let usage =
                 measure_allocation(&regular(&self.root, &name, false)?).map_err(|_| invalid())?;
-            let charge = check_charge(&[usage], unit, a.charge).map_err(|_| invalid())?;
+            let charge = check_charge(&[usage], unit, *charge).map_err(|_| invalid())?;
             allocations.push(json!({"name":name,"charge":charge}));
             owned.insert(name);
         }
@@ -971,6 +1128,7 @@ impl Native {
         plan: &RepeatablePlan,
         session: Option<(&VerifiedOriginal, &PlannerInputs)>,
     ) -> IoResult<()> {
+        let _timing = Timing::new("checkpoint-preflight");
         if self.session_mode {
             if plan.original()["project_limit"]
                 != json!(self.session_project_limit.ok_or_else(invalid)?.to_string())
@@ -979,10 +1137,10 @@ impl Native {
             }
             // Only the independently registered prepaid native corridor is
             // available to this bounded lab. No future Accepted can grow it.
-            for (id, file) in &selected(plan, 6).allocations {
+            for (id, file) in &plan.files {
                 let key = package::PackageUuid::parse(id).map_err(|_| invalid())?;
                 let captured = self.base.allocations.get(&key).ok_or_else(invalid)?;
-                if u64::try_from(file.bytes.len()).map_err(|_| invalid())? > captured.charge {
+                if u64::try_from(file.len()).map_err(|_| invalid())? > captured.charge {
                     return Err(std::io::Error::other(
                         "native prepaid corridor exhausted before admission",
                     ));
@@ -1160,16 +1318,29 @@ impl Native {
         if extent > capacity || self.journal_high_water > capacity {
             return Err(invalid());
         }
-        self.footprint(&snapshot(&self.base, &selected(plan, 6)))?;
+        let ceiling = plan
+            .files
+            .iter()
+            .map(|(id, bytes)| {
+                let id = package::PackageUuid::parse(id).expect("validated allocation identity");
+                (
+                    id,
+                    self.base.allocations[&id]
+                        .charge
+                        .max((bytes.len() as u64).max(1).div_ceil(4096) * 4096),
+                )
+            })
+            .collect();
+        self.footprint(&ceiling)?;
         self.namespace_allowance = namespace;
-        self.ceiling = Some(snapshot(&self.base, &selected(plan, 6)));
+        self.ceiling = Some(ceiling);
         self.journal_capacity = capacity;
         self.intent_record = Some(intent.record().value().clone());
         self.published_head.clone_from(&plan.stages[5].head);
         self.completed_head.clone_from(&plan.stages[6].head);
         self.completion = Some(completion);
         self.append_checkpoint(&intent)?;
-        self.footprint(&snapshot(&self.base, &selected(plan, 6)))?;
+        self.check_effect_footprint()?;
         Ok(())
     }
     fn prune_commits(&self, keep: &Value) -> IoResult<()> {
@@ -1238,8 +1409,6 @@ impl RepeatableIo for Native {
     ) -> Result<(), ExecutionError> {
         self.lease_ok(l)?;
         self.allow(p);
-        self.footprint(&snapshot(&self.base, &selected(p, 6)))
-            .map_err(|_| ExecutionError::InvalidObservation)?;
         self.check(&selected(p, 6), p, 6)
     }
     fn verify_progress(
@@ -1602,7 +1771,7 @@ fn run(mut io: Native, phase: &str) -> IoResult<()> {
         {
             return Err(invalid());
         }
-        let report = json!({"binding_generation":io.scope.generation,"head_sha256":hash(&canonical(&actual.head)),"closure_valid":true,"original_sha256":hash(&canonical(plan.original())),"receipt_sha256":hash(&canonical(&receipt)),"standing_control":io.base.registration.standing_control,"checkpoint_capacity_charge":io.journal_capacity,"checkpoint_observed_high_water":io.journal_high_water,"checkpoint_namespace_allowance":io.namespace_allowance,"native_profile":io.scope.assessment.report(),"native_footprint":io.footprint(&snapshot(&io.base,&actual))?,"native_charge_profile_qualified":false,"qualified":false,"saved_claim":false,"power_loss_tested":false,"remount_tested":false});
+        let report = json!({"binding_generation":io.scope.generation,"head_sha256":hash(&canonical(&actual.head)),"closure_valid":true,"original_sha256":hash(&canonical(plan.original())),"receipt_sha256":hash(&canonical(&receipt)),"standing_control":io.base.registration.standing_control,"checkpoint_capacity_charge":io.journal_capacity,"checkpoint_observed_high_water":io.journal_high_water,"checkpoint_namespace_allowance":io.namespace_allowance,"native_profile":io.scope.assessment.report(),"native_footprint":io.footprint(&charges(&io.base,&actual))?,"native_charge_profile_qualified":false,"qualified":false,"saved_claim":false,"power_loss_tested":false,"remount_tested":false});
         exact_file(
             &io.scope.scratch,
             &format!("repeatable-verified-{}.json", io.scope.generation),

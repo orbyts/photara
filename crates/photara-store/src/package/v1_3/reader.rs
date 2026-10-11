@@ -7,7 +7,7 @@ use super::super::{
 use super::selected::{json_ref, nonnil, schema};
 use super::tree::{fields, number};
 use super::{
-    AccountingLimits, AccountingMetadata, AllocationInspection, BlobMetadata, Locator,
+    AccountingLimits, AccountingMetadata, AllocationInspection, BlobMetadata, FrameKind, Locator,
     LogicalRecords, LogicalTree, LogicalTreeKind, Membership, OwnershipContext, PhysicalRecords,
     PhysicalRef, PhysicalTree, PhysicalTreeKind, ResourceLimits, ResourceMetadata,
     SelectedEnvelope, SelectedRole, StructuralState, TreeLimits, audit_operations, audit_ownership,
@@ -254,11 +254,18 @@ fn controls(
     })
 }
 fn inventory(
+    purpose: &str,
     provider: &impl LogicalRecords,
     root: &ObjectRef,
     project: PackageUuid,
     limits: TreeLimits,
 ) -> Result<(BTreeSet<ObjectRef>, BTreeSet<ObjectRef>), PackageError> {
+    let header = provider.resolve(root, Membership::Semantic)?;
+    if header["schema"]["id"] == "photara.package.inventory-overlay"
+        && header["schema"]["version"] == 2
+    {
+        check(header["purpose"] == purpose)?;
+    }
     let t = LogicalTree::new(provider, project, LogicalTreeKind::Inventory, limits).audit(root)?;
     Ok((
         t.entries.iter().map(object).collect::<Result<_, _>>()?,
@@ -292,18 +299,23 @@ fn pins(
     Ok((t.entries, t.nodes))
 }
 fn role<P: PhysicalRecords, M: BlobMetadata>(
+    label: &str,
     envelope: &SelectedEnvelope,
     provider: &P,
     inspection: &M,
     state: &StructuralState,
+    loc: &Locator<'_, P>,
     limits: &ReaderLimits,
 ) -> Result<RoleClosure, PackageError> {
-    let (loc, _) = Locator::audited(
-        provider,
-        envelope.identity.project,
-        state.locator.clone(),
-        limits.tree,
-    )?;
+    let header = provider.resolve(&state.locator, FrameKind::Physical)?;
+    if header["schema"]["id"] == "photara.storage.locator-overlay"
+        && header["schema"]["version"] == 1
+    {
+        check(
+            header["role"] == label
+                && header["allocation_id"] == state.locator.allocation_id.to_string(),
+        )?;
+    }
     // The frozen selected codec spells the authenticated parent digest
     // `commit_sha256`; the legacy semantic DTO calls the same field `sha256`.
     // This is only the semantic validator's typed input, never a new selector.
@@ -317,19 +329,19 @@ fn role<P: PhysicalRecords, M: BlobMetadata>(
     commit.authored = json_ref(&state.state["authored"])?;
     commit.history = json_ref(&state.state["history"])?;
     commit.inventory = json_ref(&state.state["inventory"])?;
-    let legacy = inspect_legacy_semantics(&loc, inspection, &commit, limits.semantic)?;
+    let legacy = inspect_legacy_semantics(loc, inspection, &commit, limits.semantic)?;
     check(
         loc.json(&commit.authored, Membership::Semantic)?["authored_revision"]
             == state.state["authored_revision"],
     )?;
-    let operations = audit_operations(&loc, &state.state, &envelope.identity, limits.tree)?;
+    let operations = audit_operations(loc, &state.state, &envelope.identity, limits.tree)?;
     let mut semantic = legacy.members().clone();
     semantic.extend(operations.objects().iter().cloned());
     let resources = if state.state["resource_state"].is_null() {
         None
     } else {
         let reference = inspect_resources(
-            &loc,
+            loc,
             &json_ref(&state.state["resource_state"])?,
             nonnil(&state.state["root_id"])?,
             &envelope.identity,
@@ -339,7 +351,8 @@ fn role<P: PhysicalRecords, M: BlobMetadata>(
         Some(reference)
     };
     let (expected, inventory_nodes) = inventory(
-        &loc,
+        "state",
+        loc,
         &commit.inventory,
         envelope.identity.project,
         limits.tree,
@@ -554,7 +567,8 @@ fn origin_roles(
 )]
 fn role_physical<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
     envelope: &SelectedEnvelope,
-    provider: &P,
+    loc: &Locator<'_, P>,
+    mut actual: Located,
     inspection: &M,
     state: &StructuralState,
     proof: &RoleClosure,
@@ -563,16 +577,9 @@ fn role_physical<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
     shared_allocations: &BTreeSet<PackageUuid>,
     limits: &ReaderLimits,
 ) -> Result<(BTreeSet<PackageUuid>, BTreeSet<ObjectRef>), PackageError> {
-    let (loc, tree) = Locator::audited(
-        provider,
-        envelope.identity.project,
-        state.locator.clone(),
-        limits.tree,
-    )?;
-    let mut actual = located(&loc, tree, inspection)?;
     actual.allocations.extend(shared_allocations);
     let owner = audit_ownership(
-        &loc,
+        loc,
         inspection,
         &state.ownership,
         &OwnershipContext {
@@ -631,7 +638,7 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
 ) -> Result<SettledPackage, PackageError> {
     let control = controls(envelope, control_records, limits, operation)?;
     let active = envelope.open_role(provider, SelectedRole::Active, limits.tree)?;
-    let (active_loc, _) = Locator::audited(
+    let (active_loc, active_tree) = Locator::audited(
         provider,
         envelope.identity.project,
         active.locator.clone(),
@@ -682,6 +689,7 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
         audit_settled_accounting(&control.ledger, &holds, &active_loc, limits.accounting)?;
     registered(&active_loc, envelope, &control, &account, registration)?;
     let (base, global_nodes) = inventory(
+        "global",
         &active_loc,
         &control.base,
         envelope.identity.project,
@@ -689,17 +697,34 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
     )?;
     let mut structures = BTreeMap::new();
     let mut roles = BTreeMap::new();
+    let mut located_roles = BTreeMap::new();
+    let mut locators = BTreeMap::from([("active".to_owned(), (active_loc, Some(active_tree)))]);
     for (label, reference) in selected {
         let state = envelope.open_reference(provider, &reference, limits.tree)?;
+        if !locators.contains_key(&label) {
+            let (loc, tree) = Locator::audited(
+                provider,
+                envelope.identity.project,
+                state.locator.clone(),
+                limits.tree,
+            )?;
+            locators.insert(label.clone(), (loc, Some(tree)));
+        }
+        let (loc, tree) = locators.get_mut(&label).ok_or(PackageError::Integrity)?;
+        located_roles.insert(
+            label.clone(),
+            located(loc, tree.take().ok_or(PackageError::Integrity)?, inspection)?,
+        );
         roles.insert(
             label.clone(),
-            role(envelope, provider, inspection, &state, limits)?,
+            role(&label, envelope, provider, inspection, &state, loc, limits)?,
         );
         structures.insert(label, state);
     }
-    retention_dispatch(&active_loc, envelope)?;
+    let active_loc = &locators["active"].0;
+    retention_dispatch(active_loc, envelope)?;
     let mut extra = super::origins::inspect(
-        &active_loc,
+        active_loc,
         &envelope.root,
         &pins,
         &origin_roles(&roles),
@@ -720,13 +745,9 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
     let mut associations = BTreeMap::new();
     let mut requirements = BTreeMap::new();
     for (label, proof) in &roles {
+        let (loc, _) = locators.remove(label).ok_or(PackageError::Integrity)?;
+        let actual = located_roles.remove(label).ok_or(PackageError::Integrity)?;
         if let Some(selected) = operation {
-            let (loc, _) = Locator::audited(
-                provider,
-                envelope.identity.project,
-                structures[label].locator.clone(),
-                limits.tree,
-            )?;
             super::retained_inventory::inspect(
                 &loc,
                 selected.original,
@@ -740,7 +761,8 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
         }
         let (used, _owner) = role_physical(
             envelope,
-            provider,
+            &loc,
+            actual,
             inspection,
             &structures[label],
             proof,
@@ -800,7 +822,7 @@ pub fn inspect_recovery<P: PhysicalRecords, M: BlobMetadata + AllocationInspecti
 ) -> Result<RoleClosure, PackageError> {
     let control = controls(envelope, control_records, limits, None)?;
     let state = envelope.open_role(provider, SelectedRole::Recovery, limits.tree)?;
-    let (loc, _) = Locator::audited(
+    let (loc, tree) = Locator::audited(
         provider,
         envelope.identity.project,
         state.locator.clone(),
@@ -809,8 +831,13 @@ pub fn inspect_recovery<P: PhysicalRecords, M: BlobMetadata + AllocationInspecti
     let (pins, pin_nodes) = pins(&loc, envelope, limits)?;
     let holds = loc.json(&control.holds, Membership::Ownership)?;
     let account = audit_settled_accounting(&control.ledger, &holds, &loc, limits.accounting)?;
-    let (base, global_nodes) =
-        inventory(&loc, &control.base, envelope.identity.project, limits.tree)?;
+    let (base, global_nodes) = inventory(
+        "global",
+        &loc,
+        &control.base,
+        envelope.identity.project,
+        limits.tree,
+    )?;
     check(
         base.is_disjoint(&control.members)
             && base
@@ -819,7 +846,9 @@ pub fn inspect_recovery<P: PhysicalRecords, M: BlobMetadata + AllocationInspecti
                 .ok_or(PackageError::Limit)? as u64
                 == control.count,
     )?;
-    let proof = role(envelope, provider, inspection, &state, limits)?;
+    let proof = role(
+        "recovery", envelope, provider, inspection, &state, &loc, limits,
+    )?;
     let roles = BTreeMap::from([("recovery".to_owned(), proof)]);
     retention_dispatch(&loc, envelope)?;
     let extra = super::origins::inspect(
@@ -850,7 +879,8 @@ pub fn inspect_recovery<P: PhysicalRecords, M: BlobMetadata + AllocationInspecti
     let proof = roles.into_values().next().ok_or(PackageError::Integrity)?;
     role_physical(
         envelope,
-        provider,
+        &loc,
+        located(&loc, tree, inspection)?,
         inspection,
         &state,
         &proof,

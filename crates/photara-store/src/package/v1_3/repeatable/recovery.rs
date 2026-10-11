@@ -107,6 +107,9 @@ fn reconstruct(
             ) | (
                 Some("photara.codec.ps2-repeatable-admission-v2"),
                 Some("photara.codec.ps2-repeatable-layout-v2")
+            ) | (
+                Some("photara.codec.ps2-repeatable-admission-v3"),
+                Some("photara.codec.ps2-repeatable-layout-v3")
             )
         ),
         "repeatable codecs",

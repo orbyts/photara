@@ -72,7 +72,10 @@ pub(super) fn build(
                 )?;
                 json!({"kind":"legacy","original":entry["original"]})
             }
-            Some("photara.codec.ps2-repeatable-admission-v2") => {
+            Some(
+                "photara.codec.ps2-repeatable-admission-v2"
+                | "photara.codec.ps2-repeatable-admission-v3",
+            ) => {
                 let r = original["payload_recipe"]["retained_control_inventory"]["result"].clone();
                 let values = incremental::audit(
                     builder,

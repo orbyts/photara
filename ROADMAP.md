@@ -2,7 +2,7 @@
 
 ## Delivery path: cross-Library acceptance, then platform-ready vertical slice — 2026-09-17
 
-**Current position: PS2–PS4 verified; LL2a responsive-autosave correction awaits human re-review.**
+**Current position: PS2–PS4 verified; LL2a autosave performance correction is in progress.**
 PS0/BR0/PS1 are accepted. The shared reader/repeatable writer and approved PHPSJ001
 checkpoint subset pass consecutive-operation, persisted-restart and native
 clean-remount checks under the exact conditional disposable profile; see the
@@ -19,7 +19,7 @@ now connects the normal shell/avatar menu to shared Rust sessions and a sole
 SQLite activation slot. Native create/rename, two-Library autosave/reopen and
 final SQL commit/restart checks are recorded in the
 [LL2a evidence](docs/architecture/verification/ll2a-disposable-local-acceptance.json).
-The next gate is Suhail's hands-on disposable build review; personal Libraries,
+The next gate is native latency/memory validation before Suhail's hands-on disposable build review. The latest corrected writer preserves exact saves and normal close, but still takes about five seconds per move; see the active handoff for current measurements. Personal Libraries,
 cloud lifecycle, existing database migration and installation remain excluded.
 Move through the following bounded
 checkpoints, committing and fast-forward pushing verified slices to `main`

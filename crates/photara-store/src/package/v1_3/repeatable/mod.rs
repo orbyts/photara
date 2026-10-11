@@ -69,6 +69,7 @@ mod wire {
     }
 }
 mod canonical_memo;
+mod object_pool;
 mod layout;
 
 mod core;

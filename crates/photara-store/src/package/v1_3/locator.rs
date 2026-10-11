@@ -50,6 +50,15 @@ pub struct StructuralBlob {
     allocation_id: PackageUuid,
 }
 
+#[cfg(test)]
+thread_local! {
+    static FULL_AUDITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+#[cfg(test)]
+pub(crate) fn take_full_audits() -> usize {
+    FULL_AUDITS.with(|n| n.replace(0))
+}
+
 pub struct Locator<'a, P> {
     tree: PhysicalTree<'a, P>,
     provider: &'a P,
@@ -79,6 +88,8 @@ impl<'a, P: PhysicalRecords> Locator<'a, P> {
         root: PhysicalRef,
         limits: TreeLimits,
     ) -> Result<(Self, super::PhysicalTreeAudit), PackageError> {
+        #[cfg(test)]
+        FULL_AUDITS.with(|n| n.set(n.get() + 1));
         let mut locator = Self::new(provider, project, root, limits);
         let audit = locator.tree.audit_with_pages(&locator.root)?;
         let mut entries = BTreeMap::new();

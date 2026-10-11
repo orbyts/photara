@@ -24,42 +24,35 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
-**Active gate — v2 implementation verified; grown-history acceptance failed.** Safe replay/compiler
-optimizations pass focused regressions, but autosave is NOT performance-accepted.
-Same-input compilation improved 874→381 ms with exact output unchanged; latest
-native saves still take 7.00/6.87 seconds and peak process RSS is about 918 MiB.
-A subsequent move refused before admission: the growing active locator no longer
-fits its 262,144-byte per-attempt corridor. Last Saved remains revision 22 at
-x=13/y=14. No new original/Mutation was persisted; all writers are stopped.
-Remaining prepaid disk bytes are NOT a count of admissible future operations.
-Do not raise caps, erase history, relaunch stale apps, or claim this fixed.
-Implement the approved incremental-format packet in
-[the existing repeatable amendment](architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#incremental-layout-amendment--approved-2026-10-10).
-Existing geometry/corridor inputs are tunable under prior approval, but cannot
-silently change v1 deterministic construction. The user approved new v2 codec dispatch and
-implementation of this exact packet. It includes exact fields,
-typed edges, ordering rules and independently checked draft serialization vectors.
-The v2 implementation and exact-byte regressions pass; do not ask again within this scope. Preserve all v1
-bytes, typed dependencies, history, accounting and Accepted/Saved semantics.
+**Active gate — LL2a autosave performance remains unaccepted.** The v3 delta-index
+format and narrow inventory-root version-2 correction were approved on 2026-10-10.
+Implementation, exact v1/v2/v3 vectors, 15 session regressions and 5 reader tests, retry/context guards,
+and controlled/default strict checks pass. New disposable attempts use v3; stored
+v1/v2 originals keep exact original recovery dispatch. See the
+[approved packet](architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#follow-on-review--inventory-and-locator-batch-overlays-approved-2026-10-10).
+Do not request the same approval again.
 
-**Captured-history acceptance failure (2026-10-10):** v2 passes the 12-test session
-suite, including two consecutive v2 operations and interrupted original retry,
-but the existing grown immutable capture refuses under unchanged 262,144-byte
-corridors. A separate in-memory sizing experiment (not native dispatch) requires
-547,413 active-locator bytes on the second v2 operation. Same-destination reuse
-works; changed retained/global inventory paths amplify into many changed locator
-paths. The proposed format is not an accepted autosave fix. Native adapter stays
-v1 and all writers remain stopped. Do not increase corridors/geometry, enable
-this candidate, or erase history to make the result pass. Exact evidence and
-the [unapproved next-format packet](architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#follow-on-review--inventory-and-locator-batch-overlays-unapproved)
-are in the existing repeatable amendment. The packet adds balanced delta indexes
-for inventories/locators; it requires permanent-format approval before code or
-native dispatch. No performance result is claimed for that proposal. Final session suite passes
-12/12, v1 recovery golden passes, controlled/default-store strict checks pass.
-The default-library compatibility check is inconclusive: rustc slept with almost
-no CPU progress; its cause is unconfirmed and the owned check was stopped. Do not
-count that check as passed. No app build was attempted.
+**Latest native evidence:** completed-history prefix reuse cuts total submit/save
+from 8.47/9.43 seconds to 4.47/4.60 seconds on the same grown disposable Project.
+Exact Saved and return-to-original pass; normal close takes 0.368 seconds. Exact reopen also passes (14.57 seconds). Peak
+RSS is 915,210,240 bytes, and live RSS after work is about 721 MiB. This is not the requested low-resource seamless autosave experience.
+All writers are stopped at **B Saved revision 28, x=13/y=14**. No app rebuild or
+human handover yet. Release CLI hash and phase logs are in the existing
+[acceptance evidence](architecture/verification/ll2a-disposable-local-acceptance.json).
+Remaining work is equivalent-work reduction in cold history, repeated validation
+and allocation ownership; do not weaken identity/bytes/limits, authority, barriers
+or Saved checks. Use read-only capture profiling before another bounded native
+out/back; prepaid disk bytes are not a count of admissible operations.
 
+**Why v3 was necessary:** the earlier v1 move refused before admission because its
+growing locator exceeded the unchanged 262,144-byte fixture corridor. V2's path-copy
+inventory changes amplified into 547,413 locator bytes on the second captured
+operation. V3 balanced inventory/locator delta indexes fit the same corridor;
+old format meanings, history, charges, geometry and bounds remain unchanged.
+The new logical `photara.package.inventory-overlay` root alone uses version 2;
+the existing selected-control version 1 remains unchanged. Other new overlay
+schemas use version 1. These size/correctness passes do not imply performance
+acceptance. Do not raise caps, erase history, or relaunch stale app builds.
 
 **2026-10-10 save-backlog correction active.** User reports prolonged Saving and
 Quit waiting, and authorizes combining redundant moves. Combine only consecutive

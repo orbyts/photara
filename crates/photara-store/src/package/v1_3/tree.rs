@@ -82,6 +82,41 @@ impl<'a, P: PhysicalRecords> PhysicalTree<'a, P> {
             limits,
         }
     }
+    fn overlay(&self, root: &PhysicalRef) -> Result<Option<PhysicalTreeAudit>, PackageError> {
+        if self.kind != PhysicalTreeKind::Locator {
+            return Ok(None);
+        }
+        let value = self.provider.resolve(root, FrameKind::Physical)?;
+        if value["schema"]["id"] != "photara.storage.locator-overlay"
+            || value["schema"]["version"] != 1
+        {
+            return Ok(None);
+        }
+        let allocation = root.allocation_id.to_string();
+        let resolved = super::overlay::resolve(
+            |r| {
+                self.provider.resolve(
+                    &serde_json::from_value(r.clone()).map_err(|_| PackageError::Record)?,
+                    FrameKind::Physical,
+                )
+            },
+            &serde_json::to_value(root).map_err(|_| PackageError::Record)?,
+            self.project,
+            super::overlay::Family::Locator {
+                role: None,
+                allocation: &allocation,
+            },
+            self.limits,
+        )?;
+        Ok(Some(PhysicalTreeAudit {
+            entries: resolved.entries,
+            pages: resolved
+                .nodes
+                .into_iter()
+                .map(|(r, _)| serde_json::from_value(r).map_err(|_| PackageError::Record))
+                .collect::<Result<_, _>>()?,
+        }))
+    }
     /// Authenticates the selected path only. Unaccessed descendants have no
     /// integrity claim; this result cannot grant imported-package write admission.
     /// # Errors
@@ -92,6 +127,43 @@ impl<'a, P: PhysicalRecords> PhysicalTree<'a, P> {
         key: &ObjectRef,
     ) -> Result<Option<Value>, PackageError> {
         validate_key(key, self.kind)?;
+        if self.kind == PhysicalTreeKind::Locator {
+            let value = self.provider.resolve(root, FrameKind::Physical)?;
+            if value["schema"]["id"] == "photara.storage.locator-overlay"
+                && value["schema"]["version"] == 1
+            {
+                #[cfg(test)]
+                if std::env::var_os("PHOTARA_COMPILER_FULL_LOOKUP").is_some() {
+                    return Ok(self
+                        .overlay(root)?
+                        .ok_or(PackageError::Integrity)?
+                        .entries
+                        .into_iter()
+                        .find(|v| {
+                            serde_json::from_value::<ObjectRef>(v["object"].clone())
+                                .ok()
+                                .as_ref()
+                                == Some(key)
+                        }));
+                }
+                return super::overlay::lookup(
+                    |r| {
+                        self.provider.resolve(
+                            &serde_json::from_value(r.clone()).map_err(|_| PackageError::Record)?,
+                            FrameKind::Physical,
+                        )
+                    },
+                    &serde_json::to_value(root).map_err(|_| PackageError::Record)?,
+                    self.project,
+                    super::overlay::Family::Locator {
+                        role: None,
+                        allocation: &root.allocation_id.to_string(),
+                    },
+                    self.limits,
+                    key,
+                );
+            }
+        }
         let mut reference = root.clone();
         let mut expected = None;
         let mut seen = BTreeSet::new();
@@ -136,6 +208,9 @@ impl<'a, P: PhysicalRecords> PhysicalTree<'a, P> {
     /// # Errors
     /// Uses the same checks and budgets as `audit`.
     pub fn audit_with_pages(&self, root: &PhysicalRef) -> Result<PhysicalTreeAudit, PackageError> {
+        if let Some(audit) = self.overlay(root)? {
+            return Ok(audit);
+        }
         let mut seen = BTreeSet::new();
         let (_, entries) = self.audit_at(root, 0, &mut seen)?;
         let pages = seen

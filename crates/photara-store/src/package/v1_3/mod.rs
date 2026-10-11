@@ -45,6 +45,7 @@ pub mod repeatable;
 mod origins;
 mod reader;
 mod retained_inventory;
+mod overlay;
 pub use reader::{
     ControlRecords, DirectoryObservation, ReaderLimits, RetainedObservation, RoleClosure,
     SettledPackage, SettledRegistration, inspect_recovery, inspect_settled, verify_original,

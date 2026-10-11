@@ -7,6 +7,8 @@ use super::{
 use serde_json::{Value, json};
 #[path = "incremental.rs"]
 pub(super) mod incremental;
+#[path = "overlay.rs"]
+pub(super) mod overlay;
 #[path = "retained_inventory.rs"]
 mod retained_inventory;
 use std::collections::{BTreeMap, BTreeSet};
@@ -19,18 +21,19 @@ thread_local! {
 pub(super) fn take_load_work() -> (usize, usize) {
     LOAD_WORK.with(|work| work.replace((0, 0)))
 }
-fn get(pool: &BTreeMap<wire::Key, Value>, r: &Value) -> Result<Value> {
+fn get(pool: &super::object_pool::ObjectPool, r: &Value) -> Result<Value> {
     pool.get(&key(r)?)
         .cloned()
         .ok_or("decoder original object absent")
 }
 pub(super) struct Builder {
     incremental: bool,
+    overlays: bool,
     changed_order: BTreeMap<wire::Key, usize>,
     project: String,
     geometry: TreeGeometry,
     limits: Limits,
-    pub(super) pool: BTreeMap<wire::Key, Value>,
+    pub(super) pool: super::object_pool::ObjectPool,
     files: BTreeMap<String, Vec<u8>>,
     locations: BTreeMap<String, BTreeMap<wire::Key, Value>>,
     corridors: BTreeMap<String, u64>,
@@ -76,12 +79,13 @@ impl Builder {
             work.set((loads + 1, parsed));
         });
         let mut b = Self {
-            incremental: inputs.codec == "photara.codec.ps2-repeatable-layout-v2",
+            incremental: inputs.codec != "photara.codec.ps2-repeatable-layout-v1",
+            overlays: inputs.codec == "photara.codec.ps2-repeatable-layout-v3",
             changed_order: BTreeMap::new(),
             project: text(&old.manifest["project_id"])?.into(),
             geometry: inputs.geometry.clone(),
             limits,
-            pool: BTreeMap::new(),
+            pool: super::object_pool::ObjectPool::default(),
             files: BTreeMap::new(),
             locations: BTreeMap::new(),
             corridors: inputs
@@ -171,8 +175,8 @@ impl Builder {
                 self.pool.len() < self.limits.max_objects,
                 "object pool budget",
             )?;
-            let (value, parsed) = if let Some(memo) = memo {
-                memo.parse(
+            let summary = if let Some(memo) = memo {
+                memo.validate(
                     raw,
                     &k,
                     self.limits.semantic.json,
@@ -180,22 +184,12 @@ impl Builder {
                         / 4,
                 )?
             } else {
-                (
-                    crate::package::parse_canonical_json(raw, self.limits.semantic.json)
-                        .map_err(|_| "original canonical record budget")?,
-                    true,
-                )
+                let value = crate::package::parse_canonical_json(raw, self.limits.semantic.json)
+                    .map_err(|_| "original canonical record budget")?;
+                count_decode();
+                super::canonical_memo::Summary::from_value(&value)
             };
-            #[cfg(test)]
-            if parsed {
-                LOAD_WORK.with(|work| {
-                    let (loads, parsed) = work.get();
-                    work.set((loads, parsed + 1));
-                });
-            }
-            #[cfg(not(test))]
-            let _ = parsed;
-            self.pool.insert(k.clone(), value);
+            self.pool.original(k.clone(), raw, summary);
         }
         Ok(k)
     }
@@ -305,6 +299,44 @@ impl Builder {
         )?;
         let k = (hash(&frame[16..]), (frame.len() - 16) as u64);
         self.pool.get(&k).cloned().ok_or("seed canonical object")
+    }
+    fn inventory_seed(
+        &mut self,
+        entries: Vec<Value>,
+        seed: &Value,
+        purpose: &str,
+    ) -> Result<(Value, Vec<Value>)> {
+        if self.overlays {
+            overlay::build(self, seed, entries, purpose, None)
+        } else {
+            self.tree_seed(
+                "photara.package.inventory",
+                entries,
+                "ref",
+                self.geometry.semantic_leaf as usize,
+                Some(seed),
+            )
+        }
+    }
+    fn locator_seed(
+        &mut self,
+        entries: Vec<Value>,
+        allocation: &str,
+        seed: Option<&Value>,
+        role: &str,
+    ) -> Result<Value> {
+        if self.overlays {
+            overlay::build(
+                self,
+                seed.ok_or("overlay locator predecessor")?,
+                entries,
+                "",
+                Some((allocation, role)),
+            )
+            .map(|v| v.0)
+        } else {
+            self.physical_seed("locator", entries, "object", allocation, seed)
+        }
     }
     fn tree_seed(
         &mut self,
@@ -423,6 +455,10 @@ impl Builder {
         }
         Ok((level[0]["child"].clone(), nodes))
     }
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Typed closure dispatch keeps legacy and additive dependencies explicit"
+    )]
     fn closure(&self, roots: &[Value]) -> Result<BTreeMap<wire::Key, Value>> {
         let mut out = BTreeMap::new();
         let mut pending = roots.to_vec();
@@ -487,6 +523,17 @@ impl Builder {
                     for e in v["children"].as_array().ok_or("decoder branch")? {
                         edges.push(e["child"].clone());
                     }
+                }
+                "photara.package.inventory-overlay" if v["schema"]["version"] == 2 => {
+                    let resolved = overlay::resolve(self, &r, text(&v["purpose"])?, None)?;
+                    for (node, body) in resolved.nodes {
+                        out.insert(key(&node)?, body);
+                    }
+                    ensure(
+                        out.len() <= self.limits.max_objects,
+                        "overlay closure budget",
+                    )?;
+                    edges.extend(resolved.entries);
                 }
                 "photara.package.inventory-leaf" => edges.extend(
                     v["entries"]
@@ -614,17 +661,12 @@ pub(crate) fn compile(
 ) -> Result<Layout> {
     inputs.validate(old, proof, limits)?;
     ensure(
-        !b.pool.values().any(|v| {
-            v["schema"]["id"] == "photara.package.state-root"
-                && v["root_id"] == inputs.active_root_id
-        }),
+        !b.pool.collision(&inputs.active_root_id, true),
         "retained root identity collision",
     )?;
     for mapping in &inputs.associations {
         ensure(
-            !b.pool
-                .values()
-                .any(|v| v["association_id"] == mapping.replacement),
+            !b.pool.collision(&mapping.replacement, false),
             "retained association collision",
         )?;
     }
@@ -750,12 +792,10 @@ pub(crate) fn compile(
         active["operation_index"].clone(),
     ])?;
     active["inventory"] = b
-        .tree_seed(
-            "photara.package.inventory",
+        .inventory_seed(
             semantic.values().map(reference).collect(),
-            "ref",
-            inputs.geometry.semantic_leaf as usize,
-            Some(&oldactive["inventory"]),
+            &oldactive["inventory"],
+            "state",
         )?
         .0;
     let mut states = Vec::new();
@@ -839,12 +879,10 @@ pub(crate) fn compile(
                 .map(|(k, v)| (k.clone(), v.clone())),
         );
     }
-    let (base_inventory, globalnodes) = b.tree_seed(
-        "photara.package.inventory",
+    let (base_inventory, globalnodes) = b.inventory_seed(
         union.values().map(reference).collect(),
-        "ref",
-        inputs.geometry.semantic_leaf as usize,
-        Some(&oldoverlay["base"]),
+        &oldoverlay["base"],
+        "global",
     )?;
     let ends = inputs
         .corridors
@@ -934,12 +972,11 @@ pub(crate) fn compile(
         }
         locations.extend(b.locations[&allocation.data].clone());
         let entries=records.iter().map(|(k,v)|Ok(json!({"object":reference(v),"membership":if tag(v)==2{"ownership"}else{"semantic"},"physical":locations.get(k).ok_or("missing planned location")?}))).collect::<Result<Vec<_>>>()?;
-        let locator = b.physical_seed(
-            "locator",
+        let locator = b.locator_seed(
             entries,
-            "object",
             &allocation.locator,
             predecessor.map(|p| &p["locator"]),
+            &allocation.role,
         )?;
         placements.push(json!({"root":state,"root_id":get(&b.pool,state)?["root_id"],"locator":locator,"ownership":owner}));
     }
@@ -985,6 +1022,14 @@ pub(super) fn original_objects(
     old: &OriginalPackage,
     inputs: &PlannerInputs,
     limits: Limits,
-) -> Result<BTreeMap<wire::Key, Value>> {
+) -> Result<super::object_pool::ObjectPool> {
     Ok(Builder::load(old, inputs, limits)?.pool)
+}
+
+pub(super) fn count_decode() {
+    #[cfg(test)]
+    LOAD_WORK.with(|work| {
+        let (loads, parsed) = work.get();
+        work.set((loads, parsed + 1));
+    });
 }

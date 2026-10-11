@@ -27,7 +27,7 @@ pub(super) fn replay(
     receipt: &Value,
     inputs: &PlannerInputs,
     limits: Limits,
-    pool: &BTreeMap<wire::Key, Value>,
+    pool: &super::object_pool::ObjectPool,
 ) -> Result<PreparedChange> {
     let active = proof.roles.get("active").ok_or("active role")?;
     ensure(
@@ -187,7 +187,7 @@ fn closure_from_pool(
     proof: &OriginalProof,
     inputs: &PlannerInputs,
     limits: Limits,
-    pool: &BTreeMap<wire::Key, Value>,
+    pool: &super::object_pool::ObjectPool,
 ) -> Result<(VerifiedClosure, BTreeMap<wire::Key, Value>)> {
     let active = proof.roles.get("active").ok_or("active role")?;
     let mut closure = BTreeMap::new();

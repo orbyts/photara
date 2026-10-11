@@ -5,6 +5,70 @@ use super::{
 };
 use crate::package::Sha256Hex;
 use serde_json::json;
+#[derive(Clone)]
+pub(in super::super) struct PrefixSnapshot {
+    context: String,
+    allocations: BTreeMap<String, (String, Value, usize, String)>,
+}
+impl PrefixSnapshot {
+    pub(in super::super) fn new(package: &super::OriginalPackage, context: String) -> Self {
+        Self {
+            context,
+            allocations: package
+                .allocations
+                .iter()
+                .map(|(id, a)| {
+                    (
+                        id.clone(),
+                        (
+                            a.arena.clone(),
+                            a.witness.clone(),
+                            a.bytes.len(),
+                            super::wire::hash(&a.bytes),
+                        ),
+                    )
+                })
+                .collect(),
+        }
+    }
+    pub(in super::super) fn matches(
+        &self,
+        package: &super::OriginalPackage,
+        context: &str,
+        tips: &std::collections::BTreeSet<PackageUuid>,
+        source: &impl AllocationInspection,
+        maximum: (u64, u64),
+    ) -> Result<bool, PackageError> {
+        if self.context != context || self.allocations.len() != package.allocations.len() {
+            return Ok(false);
+        }
+        let mut total = 0u64;
+        for (id, (arena, witness, length, hash)) in &self.allocations {
+            let Some(actual) = package.allocations.get(id) else {
+                return Ok(false);
+            };
+            let id = PackageUuid::parse(id)?;
+            total = total
+                .checked_add(actual.bytes.len() as u64)
+                .ok_or(PackageError::Limit)?;
+            if actual.arena != *arena
+                || actual.witness != *witness
+                || (!tips.contains(&id) && actual.bytes.len() != *length)
+                || actual.bytes.len() < *length
+                || actual.bytes.len() as u64 > maximum.0
+                || total > maximum.1
+                || source.observe(id)?.extent != actual.bytes.len() as u64
+                || super::wire::hash(&actual.bytes[..*length]) != *hash
+            {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+    pub(in super::super) fn cost(&self) -> Option<usize> {
+        value_storage(&json!([self.context, self.allocations]))
+    }
+}
 #[derive(Clone, Default)]
 pub(in super::super) struct Observations {
     values: BTreeMap<PackageUuid, Value>,
@@ -21,6 +85,41 @@ fn value(v: &AllocationObservation) -> Value {
     ])
 }
 impl Observations {
+    // Historical completed proofs already used Prefix's monotone tip view.
+    // Replaying that proof permits only those same registered tips to append;
+    // all immutable observations and every queried old prefix remain exact.
+    pub(in super::super) fn extended(
+        &self,
+        source: &impl AllocationInspection,
+        tips: &std::collections::BTreeSet<PackageUuid>,
+    ) -> Result<Option<Self>, PackageError> {
+        let mut fresh = self.clone();
+        for (id, expected) in &self.values {
+            let actual = value(&source.observe(*id)?);
+            if actual != *expected {
+                if !tips.contains(id)
+                    || actual[0] != expected[0]
+                    || actual[1] != "FramedJson"
+                    || actual[1] != expected[1]
+                    || actual[4] != expected[4]
+                    || actual[5] != expected[5]
+                    || actual[2].as_u64().ok_or(PackageError::Record)?
+                        < expected[2].as_u64().ok_or(PackageError::Record)?
+                    || actual[3].as_u64().ok_or(PackageError::Record)?
+                        < expected[3].as_u64().ok_or(PackageError::Record)?
+                {
+                    return Ok(None);
+                }
+                fresh.values.insert(*id, actual);
+            }
+        }
+        for ((id, length, max), expected) in &self.prefixes {
+            if source.framed_prefix_digest(*id, *length, *max)? != *expected {
+                return Ok(None);
+            }
+        }
+        Ok(Some(fresh))
+    }
     pub(in super::super) fn matches(
         &self,
         source: &impl AllocationInspection,

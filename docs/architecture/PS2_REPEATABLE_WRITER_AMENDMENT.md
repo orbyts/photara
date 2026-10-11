@@ -386,13 +386,15 @@ Evidence: `/private/tmp/ll2a-v2-import-sizing.log`; exact-vector run:
 `/private/tmp/ll2a-v2-final-vectors.log`. LL2a performance remains unaccepted.
 
 
-## Follow-on review — inventory and locator batch overlays (unapproved)
+## Follow-on review — inventory and locator batch overlays (approved 2026-10-10)
+
+Status: the user approved this exact follow-on packet on 2026-10-10. Implementation and bounded disposable validation may proceed within its stated gates; approval does not imply measured performance acceptance.
 
 Measured boundary. V2 is correctly reproducible and refuses before effects, but fails grown-history acceptance. After the diagnostic-only import, seven new retained controls generate 26 retained-inventory pages; active/global inventories change 52/133 pages; active locator changes 473 of 577 pages and writes 547,413 bytes. Those inventory implementation-page hashes become dispersed locator keys. The unchanged 262,144-byte corridor fails; v2 native dispatch remains disabled. The proposal below has not been implemented or performance-qualified.
 
 Dispatch. Add only photara.codec.ps2-repeatable-admission-v3 / photara.codec.ps2-repeatable-layout-v3. Their O/F codec labels change; all other v2 original fields, retained-control inventory base/additions/result meanings, project/accounting limits and existing receipt/phase bytes remain unchanged. V1/v2 recovery dispatch and vectors remain exact. A v3 retained-inventory base may reference the selected completed v2 or v3 result; legacy v1 import retains its existing rule. Operation ID/ordinal, retained-control, ownership and root-placement trees keep v2 path-copy. Semantic/global inventories and per-role locators use the overlay types below.
 
-Exact new records. Every record has exactly schema:{id,version:1}, project_id, extensions:{} plus listed fields. Ref means the unchanged JSON ObjectRef. PhysicalRef means the unchanged frame coordinate, restricted to the same independently owned metadata allocation for locator records. Decimal means canonical DecimalU64. All unknown fields, nonempty extensions, nil/foreign identity, false summaries and incorrect tags refuse.
+Exact new records. Every record has exactly schema:{id,version}, project_id, extensions:{} plus listed fields. Version is 1 except the new logical inventory overlay root, which is version 2 under the approved narrow correction below. Ref means the unchanged JSON ObjectRef. PhysicalRef means the unchanged frame coordinate, restricted to the same independently owned metadata allocation for locator records. Decimal means canonical DecimalU64. All unknown fields, nonempty extensions, nil/foreign identity, false summaries and incorrect tags refuse.
 
 Two families: prefix photara.package.inventory-overlay (logical JSON, semantic membership) and photara.storage.locator-overlay (physical metadata frames). Each family has four schema IDs: the prefix itself, prefix-batch, prefix-index-leaf, prefix-index-branch.
 
@@ -418,3 +420,52 @@ proposal for low-resource autosave. Within equivalent authenticated behavior,
 load only needed current closure/pages and reuse verified immutable computation;
 retain fresh framing, identity, authority and closure checks. Measure total
 save latency, decode work and peak memory before native handover.
+
+
+### Narrow compatibility correction — approved 2026-10-10
+
+Implementation review found a collision in the approved packet: the existing
+`photara.package.inventory-overlay` version 1 selected control already means
+`{schema,project_id,extensions,base,controls,count}`. The proposed new logical
+root used the same schema ID/version for a different exact shape. Context-specific
+dispatch happens to distinguish them today, but must not redefine that frozen
+schema meaning.
+
+Approved correction: **only the new logical inventory overlay root uses
+`photara.package.inventory-overlay` version 2**. Its approved fields remain exactly
+`{schema,project_id,extensions,purpose,base,base_count,batches,through_sequence,count}`.
+The new inventory batch/index schemas remain version 1. All locator overlay
+schemas remain version 1. Admission/layout codec IDs remain v3. Every existing
+version-1 selected-control byte and meaning remains unchanged. Writer and reader
+must dispatch on both schema ID and version and refuse wrong versions/shapes.
+No other format, limits, history, authority, durability or native scope changes.
+
+The user explicitly approved this exact correction on 2026-10-10: “Approve the
+version-2 correction.” Implement it and pin final v3 vectors before native
+dispatch. All original performance and disposable-validation gates remain.
+There were no native v3 writes before this approval.
+
+### Implementation verification — 2026-10-10
+
+The approved corrected v3 format is implemented; existing v1/v2 vectors remain
+unchanged. The mandatory session suite now has 15 passing tests and the existing
+reader/recovery corpus has 5 passing tests. Controlled and default-store strict
+checks pass. Six-operation v1→v3 continuation, original-attempt interrupted retry,
+wrong schema versions, counts, roles, bounds and changed-byte/context refusal are
+covered. Complete v3 chain vectors are pinned in
+`crates/photara-store/src/package/v1_3/repeatable/incremental_tests.rs`.
+
+New disposable originals dispatch v3 only after those gates; stored originals
+retain their original codec. Same-capture comparisons verify scoped locator
+lookup, one full audit per role per inspection, lazy canonical objects, borrowed
+observations, charge-only ceiling metadata and completed-journal prefix reuse.
+Reuse authenticates exact context/limits, byte prefixes and observations; new
+selected state requires a freshly verified matching receipt. No barrier changed.
+
+**Performance is not accepted.** The final native out/back restores Saved revision
+28 at x=13/y=14, closes normally in 0.368 seconds and reopens with the exact Saved
+coordinate. Total submit/checkpoint is 4.47/4.60 seconds versus the initial v3
+8.47/9.43 seconds, but peak RSS remains 915,210,240 bytes and reopen takes 14.57
+seconds. No app build or handover was performed. The existing LL2a evidence file
+contains source-gate logs, binary hashes, intermediate failures and final timing.
+All disposable writers are stopped. No fixture bounds or production scope changed.

@@ -736,16 +736,19 @@ impl CompiledPlans {
             context.inspection,
             snapshot_memo::Observations::default(),
         );
-        v1_3::reader::inspect_operation_package(
-            package,
-            identity(context.identity),
-            &observed,
-            context.registration,
-            context.frames,
-            context.reader,
-            plan,
-            stage,
-        )?;
+        let fresh = RestartContext {
+            inspection: &observed,
+            registration: context.registration,
+            directory: context.directory,
+            identity: context.identity,
+            frames: context.frames,
+            reader: context.reader,
+            planner: context.planner,
+            max_originals: context.max_originals,
+        };
+        let maximum = self.maximum(context.planner).saturating_sub(self.bytes);
+        self.reader
+            .inspect_candidate(package, &fresh, plan, stage, maximum)?;
         #[cfg(test)]
         {
             self.candidate_checks += 1;
@@ -788,6 +791,20 @@ impl CompiledPlans {
         context: &RestartContext<'_, I>,
     ) -> String {
         reader_memo::fingerprint(current, context, None, None)
+    }
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(super) fn snapshot_context<I>(
+        current: &OriginalPackage,
+        context: &RestartContext<'_, I>,
+    ) -> String {
+        let scope = OriginalPackage {
+            manifest: current.manifest.clone(),
+            head: Value::Null,
+            commit: Value::Null,
+            loose: BTreeMap::new(),
+            allocations: BTreeMap::new(),
+        };
+        reader_memo::fingerprint(&scope, context, None, None)
     }
     pub(crate) fn reconstruct(
         &self,
@@ -1131,8 +1148,16 @@ impl CachedPlan {
                         .map_or_else(|| wire::hash(&actual.bytes), |p| p.hash(id, &actual.bytes))
                         == *digest,
             )?;
-            let mut bytes = actual.bytes.clone();
-            bytes.extend_from_slice(p.files.get(id).ok_or(PackageError::Integrity)?);
+            let suffix = p.files.get(id).ok_or(PackageError::Integrity)?;
+            let mut bytes = Vec::with_capacity(
+                actual
+                    .bytes
+                    .len()
+                    .checked_add(suffix.len())
+                    .ok_or(PackageError::Limit)?,
+            );
+            bytes.extend_from_slice(&actual.bytes);
+            bytes.extend_from_slice(suffix);
             files.insert(id.clone(), bytes);
         }
         let stages = p
@@ -1354,10 +1379,18 @@ impl<'a, 'b, I: AllocationInspection> IntentReplay<'a, 'b, I> {
                 return Err(PackageError::Limit);
             }
             replay.seen.extend(ancestry.iter().cloned());
+            drop(old);
             recover(verified)?
         } else {
+            drop(old);
             recover(initial.as_ref().ok_or(PackageError::Integrity)?)?
         };
+        // The next pending plan owns its original already. Preserve the last
+        // completed boundary as metadata while waiting for the receipt instead
+        // of retaining another full historical package through its verification.
+        if let Some((previous, lineage)) = self.completed.take() {
+            self.resume = Some((CompactOriginal::new(&previous), lineage));
+        }
         self.lineage = replay.seen;
         self.pending = Some(key);
         Ok(plan)
@@ -1371,6 +1404,7 @@ impl<'a, 'b, I: AllocationInspection> IntentReplay<'a, 'b, I> {
         let verified =
             verify_completed_plan(self.current, plan, self.context, memo, Some(&self.prefixes))?;
         self.completed = Some((verified, self.lineage.clone()));
+        self.resume = None;
         self.pending = None;
         Ok(())
     }
@@ -1441,7 +1475,11 @@ pub(crate) fn verify_original_prefix_cached<I: AllocationInspection>(
 
 /// Verify a checkpoint receipt's completed historical closure using only actual
 /// retained prefixes. Later valid appends do not manufacture missing old bytes.
-fn verify_completed_plan<I: AllocationInspection>(
+#[expect(
+    clippy::too_many_lines,
+    reason = "Keep exact current borrowing and historical-prefix fallback within the same receipt proof"
+)]
+pub(super) fn verify_completed_plan<I: AllocationInspection>(
     current: &OriginalPackage,
     plan: &RepeatablePlan,
     context: &RestartContext<'_, I>,
@@ -1449,36 +1487,48 @@ fn verify_completed_plan<I: AllocationInspection>(
     prefixes: Option<&prefix_index::Prefixes<'_>>,
 ) -> Result<VerifiedOriginal, PackageError> {
     let stage = &plan.stages()[6];
-    // Copy each target once; cloning the older full prefix first doubled the
-    // transient allocation bytes during every historical completion proof.
-    let mut package = OriginalPackage {
-        manifest: plan.old.manifest.clone(),
-        head: stage.head.clone(),
-        commit: stage.commit.clone(),
-        loose: stage.loose.clone(),
-        allocations: plan
-            .old
-            .allocations
-            .iter()
-            .map(|(id, a)| {
-                (
-                    id.clone(),
-                    super::Allocation {
-                        arena: a.arena.clone(),
-                        witness: a.witness.clone(),
-                        bytes: Vec::new(),
-                    },
-                )
-            })
-            .collect(),
-    };
-    for (id, allocation) in &mut package.allocations {
+    for (id, allocation) in &plan.old.allocations {
         let actual = current.allocations.get(id).ok_or(PackageError::Integrity)?;
         let target = plan.files.get(id).ok_or(PackageError::Integrity)?;
         check(actual.arena == allocation.arena && actual.witness == allocation.witness)?;
         check(actual.bytes.starts_with(target))?;
-        allocation.bytes.clone_from(target);
     }
+    // The most recent receipt usually selects the actual current bytes. Borrow
+    // them; older receipts still get the exact bounded historical prefix view.
+    let package = if current.manifest == plan.old.manifest
+        && current.head == stage.head
+        && current.commit == stage.commit
+        && current.loose == stage.loose
+        && current.allocations.len() == plan.files.len()
+        && current
+            .allocations
+            .iter()
+            .all(|(id, a)| plan.files.get(id) == Some(&a.bytes))
+    {
+        std::borrow::Cow::Borrowed(current)
+    } else {
+        std::borrow::Cow::Owned(OriginalPackage {
+            manifest: plan.old.manifest.clone(),
+            head: stage.head.clone(),
+            commit: stage.commit.clone(),
+            loose: stage.loose.clone(),
+            allocations: plan
+                .old
+                .allocations
+                .iter()
+                .map(|(id, a)| {
+                    (
+                        id.clone(),
+                        super::Allocation {
+                            arena: a.arena.clone(),
+                            witness: a.witness.clone(),
+                            bytes: plan.files[id].clone(),
+                        },
+                    )
+                })
+                .collect(),
+        })
+    };
     let envelope = loose(
         &package,
         &package.commit["root_set"]["placement"]["accounting"],
@@ -1516,7 +1566,7 @@ fn verify_completed_plan<I: AllocationInspection>(
             prefixes,
             |inspection| {
                 v1_3::reader::verify_operation_original(
-                    package.clone(),
+                    package.as_ref().clone(),
                     identity(context.identity),
                     inspection,
                     context.registration,
@@ -1530,7 +1580,7 @@ fn verify_completed_plan<I: AllocationInspection>(
         );
     }
     v1_3::reader::verify_operation_original(
-        package.clone(),
+        package.as_ref().clone(),
         identity(context.identity),
         &prefix,
         context.registration,
@@ -1553,6 +1603,29 @@ pub(super) struct CompactOriginal {
     retained: BTreeMap<ObjectRef, v1_3::Membership>,
 }
 impl CompactOriginal {
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(super) fn selector_matches(&self, current: &OriginalPackage) -> bool {
+        self.package.head == current.head
+            && self.package.commit == current.commit
+            && self.package.loose == current.loose
+    }
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(super) fn tips(&self, json: JsonLimits) -> Result<BTreeSet<PackageUuid>, PackageError> {
+        let envelope = loose(
+            &self.package,
+            &self.package.commit["root_set"]["placement"]["accounting"],
+            json,
+        )?;
+        let ledger = loose(&self.package, &envelope["ledger"], json)?;
+        ledger["tips"]
+            .as_array()
+            .ok_or(PackageError::Record)?
+            .iter()
+            .map(|tip| {
+                PackageUuid::parse(tip["allocation_id"].as_str().ok_or(PackageError::Record)?)
+            })
+            .collect()
+    }
     fn new(v: &VerifiedOriginal) -> Self {
         let package = OriginalPackage {
             manifest: v.package.manifest.clone(),
@@ -1667,4 +1740,89 @@ impl CompactOriginal {
                 .checked_add(256)
         })
     }
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "Opt-in immutable capture benchmark assertions"
+)]
+pub(super) fn lookup_profile(
+    package: &OriginalPackage,
+    frames: FrameLimits,
+    reader: &ReaderLimits,
+    identity: &SelectionIdentity,
+) {
+    use v1_3::PhysicalRecords;
+    struct Counted<'a> {
+        inner: Packed<'a>,
+        reads: std::cell::Cell<usize>,
+    }
+    impl PhysicalRecords for Counted<'_> {
+        fn resolve(
+            &self,
+            r: &v1_3::PhysicalRef,
+            kind: v1_3::FrameKind,
+        ) -> Result<Value, PackageError> {
+            self.reads.set(self.reads.get() + 1);
+            self.inner.resolve(r, kind)
+        }
+    }
+    let provider = Counted {
+        inner: Packed {
+            package,
+            limits: frames,
+            checked: RefCell::new(BTreeMap::new()),
+        },
+        reads: std::cell::Cell::new(0),
+    };
+    let envelope = v1_3::SelectedEnvelope::parse(
+        &wire::encode(&package.manifest),
+        &wire::encode(&package.head),
+        &wire::encode(&package.commit),
+        v1_3::SelectionIdentity {
+            project: identity.project,
+            library: identity.library,
+            bootstrap_sha256: identity.bootstrap_sha256.clone(),
+        },
+        reader.json,
+    )
+    .unwrap();
+    let state = envelope
+        .open_role(&provider, v1_3::SelectedRole::Active, reader.tree)
+        .unwrap();
+    let tree = v1_3::PhysicalTree::new(
+        &provider,
+        identity.project,
+        v1_3::PhysicalTreeKind::Locator,
+        reader.tree,
+    );
+    let all = tree.audit(&state.locator).unwrap();
+    let keys = all
+        .iter()
+        .take(20)
+        .map(|v| serde_json::from_value::<ObjectRef>(v["object"].clone()).unwrap())
+        .collect::<Vec<_>>();
+    provider.reads.set(0);
+    let before = std::time::Instant::now();
+    for key in &keys {
+        let entries = tree.audit(&state.locator).unwrap();
+        assert!(
+            entries
+                .iter()
+                .any(|v| serde_json::from_value::<ObjectRef>(v["object"].clone()).unwrap() == *key)
+        );
+    }
+    let full = (before.elapsed(), provider.reads.replace(0));
+    let before = std::time::Instant::now();
+    for key in &keys {
+        assert!(tree.lookup(&state.locator, key).unwrap().is_some());
+    }
+    let scoped = (before.elapsed(), provider.reads.get());
+    eprintln!(
+        "captured scoped locator: keys={} entries={} full={full:?} scoped={scoped:?}",
+        keys.len(),
+        all.len()
+    );
+    assert!(scoped.1 < full.1);
 }

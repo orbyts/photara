@@ -15,7 +15,7 @@ fn entry_key(entry: &Value, field: &str) -> Result<Key> {
     let value = if field == "ref" { entry } else { &entry[field] };
     Ok(match field {
         "ref" | "object" | "root" | "record" => Key::Ref(key(value)?),
-        "acceptance_ordinal" => Key::Ordinal(wire::number(value)?),
+        "acceptance_ordinal" | "sequence" => Key::Ordinal(wire::number(value)?),
         _ => Key::Text(text(value)?.to_owned()),
     })
 }

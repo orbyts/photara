@@ -248,8 +248,8 @@ impl SessionIo for Backend {
         }) {
             return Ok(());
         }
-        let lease = lease(&p.old);
-        execute(&mut self.mock, &lease, &p).map_err(|_| EffectFailure::OutcomeUnknown)?;
+        // Native prepares the exact wrapper before effects, then appends it only
+        // after the executor has independently checked and barriered clean HEAD.
         let j = self.parsed();
         let intent = j
             .records()
@@ -270,6 +270,8 @@ impl SessionIo for Backend {
                 limits(),
             )
             .unwrap();
+        let lease = lease(&p.old);
+        execute(&mut self.mock, &lease, &p).map_err(|_| EffectFailure::OutcomeUnknown)?;
         self.append_raw(&append);
         Ok(())
     }
@@ -757,6 +759,16 @@ fn completed_journal_prefix_extends_without_historical_replay() {
             .begin_flush("save-now", rid(131_002 + step * 2))
             .unwrap();
         session.finish_flush(&flush).unwrap();
+        let memo = session.io_mut().memo.borrow();
+        assert_eq!(
+            memo.compilations,
+            usize::try_from(step + 1).unwrap(),
+            "new HEAD/extent must not recompile completed history"
+        );
+        assert!(
+            memo.journal_replayed <= 4,
+            "new HEAD/extent replays only its intent, Mutation, barrier and receipt"
+        );
     }
     let backend = session.io_mut();
     let j = backend.parsed();
@@ -930,3 +942,88 @@ fn original_pool_dedup_preserves_physical_budgets_and_malformed_refusal() {
 
 #[path = "incremental_tests.rs"]
 mod incremental_tests;
+
+#[test]
+fn clean_executor_proof_reused_by_receipt_with_fresh_observations() {
+    let base = fixture();
+    let original = verify(&base);
+    let (intent, receipt) = request();
+    let plan = plan::compile_inner(
+        &original,
+        &intent,
+        &receipt,
+        attempt(&original, 1000),
+        budget(),
+    )
+    .unwrap();
+    let current = selected(&plan, 6);
+    let observed = snapshot(&base, &current);
+    let identity = identity(&current);
+    let reader = support::limits();
+    let context = super::journal_tests::context(&observed, &identity, &reader);
+    let mut memo = super::super::restart::CompiledPlans::default();
+    crate::package::v1_3::locator::take_full_audits();
+    memo.inspect_candidate(&current, &context, &plan, 6)
+        .unwrap();
+    assert_eq!(
+        crate::package::v1_3::locator::take_full_audits(),
+        original.proof.roles.len(),
+        "one full locator audit per role, shared by semantic/retention/physical proofs"
+    );
+    let before = memo.reader_work();
+    let proved = super::super::restart::verify_completed_plan(
+        &current,
+        &plan,
+        &context,
+        Some(&mut memo),
+        None,
+    )
+    .unwrap();
+    assert_eq!(memo.reader_work(), (before.0, before.1 + 1));
+    assert_eq!(proved.package().head, current.head);
+    let mut changed = current.clone();
+    changed.allocations.values_mut().next().unwrap().bytes[16] ^= 1;
+    assert!(
+        super::super::restart::verify_completed_plan(
+            &changed,
+            &plan,
+            &context,
+            Some(&mut memo),
+            None
+        )
+        .is_err()
+    );
+    let mut changed_observation = snapshot(&base, &current);
+    changed_observation
+        .allocations
+        .values_mut()
+        .next()
+        .unwrap()
+        .inode += 1;
+    let altered = super::journal_tests::context(&changed_observation, &identity, &reader);
+    assert!(
+        super::super::restart::verify_completed_plan(
+            &current,
+            &plan,
+            &altered,
+            Some(&mut memo),
+            None
+        )
+        .is_err()
+    );
+    let mut narrowed = reader;
+    narrowed.max_roles = 0;
+    let limited = super::journal_tests::context(&observed, &identity, &narrowed);
+    assert!(
+        super::super::restart::verify_completed_plan(
+            &current,
+            &plan,
+            &limited,
+            Some(&mut memo),
+            None
+        )
+        .is_err()
+    );
+    #[cfg(target_os = "macos")]
+    super::super::disposable::check_borrowed_snapshot(base.data.clone(), &current);
+}

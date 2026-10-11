@@ -304,7 +304,10 @@ impl<P: PhysicalRecords> Audit<'_, '_, P> {
                     .map(|(r, m)| Part::Entry(r, m))
                     .collect()
                 }
-                Some("photara.codec.ps2-repeatable-admission-v2") => {
+                Some(
+                    "photara.codec.ps2-repeatable-admission-v2"
+                    | "photara.codec.ps2-repeatable-admission-v3",
+                ) => {
                     fields(base, &["kind", "root"])?;
                     check(
                         base["kind"] == "tree"
@@ -355,7 +358,13 @@ pub(super) fn inspect<P: PhysicalRecords>(
     project: PackageUuid,
     limits: TreeLimits,
 ) -> Result<()> {
-    if original["original_codec"] != "photara.codec.ps2-repeatable-admission-v2" {
+    if !matches!(
+        original["original_codec"].as_str(),
+        Some(
+            "photara.codec.ps2-repeatable-admission-v2"
+                | "photara.codec.ps2-repeatable-admission-v3"
+        )
+    ) {
         return Ok(());
     }
     let mut audit = Audit {
@@ -370,7 +379,13 @@ pub(super) fn inspect<P: PhysicalRecords>(
     let mut all = current.clone();
     for (r, m) in &current {
         let body = loc.json(r, *m)?;
-        if body["original_codec"] == "photara.codec.ps2-repeatable-admission-v2" {
+        if matches!(
+            body["original_codec"].as_str(),
+            Some(
+                "photara.codec.ps2-repeatable-admission-v2"
+                    | "photara.codec.ps2-repeatable-admission-v3"
+            )
+        ) {
             audit.descriptor(&body)?;
         }
     }

@@ -106,7 +106,9 @@ impl PlannerInputs {
         ensure(
             matches!(
                 self.codec.as_str(),
-                "photara.codec.ps2-repeatable-layout-v1" | "photara.codec.ps2-repeatable-layout-v2"
+                "photara.codec.ps2-repeatable-layout-v1"
+                    | "photara.codec.ps2-repeatable-layout-v2"
+                    | "photara.codec.ps2-repeatable-layout-v3"
             ),
             "repeatable layout codec",
         )?;

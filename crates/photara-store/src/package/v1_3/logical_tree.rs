@@ -131,6 +131,35 @@ impl<'a, P: LogicalRecords> LogicalTree<'a, P> {
             limits,
         }
     }
+    fn overlay(&self, root: &ObjectRef) -> Result<Option<LogicalTreeAudit>, PackageError> {
+        if self.kind != LogicalTreeKind::Inventory {
+            return Ok(None);
+        }
+        let value = self.provider.resolve(root, Membership::Semantic)?;
+        if value["schema"]["id"] != "photara.package.inventory-overlay"
+            || value["schema"]["version"] != 2
+        {
+            return Ok(None);
+        }
+        let resolved = super::overlay::resolve(
+            |r| {
+                self.provider
+                    .resolve(&super::selected::json_ref(r)?, Membership::Semantic)
+            },
+            &serde_json::to_value(root).map_err(|_| PackageError::Record)?,
+            self.project,
+            super::overlay::Family::Inventory { purpose: None },
+            self.limits,
+        )?;
+        Ok(Some(LogicalTreeAudit {
+            entries: resolved.entries,
+            nodes: resolved
+                .nodes
+                .into_iter()
+                .map(|(r, _)| super::selected::json_ref(&r))
+                .collect::<Result<_, _>>()?,
+        }))
+    }
     /// Authenticates one access path. Unaccessed descendants remain unaudited.
     /// # Errors
     /// Refuses wrong key domain, schema/membership, ordering, summaries or budgets.
@@ -141,6 +170,39 @@ impl<'a, P: LogicalRecords> LogicalTree<'a, P> {
     ) -> Result<Option<Value>, PackageError> {
         if !self.kind.accepts(key) {
             return Err(PackageError::Record);
+        }
+        if self.kind == LogicalTreeKind::Inventory {
+            let value = self.provider.resolve(root, Membership::Semantic)?;
+            if value["schema"]["id"] == "photara.package.inventory-overlay"
+                && value["schema"]["version"] == 2
+            {
+                let LogicalKey::Object(key) = key else {
+                    return Err(PackageError::Record);
+                };
+                #[cfg(test)]
+                if std::env::var_os("PHOTARA_COMPILER_FULL_LOOKUP").is_some() {
+                    return Ok(self
+                        .overlay(root)?
+                        .ok_or(PackageError::Integrity)?
+                        .entries
+                        .into_iter()
+                        .find(|v| {
+                            serde_json::from_value::<ObjectRef>(v.clone()).ok().as_ref()
+                                == Some(key)
+                        }));
+                }
+                return super::overlay::lookup(
+                    |r| {
+                        self.provider
+                            .resolve(&super::selected::json_ref(r)?, Membership::Semantic)
+                    },
+                    &serde_json::to_value(root).map_err(|_| PackageError::Record)?,
+                    self.project,
+                    super::overlay::Family::Inventory { purpose: None },
+                    self.limits,
+                    key,
+                );
+            }
         }
         let mut reference = root.clone();
         let mut expected = None;
@@ -179,6 +241,9 @@ impl<'a, P: LogicalRecords> LogicalTree<'a, P> {
     /// Checks every descendant, exact child summaries and disjoint ordered ranges;
     /// repeated nodes, missing content and work-budget exhaustion refuse.
     pub fn audit(&self, root: &ObjectRef) -> Result<LogicalTreeAudit, PackageError> {
+        if let Some(audit) = self.overlay(root)? {
+            return Ok(audit);
+        }
         let mut nodes = BTreeSet::new();
         let (_, entries) = self.audit_at(root, 0, &mut nodes)?;
         Ok(LogicalTreeAudit { entries, nodes })

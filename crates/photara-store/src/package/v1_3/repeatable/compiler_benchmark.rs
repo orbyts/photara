@@ -61,6 +61,10 @@ fn captured_original_compiler_exact_output() {
         planner: budget(),
         max_originals: 256,
     };
+    if std::env::var_os("PHOTARA_COMPILER_LOOKUP_ONLY").is_some() {
+        restart::lookup_profile(&current, frames(), &reader, &identity);
+        return;
+    }
     let bytes = std::fs::read(path.join("checkpoint.phpsj")).unwrap();
     let j = journal::Journal::read(
         &bytes,
@@ -105,7 +109,120 @@ fn captured_original_compiler_exact_output() {
         vector(&plan),
         plan.files.values().map(Vec::len).sum::<usize>()
     );
-    if std::env::var_os("PHOTARA_COMPILER_V2").is_some() {
+    if std::env::var_os("PHOTARA_COMPILER_COMPLETE_PROFILE").is_some() {
+        let mut memo = restart::CompiledPlans::default();
+        if std::env::var_os("PHOTARA_COMPILER_PREFIX_PROFILE").is_some() {
+            let mut end = journal::Journal::create(
+                j.header(),
+                journal::JournalLimits {
+                    json: reader.json,
+                    max_file_bytes: 4 << 20,
+                    max_records: 4096,
+                    max_work_bytes: 4 << 20,
+                },
+            )
+            .unwrap()
+            .len();
+            for r in j.records() {
+                if r.value() == record.value() {
+                    break;
+                }
+                end += 36 + encode(r.value()).len();
+            }
+            let previous_journal = journal::Journal::read(
+                &bytes[..end],
+                j.header(),
+                journal::JournalLimits {
+                    json: reader.json,
+                    max_file_bytes: 4 << 20,
+                    max_records: 4096,
+                    max_work_bytes: 4 << 20,
+                },
+            )
+            .unwrap();
+            let mut prior_observed = snapshot(&base, verified.package());
+            for (id, a) in &mut prior_observed.allocations {
+                a.charge = a.charge.max(base.allocations[id].charge);
+            }
+            let prior_context = RestartContext {
+                inspection: &prior_observed,
+                ..context
+            };
+            previous_journal
+                .verify_cached(verified.package(), &prior_context, &mut memo)
+                .unwrap();
+            let baseline = std::env::var_os("PHOTARA_COMPILER_NO_PREFIX_REUSE").is_some();
+            if baseline {
+                memo.journal = None;
+            }
+            let compiles = memo.compilations;
+            let before = std::time::Instant::now();
+            let proof = j.verify_cached(&current, &context, &mut memo).unwrap();
+            eprintln!(
+                "captured completed extension: baseline={baseline} elapsed={:?} added_compiles={} replayed={} records={} compact_bytes={}",
+                before.elapsed(),
+                memo.compilations - compiles,
+                memo.journal_replayed,
+                j.records().len(),
+                proof.retained_metadata_bytes()
+            );
+            if !baseline {
+                assert!(memo.journal_replayed <= 4);
+            }
+            return;
+        }
+        for stage in [6, 6, 5, 6] {
+            let package = selected(&plan, stage);
+            let mut actual = snapshot(&base, &package);
+            for (id, a) in &mut actual.allocations {
+                a.charge = a.charge.max(base.allocations[id].charge);
+            }
+            let ctx = RestartContext {
+                inspection: &actual,
+                ..context
+            };
+            let before = std::time::Instant::now();
+            memo.inspect_candidate(&package, &ctx, &plan, stage)
+                .unwrap();
+            eprintln!(
+                "captured complete candidate: stage={stage} elapsed={:?} full_checks={}",
+                before.elapsed(),
+                memo.candidate_checks
+            );
+        }
+        #[cfg(target_os = "macos")]
+        super::super::disposable::check_borrowed_snapshot(base.data.clone(), &current);
+        let before = std::time::Instant::now();
+        let work = memo.reader_work();
+        restart::verify_completed_plan(&current, &plan, &context, Some(&mut memo), None).unwrap();
+        assert_eq!(memo.reader_work(), (work.0, work.1 + 1));
+        eprintln!(
+            "captured executor-to-receipt reuse: elapsed={:?} reader={:?}",
+            before.elapsed(),
+            memo.reader_work()
+        );
+        for pass in 0..2 {
+            let before = std::time::Instant::now();
+            j.verify_cached(&current, &context, &mut memo).unwrap();
+            eprintln!(
+                "captured complete journal: pass={pass} elapsed={:?} reader={:?} compiles={} replayed={} journal_hits={} retained={:?}",
+                before.elapsed(),
+                memo.reader_work(),
+                memo.compilations,
+                memo.journal_replayed,
+                memo.journal_hits,
+                memo.retained()
+            );
+        }
+        if std::env::var_os("PHOTARA_COMPILER_MEMORY_PROFILE").is_some() {
+            memory_profile("retained");
+            drop(memo);
+            memory_profile("released-memo");
+        }
+        return;
+    }
+    let v3 = std::env::var_os("PHOTARA_COMPILER_V3").is_some();
+    if v3 || std::env::var_os("PHOTARA_COMPILER_V2").is_some() {
         let directory = context.directory;
         let mut old = plan
             .verify_next_original(
@@ -169,16 +286,21 @@ fn captured_original_compiler_exact_output() {
                     legacy.as_ref().map(vector)
                 );
             }
-            inputs.planner.codec = "photara.codec.ps2-repeatable-layout-v2".into();
+            inputs.planner.codec = if v3 {
+                "photara.codec.ps2-repeatable-layout-v3"
+            } else {
+                "photara.codec.ps2-repeatable-layout-v2"
+            }
+            .into();
             layout::take_load_work();
             let before = std::time::Instant::now();
             let attempted = memo.compile(&old, &intent, &receipt, inputs.clone(), budget(), 256);
             if let Err(error) = &attempted {
-                eprintln!("UNCHANGED CORRIDOR REFUSAL v2 {n}: {error}");
+                eprintln!("UNCHANGED CORRIDOR REFUSAL overlay {n}: {error}");
             }
             let next = match attempted {
                 Ok(plan) => plan,
-                Err(error) if std::env::var_os("PHOTARA_COMPILER_SIZE_IMPORT").is_some() => {
+                Err(error) if !v3 && std::env::var_os("PHOTARA_COMPILER_SIZE_IMPORT").is_some() => {
                     eprintln!(
                         "DIAGNOSTIC ONLY: measuring complete append bytes after {error}; no native/admitted input changes"
                     );
@@ -189,7 +311,7 @@ fn captured_original_compiler_exact_output() {
                     memo.compile(&old, &intent, &receipt, inputs.clone(), budget(), 256)
                         .unwrap()
                 }
-                Err(error) => panic!("unchanged v2 corridor: {error}"),
+                Err(error) => panic!("unchanged overlay corridor: {error}"),
             };
             let elapsed = before.elapsed();
             let work = layout::take_load_work();
@@ -223,11 +345,17 @@ fn captured_original_compiler_exact_output() {
                 append.insert(id.clone(), live);
             }
             eprintln!(
-                "grown-capture v2 {n}: elapsed={elapsed:?} cached_work={work:?} uncached_work={uncached_work:?} original_bytes={} append_nonpadding={append:?} vector={}",
+                "grown-capture overlay {n}: elapsed={elapsed:?} cached_work={work:?} uncached_work={uncached_work:?} original_bytes={} append_nonpadding={append:?} vector={}",
                 next.original_bytes().len(),
                 vector(&next)
             );
-            eprintln!("v2 append composition {n}: {composition:?}");
+            eprintln!(
+                "overlay codec={} append composition {n}: {composition:?}",
+                next.original["original_codec"]
+            );
+            if std::env::var_os("PHOTARA_COMPILER_WRITER_ONLY").is_some() {
+                return;
+            }
             current = selected(&next, 6);
             let mut observed = snapshot(&base, &current);
             for (id, a) in &mut observed.allocations {
@@ -246,4 +374,17 @@ fn captured_original_compiler_exact_output() {
                 .unwrap();
         }
     }
+}
+
+fn memory_profile(label: &str) {
+    let output = std::process::Command::new("/usr/bin/heap")
+        .args(["-s", "--noContent", &std::process::id().to_string()])
+        .output()
+        .unwrap();
+    std::fs::write(
+        format!("/private/tmp/ll2a-v3-capture-heap-{label}.log"),
+        [&output.stdout[..], &output.stderr[..]].concat(),
+    )
+    .unwrap();
+    eprintln!("capture heap {label}: {}", output.status);
 }

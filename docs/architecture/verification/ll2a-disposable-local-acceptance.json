@@ -1228,6 +1228,257 @@
           "note": "No diagnostic error reported. Not counted as a pass; default-store strict and controlled strict passed separately."
         },
         "published_checkpoint": "e78d10c"
+      },
+      "overlay_v3_approval": {
+        "date": "2026-10-10",
+        "user_response": "approved",
+        "packet": "docs/architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#follow-on-review--inventory-and-locator-batch-overlays-approved-2026-10-10",
+        "scope": "Exact additive inventory/locator batch overlay schemas and balanced indexes; implementation and bounded disposable validation. Preserve v1/v2 bytes, all history/charges and Accepted/Saved. No cap/geometry increase or native enable before measured acceptance.",
+        "root_version_correction": {
+          "date": "2026-10-10",
+          "user_response": "Approve the version-2 correction",
+          "scope": "Only new photara.package.inventory-overlay logical root is version2; existing version1 selected control unchanged. All new batch/index/locator schemas version1; codec IDs v3 unchanged."
+        }
+      },
+      "overlay_v3_validation": {
+        "status": "IN PROGRESS: exact-byte/reader/size gates pass; native latency/memory failed acceptance; no app handover",
+        "native_dispatch": true,
+        "fixture_bounds_unchanged": true,
+        "old_capture": {
+          "path": "/private/tmp/ll2a-compiler-snapshot-20261010",
+          "log": "/private/tmp/ll2a-v3-chain-size.log",
+          "first_max_append_bytes": 208233,
+          "second_max_data_bytes": 95679,
+          "second_max_locator_bytes": 27167,
+          "compile_ms": [
+            518,
+            536
+          ]
+        },
+        "revision22_capture": {
+          "path": "/private/tmp/ll2a-compiler-snapshot-rev22-20261010",
+          "log": "/private/tmp/ll2a-v3-rev22-size.log",
+          "first_max_append_bytes": 224292,
+          "second_max_append_bytes": 96518,
+          "max_locator_bytes": [
+            90908,
+            27773
+          ],
+          "compile_ms": [
+            577,
+            592
+          ],
+          "canonical_parses": [
+            9068,
+            9238
+          ]
+        },
+        "note": "Pre-optimization implementation measurements; source not yet frozen. Captures are copies of the same existing disposable Project. No native writes, corridor/geometry changes or extra fixture family.",
+        "native_first_timing": {
+          "status": "FAIL performance; exact save/return/close PASS",
+          "log": "/private/tmp/ll2a-v3-native-timing.log",
+          "cli_sha256": "a1d408b9ab042902defbdd00bf80a9b6bba9a288b32e15f6e8104a4975b3fbf6",
+          "open_seconds": 9.84912120795343,
+          "submit_seconds": [
+            1.6653031250461936,
+            1.7180798329645768
+          ],
+          "complete_seconds": [
+            6.808939667069353,
+            7.715711291995831
+          ],
+          "close_seconds": 0.30598766589537263,
+          "cpu_user_seconds": 23.472578,
+          "cpu_system_seconds": 1.737063,
+          "peak_rss_bytes": 1047183360,
+          "saved_revision": 24,
+          "restored_position": {
+            "x": 13,
+            "y": 14
+          },
+          "exit_code": 0,
+          "note": "Default-store lint finished during early timing; no further compiler work ran. Not performance accepted."
+        },
+        "current_capture": "/private/tmp/ll2a-compiler-snapshot-rev24-20261010",
+        "scoped_lookup_comparison": {
+          "capture": "/private/tmp/ll2a-compiler-snapshot-rev24-20261010",
+          "keys": 20,
+          "locator_entries": 667,
+          "full_audit_per_lookup": {
+            "ms": 218,
+            "provider_reads": 3360
+          },
+          "scoped": {
+            "ms": 16.3,
+            "provider_reads": 176
+          },
+          "note": "Read-only same-byte comparison; exact six-operation/restart vectors unchanged. Not total native save timing."
+        },
+        "completed_prefix_comparison": {
+          "capture": "/private/tmp/ll2a-compiler-snapshot-rev24-20261010",
+          "before_seconds": 5.194799,
+          "after_seconds": 1.067859583,
+          "replayed_records_before": 84,
+          "replayed_records_after": 4,
+          "additional_compiles_before": 7,
+          "additional_compiles_after": 1,
+          "unchanged_plan_sha256": "14321db76f92883868bdee98ff5f8204b49c15c4445f3e75607d36bc9b2dee03",
+          "logs": [
+            "/private/tmp/ll2a-v3-prefix-before-rev24.log",
+            "/private/tmp/ll2a-v3-prefix-after-rev24.log"
+          ],
+          "note": "Read-only completed new-HEAD extension comparison including new-original compilation; cold-history peak memory remains about 1 GiB. Not native acceptance."
+        },
+        "native_prefix_timing": {
+          "timings": [
+            {
+              "stage": "open",
+              "seconds": 11.353514208924025,
+              "live_rss_kib": null
+            },
+            {
+              "stage": "submit-1",
+              "seconds": 1.8962908749235794,
+              "live_rss_kib": 634480
+            },
+            {
+              "stage": "complete-1",
+              "seconds": 3.2567157079465687,
+              "live_rss_kib": 725920
+            },
+            {
+              "stage": "submit-2",
+              "seconds": 1.9538839579327032,
+              "live_rss_kib": 663440
+            },
+            {
+              "stage": "complete-2",
+              "seconds": 3.3366561660077423,
+              "live_rss_kib": 754656
+            },
+            {
+              "stage": "state",
+              "seconds": 0.13007749989628792,
+              "live_rss_kib": 763600
+            },
+            {
+              "stage": "close",
+              "seconds": 0.4065374160418287,
+              "live_rss_kib": null
+            }
+          ],
+          "before": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "after": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "child_user_seconds": 18.293832,
+          "child_system_seconds": 1.338046,
+          "child_maxrss_bytes": 915554304,
+          "status": "FAIL latency/memory acceptance; exact Saved/out-back/normal close PASS",
+          "saved_revision": 26,
+          "cli_sha256": "9158e722fe8d0d4056d98c4d4a92fe7240d14c32612863c72d305f54592c34c0",
+          "log": "/private/tmp/ll2a-v3-prefix-native-timing.log",
+          "phase_log": "/private/tmp/photara-ps2-remount-mjwcvi6f/ll2a-v3-prefix-native-20261010.stderr",
+          "exit_code": 0
+        },
+        "borrowed_observation_profile": {
+          "capture": "/private/tmp/ll2a-compiler-snapshot-rev24-20261010",
+          "executor_receipt_proof_ms": 23,
+          "prior_executor_receipt_proof_ms_approx": 400,
+          "cold_journal_seconds": 8.58,
+          "prior_cold_journal_seconds": 9.07,
+          "peak_rss_mb": 928,
+          "prior_peak_rss_mb": 1035,
+          "retained_memo_mb": 63,
+          "copied_bytes_avoided_per_native_inspection": 40371482,
+          "ceiling_metadata_entries": 8,
+          "status": "Read-only profile; improvement insufficient for native performance acceptance. Heap profiling continues."
+        },
+        "native_final_timing": {
+          "timings": [
+            {
+              "stage": "open",
+              "seconds": 12.633279834059067,
+              "live_rss_kib": null
+            },
+            {
+              "stage": "submit-1",
+              "seconds": 1.7830958749400452,
+              "live_rss_kib": 723136
+            },
+            {
+              "stage": "complete-1",
+              "seconds": 2.683834500028752,
+              "live_rss_kib": 707696
+            },
+            {
+              "stage": "submit-2",
+              "seconds": 1.8805558750173077,
+              "live_rss_kib": 529216
+            },
+            {
+              "stage": "complete-2",
+              "seconds": 2.7149551670299843,
+              "live_rss_kib": 738768
+            },
+            {
+              "stage": "state",
+              "seconds": 0.11471812496893108,
+              "live_rss_kib": 738768
+            },
+            {
+              "stage": "close",
+              "seconds": 0.36763966700527817,
+              "live_rss_kib": null
+            }
+          ],
+          "before": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "after": [
+            {
+              "id": "62000000-0000-4000-8000-000000020103",
+              "title": "example.review.inspect",
+              "x": 13,
+              "y": 14
+            }
+          ],
+          "child_user_seconds": 18.288779,
+          "child_system_seconds": 1.159068,
+          "child_maxrss_bytes": 915210240,
+          "status": "FAIL performance acceptance; exact save/normal close/reopen PASS",
+          "saved_revision": 28,
+          "cli_sha256": "5ddc23d16c877af8745813366433ce029ba5a1ca86c8313e109731d6cee2a247",
+          "log": "/private/tmp/ll2a-v3-final-native-timing.log",
+          "reopen_log": "/private/tmp/ll2a-v3-final-reopen.log",
+          "reopen_seconds": 14.567118042032234,
+          "exit_code": 0
+        },
+        "final_source_gates": {
+          "session_tests": 15,
+          "reader_tests": 5,
+          "controlled_strict": "PASS",
+          "default_store_strict": "PASS",
+          "logs_prefix": "/private/tmp/ll2a-v3-borrow-",
+          "note": "Exact v1/v2/v3 vectors unchanged; all writers exited normally. No app handover."
+        }
       }
     }
   }
