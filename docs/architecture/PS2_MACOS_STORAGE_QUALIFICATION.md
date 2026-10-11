@@ -381,6 +381,11 @@ default store strict checks pass. End-to-end latency/memory acceptance remains o
 
 ### Live-session immutable-prefix custody reuse — PENDING APPROVAL
 
+**Deferred after the user's latest-state/useful-history clarification.** This is
+not the active approval request. Prioritize the [sealed-checkpoint work](PROJECT_SESSION_DURABILITY.md#latest-state-useful-history-and-sealed-checkpoints--2026-10-11-proposal);
+this optional optimization alone does not bound cold replay or retained ancestry.
+
+
 **Proposal only; not implemented or qualified.** Review one change to the
 registered disposable writer's live-session proof: after a full initial audit,
 allow deterministic verification reuse for an exact previously verified byte

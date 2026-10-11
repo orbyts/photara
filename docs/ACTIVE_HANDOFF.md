@@ -33,15 +33,32 @@ and two PHPSJ001 tests plus controlled/default strict checks pass. This modest
 improvement does not warrant another native fixture/app rebuild; the existing
 review app below remains the last native-validated executable.
 
-**Next approval boundary:** [live-session immutable-prefix custody reuse](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md#live-session-immutable-prefix-custody-reuse--pending-approval).
-The proposal is documented, not implemented. It would replace fresh rehashing of
-previously verified immutable prefixes only inside a continuously qualified live
-writer custody interval. Fresh new/changed-byte validation, authority, barriers,
-original retries, budgets and full reopen audit remain. Existing conditional
-exclusion of noncooperating writes is explicit; metadata/events alone are not
-proof against a same-inode writer. Ask for this narrow profile/proof change before
-implementing it. It is not retention/deletion, a new durable format, production
-enablement, or a guarantee of history-independent cold opens.
+**Current priority — latest state and bounded useful history (user clarified):**
+Save exact current node positions, graph structure/settings and required run/output
+evidence; do not retain every intermediate position as permanent user history.
+Separate useful semantic undo, run/evidence retention and operation dedupe from
+obsolete autosave ancestry. The user reaffirmed efficiency, low resource use and
+snappy interaction as priorities. This refines the already approved sealed-root
+direction; do not ask for that product direction again.
+See [latest-state checkpoint proposal](architecture/PROJECT_SESSION_DURABILITY.md#latest-state-useful-history-and-sealed-checkpoints--2026-10-11-proposal).
+The [acceptance-base turnover packet](architecture/PS2_RETENTION_STORAGE_DECISION.md#acceptance-base-turnover-packet--proposed-2026-10-11-not-frozen)
+is now drafted. v1_3 already has sealed roots; the missing change is its acceptance
+base, suffix replay and indexed historical receipt traversal. The recommended
+narrow decision is **snapshot recovery semantics**: fully audit at turnover, then
+validate complete current/previous/pinned closure and pending suffix; validate
+archived history through authenticated lookup when requested. Unrequested,
+unpinned archive corruption no longer blocks sound current state. Current/recovery
+and requested dedupe/history corruption still refuses. No checksum is treated as
+issuer authentication; current authority, custody and rollback checks remain.
+This integrity/traversal change needs explicit review; field sets are a draft,
+not a frozen byte protocol. After that decision finish exact dispatch/base-pointer
+encodings and refusal vectors before permanent-format approval/implementation.
+No code or native data changed during this design pass. Existing data remains
+untouched. User direction does not authorize
+real-library conversion, deletion, arbitrary undo/output expiry or numeric limits.
+The earlier [custody reuse proposal](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md#live-session-immutable-prefix-custody-reuse--pending-approval)
+is **deferred, not the critical path or the pending user decision**: it cannot
+bound cold replay or obsolete ancestry. No custody change has been implemented.
 
 **Current approved work (2026-10-11):** grouped-full-sync qualification, shared
 allocation ownership and compact journal memo correction are published through

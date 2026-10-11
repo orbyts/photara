@@ -179,3 +179,139 @@ directory barriers refuse acknowledgement; uncertain outcomes freeze and reconci
 
 These are production-autosave gates, not reasons to pause remaining authorized
 disposable tests or a synthetic PS3 coordinator lab.
+
+## Acceptance-base turnover packet — proposed 2026-10-11, not frozen
+
+This develops the approved direction and the user's latest-position clarification;
+it does not reserve schema IDs/versions, authorize migration/deletion, or change
+deployed bytes. Names below are **draft type labels**, not dispatch strings.
+Unlike the original 1.1 motivation above, current v1_3 already has sealed
+RootSet/StateRoot records and non-traversed predecessor commitments. The missing
+piece is a finite acceptance/recovery base: `operations::audit_operations` still
+enumerates lifetime receipts and recomputes both prefixes; repeatable originals
+retain all predecessor controls and exact allocation prefixes.
+
+### Exact proposed data delta
+
+Reuse canonical JSON, checked Id/Digest/Decimal, existing JSON ObjectRef (`JRef`),
+physical references, receipt v1 and accepted/journal-prefix hash domains. New
+records reject unknown fields and require `extensions:{}`. All records carry
+`project_id`, `library_id`, `bootstrap_sha256` matching the selected package.
+The following field sets are in addition to those identity/schema/extension fields.
+
+| Draft record | Exact proposed fields and typed references |
+| --- | --- |
+| `AcceptanceBase` | `checkpoint_id:Id`, `source_commit:{commit_id:Id,commit_sha256:Digest}`, `source_state:JRef`, `authored_revision:Decimal`, `authored_sha256:Digest`, `accepted:{through_ordinal:Decimal,prefix_sha256:Digest}`, `journal_inclusion:<existing StateRoot inclusion object>`, `receipts_by_id:JRef`, `receipts_by_ordinal:JRef`, `receipt_count:Decimal`. Source commit/state are **provenance commitments**, not traversal edges. Both receipt roots are the existing typed operation-ID/ordinal tree encodings, preserving exact receipt entries; they belong to the historical lookup class below. `receipt_count` equals accepted ordinal. No portable edge points into the device-local journal. |
+| `CheckpointOperationIndex` | `base:JRef`, `accepted:<existing accepted object>`, `by_id:JRef`, `by_ordinal:JRef`. Base selects `AcceptanceBase`; both trees select only post-base receipts, using existing tree/receipt encodings. Suffix ordinals are contiguous from base ordinal+1; recompute existing acceptance/journal hashes starting at the base commitments. Validate receipt before/after continuity from the base authored coordinate to selected current authored state. |
+| `JournalBase` (device-local) | `checkpoint:JRef`, `journal_id:Id`, `through:{record_id:Id,checksum:Digest,sequence:Decimal}`, `mutation:null|{record_id:Id,checksum:Digest}`, `accepted_frame:null|<existing AcceptedFrameV1>`, `coordinate:<existing PS3 Coordinate>`, `undo_roots:[<existing OperationTarget>]`, `archive:JRef`. `checkpoint` selects the package AcceptanceBase; `through` is a complete PHPSJ001 outer-record boundary; Mutation/frame and coordinate must equal independently verified inclusion there. Sorted unique undo roots preserve existing owner/action/patch evidence; this first slice removes only eligible completed move targets, preserving structural targets and redo dependencies. `archive` selects the exact archived journal segments and original recovery material below. |
+| `HistoryArchive` (device-local) | `archive_id:Id`, `previous:null|JRef`, `segments:[{journal_id:Id,first_sequence:Decimal,last_sequence:Decimal,byte_length:Decimal,sha256:Digest}]`, `originals:JRef`, `receipts:JRef`. Segments sort by journal ID then sequence, have no overlap, and retain exact bytes; originals and receipts use authenticated inventories of exact existing records. `previous` is a historical lookup edge, not a current-state traversal edge. Archive location/pins are local registration data, never portable host paths. Original/receipt inventory refs resolve in this registered archive namespace; they do not inject journal bytes into portable authored closure. |
+
+No generic replacement RootSet is needed. A new required reader/codec dispatch
+would permit the existing StateRoot field layout to select
+`CheckpointOperationIndex`, with the base's coordinate as the suffix starting
+point. Existing RootSet active/recovery/pinned roles, per-role locator/ownership,
+authored/history/resource roots and conversion evidence remain mandatory. The
+root inventory rules must explicitly distinguish **current closure** from
+**historical lookup edges**; existing inventories cannot silently omit old
+receipt/control edges. Historical lookup pages and archived allocations remain
+located, authenticated and fully charged; they are not free or deleted bytes.
+The new admission dispatch binds the exact selected base and suffix, rather than
+recursively retaining every completed pre-base original. Unresolved originals
+remain full current recovery dependencies with their exact old inputs.
+
+Receipt lookup checks suffix first, then the base's indexed archive. Return the
+exact original receipt only after checking request digest, identity, index path
+and actual receipt bytes; changed request reuse refuses. New admission proves
+absence in both indexes before assigning the next ordinal. No dedupe expiry or
+incarnation reset is proposed. The full reciprocal indexes/prefixes remain
+available for explicit historical audit. Undo retirement never removes receipts.
+
+### Turnover and original retry
+
+Turnover is storage maintenance, not an authored mutation: it adds no operation
+receipt, authored revision or user undo step. Persist one original maintenance
+identity and exact `{old_head,old_commit,source_state,target_base,target_state,
+target_head,target_commit,journal_base,archive,byte_manifest,reserve,planner}`
+before effects. `old_head/commit` and `target_head/commit` use existing exact
+objects; refs identify complete candidate bytes, `byte_manifest` uses the existing
+admitted allocation/range/hash representation, and reserve/planner retain the
+existing finite bounds/accounting rules. This is a proposed new maintenance
+dispatch, not a reinterpretation of Graph IntentV1 or a fabricated no-op edit.
+
+First adoption fully audits the source, exact accepted/journal inclusion, receipt
+indexes and all retained dependencies. Later turnover extends an independently
+verified base with its fully validated suffix. Only checkpointed, resolved move
+undo targets may leave the useful-history roots; mixed structural transactions,
+unknown commands, pinned snapshots and run/resource dependencies remain retained.
+Latest authored bytes and opaque fields are copied exactly. Keep one complete
+previous base/state and all reader/unresolved-operation pins. No production undo
+budget is chosen, and this slice does not evict structural undo.
+
+Write/sync candidate bytes and archive/index records, then verify the complete
+candidate live/recovery closure and exact new inclusion. Atomically replace HEAD
+under expected-old CAS and the existing qualified barriers. Append a local
+turnover receipt binding `{maintenance_id,old_head,new_head,base,journal_base}`
+only after selected verification/barriers; then durably select the journal base
+for suffix replay. HEAD remains the package authority: old HEAD selects old replay;
+new HEAD with missing receipt/base pointer reconstructs the same maintenance
+outcome; an ahead pointer with old/unrelated HEAD freezes as rollback/conflict.
+Unknown outcomes retain all bytes and original identity, reissue required barriers,
+and never create a new maintenance attempt to escape the uncertainty. A new local
+journal-base record/index selection must receive its own reviewed encoding; the
+PHPSJ001 header and existing checkpoint bodies are not rewritten.
+
+### Accounting, compatibility and the precise remaining boundary
+
+Use existing sealed-charge/observation and retained-file accounting for immutable
+archived allocations, charging each physical inode once even when shared by active,
+recovery and history. Mixed live/archive packs cannot be released; moving live
+objects out requires existing admitted generation enrollment and complete old/new
+coexistence reserve. All old bytes stay charged in the first no-deletion slice.
+No credit follows merely from changing inventory membership or closing a reader.
+Existing quotas still refuse before admission; archival storage is not made bounded
+by calling hot replay bounded. A later reclamation protocol is separate work.
+
+**Recommended single review decision: snapshot recovery semantics.** After the
+trusted writer fully audits the old path and durably publishes the original-bound
+turnover, the new checkpoint becomes the recovery base. On future opens, require
+complete verification of its current/previous/pinned content closures, current
+accounting and pending suffix; do **not** require re-proving every pre-base
+historical transition. Read old receipt/undo/run content through authenticated
+index paths when requested. Keep the existing independently registered identity,
+latest-selection/rollback reconciliation and current authorization checks. A
+stored checkpoint never grants permission or emits a new Accepted acknowledgement;
+only fresh authorized transactions do. Its prefix fields preserve commitments,
+not a claim that an opener has re-executed historical validation.
+
+This changes error detection deliberately: corruption or semantic inconsistency
+confined to an unrequested, unpinned archive no longer blocks opening/saving a
+sound current checkpoint; detect and report it when that history is requested or
+explicitly audited. A bad current dependency, recovery root, dedupe lookup path,
+requested original receipt or pending suffix still refuses that operation, never
+substitutes a new ID or silently skips evidence. Coherent malicious replacement
+is not prevented by JSON hashes; existing authority/custody/rollback assumptions
+still apply. Initial adoption in this slice is only from the fully verified
+registered old selection, not arbitrary imported checkpoint JSON. New import,
+copy/rebind and real-library migration remain disabled pending their own reviewed
+admission paths.
+
+The alternative is to retain the old historical-validation claim at every cold
+open, either paying a full archive audit or adding a separately trusted local
+validation certificate with issuer/invalidation rules. **That is not recommended
+for this latest-state slice**, and no certificate is proposed here. Approval of
+snapshot recovery semantics is the precise remaining proof-obligation decision;
+it avoids presenting unlimited historical replay as necessary to save the latest
+positions. The field table is a review draft, not yet a frozen encoding packet.
+
+Freeze exact new dispatch/feature/minimum-reader and local base-pointer
+bytes only after resolving that narrow boundary and validating acyclic typed edges.
+Old readers must refuse; old packages and retries remain intact, with opt-in
+conversion and no silent migration. Use existing corpus tests for repeated move
+turnovers, retained structural undo/run dependencies, exact old-ID retries,
+corrupt archive/index paths, reader pins and every old/new/unknown publication cut.
+Measure current/suffix bytes read, full-audit adoption versus subsequent checkpoint open,
+save CPU/latency, peak/live memory and total charged archive growth separately.
+Do not claim bounded lifetime storage, constant cost for arbitrary live content,
+or solved cold replay before those results. This focuses the next review on a
+verified acceptance base, rather than making the optional live custody cache the
+product's retention architecture.
