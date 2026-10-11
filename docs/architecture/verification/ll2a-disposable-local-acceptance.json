@@ -1481,10 +1481,160 @@
         },
         "checkpoint": {
           "code_commit": "4b59016",
-          "remote_status": "Normal SSH push and subsequent bounded ls-remote failed; publication unverified",
-          "next_boundary": "UNAPPROVED control-installation grouped-full-sync proposal in PS2_MACOS_STORAGE_QUALIFICATION.md",
+          "remote_status": "2026-10-11: normal SSH push succeeded; ls-remote verified f661f9dad7f8232195e1e75980f7320a0ef8fbd4, including code4b59016. No authentication/remote changes.",
+          "next_boundary": "Control-installation grouped-full-sync implementation/disposable qualification approved 2026-10-11; not qualified or enabled",
           "writers": "all stopped",
           "app_handover": false
+        },
+        "grouped_flush_approval": {
+          "date": "2026-10-11",
+          "user_reply": "approved!",
+          "scope": "Exact control-installation packet in PS2_MACOS_STORAGE_QUALIFICATION.md; all other publication/admission/receipt barriers and production exclusions preserved",
+          "status": "Implemented and conditionally qualified for exact disposable scope; performance not accepted"
+        },
+        "grouped_flush_validation": {
+          "date": "2026-10-11",
+          "scope": "Conditional control-installation grouping on controller-owned disposable APFS image only; no general storage or power-loss qualification",
+          "qualification_log": "/private/tmp/ps2-grouped-qualification.log",
+          "fixture_root": "/private/tmp/photara-ps2-remount-8v5gq6lw",
+          "profile": {
+            "adapter_revision": "photara-disposable-apfs-assessment-v1",
+            "barrier_policy": "fsync files; fsync affected directories; F_FULLFSYNC same-device after namespace barriers; unsupported/error refuses",
+            "boot_session": "9b67987f-a7ef-4381-848b-ceb4fdc1da32",
+            "controller_binding_sha256": "c8670018c1e5507b80d8c42bc8c523fd4fab279e9dd1a33e43e787f98ab9f751",
+            "controller_generation": 1,
+            "controller_manifest_sha256": "b0944f3c550563ca49568f5370645f6ec3ee3f8e5f2bbf24b7b7a80700166371",
+            "filesystem": "apfs",
+            "image_pin": [
+              16777232,
+              359292202
+            ],
+            "mount_flags": 76583448,
+            "mount_pin": [
+              16777260,
+              2
+            ],
+            "mount_source": "/dev/disk16s1",
+            "observer_revision": 1,
+            "os_build": "26A434",
+            "os_version": "27.0.1",
+            "policy_revision": 1,
+            "profile_scope": "controller-owned-disposable-image; no general provider exclusion",
+            "scratch_pin": [
+              16777232,
+              359292200
+            ],
+            "volume_uuid": "d1a11c9d-ace5-47bf-bfbf-0f54bad8ad7b"
+          },
+          "failure_cases": 84,
+          "process_cuts": 28,
+          "different_device_refused": true,
+          "timings": [
+            {
+              "fullsync_calls_including_post_rename": 21,
+              "grouped": false,
+              "milliseconds": 151.37958300000003
+            },
+            {
+              "fullsync_calls_including_post_rename": 21,
+              "grouped": false,
+              "milliseconds": 162.694458
+            },
+            {
+              "fullsync_calls_including_post_rename": 21,
+              "grouped": false,
+              "milliseconds": 169.827041
+            },
+            {
+              "fullsync_calls_including_post_rename": 2,
+              "grouped": true,
+              "milliseconds": 45.556583999999994
+            },
+            {
+              "fullsync_calls_including_post_rename": 2,
+              "grouped": true,
+              "milliseconds": 37.598583
+            },
+            {
+              "fullsync_calls_including_post_rename": 2,
+              "grouped": true,
+              "milliseconds": 35.636709
+            }
+          ],
+          "retained_files_unchanged_after_clean_remount": 1181,
+          "remount_result": "/private/tmp/photara-ps2-remount-8v5gq6lw/group-remount-result.json",
+          "dedicated_image": "detached",
+          "session_tests": 16,
+          "profile_provider_charge_tests": 4,
+          "controlled_strict": "PASS",
+          "default_strict": "PASS",
+          "end_to_end_status": "No meaningful full-save improvement:4.76/4.46 seconds, peak984465408 bytes; private shared-buffer refactor underway",
+          "native_timing": {
+            "timings": [
+              {
+                "stage": "open",
+                "seconds": 15.020057375077158,
+                "live_rss_kib": null
+              },
+              {
+                "stage": "submit-1",
+                "seconds": 1.9674956249073148,
+                "live_rss_kib": 647200
+              },
+              {
+                "stage": "complete-1",
+                "seconds": 2.795103249954991,
+                "live_rss_kib": 741456
+              },
+              {
+                "stage": "submit-2",
+                "seconds": 2.012127042049542,
+                "live_rss_kib": 789344
+              },
+              {
+                "stage": "complete-2",
+                "seconds": 2.446376209030859,
+                "live_rss_kib": 764544
+              },
+              {
+                "stage": "state",
+                "seconds": 0.12331766600254923,
+                "live_rss_kib": 764544
+              },
+              {
+                "stage": "close",
+                "seconds": 0.3909857500111684,
+                "live_rss_kib": null
+              }
+            ],
+            "before": [
+              {
+                "id": "62000000-0000-4000-8000-000000020103",
+                "title": "example.review.inspect",
+                "x": 13,
+                "y": 14
+              }
+            ],
+            "after": [
+              {
+                "id": "62000000-0000-4000-8000-000000020103",
+                "title": "example.review.inspect",
+                "x": 13,
+                "y": 14
+              }
+            ],
+            "child_user_seconds": 21.489011,
+            "child_system_seconds": 1.360774,
+            "child_maxrss_bytes": 984465408,
+            "saved_revision": 30,
+            "cli_sha256": "06a31844a69a2cdc139bd406d56dd486da1ecc9adbe2950e7a803088881a6c8c",
+            "log": "/private/tmp/ll2a-grouped-native-timing.log",
+            "status": "Exact save/out-back/close PASS; latency/memory FAIL acceptance"
+          },
+          "native_reopen": {
+            "status": "PASS exact Saved30 at x13/y14 and normal close",
+            "log": "/private/tmp/ll2a-grouped-reopen.log"
+          }
         }
       }
     }

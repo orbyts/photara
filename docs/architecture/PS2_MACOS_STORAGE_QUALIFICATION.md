@@ -283,10 +283,10 @@ is approved. Its generation-3 mount was cleanly detached without conversion.
 The fresh instance tests integration without rewriting that old registration.
 General APFS/provider-managed/unknown storage remains unqualified for writes.
 
-## UNAPPROVED review: same-device phase-group full-sync — 2026-10-10
+## Approved review: same-device phase-group full-sync — 2026-10-11
 
-**Proposal only; not qualified or enabled.** The approved profile above requires
-`fsync` followed by `F_FULLFSYNC` on written files. This proposal would permit a
+**Implementation and disposable qualification approved 2026-10-11; not yet qualified or enabled.** The user approved this exact narrow packet. The prior profile above requires
+`fsync` followed by `F_FULLFSYNC` on written files. This approval permits a
 qualified adapter to `fsync` every file in one explicitly closed write group,
 then issue one `F_FULLFSYNC` on a retained, supported descriptor on that same
 verified device. It changes adapter durability ordering, not package/journal
@@ -335,11 +335,46 @@ file/selector hashes and baseline/grouped latency and CPU. These experiments do
 not prove power-loss behavior or qualify arbitrary APFS hardware; the existing
 conditional failure model and separate namespace review remain necessary.
 
-**Requested narrow approval:** permit implementation and disposable qualification
+**Approved narrow scope:** implementation and disposable qualification
 of this control-installation grouping only; enable it only after the specified
 configuration-bound review/evidence passes. No general storage admission follows.
 The latest unchanged adapter still takes about 4.5 seconds per measured save;
 507 barrier calls include 360 nearly free calls, while 147 account for about
 1.785 seconds across two saves. Grouping is therefore an unmeasured candidate,
 not a promise of instant Saved or a solution to cold historical replay and memory
-costs. No further native writes or adapter changes have been performed.
+costs. Those measurements preceded the scoped implementation below.
+
+### Scoped grouped-installation evidence — 2026-10-11
+
+The shared native `selection_group::publish` now retains and revalidates each
+exact file handle/name pin, fsyncs all ten fixture control/commit/HEAD.next files,
+fsyncs their pinned parent, then full-syncs that same-device parent descriptor.
+Only afterwards does it recheck expected HEAD, rename, and run the unchanged
+post-rename directory barrier. Cleanup, payload, finalizer, journal and receipt
+barriers remain separate. Under the approved conditional platform assumption,
+the parent fsync covers the group's created names before the device flush;
+the separate post-rename barrier covers publication. This namespace reasoning
+is configuration-bound, not a conclusion from syscall success alone.
+
+The existing repeatable corpus passed 84 injected I/O/interrupted/unsupported
+before/after cuts and 28 child-process exits, followed by exact original retry;
+pathname/HEAD replacement and different-device checks refused. The dedicated
+controller image `/private/tmp/photara-ps2-remount-8v5gq6lw` was cleanly remounted:
+all 1,181 retained file hashes and selected controls/HEAD matched, then it was
+detached at generation 2. The observed configuration remains macOS 27.0.1 /
+26A434, APFS; the SDK manual hash above was independently rechecked. No review
+Project was written. This completes the conditional **disposable cohort**
+qualification, not general provider admission or a power-loss experiment.
+
+Evidence: `/private/tmp/ps2-grouped-qualification.log`,
+`/private/tmp/ps2-grouped-remount.log`, and that image root's
+`group-remount-result.json`, `group-remount-verify.log` and before/after hash
+inventories. The qualification binary SHA-256 is
+`d648cae4ce3716d5fd2cf7bbc34bbe843358ccd24e6661ae3cb895cd7d77b07a`.
+The identical ten-file installation used 21 full-syncs previously versus 2
+grouped (both include the post-rename barrier): three observations were
+151/163/170 ms versus 46/38/36 ms. This is a cohort measurement, not end-to-end
+Saved latency. The normal build's `session_tests` gate includes the new
+failure/retry regression: 16 passed, preserving exact v1/v2/v3 vectors;
+four existing configuration/provider/charge tests also passed. Controlled and
+default store strict checks pass. End-to-end latency/memory acceptance remains open.

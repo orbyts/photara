@@ -114,6 +114,7 @@ fn barrier(f: &File) -> IoResult<()> {
     fcntl_fullfsync(f)?;
     Ok(())
 }
+#[cfg(test)]
 fn create(root: &File, name: &str, bytes: &[u8]) -> IoResult<File> {
     let mut f = File::from(openat(
         root,
@@ -125,6 +126,7 @@ fn create(root: &File, name: &str, bytes: &[u8]) -> IoResult<File> {
     barrier(&f)?;
     Ok(f)
 }
+#[cfg(test)]
 fn exact_file(root: &File, name: &str, bytes: &[u8]) -> IoResult<()> {
     match regular(root, name, false) {
         Ok(file) => {
@@ -1514,20 +1516,7 @@ impl RepeatableIo for Native {
     ) -> Result<(), EffectFailure> {
         self.lease_ok(l).map_err(|_| EffectFailure::NotPerformed)?;
         uncertain((|| {
-            if read(&self.root, "HEAD.json")? != canonical(expected) {
-                return Err(invalid());
-            }
-            for (sha, b) in &stage.loose {
-                exact_file(&self.root, &format!("{sha}.control"), b)?;
-            }
-            let commit = canonical(&stage.commit);
-            exact_file(&self.root, &format!("{}.commit", hash(&commit)), &commit)?;
-            exact_file(&self.root, "HEAD.next", &canonical(&stage.head))?;
-            if read(&self.root, "HEAD.json")? != canonical(expected) {
-                return Err(invalid());
-            }
-            renameat(&self.root, "HEAD.next", &self.root, "HEAD.json")?;
-            barrier(&self.root)?;
+            selection_group::publish(&self.root, expected, stage, |_, _| Ok(()))?;
             for sha in self.allowed.keys() {
                 if !stage.loose.contains_key(sha) {
                     match unlinkat(&self.root, format!("{sha}.control"), AtFlags::empty()) {
@@ -1870,3 +1859,6 @@ pub(super) fn local_database_config(
         .map_err(|error| std::io::Error::other(format!("{error:?}")))?;
     Ok(v)
 }
+
+#[path = "native_select.rs"]
+mod selection_group;

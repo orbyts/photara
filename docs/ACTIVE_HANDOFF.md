@@ -24,13 +24,19 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
-**Current approval boundary:** the verified v3 implementation is committed locally
-as `4b59016`. Normal SSH push and a bounded remote read both failed; do not claim
-it reached GitHub or change authentication/remotes. All writers remain stopped.
-The next proposed storage-adapter change is the narrow
-[control-installation grouped-full-sync review](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md#unapproved-review-same-device-phase-group-full-sync--2026-10-10).
-It is UNAPPROVED and unqualified. It changes the explicitly approved per-file
-full-sync sequence; obtain this narrow review before implementation/native trials.
+**Current approved work:** the verified v3 implementation is committed locally
+as `4b59016`. On 2026-10-11 normal SSH publication recovered without changing
+authentication/remotes; remote main was verified at `f661f9d`, including that
+implementation and its review packet. All review-app writers remain stopped.
+The user approved the narrow storage-adapter change on 2026-10-11:
+[control-installation grouped-full-sync review](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md#approved-review-same-device-phase-group-full-sync--2026-10-11).
+Implementation and conditional disposable qualification pass: 16 session tests,
+4 provider/profile tests, 84 injected failures, 28 process cuts and clean remount
+with all 1,181 file hashes retained. No general storage or power-loss claim.
+The measured ten-file group improves ~163→38 ms, but native full saves remain
+4.76/4.46 seconds with 984,465,408-byte peak RSS. Private shared-buffer/prefix-view
+ownership work is next, preserving public API and all fresh verification.
+Do not request another approval for that internal optimization.
 The packet does not promise instant Saved or resolve cold replay/memory by itself.
 Independent packed-role proof reuse remains an ordinary internal optimization;
 no further schema or product boundary is implied for it.
@@ -43,11 +49,12 @@ v1/v2 originals keep exact original recovery dispatch. See the
 [approved packet](architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#follow-on-review--inventory-and-locator-batch-overlays-approved-2026-10-10).
 Do not request the same approval again.
 
-**Latest native evidence:** completed-history prefix reuse cuts total submit/save
+**Verified pre-grouping baseline:** completed-history prefix reuse cuts total submit/save
 from 8.47/9.43 seconds to 4.47/4.60 seconds on the same grown disposable Project.
 Exact Saved and return-to-original pass; normal close takes 0.368 seconds. Exact reopen also passes (14.57 seconds). Peak
 RSS is 915,210,240 bytes, and live RSS after work is about 721 MiB. This is not the requested low-resource seamless autosave experience.
-All writers are stopped at **B Saved revision 28, x=13/y=14**. No app rebuild or
+All writers are stopped at **B Saved revision 30, x=13/y=14**. The following
+4.47/4.60-second measurements describe the pre-grouping baseline. No app rebuild or
 human handover yet. Release CLI hash and phase logs are in the existing
 [acceptance evidence](architecture/verification/ll2a-disposable-local-acceptance.json).
 Remaining work is equivalent-work reduction in cold history, repeated validation
