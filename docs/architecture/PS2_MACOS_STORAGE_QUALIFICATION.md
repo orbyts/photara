@@ -378,3 +378,50 @@ Saved latency. The normal build's `session_tests` gate includes the new
 failure/retry regression: 16 passed, preserving exact v1/v2/v3 vectors;
 four existing configuration/provider/charge tests also passed. Controlled and
 default store strict checks pass. End-to-end latency/memory acceptance remains open.
+
+### Live-session immutable-prefix custody reuse — PENDING APPROVAL
+
+**Proposal only; not implemented or qualified.** Review one change to the
+registered disposable writer's live-session proof: after a full initial audit,
+allow deterministic verification reuse for an exact previously verified byte
+prefix held continuously under its exclusive writer lease and pinned handles.
+This would supersede the repeatable-overlay requirement to freshly read/hash
+that prefix on every reuse **only during this proven custody interval**. It
+changes no package/journal bytes, public Saved meaning, retention, deletion,
+capacity limit or provider-admission policy. It does not promise instant Saved.
+
+The candidate must retain prefix length/digest, allocation and role identity,
+verified closure/codec/limits context, and the actual safe handle binding.
+Every request still freshly checks file identity and size, name-to-handle and
+parent/root pins, lease/owner generation, volume/mount/provider qualification,
+and charge observations. All writes must be mediated by the registered writer;
+they may append outside a held prefix only under the existing admitted original.
+Read/hash and validate every new or changed byte and current changed closure;
+verify exact original retry and selected-HEAD transitions. Never reuse permission,
+an uncertain operation outcome, or a Saved acknowledgement as proof. Preserve
+every required durability barrier and the final selected/receipt checks.
+
+Loss of any custody/context fact, unexpected size/write/name change, failed or
+unknown I/O, restart, or cache eviction discards the relevant reuse evidence.
+Where current qualified access remains valid, fall back to the existing full
+byte audit; otherwise freeze/refuse under the original attempt. Never repair
+identity by rebinding, admit an unknown provider, or proceed on stale evidence.
+Cache storage stays within the existing optional budget; exhaustion affects
+speed only. Initial open and every process reopen retain the full historical
+audit; no persistent validation certificate or new durable format is proposed.
+
+Metadata, event delivery and an unchanged inode are **not** proof against an
+uncooperative same-inode writer. This proposal relies on the already conditional
+profile exclusion of noncooperating writes above, plus reviewed evidence that
+the registered writer mediates all in-scope writes for the entire interval.
+The exact invalidation/ownership mechanism must be demonstrated before enable;
+if that evidence is unavailable, fresh-byte verification remains mandatory.
+
+Use the existing immutable capture and disposable harness to compare uncached
+and custody-reuse results, exact bytes/retries and refusal limits; inject each
+identity, namespace, size, lease, mount/provider and write-continuity loss,
+including unknown outcomes and eviction. Confirm fresh changed-byte validation,
+unchanged authority/barriers, full reopen audit, bounded cache memory and reduced
+hashed/read bytes with same-input latency/CPU evidence. This is a live-session
+performance review boundary, **not** a claim of history-independent cold opens
+or a solution for indefinite retained-history growth.

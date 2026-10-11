@@ -588,6 +588,9 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
     let mut capped = restart::CompiledPlans::default();
     capped.set_test_ceiling(one_cost);
     for pass in 0..3 {
+        // Exercise the compiled-plan cap independently of the completed-journal
+        // proof cache, whose warm-hit behavior is checked above.
+        capped.journal = None;
         j.verify_cached(&after2, &ctx2, &mut capped).unwrap();
         assert_eq!(capped.compilations, 2 + pass);
         assert_eq!(capped.retained().0, 1);

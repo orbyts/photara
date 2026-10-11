@@ -1203,3 +1203,97 @@ fn shared_allocation_views_copy_only_on_mutation_and_preserve_public_dtos() {
             .bytes
     );
 }
+
+#[test]
+fn hypothetical_journal_reuses_only_exact_canonical_prefix_and_limits() {
+    let mut session = open();
+    let (intent, receipt) = edit(&session, 160_001, 90);
+    session
+        .submit(&intent, &receipt, &json!({"kind":"edit"}), rid(161_001), 0)
+        .unwrap();
+    let flush = session.begin_flush("save-now", rid(161_002)).unwrap();
+    session.finish_flush(&flush).unwrap();
+    let backend = session.io_mut();
+    let parsed = backend.parsed();
+    let checkpoint = parsed
+        .records()
+        .iter()
+        .find(|r| r.value()["kind"] == "CheckpointIntent")
+        .unwrap();
+    let end = parsed.record_end(&checkpoint.value()["record_id"]).unwrap();
+    let prefix = &backend.bytes[..end];
+    let same = |a: &Journal, b: &Journal| {
+        assert_eq!(a.header(), b.header());
+        assert_eq!(a.tail(), b.tail());
+        assert_eq!(a.verified_bytes(), b.verified_bytes());
+        assert_eq!(
+            a.records()
+                .iter()
+                .map(|r| (r.value(), r.checksum()))
+                .collect::<Vec<_>>(),
+            b.records()
+                .iter()
+                .map(|r| (r.value(), r.checksum()))
+                .collect::<Vec<_>>()
+        );
+    };
+    let ordinary = Journal::read(prefix, &backend.header, limits()).unwrap();
+    journal::take_decoded_bytes();
+    let reused = Journal::read_reusing(prefix, &backend.header, limits(), &parsed).unwrap();
+    assert_eq!(journal::take_decoded_bytes(), encode(&backend.header).len());
+    same(&ordinary, &reused);
+    let extended =
+        Journal::read_reusing(&backend.bytes, &backend.header, limits(), &reused).unwrap();
+    same(&parsed, &extended);
+    let mut bad = backend.bytes.clone();
+    bad[end - 1] ^= 1;
+    assert!(Journal::read_reusing(&bad, &backend.header, limits(), &parsed).is_err());
+    let mut header = backend.header.clone();
+    header["project_id"] = json!(uid(160_002));
+    assert!(Journal::read_reusing(&backend.bytes, &header, limits(), &parsed).is_err());
+    for narrow in [
+        journal::JournalLimits {
+            max_work_bytes: 1,
+            ..limits()
+        },
+        journal::JournalLimits {
+            max_records: 0,
+            ..limits()
+        },
+        journal::JournalLimits {
+            json: package::JsonLimits {
+                max_depth: 1,
+                ..limits().json
+            },
+            ..limits()
+        },
+    ] {
+        assert!(Journal::read_reusing(&backend.bytes, &backend.header, narrow, &parsed).is_err());
+    }
+    for cut in [end + 1, backend.bytes.len() - 1] {
+        let a = Journal::read(&backend.bytes[..cut], &backend.header, limits()).unwrap();
+        let b = Journal::read_reusing(&backend.bytes[..cut], &backend.header, limits(), &parsed)
+            .unwrap();
+        same(&a, &b);
+        assert_eq!(b.tail(), journal::JournalTail::Incomplete);
+        let retried = Journal::read_reusing(&backend.bytes, &backend.header, limits(), &b).unwrap();
+        same(&parsed, &retried);
+        // Torn bytes are not charged as canonical payload; every complete
+        // header/record is charged exactly as in ordinary decoding.
+        let work = encode(b.header()).len()
+            + b.records()
+                .iter()
+                .map(|r| encode(r.value()).len())
+                .sum::<usize>();
+        let exact = journal::JournalLimits {
+            max_work_bytes: work,
+            ..limits()
+        };
+        assert!(Journal::read_reusing(&backend.bytes[..cut], &backend.header, exact, &b).is_ok());
+        let short = journal::JournalLimits {
+            max_work_bytes: work - 1,
+            ..limits()
+        };
+        assert!(Journal::read_reusing(&backend.bytes[..cut], &backend.header, short, &b).is_err());
+    }
+}

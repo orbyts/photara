@@ -77,6 +77,68 @@ fn captured_original_compiler_exact_output() {
         },
     )
     .unwrap();
+    if std::env::var_os("PHOTARA_COMPILER_JOURNAL_PROFILE").is_some() {
+        let limits = journal::JournalLimits {
+            json: reader.json,
+            max_file_bytes: 4 << 20,
+            max_records: 4096,
+            max_work_bytes: 4 << 20,
+        };
+        let intent = j
+            .records()
+            .iter()
+            .rev()
+            .find(|r| r.value()["kind"] == "CheckpointIntent")
+            .unwrap();
+        let intent_end = j.record_end(&intent.value()["record_id"]).unwrap();
+        let intent_start = intent_end - 36 - encode(intent.value()).len();
+        let last = j.records().last().unwrap();
+        assert_eq!(last.value()["kind"], "CheckpointReceipt");
+        let receipt_start = bytes.len() - 36 - encode(last.value()).len();
+        for reuse in [false, true] {
+            journal::take_decoded_bytes();
+            let before = std::time::Instant::now();
+            for _ in 0..8 {
+                for (source_end, planned_end) in
+                    [(intent_start, intent_end), (receipt_start, receipt_start)]
+                {
+                    let source =
+                        journal::Journal::read(&bytes[..source_end], j.header(), limits).unwrap();
+                    let next = if reuse {
+                        journal::Journal::read_reusing(
+                            &bytes[..planned_end],
+                            j.header(),
+                            limits,
+                            &source,
+                        )
+                    } else {
+                        journal::Journal::read(&bytes[..planned_end], j.header(), limits)
+                    }
+                    .unwrap();
+                    let prefix = if reuse {
+                        journal::Journal::read_reusing(
+                            &bytes[..intent_end],
+                            j.header(),
+                            limits,
+                            &next,
+                        )
+                    } else {
+                        journal::Journal::read(&bytes[..intent_end], j.header(), limits)
+                    }
+                    .unwrap();
+                    assert_eq!(prefix.records().last().unwrap().value(), intent.value());
+                    assert_eq!(prefix.verified_bytes(), intent_end);
+                    assert_eq!(prefix.tail(), journal::JournalTail::Complete);
+                }
+            }
+            eprintln!(
+                "captured hypothetical journal: reuse={reuse} elapsed={:?} decoded_bytes={}",
+                before.elapsed(),
+                journal::take_decoded_bytes()
+            );
+        }
+        return;
+    }
     let record = j
         .records()
         .iter()

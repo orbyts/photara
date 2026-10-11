@@ -24,6 +24,25 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
+**Latest 2026-10-11 checkpoint:** exact-prefix journal decode reuse now removes
+repeated canonical parsing and record re-encoding during preflight. It still
+freshly verifies actual frame bytes, checksums, ordering, IDs, work limits and
+current package/session proofs. Same Saved32 capture: 16 preflight pairs improve
+989→544 ms (about 28 ms/pair), decoded bytes 68,770,264→23,051,904. Nineteen session
+and two PHPSJ001 tests plus controlled/default strict checks pass. This modest
+improvement does not warrant another native fixture/app rebuild; the existing
+review app below remains the last native-validated executable.
+
+**Next approval boundary:** [live-session immutable-prefix custody reuse](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md#live-session-immutable-prefix-custody-reuse--pending-approval).
+The proposal is documented, not implemented. It would replace fresh rehashing of
+previously verified immutable prefixes only inside a continuously qualified live
+writer custody interval. Fresh new/changed-byte validation, authority, barriers,
+original retries, budgets and full reopen audit remain. Existing conditional
+exclusion of noncooperating writes is explicit; metadata/events alone are not
+proof against a same-inode writer. Ask for this narrow profile/proof change before
+implementing it. It is not retention/deletion, a new durable format, production
+enablement, or a guarantee of history-independent cold opens.
+
 **Current approved work (2026-10-11):** grouped-full-sync qualification, shared
 allocation ownership and compact journal memo correction are published through
 `b48e9ac` (normal SSH push verified). The memo correction is implemented: replacing duplicated Original values with exact

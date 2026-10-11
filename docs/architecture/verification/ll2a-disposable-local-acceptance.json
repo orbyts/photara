@@ -1904,6 +1904,27 @@
             "reopen_seconds": 2.8639268330298364,
             "acceptance": "Bounded A node-move interaction review only. Older-history CPU/memory and durable add/delete/connect still incomplete."
           }
+        },
+        "journal_decode_reuse_validation": {
+          "date": "2026-10-11",
+          "same_capture_preflight_pairs": 16,
+          "before_ms": 989,
+          "after_ms": 544,
+          "decoded_before_bytes": 68770264,
+          "decoded_after_bytes": 23051904,
+          "session_tests": 19,
+          "journal_tests": 2,
+          "controlled_default_strict": "PASS",
+          "native_or_app_rebuild": false,
+          "claim": "About28ms per preflight pair; not whole-save acceptance or history-independent scaling",
+          "logs": [
+            "/private/tmp/ps2-journal-decode-capture.log",
+            "/private/tmp/ps2-journal-decode-session.log",
+            "/private/tmp/ps2-journal-decode-framing.log",
+            "/private/tmp/ps2-journal-decode-clippy.log",
+            "/private/tmp/ps2-journal-decode-default-clippy.log"
+          ],
+          "next": "Live-session immutable-prefix custody proposal pending explicit profile/proof approval; not implemented"
         }
       }
     }

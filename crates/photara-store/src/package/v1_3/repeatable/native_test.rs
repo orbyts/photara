@@ -1198,7 +1198,7 @@ impl Native {
                 .ok_or_else(invalid)?,
         )
         .map_err(|_| invalid())?;
-        let next = journal::Journal::read(&planned, &self.journal_header, limits)
+        let next = journal::Journal::read_reusing(&planned, &self.journal_header, limits, &parsed)
             .map_err(|_| invalid())?;
         let verified_next = next
             .verify_cached(&current, &context, &mut self.compiled.borrow_mut())
@@ -1216,23 +1216,14 @@ impl Native {
         let completion = verified_next
             .prepare_receipt(plan, intent_id, receipt_identity, limits)
             .map_err(|_| invalid())?;
-        let header_len = journal::Journal::create(&self.journal_header, limits)
-            .map_err(|_| invalid())?
-            .len();
-        let mut intent_end = header_len;
-        for record in next.records() {
-            intent_end = intent_end
-                .checked_add(36)
-                .and_then(|n| n.checked_add(canonical(record.value()).len()))
-                .ok_or_else(invalid)?;
-            if record.value()["record_id"] == intent.record().value()["record_id"] {
-                break;
-            }
-        }
-        let prefix = journal::Journal::read(
+        let intent_end = next
+            .record_end(&intent.record().value()["record_id"])
+            .ok_or_else(invalid)?;
+        let prefix = journal::Journal::read_reusing(
             planned.get(..intent_end).ok_or_else(invalid)?,
             &self.journal_header,
             limits,
+            &next,
         )
         .map_err(|_| invalid())?;
         let worst = prefix

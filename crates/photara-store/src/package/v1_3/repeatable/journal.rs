@@ -32,6 +32,7 @@ pub enum JournalTail {
 pub struct JournalRecord {
     value: Value,
     checksum: [u8; 32],
+    frame_end: usize,
 }
 impl JournalRecord {
     #[must_use]
@@ -52,6 +53,8 @@ pub struct Journal {
     last: [u8; 32],
     tail: JournalTail,
     verified_bytes: usize,
+    work: usize,
+    json_limits: JsonLimits,
 }
 /// Checkpoint-history-verified stream, not native permission or durability.
 /// Local Mutation/lifecycle evidence additionally requires `verify_session`.
@@ -400,11 +403,28 @@ fn envelope(v: &Value, h: &Value, sequence: u64) -> Result<(), PackageError> {
     )?;
     body(v, h)
 }
-fn payload(bytes: &[u8], limits: JournalLimits, work: &mut usize) -> Result<Value, PackageError> {
+#[cfg(test)]
+thread_local! { static DECODED_BYTES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+#[cfg(test)]
+pub(crate) fn take_decoded_bytes() -> usize {
+    DECODED_BYTES.with(|n| n.replace(0))
+}
+
+fn charge_payload(
+    bytes: &[u8],
+    limits: JournalLimits,
+    work: &mut usize,
+) -> Result<(), PackageError> {
     *work = work.checked_add(bytes.len()).ok_or(PackageError::Limit)?;
     if *work > limits.max_work_bytes {
         return Err(PackageError::Limit);
     }
+    Ok(())
+}
+fn payload(bytes: &[u8], limits: JournalLimits, work: &mut usize) -> Result<Value, PackageError> {
+    charge_payload(bytes, limits, work)?;
+    #[cfg(test)]
+    DECODED_BYTES.with(|n| n.set(n.get().saturating_add(bytes.len())));
     parse_canonical_json(bytes, limits.json)
 }
 impl Journal {
@@ -449,6 +469,33 @@ impl Journal {
         expected_header: &Value,
         limits: JournalLimits,
     ) -> Result<Self, PackageError> {
+        Self::read_inner(bytes, expected_header, limits, None)
+    }
+    // Canonical decode reuse only: callers still run current package/session
+    // verification. Actual bytes, header context, all framing/checksums, work
+    // limits, record IDs and suffix validation are checked in this invocation.
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(crate) fn read_reusing(
+        bytes: &[u8],
+        expected_header: &Value,
+        limits: JournalLimits,
+        prior: &Self,
+    ) -> Result<Self, PackageError> {
+        Self::read_inner(bytes, expected_header, limits, Some(prior))
+    }
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(crate) fn record_end(&self, record_id: &Value) -> Option<usize> {
+        self.records
+            .iter()
+            .find(|r| r.value["record_id"] == *record_id)
+            .map(|r| r.frame_end)
+    }
+    fn read_inner(
+        bytes: &[u8],
+        expected_header: &Value,
+        limits: JournalLimits,
+        prior: Option<&Self>,
+    ) -> Result<Self, PackageError> {
         if bytes.len() > limits.max_file_bytes {
             return Err(PackageError::Limit);
         }
@@ -472,6 +519,13 @@ impl Journal {
         let h = payload(raw, limits, &mut work)?;
         header(&h)?;
         check(h == *expected_header)?;
+        let mut reusable = prior.filter(|old| {
+            old.header == h
+                && limits.json.max_bytes >= old.json_limits.max_bytes
+                && limits.json.max_depth >= old.json_limits.max_depth
+                && limits.json.max_members >= old.json_limits.max_members
+                && limits.json.max_array_elements >= old.json_limits.max_array_elements
+        });
         let mut records = Vec::new();
         let mut ids = BTreeSet::new();
         let mut tail = JournalTail::Complete;
@@ -502,14 +556,29 @@ impl Journal {
             let raw = &frame[..length];
             let checksum = hash_parts(&[&last, raw_len, raw]);
             check(frame[length..] == checksum)?;
-            let value = payload(raw, limits, &mut work)?;
+            let prior_record = reusable.and_then(|old| {
+                old.records.get(records.len()).filter(|r| {
+                    r.frame_end == next && old.bytes.get(at..next) == bytes.get(at..next)
+                })
+            });
+            let value = if let Some(record) = prior_record {
+                charge_payload(raw, limits, &mut work)?;
+                record.value.clone()
+            } else {
+                reusable = None;
+                payload(raw, limits, &mut work)?
+            };
             let sequence = u64::try_from(records.len())
                 .map_err(|_| PackageError::Limit)?
                 .checked_add(1)
                 .ok_or(PackageError::Limit)?;
             envelope(&value, &h, sequence)?;
             check(ids.insert(id(&value["record_id"])?))?;
-            records.push(JournalRecord { value, checksum });
+            records.push(JournalRecord {
+                value,
+                checksum,
+                frame_end: next,
+            });
             last = checksum;
             at = next;
         }
@@ -520,6 +589,8 @@ impl Journal {
             last,
             tail,
             verified_bytes: at,
+            work,
+            json_limits: limits.json,
         })
     }
     #[must_use]
@@ -937,13 +1008,7 @@ impl VerifiedJournal<'_> {
         {
             return Err(PackageError::Limit);
         }
-        let existing_work =
-            self.records()
-                .iter()
-                .try_fold(wire::encode(&self.journal.header).len(), |n, r| {
-                    n.checked_add(wire::encode(&r.value).len())
-                        .ok_or(PackageError::Limit)
-                })?;
+        let existing_work = self.journal.work;
         if existing_work > limits.max_work_bytes {
             return Err(PackageError::Limit);
         }
@@ -1011,7 +1076,11 @@ impl VerifiedJournal<'_> {
             bytes,
             expected_extent: self.journal.bytes.len(),
             expected_prefix_sha256: wire::hash(&self.journal.bytes),
-            record: JournalRecord { value, checksum },
+            record: JournalRecord {
+                value,
+                checksum,
+                frame_end: end,
+            },
             existing: false,
         })
     }
