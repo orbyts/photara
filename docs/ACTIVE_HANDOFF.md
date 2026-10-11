@@ -24,16 +24,17 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
-**New narrow approval boundary — two inherited v4 commitments:** implementation
+**Approved next work — two inherited v4 commitments:** implementation
 found whole-allocation `original_sha256` fields in
 `payload_recipe.allocations[*]` and finalization `writes[*]`, in addition to the
 corridor field already corrected by the approved packet. They conflict with the
 approved unrequested-archive behavior and efficient exact retry. The concrete
 [two-field v4 correction](architecture/PS2_RETENTION_STORAGE_DECISION.md#narrow-v4-commitment-correction--pending-approval-2026-10-11)
-proposes `base_head_sha256` in those two v4-only locations. Old codecs and all
-other fields/checks stay unchanged. This correction is **not yet approved**;
-normal v4 compilation remains disabled. Do not ask for the wider packet again.
-Checkpoint stages through `33885e1` are committed locally; SSH publication is
+uses `base_head_sha256` in those two v4-only locations. Old codecs and all
+other fields/checks stay unchanged. Suhail **approved this exact correction on
+2026-10-11**. Implement it and finish the connected v4 gates; do not ask again.
+Normal v4 compilation stays disabled until those implementation gates pass.
+Checkpoint/activation work through `6ec0739` is committed locally; SSH publication is
 still unavailable without any authentication/remote changes.
 
 The independent activation slice now passes: registered local-selector protocol
@@ -48,7 +49,7 @@ Live seeding still retains historical undo metadata; persistent on-demand reopen
 and pure-position retirement are unfinished. Test-only v4 compiler scaffolding
 regenerates its first original, but its generated package still fails reader
 verification (`/private/tmp/ps2-checkpoint-activation-focused.log`); do not claim
-v4 publication/two-operation acceptance. Resolve the pending two-field approval,
+v4 publication/two-operation acceptance. Apply the approved two-field correction,
 then finish v4/current-state saving, persistent recovery and disposable native
 qualification/performance. No app replacement has occurred.
 

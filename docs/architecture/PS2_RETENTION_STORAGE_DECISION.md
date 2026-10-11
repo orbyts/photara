@@ -489,6 +489,10 @@ nonempty-index parser or filesystem barrier evidence.
 
 ## Narrow v4 commitment correction — pending approval, 2026-10-11
 
+**Approved by Suhail on 2026-10-11.** Heading retained for existing review links.
+Proceed with the exact correction and bounded validation below; do not request
+this approval again.
+
 Implementation exposed two additional inherited whole-allocation commitments.
 The approved packet replaces `planner.corridors[*].original_sha256`, but v3 also
 stores that field in the admission payload recipe and finalization writes.
@@ -496,7 +500,7 @@ Keeping those hashes would reread unrelated archive bytes and make an exact v4
 retry depend on corruption that the approved snapshot recovery model tolerates.
 Silently changing what `original_sha256` means is not permitted.
 
-Approve these two replacements **only for the new v4 dispatch**:
+Approved replacements **only for the new v4 dispatch**:
 
 | Location | Exact correction |
 | --- | --- |
@@ -522,4 +526,4 @@ Validation stays in the existing corpus: two consecutive v4 operations,
 interruption/retry of the same original, changed HEAD/witness/extent/suffix refusal,
 and continuation with unrequested archived corruption. No new fixture family,
 real-library writes, conversion, deletion, expiry, deployment or production limits.
-Dependent v4 emission/retry remains disabled until this correction is approved.
+Enable v4 emission/retry only after the corrected implementation gates pass.
