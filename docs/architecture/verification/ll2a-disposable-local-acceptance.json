@@ -1806,6 +1806,104 @@
             "seconds": 21.955,
             "log": "/private/tmp/ll2a-compact-reopen.log"
           }
+        },
+        "packed_canonical_body_validation": {
+          "date": "2026-10-11",
+          "same_capture": "Saved32 immutable captured package",
+          "candidate_24_checks_before_seconds": 10.938,
+          "candidate_24_checks_after_seconds": 7.435,
+          "exact_compiler_output": "unchanged",
+          "session_corpus_tests": 18,
+          "reader_recovery_tests": 5,
+          "controlled_default_strict": "PASS",
+          "swift_interaction_gate": "PASS /private/tmp/ll2a-compact-swift-gate.log",
+          "api": "Additive provided PhysicalRecords.resolve_json method; existing providers preserve canonical encoding fallback",
+          "integrity": "Packed provider authenticates physical frame/canonical payload before exact logical body digest/length/kind checks; no formats, limits or barriers changed",
+          "cli_sha256": "e1c79826783cf901695e69f0cdfe3998db7c1668a42c9a142e42020bc1b31ed2",
+          "logs": [
+            "/private/tmp/ps2-candidate-cpu-before.log",
+            "/private/tmp/ps2-candidate-cpu-after.log",
+            "/private/tmp/ps2-packed-body-final-session.log",
+            "/private/tmp/ps2-packed-body-reader.log",
+            "/private/tmp/ps2-packed-body-clippy.log",
+            "/private/tmp/ps2-packed-body-default-clippy.log"
+          ],
+          "native": {
+            "timings": [
+              {
+                "stage": "open",
+                "seconds": 1.5717020420124754,
+                "live_rss_kib": null
+              },
+              {
+                "stage": "submit-1",
+                "seconds": 0.31756862497422844,
+                "live_rss_kib": 91360
+              },
+              {
+                "stage": "complete-1",
+                "seconds": 0.7835145000135526,
+                "live_rss_kib": 99568
+              },
+              {
+                "stage": "submit-2",
+                "seconds": 0.3795968749327585,
+                "live_rss_kib": 117696
+              },
+              {
+                "stage": "complete-2",
+                "seconds": 0.780323583050631,
+                "live_rss_kib": 123840
+              },
+              {
+                "stage": "state",
+                "seconds": 0.01782662491314113,
+                "live_rss_kib": 124864
+              },
+              {
+                "stage": "close",
+                "seconds": 0.06457141600549221,
+                "live_rss_kib": null
+              }
+            ],
+            "before": [
+              {
+                "id": "62000000-0000-4000-8000-000000020103",
+                "title": "example.review.inspect",
+                "x": 13,
+                "y": 14
+              }
+            ],
+            "after": [
+              {
+                "id": "62000000-0000-4000-8000-000000020103",
+                "title": "example.review.inspect",
+                "x": 13,
+                "y": 14
+              }
+            ],
+            "child_user_seconds": 1.552598,
+            "child_system_seconds": 0.6995159999999999,
+            "child_maxrss_bytes": 127860736,
+            "scope": "Existing registered A, younger history; not a same-input before/after performance comparison",
+            "saved_revision": 6
+          },
+          "reopen": {
+            "status": "PASS exact Saved at x13/y14, normal close exit0",
+            "seconds": 1.9406847920035943,
+            "log": "/private/tmp/ll2a-packed-reopen-a.log"
+          },
+          "app": {
+            "build": "PASS ad-hoc signing, compile-gated autosave, ABI and unregistered-scope refusal",
+            "build_log": "/private/tmp/ll2a-packed-review-build.log",
+            "executable_sha256": "eda0239fa92e7f0055817f24b47d7410069ff03a9f2cd45c5cea8036941bfd8a",
+            "launcher": "/private/tmp/photara-ll2a-packed-review-20261011/Open Photara Autosave.app",
+            "ui": "Drag out/back, Saving before closing with Keep Working visible; normal Cmd-Q exit0 PID33010",
+            "reopen": "PASS exact x13/y14 Saved8, normal close exit0",
+            "reopen_log": "/private/tmp/ll2a-packed-ui-reopen-a.log",
+            "reopen_seconds": 2.8639268330298364,
+            "acceptance": "Bounded A node-move interaction review only. Older-history CPU/memory and durable add/delete/connect still incomplete."
+          }
         }
       }
     }

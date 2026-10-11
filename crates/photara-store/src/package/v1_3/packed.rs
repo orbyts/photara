@@ -161,6 +161,32 @@ impl<'a> PackedAllocation<'a> {
         Ok(value)
     }
 
+    pub(crate) fn resolve_json(
+        &self,
+        reference: &PhysicalRef,
+        kind: FrameKind,
+        object: &super::super::ObjectRef,
+    ) -> Result<Value, PackageError> {
+        // resolve authenticates the frame boundary, tag, digest and canonical
+        // body under this immutable allocation's exact parser limits first.
+        let value = self.resolve(reference, kind)?;
+        let start = usize::try_from(reference.offset.get()).map_err(|_| PackageError::Limit)?;
+        let length =
+            usize::try_from(reference.byte_length.get()).map_err(|_| PackageError::Limit)?;
+        let end = start.checked_add(length).ok_or(PackageError::Limit)?;
+        let body = self
+            .bytes
+            .get(start.checked_add(HEADER).ok_or(PackageError::Limit)?..end)
+            .ok_or(PackageError::Integrity)?;
+        if object.kind != super::super::ObjectKind::Json
+            || body.len() as u64 != object.byte_length.get()
+            || digest(body) != object.sha256
+        {
+            return Err(PackageError::Integrity);
+        }
+        Ok(value)
+    }
+
     fn decode(&self, reference: &PhysicalRef) -> Result<Value, PackageError> {
         let start = usize::try_from(reference.offset.get()).map_err(|_| PackageError::Limit)?;
         let length =
@@ -216,12 +242,21 @@ mod tests {
     use serde_json::json;
     use std::{hint::black_box, time::Instant};
 
+    // Compare the optimized body check with the unchanged external
+    // provider fallback over the same actual frozen frames.
+    struct Fallback<'a, 'b>(&'a PackedAllocation<'b>);
+    impl super::super::PhysicalRecords for Fallback<'_, '_> {
+        fn resolve(&self, r: &PhysicalRef, k: FrameKind) -> Result<Value, PackageError> {
+            self.0.resolve(r, k)
+        }
+    }
+
     #[test]
     #[expect(
         clippy::too_many_lines,
         reason = "One existing-corpus workload checks memo equivalence, isolation, refusal and timing together."
     )]
-    fn immutable_frame_memo_matches_uncached_frozen_records() {
+    fn session_tests_immutable_frame_memo_matches_uncached_frozen_records() {
         let fixture: Value = serde_json::from_str(include_str!(
             "../../../../../docs/architecture/proposals/ps2/selected-blob/linked.json"
         ))
@@ -278,6 +313,39 @@ mod tests {
                     checked.decode(reference).unwrap()
                 );
             }
+            for (reference, kind) in &references {
+                use super::super::PhysicalRecords as _;
+                let value = checked.resolve(reference, *kind).unwrap();
+                let body = photara_core::canonical_json(&value).unwrap();
+                let object = super::super::super::ObjectRef {
+                    kind: super::super::super::ObjectKind::Json,
+                    sha256: digest(&body),
+                    byte_length: DecimalU64::parse(&body.len().to_string()).unwrap(),
+                };
+                assert_eq!(
+                    checked.resolve_json(reference, *kind, &object).unwrap(),
+                    Fallback(&checked)
+                        .resolve_json(reference, *kind, &object)
+                        .unwrap()
+                );
+                let mut wrong = object.clone();
+                wrong.sha256 = digest(b"different logical bytes");
+                assert!(checked.resolve_json(reference, *kind, &wrong).is_err());
+                wrong = object.clone();
+                wrong.byte_length = DecimalU64::parse("0").unwrap();
+                assert!(checked.resolve_json(reference, *kind, &wrong).is_err());
+                wrong = object.clone();
+                wrong.kind = super::super::super::ObjectKind::Blob;
+                assert!(checked.resolve_json(reference, *kind, &wrong).is_err());
+                let mut physical = reference.clone();
+                physical.record_sha256 = digest(b"different physical bytes");
+                assert!(checked.resolve_json(&physical, *kind, &object).is_err());
+                assert!(
+                    checked
+                        .resolve_json(reference, FrameKind::Padding, &object)
+                        .is_err()
+                );
+            }
             assert_eq!(checked.decoded.lock().unwrap().len(), references.len());
             for (reference, kind) in &references {
                 let mut changed = checked.resolve(reference, *kind).unwrap();
@@ -330,6 +398,16 @@ mod tests {
         };
         for _ in 0..2 {
             assert!(checked.resolve(&reference, FrameKind::Semantic).is_err());
+            let object = super::super::super::ObjectRef {
+                kind: super::super::super::ObjectKind::Json,
+                sha256: digest(&malformed[HEADER..]),
+                byte_length: DecimalU64::parse("2").unwrap(),
+            };
+            assert!(
+                checked
+                    .resolve_json(&reference, FrameKind::Semantic, &object)
+                    .is_err()
+            );
         }
         assert!(checked.decoded.lock().unwrap().is_empty());
     }

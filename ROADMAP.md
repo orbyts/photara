@@ -19,7 +19,7 @@ now connects the normal shell/avatar menu to shared Rust sessions and a sole
 SQLite activation slot. Native create/rename, two-Library autosave/reopen and
 final SQL commit/restart checks are recorded in the
 [LL2a evidence](docs/architecture/verification/ll2a-disposable-local-acceptance.json).
-The next gate is native latency/memory validation before Suhail's hands-on disposable build review. The latest corrected writer preserves exact saves and normal close, but still takes about five seconds per move; see the active handoff for current measurements. Personal Libraries,
+A bounded node-move review build now passes native save/reopen/Quit on the younger disposable Project A (1.10/1.16 seconds per save). Older-history latency/memory and full LL2a acceptance remain open; B's prepaid fixture capacity is exhausted. Use the current launcher in the active handoff, not an old build. Personal Libraries,
 cloud lifecycle, existing database migration and installation remain excluded.
 Move through the following bounded
 checkpoints, committing and fast-forward pushing verified slices to `main`

@@ -113,6 +113,27 @@ fn captured_original_compiler_exact_output() {
         vector(&plan),
         plan.files.values().map(|b| b.len()).sum::<usize>()
     );
+    if std::env::var_os("PHOTARA_COMPILER_CANDIDATE_PROFILE").is_some() {
+        eprintln!("candidate profile ready pid={}", std::process::id());
+        let before = std::time::Instant::now();
+        for _ in 0..24 {
+            plan.inspect_shared_candidate(
+                &current,
+                6,
+                super::identity(&current),
+                &observed,
+                &base.registration,
+                frames(),
+                &reader,
+            )
+            .unwrap();
+        }
+        eprintln!(
+            "candidate profile 24 full proofs elapsed={:?}",
+            before.elapsed()
+        );
+        return;
+    }
     if std::env::var_os("PHOTARA_COMPILER_COMPLETE_PROFILE").is_some() {
         let mut memo = restart::CompiledPlans::default();
         if std::env::var_os("PHOTARA_COMPILER_PREFIX_PROFILE").is_some() {

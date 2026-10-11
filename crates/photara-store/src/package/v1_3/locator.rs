@@ -1,7 +1,5 @@
 //! Typed JSON/whole-Blob locator access. Structural opening never reads media.
-use super::super::{
-    DecimalU64, ObjectKind, ObjectRef, PackageError, PackageUuid, Sha256Hex, digest,
-};
+use super::super::{DecimalU64, ObjectKind, ObjectRef, PackageError, PackageUuid, Sha256Hex};
 use super::{FrameKind, PhysicalRecords, PhysicalRef, PhysicalTree, PhysicalTreeKind, TreeLimits};
 use serde::Deserialize;
 use serde_json::Value;
@@ -120,12 +118,7 @@ impl<'a, P: PhysicalRecords> Locator<'a, P> {
             Membership::Ownership => FrameKind::Ownership,
             Membership::Blob => return Err(PackageError::Record),
         };
-        let value = self.provider.resolve(&physical, kind)?;
-        let bytes = photara_core::canonical_json(&value).map_err(|_| PackageError::Record)?;
-        if bytes.len() as u64 != object.byte_length.get() || digest(&bytes) != object.sha256 {
-            return Err(PackageError::Integrity);
-        }
-        Ok(value)
+        self.provider.resolve_json(&physical, kind, object)
     }
     /// Reads extent metadata only. Neither this method nor tree lookup calls `open`.
     /// # Errors

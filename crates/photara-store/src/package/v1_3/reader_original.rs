@@ -32,8 +32,8 @@ struct Bytes<'a, M> {
     frames: FrameLimits,
     checked: RefCell<BTreeMap<PackageUuid, PackedAllocation<'a>>>,
 }
-impl<'a, M> PhysicalRecords for Bytes<'a, M> {
-    fn resolve(&self, r: &PhysicalRef, k: FrameKind) -> Result<Value, PackageError> {
+impl<'a, M> Bytes<'a, M> {
+    fn open(&self, r: &PhysicalRef) -> Result<(), PackageError> {
         if !self.checked.borrow().contains_key(&r.allocation_id) {
             let package: &'a repeatable::shared::OriginalPackage = self.package;
             let a = package
@@ -47,6 +47,26 @@ impl<'a, M> PhysicalRecords for Bytes<'a, M> {
                 .borrow_mut()
                 .insert(r.allocation_id, allocation);
         }
+        Ok(())
+    }
+}
+impl<M> PhysicalRecords for Bytes<'_, M> {
+    fn resolve_json(
+        &self,
+        r: &PhysicalRef,
+        kind: FrameKind,
+        object: &ObjectRef,
+    ) -> Result<Value, PackageError> {
+        self.open(r)?;
+        self.checked
+            .borrow()
+            .get(&r.allocation_id)
+            .ok_or(PackageError::Integrity)?
+            .resolve_json(r, kind, object)
+    }
+
+    fn resolve(&self, r: &PhysicalRef, k: FrameKind) -> Result<Value, PackageError> {
+        self.open(r)?;
         self.checked
             .borrow()
             .get(&r.allocation_id)

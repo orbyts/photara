@@ -83,8 +83,8 @@ struct Packed<'a> {
     limits: FrameLimits,
     checked: RefCell<BTreeMap<PackageUuid, v1_3::PackedAllocation<'a>>>,
 }
-impl<'a> v1_3::PhysicalRecords for Packed<'a> {
-    fn resolve(&self, r: &v1_3::PhysicalRef, kind: v1_3::FrameKind) -> Result<Value, PackageError> {
+impl<'a> Packed<'a> {
+    fn open(&self, r: &v1_3::PhysicalRef) -> Result<(), PackageError> {
         if !self.checked.borrow().contains_key(&r.allocation_id) {
             let package: &'a OriginalPackage = self.package;
             let a = package
@@ -98,6 +98,26 @@ impl<'a> v1_3::PhysicalRecords for Packed<'a> {
                 v1_3::PackedAllocation::open(r.allocation_id, arena, &a.bytes, self.limits)?,
             );
         }
+        Ok(())
+    }
+}
+impl v1_3::PhysicalRecords for Packed<'_> {
+    fn resolve_json(
+        &self,
+        r: &v1_3::PhysicalRef,
+        kind: v1_3::FrameKind,
+        object: &ObjectRef,
+    ) -> Result<Value, PackageError> {
+        self.open(r)?;
+        self.checked
+            .borrow()
+            .get(&r.allocation_id)
+            .ok_or(PackageError::Integrity)?
+            .resolve_json(r, kind, object)
+    }
+
+    fn resolve(&self, r: &v1_3::PhysicalRef, kind: v1_3::FrameKind) -> Result<Value, PackageError> {
+        self.open(r)?;
         self.checked
             .borrow()
             .get(&r.allocation_id)

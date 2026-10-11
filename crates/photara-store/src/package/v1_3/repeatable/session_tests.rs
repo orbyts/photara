@@ -1033,6 +1033,7 @@ fn clean_executor_proof_reused_by_receipt_with_fresh_observations() {
     let identity = identity(&current);
     let reader = support::limits();
     let context = super::journal_tests::context(&observed, &identity, &reader);
+    v1_3::tree::take_encoded_logical_bytes();
     let mut memo = super::super::restart::CompiledPlans::default();
     crate::package::v1_3::locator::take_full_audits();
     memo.inspect_shared_candidate(&current, &context, &plan, 6)
@@ -1041,6 +1042,11 @@ fn clean_executor_proof_reused_by_receipt_with_fresh_observations() {
         crate::package::v1_3::locator::take_full_audits(),
         original.proof.roles.len(),
         "one full locator audit per role, shared by semantic/retention/physical proofs"
+    );
+    assert_eq!(
+        v1_3::tree::take_encoded_logical_bytes(),
+        0,
+        "native candidate uses authenticated canonical frame bodies"
     );
     let before = memo.reader_work();
     let proved = super::super::restart::verify_completed_plan(

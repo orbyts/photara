@@ -5,6 +5,13 @@ use photara_core::contracts::schema::QualifiedName;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
+#[cfg(test)]
+thread_local! { static ENCODED_LOGICAL_BYTES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+#[cfg(test)]
+pub(crate) fn take_encoded_logical_bytes() -> usize {
+    ENCODED_LOGICAL_BYTES.with(|n| n.replace(0))
+}
+
 /// A provider returns a canonical, digest-checked record at an exact frame boundary.
 /// Implementations must enforce allocation identity and tag; a path or byte slice
 /// by itself is not a frame-boundary proof. `PackedAllocation::resolve` supplies
@@ -13,6 +20,28 @@ pub trait PhysicalRecords {
     /// # Errors
     /// Refuses missing, malformed, substituted or incorrectly typed frames.
     fn resolve(&self, reference: &PhysicalRef, kind: FrameKind) -> Result<Value, PackageError>;
+    /// Resolves an exact frame and authenticates its canonical logical body.
+    /// Packed providers may check their already canonical input bytes directly.
+    /// # Errors
+    /// Refuses every physical error plus a changed logical kind, length or digest.
+    fn resolve_json(
+        &self,
+        reference: &PhysicalRef,
+        kind: FrameKind,
+        object: &ObjectRef,
+    ) -> Result<Value, PackageError> {
+        let value = self.resolve(reference, kind)?;
+        let bytes = photara_core::canonical_json(&value).map_err(|_| PackageError::Record)?;
+        #[cfg(test)]
+        ENCODED_LOGICAL_BYTES.with(|n| n.set(n.get().saturating_add(bytes.len())));
+        if object.kind != ObjectKind::Json
+            || bytes.len() as u64 != object.byte_length.get()
+            || super::super::digest(&bytes) != object.sha256
+        {
+            return Err(PackageError::Integrity);
+        }
+        Ok(value)
+    }
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PhysicalTreeKind {
@@ -446,6 +475,17 @@ pub(super) fn number(value: &Value) -> Result<u64, PackageError> {
 }
 
 impl PhysicalRecords for BTreeMap<PackageUuid, super::PackedAllocation<'_>> {
+    fn resolve_json(
+        &self,
+        reference: &PhysicalRef,
+        kind: FrameKind,
+        object: &ObjectRef,
+    ) -> Result<Value, PackageError> {
+        self.get(&reference.allocation_id)
+            .ok_or(PackageError::Integrity)?
+            .resolve_json(reference, kind, object)
+    }
+
     fn resolve(&self, reference: &PhysicalRef, kind: FrameKind) -> Result<Value, PackageError> {
         self.get(&reference.allocation_id)
             .ok_or(PackageError::Integrity)?

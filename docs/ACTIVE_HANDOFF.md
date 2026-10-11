@@ -24,9 +24,9 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
-**Current approved work (2026-10-11):** grouped-full-sync qualification and private
-shared allocation ownership are published through `9a39970`. The compact journal
-memo correction is implemented: replacing duplicated Original values with exact
+**Current approved work (2026-10-11):** grouped-full-sync qualification, shared
+allocation ownership and compact journal memo correction are published through
+`b48e9ac` (normal SSH push verified). The memo correction is implemented: replacing duplicated Original values with exact
 commitments reduces Saved32 metadata from 8,452,393 to 3,170,194 bytes under the
 unchanged 8 MiB subbudget. Fresh Original equality and all prefix/context checks
 remain required. Repeated verification improves 11.74 seconds → 54–58 ms with no
@@ -39,6 +39,22 @@ B is now Saved34 at x13/y14 and has consumed its prepaid tip corridors. Preserve
 it; no further B authoring benchmarks. Existing registered Review A remains
 available for a later bounded native/UI trial once a concrete improvement passes.
 No new fixture limits, format, weaker validation or production writes are approved.
+The subsequent packed-body optimization removes duplicate canonical encoding:
+24 full candidate proofs on identical Saved32 bytes improve 10.938→7.435 seconds
+(32%). Eighteen session/corpus tests, five reader/recovery tests and both strict
+configurations pass. The provided PhysicalRecords method is additive, with the
+existing generic-provider fallback unchanged. Exact physical/canonical/logical
+checks remain. Native A out/back and exact reopen pass: saves 1.10/1.16 seconds,
+normal close 65 ms, backend peak RSS 127,860,736 bytes. A has much shorter history;
+this is not a same-input comparison to B or acceptance of history scaling.
+The ad-hoc app build, ABI/refusal and compile-gated autosave tests pass. Native UI
+drag/return and Cmd-Q drain pass (PID33010 exit0); exact reopen verifies A Saved8
+at x13/y14. A bounded **node-move interaction review** build is ready:
+`/private/tmp/photara-ll2a-packed-review-20261011/Open Photara Autosave.app`.
+Use existing Project A; B is full and retained. Durable add/delete/connect and
+full LL2a performance/human acceptance remain unfinished. Do not use old launchers.
+Next engineering target: repeated hypothetical-journal preparation and cold replay,
+using immutable captures before more native storage-consuming tests.
 
 **Active gate — LL2a autosave performance remains unaccepted.** The v3 delta-index
 format and narrow inventory-root version-2 correction were approved on 2026-10-10.
