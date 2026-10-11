@@ -1179,6 +1179,49 @@
         "app_rebuilt": false,
         "format_proposal": "docs/architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#proposed-incremental-layout-amendment--2026-10-10-unapproved",
         "proposal_status": "UNAPPROVED; draft serialization hashes independently recomputed; permanent dispatch not implemented"
+      },
+      "incremental_format_approval": {
+        "date": "2026-10-10",
+        "user_response": "approve",
+        "scope": "Concrete retained-control inventory and deterministic incremental layout packet, implementation and exact-byte validation; existing retained history, v1 bytes and authority/durability meanings unchanged. No cap increases or real-library writes.",
+        "packet": "docs/architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#incremental-layout-amendment--approved-2026-10-10"
+      },
+      "incremental_v2_validation": {
+        "status": "NOT ACCEPTED: grown immutable history exceeds unchanged admission corridor",
+        "native_adapter": "v1 unchanged; no native writes or app rebuild",
+        "capture": "/private/tmp/ll2a-compiler-snapshot-20261010",
+        "session_tests": {
+          "passed": 12,
+          "log": "/private/tmp/ll2a-v2-final-session.log",
+          "elapsed_seconds": 9.67,
+          "pinned_v1_v2_chain_vectors": true
+        },
+        "sizing_only": {
+          "log": "/private/tmp/ll2a-v2-import-sizing.log",
+          "native_dispatch": false,
+          "corridor_bytes": 262144,
+          "second_v2_nonpadding_bytes": {
+            "active_data": 243513,
+            "active_locator": 547413,
+            "recovery_locator": 540350,
+            "pin_locator": 443946
+          },
+          "note": "In-memory sizing after unchanged-corridor refusal. Larger sizing allowance is diagnostic only, not changed native inputs or approval."
+        },
+        "cause": "Nested index amplification: 7 retained controls produce 26 retained-inventory nodes, changed semantic/global inventory paths then change 473 of 577 active locator pages. Same-destination deduplication and original same-role seeds work.",
+        "saved_project_unchanged": {
+          "revision": 22,
+          "x": 13,
+          "y": 14
+        },
+        "next_boundary": "A new overlay schema and reader dispatch require a concrete reviewed permanent-format amendment; no tuning or enablement authorized by this failure.",
+        "controlled_strict": "/private/tmp/ll2a-v2-clippy.log",
+        "unchanged_v1_golden": {
+          "passed": 1,
+          "log": "/private/tmp/ll2a-v2-v1-golden.log"
+        },
+        "unapproved_packet": "docs/architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#follow-on-review--inventory-and-locator-batch-overlays-unapproved",
+        "default_store_strict": "/private/tmp/ll2a-v2-default-clippy.log"
       }
     }
   }

@@ -613,6 +613,7 @@ pub(crate) fn restore_intent_plan_cached<I: AllocationInspection>(
 pub(crate) struct CompiledPlans {
     entries: BTreeMap<String, (CachedPlan, usize)>,
     reader: reader_memo::ReaderMemo,
+    canonical: super::canonical_memo::CanonicalMemo,
     order: VecDeque<String>,
     bytes: usize,
     byte_ceiling: Option<usize>,
@@ -646,7 +647,9 @@ impl CompiledPlans {
     }
     fn maximum(&self, limits: Limits) -> usize {
         let maximum = self.raw_maximum(limits);
-        let maximum = maximum.saturating_sub(prefix_index::allowance(maximum));
+        let maximum = maximum
+            .saturating_sub(prefix_index::allowance(maximum))
+            .saturating_sub(self.canonical.bytes);
         #[cfg(any(test, feature = "controlled-disposable"))]
         let maximum = maximum
             .saturating_sub(self.journal.as_ref().map_or(0, |m| m.cost))
@@ -660,6 +663,7 @@ impl CompiledPlans {
     }
 
     pub(crate) fn trim(&mut self, limits: Limits, max_entries: usize) {
+        self.canonical.set_maximum(self.raw_maximum(limits) / 4);
         #[cfg(any(test, feature = "controlled-disposable"))]
         {
             if self
@@ -855,9 +859,21 @@ impl CompiledPlans {
         {
             self.compilations += 1;
         }
-        let plan = Arc::new(recovery::recover(
-            verified, original, intent, receipt, limits,
-        )?);
+        let attempt: super::Attempt =
+            serde_json::from_value(original["payload_recipe"]["planner"].clone())
+                .map_err(|_| PackageError::Record)?;
+        let plan = Arc::new(
+            super::plan::compile_cached(
+                verified,
+                intent,
+                receipt,
+                attempt,
+                limits,
+                Some(&mut self.canonical),
+            )
+            .map_err(|_| PackageError::Integrity)?,
+        );
+        check(plan.original == *original)?;
         self.remember(&basis, &plan, limits, max_entries, false)?;
         Ok(plan)
     }
@@ -874,11 +890,19 @@ impl CompiledPlans {
         limits: Limits,
         max_entries: usize,
     ) -> wire::Result<RepeatablePlan> {
+        self.trim(limits, max_entries);
         #[cfg(test)]
         {
             self.compilations += 1;
         }
-        let plan = super::plan::compile_inner(verified, intent, receipt, attempt, limits)?;
+        let plan = super::plan::compile_cached(
+            verified,
+            intent,
+            receipt,
+            attempt,
+            limits,
+            Some(&mut self.canonical),
+        )?;
         let basis = compiled_basis(verified, plan.original(), intent, receipt, limits);
         self.remember(&basis, &plan, limits, max_entries, true)
             .map_err(|_| "compiled plan memo")?;
@@ -951,6 +975,7 @@ impl CompiledPlans {
         (
             self.entries.len(),
             self.bytes
+                + self.canonical.bytes
                 + self.reader.bytes
                 + self.journal.as_ref().map_or(0, |j| j.cost)
                 + self.session.as_ref().map_or(0, |m| m.cost)
@@ -1073,6 +1098,7 @@ impl CachedPlan {
                 attempt: p.attempt.clone(),
                 empty_hold: p.empty_hold.clone(),
                 retained_controls: p.retained_controls.clone(),
+                extra_global: p.extra_global.clone(),
             },
             prefixes,
             controls,
@@ -1147,6 +1173,7 @@ impl CachedPlan {
             attempt: p.attempt.clone(),
             empty_hold: p.empty_hold.clone(),
             retained_controls: p.retained_controls.clone(),
+            extra_global: p.extra_global.clone(),
         })
     }
     fn byte_cost(&self) -> Option<usize> {
@@ -1172,6 +1199,7 @@ impl CachedPlan {
             bytes = bytes.checked_add(digest.capacity())?.checked_add(256)?;
         }
         bytes = bytes.checked_add(p.retained_controls.len().checked_mul(256)?)?;
+        bytes = bytes.checked_add(p.extra_global.len().checked_mul(256)?)?;
         bytes.checked_add(std::mem::size_of::<Self>())
     }
 }

@@ -191,6 +191,6 @@ pub(super) fn fingerprint<I>(
             r.retained_files.iter().map(|(path,v)|json!([path,v.extent,v.sha256,v.registered_charge,v.device,v.inode])).collect::<Vec<_>>()],
         "directory":[c.directory.device,c.directory.inode],"identity":[c.identity.project,c.identity.library,c.identity.bootstrap_sha256],
         "limits":limits,"planner":planner_limits(c.planner),"max_originals":c.max_originals,
-        "operation":operation.map(|p|json!([p.original,p.stages[6].commit,p.stages[6].loose.iter().map(|(k,v)|json!([k,v.len(),wire::hash(v)])).collect::<Vec<_>>(),p.empty_hold,p.retained_controls.iter().map(|(r,m)|json!([r,format!("{m:?}")])).collect::<Vec<_>>()]))});
+        "operation":operation.map(|p|json!([p.original,p.stages[6].commit,p.stages[6].loose.iter().map(|(k,v)|json!([k,v.len(),wire::hash(v)])).collect::<Vec<_>>(),p.empty_hold,p.extra_global.iter().map(|(r,m)|json!([r,format!("{m:?}")])).collect::<Vec<_>>()]))});
     wire::hash(&wire::encode(&body))
 }

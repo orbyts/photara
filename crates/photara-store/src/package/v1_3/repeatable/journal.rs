@@ -297,9 +297,13 @@ fn body(record: &Value, header: &Value) -> Result<(), PackageError> {
                     "accepted_frame",
                 ],
             )?;
-            check(
-                body["original"]["original_codec"] == "photara.codec.ps2-repeatable-admission-v1",
-            )?;
+            check(matches!(
+                body["original"]["original_codec"].as_str(),
+                Some(
+                    "photara.codec.ps2-repeatable-admission-v1"
+                        | "photara.codec.ps2-repeatable-admission-v2"
+                )
+            ))?;
             let receipt = &body["operation_receipt"];
             let original = &body["original"];
             let intent = &body["semantic_intent"];

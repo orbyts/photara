@@ -2,6 +2,10 @@
 use super::*;
 
 #[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "Explicit read-only captured-input comparison and refused-import sizing diagnostic"
+)]
 #[ignore = "Requires an explicit read-only copy of existing registered package bytes"]
 fn captured_original_compiler_exact_output() {
     let path = std::path::PathBuf::from(std::env::var("PHOTARA_COMPILER_CAPTURE").unwrap());
@@ -101,4 +105,145 @@ fn captured_original_compiler_exact_output() {
         vector(&plan),
         plan.files.values().map(Vec::len).sum::<usize>()
     );
+    if std::env::var_os("PHOTARA_COMPILER_V2").is_some() {
+        let directory = context.directory;
+        let mut old = plan
+            .verify_next_original(
+                current.clone(),
+                super::identity(&current),
+                &observed,
+                &base.registration,
+                directory,
+                frames(),
+                &reader,
+            )
+            .unwrap();
+        let mut intent = body["semantic_intent"].clone();
+        let mut receipt = body["operation_receipt"].clone();
+        let mut memo = restart::CompiledPlans::default();
+        for n in 0..2u64 {
+            let mut inputs = attempt(&old, 900_000 + n * 2000);
+            inputs.project_limit = plan.original["project_limit"].as_str().unwrap().into();
+            let coordinate = core::original_coordinate(&old, &inputs.planner, budget()).unwrap();
+            intent["expected"] = coordinate.clone();
+            intent["operation_id"] = json!(uid(990_000 + n));
+            intent["command"]["envelope"]["command_id"] = intent["operation_id"].clone();
+            let graph = intent["command"]["envelope"]["graph_id"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            intent["command"]["envelope"]["expected_revision"] = json!(
+                coordinate["graphs"][&graph]["revision"]
+                    .as_str()
+                    .unwrap()
+                    .parse::<u64>()
+                    .unwrap()
+            );
+            receipt["operation_id"] = intent["operation_id"].clone();
+            receipt["before"] = receipt["after"].clone();
+            receipt["acceptance_ordinal"] = json!(
+                (receipt["acceptance_ordinal"]
+                    .as_str()
+                    .unwrap()
+                    .parse::<u64>()
+                    .unwrap()
+                    + 1)
+                .to_string()
+            );
+            receipt["journal_sequence"] = json!(
+                (receipt["journal_sequence"]
+                    .as_str()
+                    .unwrap()
+                    .parse::<u64>()
+                    .unwrap()
+                    + 1)
+                .to_string()
+            );
+            receipt["request_sha256"] = json!(hash(&encode(&intent)));
+            if n == 0 {
+                let before = std::time::Instant::now();
+                let legacy = compile(&old, &intent, &receipt, inputs.clone(), budget());
+                eprintln!(
+                    "grown-capture v1 next: elapsed={:?} outcome={:?}",
+                    before.elapsed(),
+                    legacy.as_ref().map(vector)
+                );
+            }
+            inputs.planner.codec = "photara.codec.ps2-repeatable-layout-v2".into();
+            layout::take_load_work();
+            let before = std::time::Instant::now();
+            let attempted = memo.compile(&old, &intent, &receipt, inputs.clone(), budget(), 256);
+            if let Err(error) = &attempted {
+                eprintln!("UNCHANGED CORRIDOR REFUSAL v2 {n}: {error}");
+            }
+            let next = match attempted {
+                Ok(plan) => plan,
+                Err(error) if std::env::var_os("PHOTARA_COMPILER_SIZE_IMPORT").is_some() => {
+                    eprintln!(
+                        "DIAGNOSTIC ONLY: measuring complete append bytes after {error}; no native/admitted input changes"
+                    );
+                    for corridor in &mut inputs.planner.corridors {
+                        corridor.maximum_end =
+                            (corridor.original_end.parse::<u64>().unwrap() + 1_048_576).to_string();
+                    }
+                    memo.compile(&old, &intent, &receipt, inputs.clone(), budget(), 256)
+                        .unwrap()
+                }
+                Err(error) => panic!("unchanged v2 corridor: {error}"),
+            };
+            let elapsed = before.elapsed();
+            let work = layout::take_load_work();
+            let exact = compile(&old, &intent, &receipt, inputs, budget()).unwrap();
+            let uncached_work = layout::take_load_work();
+            assert_eq!(vector(&next), vector(&exact));
+            let mut append = BTreeMap::new();
+            let mut composition = BTreeMap::<String, BTreeMap<String, (usize, usize)>>::new();
+            for (id, bytes) in &next.files {
+                let mut at = old.package.allocations[id].bytes.len();
+                let mut live = 0;
+                while at < bytes.len() {
+                    let payload =
+                        u32::from_le_bytes(bytes[at + 12..at + 16].try_into().unwrap()) as usize;
+                    let end = at + 16 + payload;
+                    assert!(end <= bytes.len());
+                    if bytes[at + 8] != 0 {
+                        live += end - at;
+                        let body: Value = serde_json::from_slice(&bytes[at + 16..end]).unwrap();
+                        let kind = body["schema"]["id"].as_str().unwrap_or("intent").to_owned();
+                        let stat = composition
+                            .entry(id.clone())
+                            .or_default()
+                            .entry(kind)
+                            .or_default();
+                        stat.0 += 1;
+                        stat.1 += end - at;
+                    }
+                    at = end;
+                }
+                append.insert(id.clone(), live);
+            }
+            eprintln!(
+                "grown-capture v2 {n}: elapsed={elapsed:?} cached_work={work:?} uncached_work={uncached_work:?} original_bytes={} append_nonpadding={append:?} vector={}",
+                next.original_bytes().len(),
+                vector(&next)
+            );
+            eprintln!("v2 append composition {n}: {composition:?}");
+            current = selected(&next, 6);
+            let mut observed = snapshot(&base, &current);
+            for (id, a) in &mut observed.allocations {
+                a.charge = base.allocations[id].charge.max(a.charge);
+            }
+            old = next
+                .verify_next_original(
+                    current.clone(),
+                    super::identity(&current),
+                    &observed,
+                    &base.registration,
+                    directory,
+                    frames(),
+                    &reader,
+                )
+                .unwrap();
+        }
+    }
 }

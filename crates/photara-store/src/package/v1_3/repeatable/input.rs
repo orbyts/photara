@@ -104,7 +104,10 @@ impl PlannerInputs {
         limits: super::Limits,
     ) -> Result<()> {
         ensure(
-            self.codec == "photara.codec.ps2-repeatable-layout-v1",
+            matches!(
+                self.codec.as_str(),
+                "photara.codec.ps2-repeatable-layout-v1" | "photara.codec.ps2-repeatable-layout-v2"
+            ),
             "repeatable layout codec",
         )?;
         uuid(&Value::String(self.active_root_id.clone()))?;

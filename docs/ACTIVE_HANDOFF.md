@@ -6,10 +6,10 @@ experiment reports are reference material only.
 ## Baseline
 
 - Authoritative branch: `main`.
-- Latest autosave optimization checkpoint is local only: the 2026-10-10 normal
-  SSH push and follow-up read-only `ls-remote` both failed to read the remote.
-  Preserve the existing SSH remote/authentication; verify remote state before
-  the next normal push. Do not claim GitHub synchronization for this checkpoint.
+- Earlier 2026-10-10 SSH publication failed. Read-only verification now succeeds
+  through the unchanged SSH remote: `origin/main` is `79c2684` before this
+  incremental-format checkpoint. Preserve existing authentication and use only
+  a normal fast-forward push; verify publication before claiming synchronization.
 - Historical production-code baseline before shared PS2 implementation:
   `f91f8de1546896267bac13adeac00c1659133232`. Shared `package::v1_3` reader
   components now follow the narrow 2026-10-03 approval; production writes remain disabled.
@@ -25,7 +25,7 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
-**Current stop boundary — incremental format approval required.** Safe replay/compiler
+**Active gate — v2 implementation verified; grown-history acceptance failed.** Safe replay/compiler
 optimizations pass focused regressions, but autosave is NOT performance-accepted.
 Same-input compilation improved 874→381 ms with exact output unchanged; latest
 native saves still take 7.00/6.87 seconds and peak process RSS is about 918 MiB.
@@ -34,14 +34,28 @@ fits its 262,144-byte per-attempt corridor. Last Saved remains revision 22 at
 x=13/y=14. No new original/Mutation was persisted; all writers are stopped.
 Remaining prepaid disk bytes are NOT a count of admissible future operations.
 Do not raise caps, erase history, relaunch stale apps, or claim this fixed.
-Review the concrete incremental-format packet in
-[the existing repeatable amendment](architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#proposed-incremental-layout-amendment--2026-10-10-unapproved).
+Implement the approved incremental-format packet in
+[the existing repeatable amendment](architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#incremental-layout-amendment--approved-2026-10-10).
 Existing geometry/corridor inputs are tunable under prior approval, but cannot
-silently change v1 deterministic construction. New permanent codec dispatch and
-format implementation require approval of this packet. It includes exact fields,
+silently change v1 deterministic construction. The user approved new v2 codec dispatch and
+implementation of this exact packet. It includes exact fields,
 typed edges, ordering rules and independently checked draft serialization vectors.
-No v2 dispatch is implemented. Preserve all v1
+Implementation is in progress; do not ask again within this scope. Preserve all v1
 bytes, typed dependencies, history, accounting and Accepted/Saved semantics.
+
+**Captured-history acceptance failure (2026-10-10):** v2 passes the 12-test session
+suite, including two consecutive v2 operations and interrupted original retry,
+but the existing grown immutable capture refuses under unchanged 262,144-byte
+corridors. A separate in-memory sizing experiment (not native dispatch) requires
+547,413 active-locator bytes on the second v2 operation. Same-destination reuse
+works; changed retained/global inventory paths amplify into many changed locator
+paths. The proposed format is not an accepted autosave fix. Native adapter stays
+v1 and all writers remain stopped. Do not increase corridors/geometry, enable
+this candidate, or erase history to make the result pass. Exact evidence and
+the [unapproved next-format packet](architecture/PS2_REPEATABLE_WRITER_AMENDMENT.md#follow-on-review--inventory-and-locator-batch-overlays-unapproved)
+are in the existing repeatable amendment. The packet adds balanced delta indexes
+for inventories/locators; it requires permanent-format approval before code or
+native dispatch. No performance result is claimed for that proposal.
 
 
 **2026-10-10 save-backlog correction active.** User reports prolonged Saving and

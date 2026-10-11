@@ -68,6 +68,7 @@ mod wire {
         .map_err(|_| "canonical JSON")
     }
 }
+mod canonical_memo;
 mod layout;
 
 mod core;

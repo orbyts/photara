@@ -153,6 +153,7 @@ fn control(
 /// the exact selected O/P chain before the common packed closure is inspected.
 /// Public caller metadata cannot select an alternate packed hold.
 pub(crate) struct OperationSelection<'a> {
+    pub original: &'a Value,
     pub expected_commit: &'a Value,
     pub expected_loose: &'a BTreeMap<String, Vec<u8>>,
     pub packed_hold: &'a ObjectRef,
@@ -724,6 +725,13 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
                 provider,
                 envelope.identity.project,
                 structures[label].locator.clone(),
+                limits.tree,
+            )?;
+            super::retained_inventory::inspect(
+                &loc,
+                selected.original,
+                selected.extra_global,
+                envelope.identity.project,
                 limits.tree,
             )?;
             for (reference, membership) in selected.extra_global {

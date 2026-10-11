@@ -5,6 +5,10 @@ use super::{
     wire,
 };
 use serde_json::{Value, json};
+#[path = "incremental.rs"]
+pub(super) mod incremental;
+#[path = "retained_inventory.rs"]
+mod retained_inventory;
 use std::collections::{BTreeMap, BTreeSet};
 use wire::{Result, encode, ensure, hash, key, reference, text};
 #[cfg(test)]
@@ -21,6 +25,8 @@ fn get(pool: &BTreeMap<wire::Key, Value>, r: &Value) -> Result<Value> {
         .ok_or("decoder original object absent")
 }
 pub(super) struct Builder {
+    incremental: bool,
+    changed_order: BTreeMap<wire::Key, usize>,
     project: String,
     geometry: TreeGeometry,
     limits: Limits,
@@ -56,12 +62,22 @@ impl Builder {
         inputs: &PlannerInputs,
         limits: Limits,
     ) -> Result<Self> {
+        Self::load_cached(old, inputs, limits, None)
+    }
+    pub(super) fn load_cached(
+        old: &OriginalPackage,
+        inputs: &PlannerInputs,
+        limits: Limits,
+        mut memo: Option<&mut super::canonical_memo::CanonicalMemo>,
+    ) -> Result<Self> {
         #[cfg(test)]
         LOAD_WORK.with(|work| {
             let (loads, parsed) = work.get();
             work.set((loads + 1, parsed));
         });
         let mut b = Self {
+            incremental: inputs.codec == "photara.codec.ps2-repeatable-layout-v2",
+            changed_order: BTreeMap::new(),
             project: text(&old.manifest["project_id"])?.into(),
             geometry: inputs.geometry.clone(),
             limits,
@@ -122,7 +138,7 @@ impl Builder {
                         json_bytes <= limits.semantic.max_total_json_bytes,
                         "original JSON total budget",
                     )?;
-                    let k = b.original(&a.bytes[p + 16..end])?;
+                    let k = b.original(&a.bytes[p + 16..end], memo.as_deref_mut())?;
                     locations.insert(k,json!({"allocation_id":id,"arena":a.arena,"offset":p.to_string(),"byte_length":(end-p).to_string(),"record_sha256":hash(&a.bytes[p..end])}));
                 }
                 p = end;
@@ -138,31 +154,73 @@ impl Builder {
                 json_bytes <= limits.semantic.max_total_json_bytes,
                 "original JSON total budget",
             )?;
-            b.original(raw)?;
+            b.original(raw, memo.as_deref_mut())?;
         }
         Ok(b)
     }
     // Every physical occurrence still consumes frame/JSON budgets. A repeated
     // exact canonical digest reuses the already checked immutable body.
-    fn original(&mut self, raw: &[u8]) -> Result<wire::Key> {
+    fn original(
+        &mut self,
+        raw: &[u8],
+        memo: Option<&mut super::canonical_memo::CanonicalMemo>,
+    ) -> Result<wire::Key> {
         let k = (hash(raw), raw.len() as u64);
         if !self.pool.contains_key(&k) {
             ensure(
                 self.pool.len() < self.limits.max_objects,
                 "object pool budget",
             )?;
+            let (value, parsed) = if let Some(memo) = memo {
+                memo.parse(
+                    raw,
+                    &k,
+                    self.limits.semantic.json,
+                    usize::try_from(self.limits.max_total_allocation_bytes).unwrap_or(usize::MAX)
+                        / 4,
+                )?
+            } else {
+                (
+                    crate::package::parse_canonical_json(raw, self.limits.semantic.json)
+                        .map_err(|_| "original canonical record budget")?,
+                    true,
+                )
+            };
             #[cfg(test)]
-            LOAD_WORK.with(|work| {
-                let (loads, parsed) = work.get();
-                work.set((loads, parsed + 1));
-            });
-            let value = crate::package::parse_canonical_json(raw, self.limits.semantic.json)
-                .map_err(|_| "original canonical record budget")?;
+            if parsed {
+                LOAD_WORK.with(|work| {
+                    let (loads, parsed) = work.get();
+                    work.set((loads, parsed + 1));
+                });
+            }
+            #[cfg(not(test))]
+            let _ = parsed;
             self.pool.insert(k.clone(), value);
         }
         Ok(k)
     }
-    fn pack(&mut self, id: &str, arena: &str, items: Vec<(Value, u8)>) -> Result<()> {
+    fn pack(&mut self, id: &str, arena: &str, mut items: Vec<(Value, u8)>) -> Result<()> {
+        if self.incremental && arena == "data" {
+            // Preserve all ordinary object slots. Changed logical tree slots use
+            // final postorder, deduplicated across the existing forest build order.
+            let slots = items
+                .iter()
+                .enumerate()
+                .filter_map(|(i, (v, _))| {
+                    self.changed_order
+                        .get(&key(&reference(v)).ok()?)
+                        .map(|rank| (i, *rank))
+                })
+                .collect::<Vec<_>>();
+            let mut ordered = slots
+                .iter()
+                .map(|(i, rank)| (*rank, items[*i].clone()))
+                .collect::<Vec<_>>();
+            ordered.sort_by_key(|(rank, _)| *rank);
+            for ((i, _), (_, item)) in slots.into_iter().zip(ordered) {
+                items[i] = item;
+            }
+        }
         let id = id.to_owned();
         for (v, tag) in items {
             let r = self.add(v.clone())?;
@@ -183,6 +241,18 @@ impl Builder {
                 .checked_add(16)
                 .and_then(|n| n.checked_add(bytes.len()))
                 .ok_or("allocation overflow")? as u64;
+            #[cfg(test)]
+            if self
+                .corridors
+                .get(&id)
+                .is_some_and(|end| projected.saturating_add(16) > *end)
+            {
+                eprintln!(
+                    "corridor overflow allocation={id} projected={projected} ceiling={:?} record={}",
+                    self.corridors.get(&id),
+                    v["schema"]["id"]
+                );
+            }
             ensure(
                 projected <= self.limits.max_allocation_bytes
                     && self
@@ -213,6 +283,78 @@ impl Builder {
             self.locations.get_mut(&id).unwrap().insert(k, physical);
         }
         Ok(())
+    }
+    fn physical_value(&self, r: &Value) -> Result<Value> {
+        let id = text(&r["allocation_id"])?;
+        let bytes = self.files.get(id).ok_or("seed allocation")?;
+        let start = usize::try_from(wire::number(&r["offset"])?).map_err(|_| "seed offset")?;
+        let length =
+            usize::try_from(wire::number(&r["byte_length"])?).map_err(|_| "seed length")?;
+        let end = start.checked_add(length).ok_or("seed range")?;
+        let frame = bytes.get(start..end).ok_or("seed truncated")?;
+        ensure(
+            r["arena"] == "metadata"
+                && frame.len() >= 16
+                && &frame[..8] == b"PS2PKD01"
+                && frame[8..12] == [3, 0, 0, 0]
+                && u32::from_le_bytes(frame[12..16].try_into().map_err(|_| "seed header")?)
+                    as usize
+                    == frame.len() - 16
+                && hash(frame) == r["record_sha256"],
+            "seed frame commitment",
+        )?;
+        let k = (hash(&frame[16..]), (frame.len() - 16) as u64);
+        self.pool.get(&k).cloned().ok_or("seed canonical object")
+    }
+    fn tree_seed(
+        &mut self,
+        name: &str,
+        entries: Vec<Value>,
+        kind: &str,
+        size: usize,
+        seed: Option<&Value>,
+    ) -> Result<(Value, Vec<Value>)> {
+        if self.incremental {
+            incremental::tree(
+                self,
+                seed,
+                entries,
+                incremental::Spec {
+                    name,
+                    field: kind,
+                    capacity: size,
+                    allocation: None,
+                },
+            )
+        } else {
+            self.tree(name, entries, kind, size)
+        }
+    }
+    fn physical_seed(
+        &mut self,
+        name: &str,
+        entries: Vec<Value>,
+        field: &str,
+        allocation: &str,
+        seed: Option<&Value>,
+    ) -> Result<Value> {
+        if self.incremental {
+            let full = format!("photara.storage.{name}");
+            incremental::tree(
+                self,
+                seed,
+                entries,
+                incremental::Spec {
+                    name: &full,
+                    field,
+                    capacity: self.geometry.physical_leaf as usize,
+                    allocation: Some(allocation),
+                },
+            )
+            .map(|v| v.0)
+        } else {
+            self.physical_tree(name, entries, field, allocation)
+        }
     }
     fn tree(
         &mut self,
@@ -454,6 +596,8 @@ pub(crate) struct Layout {
     pub target: Value,
     pub base_inventory: Value,
     pub root_placements: Value,
+    pub retained_inventory: Option<Value>,
+    pub inventory_nodes: BTreeSet<wire::Key>,
 }
 #[expect(
     clippy::too_many_lines,
@@ -489,6 +633,28 @@ pub(crate) fn compile(
     }
     b.add(prepared.receipt.clone())?;
     let root = &old.commit["root_set"];
+    let retained = if b.incremental {
+        Some(retained_inventory::build(&mut b, old, retained_controls)?)
+    } else {
+        None
+    };
+    let mut old_placements = BTreeMap::new();
+    if b.incremental {
+        let entries = incremental::audit(
+            &b,
+            &root["placement"]["root_placements"],
+            incremental::Spec {
+                name: "photara.storage.root-placement",
+                field: "root",
+                capacity: inputs.geometry.physical_leaf as usize,
+                allocation: Some(&inputs.root_placement),
+            },
+        )?;
+        for entry in entries {
+            old_placements.insert(key(&entry["root"])?, entry);
+        }
+    }
+
     let mut active = proof.roles["active"].state.clone();
     let oldactive = active.clone();
     let mut rs = get(&b.pool, &active["resource_state"])?;
@@ -537,17 +703,20 @@ pub(crate) fn compile(
     let mut receipts = proof.roles["active"].receipts.clone();
     receipts.push(prepared.receipt.clone());
     let entries=receipts.iter().map(|r|json!({"operation_id":r["operation_id"],"request_sha256":r["request_sha256"],"acceptance_ordinal":r["acceptance_ordinal"],"receipt":reference(r)})).collect::<Vec<_>>();
-    let (ir, _) = b.tree(
+    let old_index = get(&b.pool, &oldactive["operation_index"])?;
+    let (ir, _) = b.tree_seed(
         "photara.package.operation-id",
         entries.clone(),
         "operation_id",
         inputs.geometry.operation_leaf as usize,
+        Some(&old_index["by_id"]),
     )?;
-    let (or, _) = b.tree(
+    let (or, _) = b.tree_seed(
         "photara.package.operation-ordinal",
         entries,
         "acceptance_ordinal",
         inputs.geometry.operation_leaf as usize,
+        Some(&old_index["by_ordinal"]),
     )?;
     let prefix = hash(&encode(
         &json!({"domain":"photara.package.accepted-prefix-link.v1","previous_sha256":oldactive["accepted"]["prefix_sha256"],"acceptance_ordinal":prepared.receipt["acceptance_ordinal"],"operation_id":prepared.receipt["operation_id"],"request_sha256":prepared.receipt["request_sha256"],"receipt_sha256":reference(&prepared.receipt)["sha256"]}),
@@ -581,11 +750,12 @@ pub(crate) fn compile(
         active["operation_index"].clone(),
     ])?;
     active["inventory"] = b
-        .tree(
+        .tree_seed(
             "photara.package.inventory",
             semantic.values().map(reference).collect(),
             "ref",
             inputs.geometry.semantic_leaf as usize,
+            Some(&oldactive["inventory"]),
         )?
         .0;
     let mut states = Vec::new();
@@ -641,6 +811,20 @@ pub(crate) fn compile(
         );
     }
 
+    if let Some((_, nodes)) = &retained {
+        for value in nodes {
+            globals.insert(key(&reference(value))?, value.clone());
+        }
+    }
+    let inventory_nodes = globals
+        .iter()
+        .filter(|(_, v)| {
+            v["schema"]["id"]
+                .as_str()
+                .is_some_and(|id| id.starts_with("photara.storage.retained-control-inventory-"))
+        })
+        .map(|(k, _)| k.clone())
+        .collect();
     let mut union = globals.clone();
     for records in &roles {
         union.extend(
@@ -655,11 +839,12 @@ pub(crate) fn compile(
                 .map(|(k, v)| (k.clone(), v.clone())),
         );
     }
-    let (base_inventory, globalnodes) = b.tree(
+    let (base_inventory, globalnodes) = b.tree_seed(
         "photara.package.inventory",
         union.values().map(reference).collect(),
         "ref",
         inputs.geometry.semantic_leaf as usize,
+        Some(&oldoverlay["base"]),
     )?;
     let ends = inputs
         .corridors
@@ -716,7 +901,9 @@ pub(crate) fn compile(
             };
             claims.push(b.object("photara.storage.allocation-claim",json!({"allocation_id":id,"arena":old.allocations[&id].arena,"layout":"framed-json","owned_extent":if sealed{raw.len()}else{ends[&id]}.to_string(),"authenticated_prefix":{"byte_length":raw.len().to_string(),"sha256":hash(raw)},"sealed":sealed,"sealed_charge":charge})));
         }
-        let (owner, ownnodes) = b.tree(
+        let predecessor =
+            old_placements.get(&key(&reference(&proof.roles[&allocation.role].state))?);
+        let (owner, ownnodes) = b.tree_seed(
             "photara.storage.ownership",
             claims
                 .iter()
@@ -724,6 +911,7 @@ pub(crate) fn compile(
                 .collect(),
             "allocation_id",
             inputs.geometry.ownership_leaf as usize,
+            predecessor.map(|p| &p["ownership"]),
         )?;
         b.pack(
             &allocation.data,
@@ -746,12 +934,23 @@ pub(crate) fn compile(
         }
         locations.extend(b.locations[&allocation.data].clone());
         let entries=records.iter().map(|(k,v)|Ok(json!({"object":reference(v),"membership":if tag(v)==2{"ownership"}else{"semantic"},"physical":locations.get(k).ok_or("missing planned location")?}))).collect::<Result<Vec<_>>>()?;
-        let locator = b.physical_tree("locator", entries, "object", &allocation.locator)?;
+        let locator = b.physical_seed(
+            "locator",
+            entries,
+            "object",
+            &allocation.locator,
+            predecessor.map(|p| &p["locator"]),
+        )?;
         placements.push(json!({"root":state,"root_id":get(&b.pool,state)?["root_id"],"locator":locator,"ownership":owner}));
     }
     placements.sort_by_key(|p| key(&p["root"]).unwrap());
-    let root_placements =
-        b.physical_tree("root-placement", placements, "root", &inputs.root_placement)?;
+    let root_placements = b.physical_seed(
+        "root-placement",
+        placements,
+        "root",
+        &inputs.root_placement,
+        Some(&root["placement"]["root_placements"]),
+    )?;
     let final_total = b.files.iter().try_fold(0u64, |n, (id, bytes)| {
         n.checked_add(ends.get(id).copied().unwrap_or(bytes.len()) as u64)
             .ok_or("allocation total overflow")
@@ -773,6 +972,8 @@ pub(crate) fn compile(
         f.resize(*end, 0);
     }
     Ok(Layout {
+        retained_inventory: retained.map(|v| v.0),
+        inventory_nodes,
         files: b.files,
         target: json!({"active":active_ref,"recovery":root["active"],"pinned_roots":root["pinned_roots"],"operation_index":active["operation_index"],"conversion_source":root["conversion_source"]}),
         base_inventory,

@@ -44,11 +44,12 @@ pub mod repeatable;
 
 mod origins;
 mod reader;
+mod retained_inventory;
 pub use reader::{
     ControlRecords, DirectoryObservation, ReaderLimits, RetainedObservation, RoleClosure,
     SettledPackage, SettledRegistration, inspect_recovery, inspect_settled, verify_original,
 };
 
+pub mod activation;
 #[cfg(target_os = "macos")]
 pub mod native_profile;
-pub mod activation;

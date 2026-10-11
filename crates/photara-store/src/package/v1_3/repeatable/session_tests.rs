@@ -927,3 +927,6 @@ fn original_pool_dedup_preserves_physical_budgets_and_malformed_refusal() {
     duplicate.allocations.get_mut(&ids[1]).unwrap().bytes = malformed;
     assert!(super::super::layout::Builder::load(&duplicate, &inputs, budget()).is_err());
 }
+
+#[path = "incremental_tests.rs"]
+mod incremental_tests;

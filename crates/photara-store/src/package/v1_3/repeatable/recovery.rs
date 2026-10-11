@@ -96,8 +96,19 @@ fn reconstruct(
     prefixes: Option<&super::restart::prefix_index::Prefixes<'_>>,
 ) -> wire::Result<OriginalPackage> {
     wire::ensure(
-        record["original_codec"] == "photara.codec.ps2-repeatable-admission-v1"
-            && record["payload_recipe"]["codec"] == "photara.codec.ps2-repeatable-layout-v1",
+        matches!(
+            (
+                record["original_codec"].as_str(),
+                record["payload_recipe"]["codec"].as_str()
+            ),
+            (
+                Some("photara.codec.ps2-repeatable-admission-v1"),
+                Some("photara.codec.ps2-repeatable-layout-v1")
+            ) | (
+                Some("photara.codec.ps2-repeatable-admission-v2"),
+                Some("photara.codec.ps2-repeatable-layout-v2")
+            )
+        ),
         "repeatable codecs",
     )?;
     let attempt: Attempt = serde_json::from_value(record["payload_recipe"]["planner"].clone())

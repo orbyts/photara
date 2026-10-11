@@ -170,7 +170,7 @@ Strict library/tests Clippy, targeted Rustfmt and diff checks also pass. The
 [source-bound verification manifest](verification/ps2-shared-repeatable-regression.json)
 records the commands, exact source hashes and output logs.
 
-## Proposed incremental layout amendment — 2026-10-10 (UNAPPROVED)
+## Incremental layout amendment — approved 2026-10-10
 
 The current disposable writer is not ready for sustained autosave. Its latest
 attempt refused before admission with `preflight corridor exhausted`; no Mutation
@@ -207,12 +207,12 @@ Changing that deterministic construction under layout v1 would invalidate retry:
 original equality. A path-copy implementation therefore needs additive dispatch;
 existing v1 outputs, parser behavior and golden vectors must remain unchanged.
 
-### Exact proposed additive contract (UNAPPROVED)
+### Approved additive contract
 
-Approval is requested for this concrete packet's implementation and validation,
-not an additional design workstream. Proposed dispatch names are
+The user approved this concrete packet for implementation and validation on
+2026-10-10. Approved dispatch names are
 `photara.codec.ps2-repeatable-admission-v2` and
-`photara.codec.ps2-repeatable-layout-v2`. Neither is implemented. All v1 dispatch,
+`photara.codec.ps2-repeatable-layout-v2`. Implementation is in progress. All v1 dispatch,
 bytes, refusal and retry rules remain frozen.
 
 All O/P/F fields retain their representation and meaning except:
@@ -291,10 +291,18 @@ at least the update key, otherwise the last child. Copy only changed paths.
 On overflow split the ordered `capacity+1` entries/children at `floor(length/2)`,
 left then right. Remove empty children and collapse singleton branches; an empty
 root becomes the canonical empty leaf. Do not merge underfull neighbors or globally
-rechunk. Emit changed nodes bottom-up, left to right, in delta order, retaining
-existing digest deduplication and frame encoding. Other objects keep existing
-append order. Refuse geometry smaller than an eligible seed node rather than
-silently rebuilding it. Count/range/seed inconsistencies refuse before effects.
+rechunk. Apply the deltas in canonical key order in memory, then emit only the
+final reachable changed nodes bottom-up, left to right (postorder), retaining
+existing digest deduplication and frame encoding. Superseded intermediate nodes
+within this unadmitted computation are not serialized. This clarifies the first
+draft's ambiguous “in delta order” wording before any v2 package vector or effect;
+delta application order is unchanged. For logical frame emission, keep the existing
+non-tree object slots/order and fill only changed-tree slots by deduplicated
+first-occurrence postorder. Forest order is retained inventory, operation-ID,
+operation-ordinal, active semantic inventory, global inventory, then ownership
+in persisted role order. Physical locator/root-placement frames emit postorder.
+This makes the approved traversal rule explicit before pinning complete vectors.
+Refuse geometry smaller than an eligible seed node rather than silently rebuilding it. Count/range/seed inconsistencies refuse before effects.
 
 Persist planning choices once under O. Recovery dispatches by that original and
 reproduces exact append bytes, identities, reserve and selectors. Complete plan
@@ -303,20 +311,25 @@ effect. Neither larger corridors nor geometry tuning is part of this fix.
 
 ### Draft serialization vectors
 
+Editorial correction during implementation: all ObjectRefs retain their existing
+required `kind:"json"` member. The first draft examples accidentally omitted it;
+the corrected hashes below follow the packet's unchanged `Ref` type. No new
+reference type or compatibility rule is introduced.
+
 These isolated node vectors specify canonical bytes/splitting, not complete
 package proof. Project is `10000000-0000-4000-8000-000000000001`. Entry A has record
 SHA-256 of 64 `a` characters, byte_length `"1"`, membership `"ownership"`; B uses
 64 `b` characters, length `"2"`, membership `"semantic"`. With leaf capacity one,
 inserting B into A yields leaves A/B and their two-child branch. The branch child
 ranges are the corresponding record refs, child count `"1"`, and child refs are
-those leaves' hashes/lengths. Existing canonical sorted-key UTF-8 JSON has no
+those leaves' hashes/lengths. Every reference includes `kind:"json"`. Existing canonical sorted-key UTF-8 JSON has no
 whitespace or trailing newline.
 
 | Object | Bytes | SHA-256 |
 | Empty leaf | 172 | `cc2273172590226214739fca9d25ea8d9c2e1e9d288229b5c053d8750fb08c5a` |
-| Leaf A | 303 | `b1196ffa9b8f0347afe5cb01a531143f23f0058d60b97ef29cf06d3f4be398f2` |
-| Leaf B | 302 | `4d46dc2615b02d3dba9bc1ae94b3a1481d0f0fa9b79308705b9defa774e48650` |
-| Branch A/B | 828 | `7a14cc350f1f2d742f3bd64ae2f194f9a6540fd9917d05b22fa061aefcd38f58` |
+| Leaf A | 317 | `9589cf84a0d58cb4f401f20642f008a18d640bf54c0a1dc7fee1a66071dc6549` |
+| Leaf B | 316 | `d127162ff7aa3dc9634f238be09763082ee4a099a4c58f90e3cce93d6b090090` |
+| Branch A/B | 912 | `221400d6eb5f4c6f3cef37fb37f59577bd127663170bd6520450122597386ecb` |
 
 ### Required implementation and acceptance
 
@@ -343,3 +356,57 @@ Saved/barrier claim, migration or real-library write permission is included.
 Existing v1 bytes remain unchanged; new v2 attempts may reference their verified
 legacy authority. Finite physical capacity can still refuse. Desired latency
 remains an acceptance test, not an unmeasured guarantee.
+
+
+### Implementation evidence — acceptance failed on grown history
+
+The build-gated session chain preserves v1 and executes two consecutive v2
+operations, each with interrupted append and original-attempt restart. Complete
+package-vector hashes are asserted in `repeatable/incremental_tests.rs`:
+
+| Operation | Complete vector SHA-256 |
+|---|---|
+| Unchanged v1 | `b56de6aa7dfa328f00b55d2263c1912e13146a4537ef110d5a985542c9ce9e82` |
+| First v2, legacy base | `8b3d1c1fb1aa79868568350f67dabb46e916b2ec8aa104470bc020733999a305` |
+| Second v2, tree base | `71070d53e6f2a34408bc1f4f396b63dade03055bc3fec498907e5a8c4539276c` |
+
+These establish deterministic bytes, not acceptable autosave performance.
+The existing immutable grown-history capture refuses under unchanged
+262,144-byte corridors. An explicitly separate in-memory sizing experiment
+produces 547,413 active-locator bytes for the second v2 operation (recovery
+540,350; pinned 443,946). It is diagnostic only: no native bounds changed and
+no effects were dispatched. First import also exceeds its data corridor.
+
+Same-destination deduplication and same-role predecessor reuse work. Seven new
+retained controls generate 26 retained-inventory nodes; changed semantic/global
+inventory paths then cause 473 of 577 active locator pages to change. This is
+nested index amplification, not a successful incremental-save implementation.
+The native adapter remains v1; no new app build or native write is justified.
+Evidence: `/private/tmp/ll2a-v2-import-sizing.log`; exact-vector run:
+`/private/tmp/ll2a-v2-final-vectors.log`. LL2a performance remains unaccepted.
+
+
+## Follow-on review — inventory and locator batch overlays (unapproved)
+
+Measured boundary. V2 is correctly reproducible and refuses before effects, but fails grown-history acceptance. After the diagnostic-only import, seven new retained controls generate 26 retained-inventory pages; active/global inventories change 52/133 pages; active locator changes 473 of 577 pages and writes 547,413 bytes. Those inventory implementation-page hashes become dispersed locator keys. The unchanged 262,144-byte corridor fails; v2 native dispatch remains disabled. The proposal below has not been implemented or performance-qualified.
+
+Dispatch. Add only photara.codec.ps2-repeatable-admission-v3 / photara.codec.ps2-repeatable-layout-v3. Their O/F codec labels change; all other v2 original fields, retained-control inventory base/additions/result meanings, project/accounting limits and existing receipt/phase bytes remain unchanged. V1/v2 recovery dispatch and vectors remain exact. A v3 retained-inventory base may reference the selected completed v2 or v3 result; legacy v1 import retains its existing rule. Operation ID/ordinal, retained-control, ownership and root-placement trees keep v2 path-copy. Semantic/global inventories and per-role locators use the overlay types below.
+
+Exact new records. Every record has exactly schema:{id,version:1}, project_id, extensions:{} plus listed fields. Ref means the unchanged JSON ObjectRef. PhysicalRef means the unchanged frame coordinate, restricted to the same independently owned metadata allocation for locator records. Decimal means canonical DecimalU64. All unknown fields, nonempty extensions, nil/foreign identity, false summaries and incorrect tags refuse.
+
+Two families: prefix photara.package.inventory-overlay (logical JSON, semantic membership) and photara.storage.locator-overlay (physical metadata frames). Each family has four schema IDs: the prefix itself, prefix-batch, prefix-index-leaf, prefix-index-branch.
+
+Inventory overlay root: {purpose:"state"|"global", base:Ref, base_count:Decimal, batches:Ref, through_sequence:Decimal, count:Decimal}.
+Locator overlay root: {role:String, allocation_id:UUID, base:PhysicalRef, base_count:Decimal, batches:PhysicalRef, through_sequence:Decimal, count:Decimal}. Role is the existing exact persisted planner role label; allocation_id equals the role's registered locator destination. Reader compares it with the actual selected role and independent ownership, not caller eligibility.
+
+Both batch records: {sequence:Decimal,before_count:Decimal,after_count:Decimal,entries:[...]}. Inventory entries are exactly {object:Ref,change:"insert"|"remove"}. Locator entry object uses the exact existing JSON/Blob ObjectRef union, preserving existing blob identity fields. Locator entries are exactly {object:<existing locator ObjectRef>,change:{kind:"put",membership:"semantic"|"ownership"|"blob",physical:<existing membership-specific physical union>}} or {object:<existing locator ObjectRef>,change:{kind:"remove"}}. This graph writer emits only existing supported memberships/allocations; no new Blob mutation support. Keys strictly ascend by existing (sha256,numeric byte_length), with no duplicate keys. Batches are nonempty. A remove requires present key; inventory insert requires absent key; locator put requires absent or different exact value. No redundant changes. No live authority is conveyed by a batch.
+
+Both index leaf records: {count:Decimal,entries:[{sequence:Decimal,batch:<family reference>}]}. Both index branch records: {count:Decimal,children:[{first:Decimal,last:Decimal,count:Decimal,child:<family reference>}]} where family reference is Ref for inventory and PhysicalRef for locator. Leaf count equals rows; branch count sums positive child row counts, at least two children, exact ordered disjoint summaries. Sequences are exactly 1..through_sequence without gaps. Root count is resulting set size, not index row count. Index leaf capacity uses semantic_leaf for inventory, physical_leaf for locator; branch uses existing branch. Index nodes use the approved sorted append/path-copy/split/collapse/postorder algorithm; no linear previous-root chain.
+
+Original binding and deterministic construction. At first overlay adoption, base is exactly the independently verified selected predecessor full tree of the same purpose/role/destination; base_count is its audited count. Base must be an existing leaf/branch root, never another overlay. Subsequent originals preserve the exact anchor and existing batch prefix from their selected predecessor overlay, append one sequence, and retain all earlier batches. Derive the exact current target set with existing closure semantics; diff against the previous resolved map in canonical key order. Serialize one batch (no geometry-dependent subdivision), then final reachable changed index nodes, then root; if no diff at first adoption, reuse the existing full-tree root without a sequence-zero overlay; for an existing overlay, reuse its exact root. A batch exceeding existing JSON/frame/work/entry limits refuses before effects. Each batch before_count and after_count is independently checked by exact sequential map application: before_count equals anchor count or preceding after_count, after_count equals the new map size, and the final root count equals the final map size. Planner inputs already persisted under O determine every byte; no new mutable runtime choice or planner input field.
+
+Typed closure and placement. Inventory base, batch and index pages are implementation dependencies, not members of the semantic/global set they describe. Each role independently resolves the same logical inventory edges through its own locator and includes all these implementation objects in its exact locator/physical keep-set. They do NOT become entries in an older global hash-inventory tree. Locator base/batch/index/root pages are direct physical metadata edges; they are never logical locator entries or semantic/global members. Thus new implementation hashes create only one canonical locator-delta batch, not another round of hash-tree path copying. Existing ownership claims cover every byte through the admitted corridor, all anchor/batch/index pages and padding; all frames and standing controls retain normal charges. No old record or selected historical proof is deleted, expired, or granted credit.
+
+Lookup/audit/restart. Audit anchor and the balanced index once, authenticate every reachable batch and sequence, then apply batches in ascending order. Lookup may use an inspection-local resolved map; a cold scoped lookup searches batches newest-first then anchor, with a remove terminally absent. Existing depth/page/entry/JSON/physical-work bounds apply to the complete traversal before allocation; no new product limit. Logical inventory refs must resolve independently in each role; locator physical descendants must remain in that role's registered destination. Full reader compares exact final locator keys/memberships/locations and exact semantic/global set, not merely batch checksums. An immutable-prefix memo may reuse deterministic batch application only after fresh actual bytes and observations match; current closure/authority/lease/barriers and Saved proof stay independent. Restart recompiles the exact original with the new dispatch and checks exact O/files/selectors. No arbitrary anchor substitution, chain reset, compaction, or rebase.
+
+Acceptance before native enable. Pin canonical records and full v1→v3→v3 outputs; reject changed anchors, roles, destinations, missing/reordered batches, tombstone errors, false counts, narrowed limits and changed observations. Compare cache/uncached results. On the same immutable grown capture demonstrate unchanged-corridor first import and repeated updates, actual page/byte/decode counts, bounded memory and useful timing. If it fails, keep dispatch disabled and report; do not widen geometry/corridors. Then permit one controlled native return-to-original timing/close/reopen check. Performance is an acceptance condition, not a claimed result of this proposal.
