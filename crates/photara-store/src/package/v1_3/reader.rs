@@ -16,6 +16,9 @@ use super::{
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
+#[path = "reader_archive.rs"]
+mod archive;
+
 /// Exact loose control bytes. Implementations must reject unsafe identities and
 /// enumerate their whole selected control namespace, including unknown objects.
 pub trait ControlRecords {
@@ -110,6 +113,51 @@ impl SettledPackage {
     #[must_use]
     pub fn commit(&self) -> &Value {
         &self.commit
+    }
+    /// Resolve one historical receipt using this settled selection's archive
+    /// ownership proof and fresh physical observations. This is lookup evidence,
+    /// not a new settled proof, writable lease or Saved receipt.
+    /// # Errors
+    /// Refuses a different selection, missing/changed requested bytes, unsafe
+    /// archive allocation ownership or a reused ID with a different request.
+    pub fn archived_operation<P: PhysicalRecords>(
+        &self,
+        envelope: &SelectedEnvelope,
+        provider: &P,
+        inspection: &impl AllocationInspection,
+        operation: PackageUuid,
+        request: Option<&Sha256Hex>,
+        limits: &ReaderLimits,
+    ) -> Result<Option<Value>, PackageError> {
+        check(self.root == envelope.root && self.commit == envelope.commit)?;
+        if self.root["schema"]["version"] != 3 {
+            return Err(PackageError::UnsupportedVersion);
+        }
+        let active = envelope.open_role(provider, SelectedRole::Active, limits.tree)?;
+        check(active.state == self.roles["active"].state)?;
+        let locator = Locator::new(
+            provider,
+            envelope.identity.project,
+            active.locator,
+            limits.tree,
+        );
+        let index = locator.json(
+            &json_ref(&active.state["operation_index"])?,
+            Membership::Semantic,
+        )?;
+        let base = super::snapshot::AcceptanceBase::from_value(
+            locator.json(&json_ref(&index["base"])?, Membership::Semantic)?,
+            &envelope.identity,
+        )?;
+        let archive =
+            archive::Archive::open(envelope, provider, inspection, &self.accounting, limits)?;
+        base.lookup(
+            &archive,
+            &envelope.identity,
+            operation,
+            request,
+            limits.tree,
+        )
     }
     #[must_use]
     pub fn accounting(&self) -> &AccountingMetadata {
@@ -298,6 +346,10 @@ fn pins(
     }
     Ok((t.entries, t.nodes))
 }
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Separate selected role, scoped archive and independent physical observations"
+)]
 fn role<P: PhysicalRecords, M: BlobMetadata>(
     label: &str,
     envelope: &SelectedEnvelope,
@@ -305,6 +357,7 @@ fn role<P: PhysicalRecords, M: BlobMetadata>(
     inspection: &M,
     state: &StructuralState,
     loc: &Locator<'_, P>,
+    archive: Option<&archive::Archive<'_, P>>,
     limits: &ReaderLimits,
 ) -> Result<RoleClosure, PackageError> {
     let header = provider.resolve(&state.locator, FrameKind::Physical)?;
@@ -334,7 +387,17 @@ fn role<P: PhysicalRecords, M: BlobMetadata>(
         loc.json(&commit.authored, Membership::Semantic)?["authored_revision"]
             == state.state["authored_revision"],
     )?;
-    let operations = audit_operations(loc, &state.state, &envelope.identity, limits.tree)?;
+    let operations = if state.state["schema"]["version"] == 3 {
+        super::snapshot::audit_snapshot_operations(
+            loc,
+            archive.ok_or(PackageError::Integrity)?,
+            &state.state,
+            &envelope.identity,
+            limits.tree,
+        )?
+    } else {
+        audit_operations(loc, &state.state, &envelope.identity, limits.tree)?
+    };
     let mut semantic = legacy.members().clone();
     semantic.extend(operations.objects().iter().cloned());
     let resources = if state.state["resource_state"].is_null() {
@@ -561,11 +624,28 @@ fn origin_roles(
         })
         .collect()
 }
+fn legacy_framing(
+    physical: &impl PhysicalRecords,
+    logical: &impl LogicalRecords,
+    owner: &super::OwnershipAudit,
+) -> Result<(), PackageError> {
+    for reference in &owner.objects {
+        let value = logical.resolve(reference, Membership::Ownership)?;
+        if value["schema"]["id"] == "photara.storage.allocation-claim"
+            && value["schema"]["version"] == 1
+            && value["layout"] == "framed-json"
+        {
+            physical.audit_legacy_framing(nonnil(&value["allocation_id"])?)?;
+        }
+    }
+    Ok(())
+}
 #[expect(
     clippy::too_many_arguments,
     reason = "Explicit independently proved closure components"
 )]
 fn role_physical<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
+    provider: &P,
     envelope: &SelectedEnvelope,
     loc: &Locator<'_, P>,
     mut actual: Located,
@@ -578,7 +658,12 @@ fn role_physical<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
     limits: &ReaderLimits,
 ) -> Result<(BTreeSet<PackageUuid>, BTreeSet<ObjectRef>), PackageError> {
     actual.allocations.extend(shared_allocations);
-    let owner = audit_ownership(
+    let ownership_audit = if state.state["schema"]["version"] == 3 {
+        super::audit_snapshot_ownership
+    } else {
+        audit_ownership
+    };
+    let owner = ownership_audit(
         loc,
         inspection,
         &state.ownership,
@@ -591,6 +676,9 @@ fn role_physical<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
             max_prefix_bytes: limits.max_prefix_bytes,
         },
     )?;
+    if envelope.root["schema"]["version"] == 3 {
+        legacy_framing(provider, loc, &owner)?;
+    }
     let mut expected = proof.semantic.clone();
     expected.extend(proof.inventory_nodes.iter().cloned());
     expected.insert(proof.reference.clone());
@@ -636,10 +724,7 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
     limits: &ReaderLimits,
     operation: Option<&OperationSelection<'_>>,
 ) -> Result<SettledPackage, PackageError> {
-    // Structural 1.4 decoding is separate from the not-yet-wired archive closure proof.
-    if envelope.root["schema"]["version"] == 3 {
-        return Err(PackageError::UnsupportedVersion);
-    }
+    let snapshot = envelope.root["schema"]["version"] == 3;
     let control = controls(envelope, control_records, limits, operation)?;
     let active = envelope.open_role(provider, SelectedRole::Active, limits.tree)?;
     let (active_loc, active_tree) = Locator::audited(
@@ -692,6 +777,13 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
     let account =
         audit_settled_accounting(&control.ledger, &holds, &active_loc, limits.accounting)?;
     registered(&active_loc, envelope, &control, &account, registration)?;
+    let archive = if snapshot {
+        Some(archive::Archive::open(
+            envelope, provider, inspection, &account, limits,
+        )?)
+    } else {
+        None
+    };
     let (base, global_nodes) = inventory(
         "global",
         &active_loc,
@@ -721,7 +813,16 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
         );
         roles.insert(
             label.clone(),
-            role(&label, envelope, provider, inspection, &state, loc, limits)?,
+            role(
+                &label,
+                envelope,
+                provider,
+                inspection,
+                &state,
+                loc,
+                archive.as_ref(),
+                limits,
+            )?,
         );
         structures.insert(label, state);
     }
@@ -746,6 +847,10 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
     global.extend(extra);
     global.extend(control.members.iter().cloned());
     let mut allocations = BTreeSet::new();
+    if let Some(archive) = &archive {
+        global.extend(archive.objects.iter().cloned());
+        allocations.extend(archive.allocations.iter().copied());
+    }
     let mut associations = BTreeMap::new();
     let mut requirements = BTreeMap::new();
     for (label, proof) in &roles {
@@ -764,6 +869,7 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
             }
         }
         let (used, _owner) = role_physical(
+            provider,
             envelope,
             &loc,
             actual,
@@ -792,11 +898,16 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
                 }
             }
         }
-        let active = &roles["active"].receipts;
-        check(
-            proof.receipts.len() <= active.len()
-                && active[..proof.receipts.len()] == proof.receipts,
-        )?;
+        // Snapshot roots are independently complete. Old-profile roots still
+        // receive their full own history audit; no new active suffix is a claim
+        // that it contains every old receipt. Legacy RootSet v2 keeps its check.
+        if !snapshot {
+            let active = &roles["active"].receipts;
+            check(
+                proof.receipts.len() <= active.len()
+                    && active[..proof.receipts.len()] == proof.receipts,
+            )?;
+        }
     }
     check(allocations == registration.allocations && base.is_disjoint(&control.members))?;
     let actual_global = base
@@ -824,9 +935,7 @@ pub fn inspect_recovery<P: PhysicalRecords, M: BlobMetadata + AllocationInspecti
     inspection: &M,
     limits: &ReaderLimits,
 ) -> Result<RoleClosure, PackageError> {
-    if envelope.root["schema"]["version"] == 3 {
-        return Err(PackageError::UnsupportedVersion);
-    }
+    let snapshot = envelope.root["schema"]["version"] == 3;
     let control = controls(envelope, control_records, limits, None)?;
     let state = envelope.open_role(provider, SelectedRole::Recovery, limits.tree)?;
     let (loc, tree) = Locator::audited(
@@ -838,6 +947,13 @@ pub fn inspect_recovery<P: PhysicalRecords, M: BlobMetadata + AllocationInspecti
     let (pins, pin_nodes) = pins(&loc, envelope, limits)?;
     let holds = loc.json(&control.holds, Membership::Ownership)?;
     let account = audit_settled_accounting(&control.ledger, &holds, &loc, limits.accounting)?;
+    let archive = if snapshot && state.state["schema"]["version"] == 3 {
+        Some(archive::Archive::open(
+            envelope, provider, inspection, &account, limits,
+        )?)
+    } else {
+        None
+    };
     let (base, global_nodes) = inventory(
         "global",
         &loc,
@@ -854,7 +970,14 @@ pub fn inspect_recovery<P: PhysicalRecords, M: BlobMetadata + AllocationInspecti
                 == control.count,
     )?;
     let proof = role(
-        "recovery", envelope, provider, inspection, &state, &loc, limits,
+        "recovery",
+        envelope,
+        provider,
+        inspection,
+        &state,
+        &loc,
+        archive.as_ref(),
+        limits,
     )?;
     let roles = BTreeMap::from([("recovery".to_owned(), proof)]);
     retention_dispatch(&loc, envelope)?;
@@ -885,6 +1008,7 @@ pub fn inspect_recovery<P: PhysicalRecords, M: BlobMetadata + AllocationInspecti
         .collect();
     let proof = roles.into_values().next().ok_or(PackageError::Integrity)?;
     role_physical(
+        provider,
         envelope,
         &loc,
         located(&loc, tree, inspection)?,
@@ -897,6 +1021,9 @@ pub fn inspect_recovery<P: PhysicalRecords, M: BlobMetadata + AllocationInspecti
         limits,
     )?;
     let mut required = refs(&account.logical)?;
+    if let Some(archive) = &archive {
+        required.extend(archive.objects.iter().cloned());
+    }
     required.extend(refs(&account.implementation)?);
     required.extend(pin_nodes);
     required.extend(extra);

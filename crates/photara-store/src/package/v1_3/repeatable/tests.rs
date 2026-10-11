@@ -848,3 +848,6 @@ mod compiler_benchmark;
 
 #[path = "checkpoint_candidate_tests.rs"]
 mod checkpoint_candidate_tests;
+
+#[path = "snapshot_package_tests.rs"]
+mod snapshot_package_tests;

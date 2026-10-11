@@ -24,18 +24,28 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
-**Approved snapshot implementation — first reader slice complete:** shared Rust
+**Approved snapshot implementation — package reader integration:** shared Rust
 now parses/adopts AcceptanceBase, audits a complete nonempty post-base suffix,
 looks up exact historical receipts through reciprocal authenticated index paths,
 checks selected-record allocation/ownership claims, and structurally decodes exact
 reader1.4/feature/RootSet-v3 combinations. Legacy1.3 routes retain their behavior.
-Full1.4 settled/recovery certification explicitly refuses until archive role/closure
-union is connected; parsing cannot emit Saved or grant admission. No native writes
-or app replacement. Validation: snapshot selector6, ownership1 (three corpus trees,
-v1/v2), frozen reader/recovery5 and candidate vectors3 pass; strict store check
-passes. Logs `/private/tmp/ps2-snapshot-{reader-tests,ownership-tests,legacy-reader-tests,candidate-vectors,reader-clippy}.log`.
-Next: connect archive placement, role/global inventory ownership and settled proof;
-then approved turnover, PHPSJ002/local recovery, v4 admission and disposable gates.
+Full1.4 settled/recovery verification now connects archive placement, exact
+role/global inventory union and observed allocation ownership. Four complete
+package cases pass against the existing integrated corpus with unchanged extents
+and charges: both recovery profiles, requested/unrequested archive corruption,
+archive allocation fencing, current-state corruption and changed identity.
+Retained v1 allocation claims preserve full framing/prefix checks, including in
+archive placement. A settled proof is not a native Saved receipt or admission.
+No native writes or app replacement. First-slice validation: snapshot selector6,
+ownership1 (three corpus trees, v1/v2), frozen reader/recovery5 and candidate
+vectors3 pass; strict store check passes. Logs
+`/private/tmp/ps2-snapshot-{reader-tests,ownership-tests,legacy-reader-tests,candidate-vectors,reader-clippy}.log`.
+Package integration log: `/private/tmp/ps2-snapshot-package-tests.log` (4 pass);
+compatibility `/private/tmp/ps2-snapshot-archive-legacy-reader.log` (5 pass) and
+strict store tests `/private/tmp/ps2-snapshot-archive-clippy.log` pass.
+Verified commits through `fc3788c` are local; SSH publication retries currently
+fail without an authentication/remote change. Continue local implementation.
+Next: approved turnover, PHPSJ002/local recovery, v4 admission and disposable gates.
 Do not ask for the approved format again or claim performance acceptance yet.
 
 **Latest 2026-10-11 checkpoint:** exact-prefix journal decode reuse now removes

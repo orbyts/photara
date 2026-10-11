@@ -17,6 +17,15 @@ pub(crate) fn take_encoded_logical_bytes() -> usize {
 /// by itself is not a frame-boundary proof. `PackedAllocation::resolve` supplies
 /// this contract for an already indexed immutable allocation.
 pub trait PhysicalRecords {
+    /// Preserve whole-allocation framing requirements of an old-profile role
+    /// retained by a snapshot `RootSet`. Selected-only providers must implement
+    /// this independently of their scoped frame decoder.
+    /// # Errors
+    /// Defaults to refusal; implementations reject malformed framing, padding,
+    /// identity or exhausted bounds across the complete allocation.
+    fn audit_legacy_framing(&self, _allocation: PackageUuid) -> Result<(), PackageError> {
+        Err(PackageError::UnsupportedVersion)
+    }
     /// # Errors
     /// Refuses missing, malformed, substituted or incorrectly typed frames.
     fn resolve(&self, reference: &PhysicalRef, kind: FrameKind) -> Result<Value, PackageError>;

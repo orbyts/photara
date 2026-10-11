@@ -272,7 +272,11 @@ impl SelectedEnvelope {
         let state = resolver.json(&reference, Membership::Semantic)?;
         let snapshot_state =
             state["schema"] == json!({"id":"photara.package.state-root","version":3});
-        if snapshot_state && self.root["schema"]["version"] != 3 {
+        if (snapshot_state && self.root["schema"]["version"] != 3)
+            || (self.root["schema"]["version"] == 3
+                && json_ref(&self.root["active"])? == reference
+                && !snapshot_state)
+        {
             return Err(PackageError::UnsupportedVersion);
         }
         if snapshot_state && state["extensions"] != json!({}) {

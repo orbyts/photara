@@ -3,8 +3,8 @@ use super::super::repeatable;
 use super::super::tree::{fields, number};
 use super::super::{
     AllocationInspection, AllocationLayout, AllocationObservation, Arena, BlobMetadata, FrameKind,
-    FrameLimits, PackedAllocation, PhysicalRecords, PhysicalRef, SelectedEnvelope,
-    SelectionIdentity,
+    FrameLimits, PackedAllocation, PhysicalRecords, PhysicalRef, SelectedAllocation,
+    SelectedEnvelope, SelectionIdentity,
 };
 use super::{
     ControlRecords, OperationSelection, ReaderLimits, SettledRegistration, check, controls,
@@ -30,7 +30,31 @@ struct Bytes<'a, M> {
     package: &'a repeatable::shared::OriginalPackage,
     inspection: &'a M,
     frames: FrameLimits,
-    checked: RefCell<BTreeMap<PackageUuid, PackedAllocation<'a>>>,
+    snapshot: bool,
+    checked: RefCell<BTreeMap<PackageUuid, Checked<'a>>>,
+}
+enum Checked<'a> {
+    Legacy(PackedAllocation<'a>),
+    Snapshot(SelectedAllocation<'a>),
+}
+impl Checked<'_> {
+    fn resolve(&self, reference: &PhysicalRef, kind: FrameKind) -> Result<Value, PackageError> {
+        match self {
+            Self::Legacy(allocation) => allocation.resolve(reference, kind),
+            Self::Snapshot(allocation) => allocation.resolve(reference, kind),
+        }
+    }
+    fn resolve_json(
+        &self,
+        reference: &PhysicalRef,
+        kind: FrameKind,
+        object: &ObjectRef,
+    ) -> Result<Value, PackageError> {
+        match self {
+            Self::Legacy(allocation) => allocation.resolve_json(reference, kind, object),
+            Self::Snapshot(allocation) => allocation.resolve_json(reference, kind, object),
+        }
+    }
 }
 impl<'a, M> Bytes<'a, M> {
     fn open(&self, r: &PhysicalRef) -> Result<(), PackageError> {
@@ -42,7 +66,21 @@ impl<'a, M> Bytes<'a, M> {
                 .ok_or(PackageError::Integrity)?;
             let arena: Arena = serde_json::from_value(Value::String(a.arena.clone()))
                 .map_err(|_| PackageError::Record)?;
-            let allocation = PackedAllocation::open(r.allocation_id, arena, &a.bytes, self.frames)?;
+            let allocation = if self.snapshot {
+                Checked::Snapshot(SelectedAllocation::open(
+                    r.allocation_id,
+                    arena,
+                    &a.bytes,
+                    self.frames,
+                )?)
+            } else {
+                Checked::Legacy(PackedAllocation::open(
+                    r.allocation_id,
+                    arena,
+                    &a.bytes,
+                    self.frames,
+                )?)
+            };
             self.checked
                 .borrow_mut()
                 .insert(r.allocation_id, allocation);
@@ -51,6 +89,18 @@ impl<'a, M> Bytes<'a, M> {
     }
 }
 impl<M> PhysicalRecords for Bytes<'_, M> {
+    fn audit_legacy_framing(&self, id: PackageUuid) -> Result<(), PackageError> {
+        let a = self
+            .package
+            .allocations
+            .get(&id.to_string())
+            .ok_or(PackageError::Integrity)?;
+        let arena = serde_json::from_value(Value::String(a.arena.clone()))
+            .map_err(|_| PackageError::Record)?;
+        PackedAllocation::open(id, arena, &a.bytes, self.frames)?;
+        Ok(())
+    }
+
     fn resolve_json(
         &self,
         r: &PhysicalRef,
@@ -233,6 +283,7 @@ fn verify_original_inner(
         package: &package,
         inspection,
         frames,
+        snapshot: envelope.root["schema"]["version"] == 3,
         checked: RefCell::new(BTreeMap::new()),
     };
     let proof = inspect_selected(
@@ -314,6 +365,7 @@ pub(crate) fn inspect_operation_package(
         package,
         inspection,
         frames,
+        snapshot: envelope.root["schema"]["version"] == 3,
         checked: RefCell::new(BTreeMap::new()),
     };
     inspect_selected(
