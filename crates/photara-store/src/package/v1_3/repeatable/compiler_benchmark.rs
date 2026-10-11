@@ -208,7 +208,15 @@ fn captured_original_compiler_exact_output() {
         for pass in 0..2 {
             super::super::shared::take_copied();
             let before = std::time::Instant::now();
+            let compilations = memo.compilations;
             j.verify_cached(&current, &context, &mut memo).unwrap();
+            if pass == 1 {
+                assert_eq!(
+                    memo.journal_replayed, 0,
+                    "captured completed prefix fits unchanged memo budget"
+                );
+                assert_eq!(memo.compilations, compilations);
+            }
             eprintln!(
                 "captured complete journal: pass={pass} elapsed={:?} reader={:?} compiles={} replayed={} journal_hits={} retained={:?}",
                 before.elapsed(),

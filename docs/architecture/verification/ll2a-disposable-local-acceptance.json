@@ -1725,6 +1725,87 @@
             },
             "note": "During-open instrumented sample, not steady-state or normal latency measurement; no duplicate Host found. Next inspect capacity growth and steady heap without stack logging."
           }
+        },
+        "compact_original_memo_validation": {
+          "date": "2026-10-11",
+          "memo_before_bytes": 8452393,
+          "memo_after_bytes": 3170194,
+          "unchanged_subbudget_bytes": 8388608,
+          "warm_before_seconds": 11.741,
+          "warm_after_seconds": 0.054,
+          "warm_replayed_records": 0,
+          "session_tests": 17,
+          "controlled_default_strict": "PASS",
+          "compatibility": "Exact Original equality checked against freshly validated journal; formats, budgets and authority unchanged",
+          "cli_sha256": "aa6e459bf724495778be465dc94216cc2f862f789b22f572df86fbe1fb6ed2aa",
+          "native": {
+            "timings": [
+              {
+                "stage": "open",
+                "seconds": 20.27847037499305,
+                "live_rss_kib": null
+              },
+              {
+                "stage": "submit-1",
+                "seconds": 2.025264249998145,
+                "live_rss_kib": 836384
+              },
+              {
+                "stage": "complete-1",
+                "seconds": 3.046004749950953,
+                "live_rss_kib": 842592
+              },
+              {
+                "stage": "submit-2",
+                "seconds": 2.088521208963357,
+                "live_rss_kib": 864880
+              },
+              {
+                "stage": "complete-2",
+                "seconds": 3.125052416929975,
+                "live_rss_kib": 859728
+              },
+              {
+                "stage": "state",
+                "seconds": 0.11281629197765142,
+                "live_rss_kib": 861520
+              },
+              {
+                "stage": "close",
+                "seconds": 0.37626729195471853,
+                "live_rss_kib": null
+              }
+            ],
+            "before": [
+              {
+                "id": "62000000-0000-4000-8000-000000020103",
+                "title": "example.review.inspect",
+                "x": 13,
+                "y": 14
+              }
+            ],
+            "after": [
+              {
+                "id": "62000000-0000-4000-8000-000000020103",
+                "title": "example.review.inspect",
+                "x": 13,
+                "y": 14
+              }
+            ],
+            "child_user_seconds": 27.659889,
+            "child_system_seconds": 1.422984,
+            "child_maxrss_bytes": 1176780800
+          },
+          "native_saved_revision": 34,
+          "status": "Exact out/back/Saved/close PASS; native performance remains unaccepted",
+          "native_log": "/private/tmp/ll2a-compact-final-native.log",
+          "capacity": "B prepaid tips exhausted by final out/back; preserve B. Existing A available for future bounded trial.",
+          "next": "Read-only capture optimization of remaining new-operation CPU; no further B writes",
+          "reopen": {
+            "status": "PASS exact Saved34 x13/y14 and normal close exit0",
+            "seconds": 21.955,
+            "log": "/private/tmp/ll2a-compact-reopen.log"
+          }
         }
       }
     }

@@ -64,7 +64,7 @@ pub struct VerifiedJournal<'a> {
 // completed receipts still run the full current-prefix reader below.
 #[derive(Clone)]
 struct CheckpointPlan {
-    original: Value,
+    original_ref: Value,
     receipt: Value,
     intent: Value,
     selected_state: Value,
@@ -91,6 +91,20 @@ pub(super) struct JournalMemo {
 }
 #[cfg(any(test, feature = "controlled-disposable"))]
 impl JournalMemo {
+    #[cfg(test)]
+    pub(crate) fn uncompressed_cost(&self, journal: &Journal) -> usize {
+        let mut old = self.resume.clone();
+        for (id, plan) in &mut old.plans {
+            plan.original_ref = journal
+                .records
+                .iter()
+                .find(|r| r.value["record_id"] == *id)
+                .unwrap()
+                .value["body"]["original"]
+                .clone();
+        }
+        self.cost - self.resume.cost().unwrap() + old.cost().unwrap()
+    }
     pub(super) fn lineage(&self) -> &BTreeSet<String> {
         &self.resume.lineage
     }
@@ -110,7 +124,7 @@ impl JournalMemo {
 #[cfg(any(test, feature = "controlled-disposable"))]
 impl JournalResume {
     fn cost(&self) -> Option<usize> {
-        let metadata = json!({"plans":self.plans.iter().map(|(id,p)|json!([id,p.original,p.receipt,p.intent,p.selected_state,p.head,format!("{:?}",p.json_shape)])).collect::<Vec<_>>(),"lineage":self.lineage,"head":self.head});
+        let metadata = json!({"plans":self.plans.iter().map(|(id,p)|json!([id,p.original_ref,p.receipt,p.intent,p.selected_state,p.head,format!("{:?}",p.json_shape)])).collect::<Vec<_>>(),"lineage":self.lineage,"head":self.head});
         restart::value_storage(&metadata)?
             .checked_add(self.prefix.capacity())?
             .checked_add(self.original.cost()?)?
@@ -147,7 +161,7 @@ impl CheckpointPlan {
             })
             .ok_or(PackageError::Integrity)?;
         Ok(Self {
-            original: plan.original.clone(),
+            original_ref: wire::reference(&plan.original),
             receipt: plan.prepared.receipt.clone(),
             intent: intent_body(plan)["semantic_intent"].clone(),
             selected_state,
@@ -627,6 +641,14 @@ impl Journal {
                 .and_then(|v| v.checked_add(observations.cost()?))
                 .and_then(|v| v.checked_add(snapshot.cost()?))
                 .and_then(|v| v.checked_add(key.capacity()));
+            #[cfg(test)]
+            if std::env::var_os("PHOTARA_COMPILER_CACHE_PROFILE").is_some() {
+                eprintln!(
+                    "journal memo candidate: cost={cost:?} limit={} hit={hit} records={}",
+                    memo.raw_maximum(context.planner) / 8,
+                    self.records.len()
+                );
+            }
             if let Some(cost) = cost.filter(|c| *c <= memo.raw_maximum(context.planner) / 8) {
                 memo.journal = Some(JournalMemo {
                     key,
@@ -807,7 +829,7 @@ impl VerifiedJournal<'_> {
             .values()
             .map(|p| {
                 [
-                    &p.original,
+                    &p.original_ref,
                     &p.receipt,
                     &p.intent,
                     &p.selected_state,
@@ -886,12 +908,15 @@ impl VerifiedJournal<'_> {
     ) -> Result<JournalAppend, PackageError> {
         let name = intent_record_id.to_string();
         let original = self.plans.get(&name).ok_or(PackageError::Integrity)?;
-        check(original.original == p.original)?;
+        check(original.original_ref == wire::reference(&p.original))?;
         let intent = self
             .records()
             .iter()
             .find(|r| r.value["record_id"] == name)
             .ok_or(PackageError::Integrity)?;
+        // The compact proof stores only the commitment; exact Original equality
+        // is still checked against the current, canonically parsed journal.
+        check(intent.value["body"]["original"] == p.original)?;
         self.prepare(
             "CheckpointReceipt",
             &receipt_body(p, intent),

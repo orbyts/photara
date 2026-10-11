@@ -24,22 +24,21 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
-**Current approved work:** the verified v3 implementation is committed locally
-as `4b59016`. On 2026-10-11 normal SSH publication recovered without changing
-authentication/remotes; remote main was verified at `f661f9d`, including that
-implementation and its review packet. All review-app writers remain stopped.
-The user approved the narrow storage-adapter change on 2026-10-11:
-[control-installation grouped-full-sync review](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md#approved-review-same-device-phase-group-full-sync--2026-10-11).
-Implementation and conditional disposable qualification pass: 16 session tests,
-4 provider/profile tests, 84 injected failures, 28 process cuts and clean remount
-with all 1,181 file hashes retained. No general storage or power-loss claim.
-The measured ten-file group improves ~163→38 ms, but native full saves remain
-4.76/4.46 seconds with 984,465,408-byte peak RSS. Private shared-buffer/prefix-view
-ownership work is next, preserving public API and all fresh verification.
-Do not request another approval for that internal optimization.
-The packet does not promise instant Saved or resolve cold replay/memory by itself.
-Independent packed-role proof reuse remains an ordinary internal optimization;
-no further schema or product boundary is implied for it.
+**Current approved work (2026-10-11):** grouped-full-sync qualification and private
+shared allocation ownership are published through `9a39970`. The compact journal
+memo correction is implemented: replacing duplicated Original values with exact
+commitments reduces Saved32 metadata from 8,452,393 to 3,170,194 bytes under the
+unchanged 8 MiB subbudget. Fresh Original equality and all prefix/context checks
+remain required. Repeated verification improves 11.74 seconds → 54–58 ms with no
+history replay; 17 session tests and controlled/default strict checks pass.
+However final native B saves still take 5.07/5.21 seconds, peak RSS 1,176,780,800
+bytes, and cold open 20.28 seconds. Exact out/back and normal close (0.376 seconds)
+pass. This is not performance acceptance. Continue read-only capture optimization
+of new-operation work; do not rebuild/hand over a stale or performance-ready app.
+B is now Saved34 at x13/y14 and has consumed its prepaid tip corridors. Preserve
+it; no further B authoring benchmarks. Existing registered Review A remains
+available for a later bounded native/UI trial once a concrete improvement passes.
+No new fixture limits, format, weaker validation or production writes are approved.
 
 **Active gate — LL2a autosave performance remains unaccepted.** The v3 delta-index
 format and narrow inventory-root version-2 correction were approved on 2026-10-10.
@@ -53,20 +52,11 @@ Do not request the same approval again.
 from 8.47/9.43 seconds to 4.47/4.60 seconds on the same grown disposable Project.
 Exact Saved and return-to-original pass; normal close takes 0.368 seconds. Exact reopen also passes (14.57 seconds). Peak
 RSS is 915,210,240 bytes, and live RSS after work is about 721 MiB. This is not the requested low-resource seamless autosave experience.
-Latest native trial reaches **B Saved revision 32, x=13/y=14** and closes normally.
-The private shared-buffer refactor passes 17 session + 5 reader tests and both
-strict configurations; same-capture RSS drops 855→479 MB with exact bytes. However,
-full native workspace RSS peaks at 1,143,570,432 bytes and saves still take
-4.49/4.70 seconds. Native ownership/heap diagnosis is active; capture results are
-not native acceptance. No app handover. Only a snapshot/heap/close diagnostic
-session may run; no further graph writes until a concrete improvement is measured. The following
-4.47/4.60-second measurements describe the pre-grouping baseline. No app rebuild or
-human handover yet. Release CLI hash and phase logs are in the existing
+Latest native evidence supersedes earlier measurements above: B Saved34, exact
+return-to-original and normal close pass, but native latency/resource acceptance
+remains open. The release CLI SHA and phase logs are in the existing
 [acceptance evidence](architecture/verification/ll2a-disposable-local-acceptance.json).
-Remaining work is equivalent-work reduction in cold history, repeated validation
-and allocation ownership; do not weaken identity/bytes/limits, authority, barriers
-or Saved checks. Use read-only capture profiling before another bounded native
-out/back; prepaid disk bytes are not a count of admissible operations.
+Use immutable capture profiling before spending more disposable storage.
 
 **Why v3 was necessary:** the earlier v1 move refused before admission because its
 growing locator exceeded the unchanged 262,144-byte fixture corridor. V2's path-copy

@@ -105,7 +105,7 @@ fn basis(base: &VerifiedOriginal, inputs: &PlannerInputs, limits: Limits) -> Str
 }
 fn plan_key(p: &super::super::CheckpointPlan) -> String {
     wire::hash(&wire::encode(&json!([
-        p.original,
+        p.original_ref,
         p.intent,
         p.receipt,
         p.selected_state,

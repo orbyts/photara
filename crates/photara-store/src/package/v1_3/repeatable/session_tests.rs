@@ -783,9 +783,66 @@ fn completed_journal_prefix_extends_without_historical_replay() {
     let mut memo = super::super::restart::CompiledPlans::default();
     j.verify_cached(current, &context, &mut memo).unwrap();
     let cold_records = memo.journal_replayed;
+    // Reproduce the measured native cache cliff at a smaller optional budget:
+    // the old full-Original metadata cannot fit, while commitments do. No
+    // acceptance limit changes; an even smaller memo falls back to full replay.
+    let compact_cost = memo.journal.as_ref().unwrap().cost;
+    let old_cost = memo.journal.as_ref().unwrap().uncompressed_cost(&j);
+    assert!(old_cost > compact_cost);
+    memo.set_test_ceiling(compact_cost * 8);
+    j.verify_cached(current, &context, &mut memo).unwrap();
+    assert_eq!(memo.journal_replayed, 0);
+    memo.set_test_ceiling((compact_cost - 1) * 8);
+    j.verify_cached(current, &context, &mut memo).unwrap();
+    assert_eq!(memo.journal_replayed, j.records().len());
+    assert!(memo.journal.is_none());
+    memo.set_test_ceiling(usize::try_from(budget().max_total_allocation_bytes).unwrap());
+    j.verify_cached(current, &context, &mut memo).unwrap();
     let before = std::time::Instant::now();
     let cached = j.verify_cached(current, &context, &mut memo).unwrap();
     assert_eq!(memo.journal_replayed, 0);
+    let intent_record = j
+        .records()
+        .iter()
+        .rev()
+        .find(|r| r.value()["kind"] == "CheckpointIntent")
+        .unwrap()
+        .value();
+    let receipt_record = j
+        .records()
+        .iter()
+        .rev()
+        .find(|r| r.value()["kind"] == "CheckpointReceipt")
+        .unwrap()
+        .value();
+    let mut retry = backend.persisted_plan(
+        intent_record["body"]["operation_receipt"]["operation_id"]
+            .as_str()
+            .unwrap(),
+    );
+    let original_id =
+        package::PackageUuid::parse(intent_record["record_id"].as_str().unwrap()).unwrap();
+    let receipt_id = JournalRecordIdentity {
+        record_id: package::PackageUuid::parse(receipt_record["record_id"].as_str().unwrap())
+            .unwrap(),
+        session_generation: receipt_record["session_generation"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap(),
+    };
+    assert!(
+        cached
+            .prepare_receipt(&retry, original_id, receipt_id, limits())
+            .unwrap()
+            .existing()
+    );
+    retry.original["extensions"] = json!({"changed":true});
+    assert!(
+        cached
+            .prepare_receipt(&retry, original_id, receipt_id, limits())
+            .is_err()
+    );
     // Exercise the exact shortcut used by native Host::original after journal
     // verification, not merely another Journal scan. No historical recursion.
     let work = (memo.compilations, memo.reader_work());
