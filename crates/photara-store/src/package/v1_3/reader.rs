@@ -636,6 +636,10 @@ fn inspect_selected<P: PhysicalRecords, M: BlobMetadata + AllocationInspection>(
     limits: &ReaderLimits,
     operation: Option<&OperationSelection<'_>>,
 ) -> Result<SettledPackage, PackageError> {
+    // Structural 1.4 decoding is separate from the not-yet-wired archive closure proof.
+    if envelope.root["schema"]["version"] == 3 {
+        return Err(PackageError::UnsupportedVersion);
+    }
     let control = controls(envelope, control_records, limits, operation)?;
     let active = envelope.open_role(provider, SelectedRole::Active, limits.tree)?;
     let (active_loc, active_tree) = Locator::audited(
@@ -820,6 +824,9 @@ pub fn inspect_recovery<P: PhysicalRecords, M: BlobMetadata + AllocationInspecti
     inspection: &M,
     limits: &ReaderLimits,
 ) -> Result<RoleClosure, PackageError> {
+    if envelope.root["schema"]["version"] == 3 {
+        return Err(PackageError::UnsupportedVersion);
+    }
     let control = controls(envelope, control_records, limits, None)?;
     let state = envelope.open_role(provider, SelectedRole::Recovery, limits.tree)?;
     let (loc, tree) = Locator::audited(

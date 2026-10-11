@@ -24,6 +24,20 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
+**Approved snapshot implementation — first reader slice complete:** shared Rust
+now parses/adopts AcceptanceBase, audits a complete nonempty post-base suffix,
+looks up exact historical receipts through reciprocal authenticated index paths,
+checks selected-record allocation/ownership claims, and structurally decodes exact
+reader1.4/feature/RootSet-v3 combinations. Legacy1.3 routes retain their behavior.
+Full1.4 settled/recovery certification explicitly refuses until archive role/closure
+union is connected; parsing cannot emit Saved or grant admission. No native writes
+or app replacement. Validation: snapshot selector6, ownership1 (three corpus trees,
+v1/v2), frozen reader/recovery5 and candidate vectors3 pass; strict store check
+passes. Logs `/private/tmp/ps2-snapshot-{reader-tests,ownership-tests,legacy-reader-tests,candidate-vectors,reader-clippy}.log`.
+Next: connect archive placement, role/global inventory ownership and settled proof;
+then approved turnover, PHPSJ002/local recovery, v4 admission and disposable gates.
+Do not ask for the approved format again or claim performance acceptance yet.
+
 **Latest 2026-10-11 checkpoint:** exact-prefix journal decode reuse now removes
 repeated canonical parsing and record re-encoding during preflight. It still
 freshly verifies actual frame bytes, checksums, ordering, IDs, work limits and
@@ -63,12 +77,12 @@ identity/extent/overlap refusals and explicit dependency-cycle negatives); stric
 store lib/tests lint passes. Logs: `/private/tmp/ps2-checkpoint-candidate-tests.log`
 and `/private/tmp/ps2-checkpoint-candidate-clippy.log`. The user has approved the
 permanent-format packet; do not request that approval again. Shared Rust
-implementation is now active; no native format is enabled yet. Complete
+reader implementation has begun; no native format is enabled yet. Complete
 nonempty suffix/placement/accounting, actual phase/crash and native performance
 validation remain implementation gates. Do not present the packet as qualification
 or deletion authorization. The exact new IDs/versions/framing/dispatch in the
 packet are approved; changes beyond them still require the documented boundary.
-Only isolated test code changed during this candidate pass; no native data changed. Existing data remains
+Shared reader code and tests now implement the first fail-closed slice; no native data changed. Existing data remains
 untouched. User direction does not authorize
 real-library conversion, deletion, arbitrary undo/output expiry or numeric limits.
 The earlier [custody reuse proposal](architecture/PS2_MACOS_STORAGE_QUALIFICATION.md#live-session-immutable-prefix-custody-reuse--pending-approval)

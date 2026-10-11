@@ -126,7 +126,8 @@ impl SelectedEnvelope {
                 .to_owned(),
         )
         .map_err(|_| PackageError::Record)?;
-        if commit["minimum_reader"] != json!({"major":1,"minor":3}) {
+        let snapshot = commit["minimum_reader"] == json!({"major":1,"minor":4});
+        if !snapshot && commit["minimum_reader"] != json!({"major":1,"minor":3}) {
             return Err(PackageError::UnsupportedVersion);
         }
         if manifest["project_id"] != identity.project.to_string()
@@ -137,6 +138,9 @@ impl SelectedEnvelope {
         }
         let inherited = features(&manifest["required_features"])?;
         let required = features(&commit["required_features"])?;
+        if required.contains(super::snapshot::FEATURE) != snapshot {
+            return Err(PackageError::UnsupportedFeature);
+        }
         if !inherited.is_subset(&required)
             || [
                 "photara.scalable-storage.v1",
@@ -152,25 +156,37 @@ impl SelectedEnvelope {
             json_ref(&commit[field])?;
         }
         let root = commit["root_set"].clone();
+        let mut root_fields = vec![
+            "library_id",
+            "bootstrap_sha256",
+            "kind",
+            "active",
+            "recovery",
+            "pinned_roots",
+            "operation_index",
+            "conversion_source",
+            "retention_evidence",
+            "inventory",
+            "placement",
+        ];
+        if snapshot {
+            root_fields.push("archive_placement");
+        }
         schema(
             &root,
             "photara.package.root-set",
-            2,
-            &[
-                "library_id",
-                "bootstrap_sha256",
-                "kind",
-                "active",
-                "recovery",
-                "pinned_roots",
-                "operation_index",
-                "conversion_source",
-                "retention_evidence",
-                "inventory",
-                "placement",
-            ],
+            if snapshot { 3 } else { 2 },
+            &root_fields,
             identity.project,
         )?;
+        if snapshot {
+            if root["extensions"] != json!({}) {
+                return Err(PackageError::Record);
+            }
+            fields(&root["archive_placement"], &["locator", "ownership"])?;
+            physical(&root["archive_placement"]["locator"])?;
+            json_ref(&root["archive_placement"]["ownership"])?;
+        }
         if root["library_id"] != identity.library.to_string()
             || root["bootstrap_sha256"] != identity.bootstrap_sha256.as_str()
             || root["kind"] != "sealed"
@@ -254,10 +270,18 @@ impl SelectedEnvelope {
         let ownership = json_ref(&placement["ownership"])?;
         let resolver = Locator::new(provider, self.identity.project, locator.clone(), limits);
         let state = resolver.json(&reference, Membership::Semantic)?;
+        let snapshot_state =
+            state["schema"] == json!({"id":"photara.package.state-root","version":3});
+        if snapshot_state && self.root["schema"]["version"] != 3 {
+            return Err(PackageError::UnsupportedVersion);
+        }
+        if snapshot_state && state["extensions"] != json!({}) {
+            return Err(PackageError::Record);
+        }
         schema(
             &state,
             "photara.package.state-root",
-            2,
+            if snapshot_state { 3 } else { 2 },
             &[
                 "library_id",
                 "bootstrap_sha256",
@@ -378,6 +402,7 @@ fn features(value: &Value) -> Result<BTreeSet<String>, PackageError> {
                 | "photara.storage-accounting.v1"
                 | "photara.whole-blob-storage.v1"
                 | "photara.resource-retention-evidence.v1"
+                | "photara.snapshot-recovery.v1"
         ) {
             return Err(PackageError::UnsupportedFeature);
         }

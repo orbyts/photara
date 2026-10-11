@@ -236,6 +236,110 @@ pub fn encode_frame(
     Ok(frame)
 }
 
+/// Borrowed allocation for the snapshot profile's selected-record claims. It
+/// validates each requested frame; unrequested historical bytes remain unaudited.
+/// This is a physical resolver, not whole-allocation validity or Saved evidence.
+pub struct SelectedAllocation<'a> {
+    allocation_id: PackageUuid,
+    arena: Arena,
+    bytes: &'a [u8],
+    limits: FrameLimits,
+    selected: Mutex<BTreeMap<u64, (u64, FrameKind, Sha256Hex)>>,
+}
+impl<'a> SelectedAllocation<'a> {
+    /// # Errors
+    /// Refuses nil identity and the caller's unchanged allocation byte budget.
+    pub fn open(
+        allocation_id: PackageUuid,
+        arena: Arena,
+        bytes: &'a [u8],
+        limits: FrameLimits,
+    ) -> Result<Self, PackageError> {
+        if allocation_id.as_uuid().is_nil() {
+            return Err(PackageError::Record);
+        }
+        if bytes.len() > limits.max_allocation_bytes {
+            return Err(PackageError::Limit);
+        }
+        Ok(Self {
+            allocation_id,
+            arena,
+            bytes,
+            limits,
+            selected: Mutex::new(BTreeMap::new()),
+        })
+    }
+    /// # Errors
+    /// Refuses substituted identity/arena/tag, out-of-extent/intersecting frames,
+    /// digest/canonical failures and unique requested-frame budget exhaustion.
+    pub fn resolve(&self, reference: &PhysicalRef, kind: FrameKind) -> Result<Value, PackageError> {
+        if reference.allocation_id != self.allocation_id
+            || reference.arena != self.arena
+            || kind == FrameKind::Padding
+        {
+            return Err(PackageError::Integrity);
+        }
+        let start = reference.offset.get();
+        let end = start
+            .checked_add(reference.byte_length.get())
+            .ok_or(PackageError::Limit)?;
+        let mut selected = self.selected.lock().map_err(|_| PackageError::Integrity)?;
+        let evidence = (end, kind, reference.record_sha256.clone());
+        if let Some(previous) = selected.get(&start) {
+            if previous != &evidence {
+                return Err(PackageError::Integrity);
+            }
+        } else {
+            if selected.len() >= self.limits.max_frames {
+                return Err(PackageError::Limit);
+            }
+            if selected
+                .range(..end)
+                .next_back()
+                .is_some_and(|(_, (other_end, _, _))| *other_end > start)
+            {
+                return Err(PackageError::Integrity);
+            }
+        }
+        let start = usize::try_from(start).map_err(|_| PackageError::Limit)?;
+        let end = usize::try_from(end).map_err(|_| PackageError::Limit)?;
+        let frame = self.bytes.get(start..end).ok_or(PackageError::Integrity)?;
+        // Reuse the existing exact tag/header/length/canonical decoder on this
+        // authenticated range. No outside frame or padding claim is implied.
+        let indexed = PackedAllocation::open(self.allocation_id, self.arena, frame, self.limits)?;
+        let mut local = reference.clone();
+        local.offset = DecimalU64::parse("0")?;
+        let value = indexed.resolve(&local, kind)?;
+        selected.insert(reference.offset.get(), evidence);
+        Ok(value)
+    }
+    /// # Errors
+    /// Includes physical failures and a mismatching logical payload reference.
+    pub fn resolve_json(
+        &self,
+        reference: &PhysicalRef,
+        kind: FrameKind,
+        object: &super::super::ObjectRef,
+    ) -> Result<Value, PackageError> {
+        let value = self.resolve(reference, kind)?;
+        let start = usize::try_from(reference.offset.get()).map_err(|_| PackageError::Limit)?;
+        let length =
+            usize::try_from(reference.byte_length.get()).map_err(|_| PackageError::Limit)?;
+        let end = start.checked_add(length).ok_or(PackageError::Limit)?;
+        let body = self
+            .bytes
+            .get(start.checked_add(HEADER).ok_or(PackageError::Limit)?..end)
+            .ok_or(PackageError::Integrity)?;
+        if object.kind != super::super::ObjectKind::Json
+            || body.len() as u64 != object.byte_length.get()
+            || digest(body) != object.sha256
+        {
+            return Err(PackageError::Integrity);
+        }
+        Ok(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

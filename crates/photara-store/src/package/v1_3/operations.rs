@@ -10,8 +10,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// Full operation-index evidence only; neither host authorization nor durability.
 pub struct OperationAudit {
-    receipts: Vec<Value>,
-    objects: BTreeSet<ObjectRef>,
+    pub(super) receipts: Vec<Value>,
+    pub(super) objects: BTreeSet<ObjectRef>,
 }
 impl OperationAudit {
     #[must_use]

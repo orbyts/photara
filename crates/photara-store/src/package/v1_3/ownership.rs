@@ -61,15 +61,38 @@ pub struct OwnershipAudit {
 /// # Errors
 /// Refuses any mismatch between selected records and independent observations,
 /// malformed claims, duplicate/missing allocations, prefix corruption or budgets.
-#[allow(
-    clippy::too_many_lines,
-    reason = "Keep the exact ownership and observation checks in one ordered pass"
-)]
 pub fn audit_ownership<P: LogicalRecords, A: AllocationInspection>(
     provider: &P,
     inspection: &A,
     root: &ObjectRef,
     context: &OwnershipContext<'_>,
+) -> Result<OwnershipAudit, PackageError> {
+    audit_ownership_profile(provider, inspection, root, context, false)
+}
+/// Snapshot-profile ownership metadata. Selected frame integrity/overlap must be
+/// verified separately through its physical resolver; this is not a closure proof.
+/// Existing claim-v1 records always retain their full-prefix obligations.
+/// # Errors
+/// Refuses malformed claim dispatch, changed observations/charges, unsupported
+/// whole-Blob v2, missing allocations and every existing ownership refusal.
+pub fn audit_snapshot_ownership<P: LogicalRecords, A: AllocationInspection>(
+    provider: &P,
+    inspection: &A,
+    root: &ObjectRef,
+    context: &OwnershipContext<'_>,
+) -> Result<OwnershipAudit, PackageError> {
+    audit_ownership_profile(provider, inspection, root, context, true)
+}
+#[expect(
+    clippy::too_many_lines,
+    reason = "Exact claim versions share all independent observation and charge checks"
+)]
+fn audit_ownership_profile<P: LogicalRecords, A: AllocationInspection>(
+    provider: &P,
+    inspection: &A,
+    root: &ObjectRef,
+    context: &OwnershipContext<'_>,
+    snapshot: bool,
 ) -> Result<OwnershipAudit, PackageError> {
     if context.accounting.project_id != context.project.to_string() {
         return Err(PackageError::Integrity);
@@ -93,25 +116,40 @@ pub fn audit_ownership<P: LogicalRecords, A: AllocationInspection>(
         }
         let value = provider.resolve(&claim, Membership::Ownership)?;
         objects.insert(claim);
-        fields(
-            &value,
-            &[
-                "schema",
-                "project_id",
-                "extensions",
-                "allocation_id",
-                "arena",
-                "layout",
-                "owned_extent",
-                "authenticated_prefix",
-                "sealed",
-                "sealed_charge",
-            ],
-        )?;
-        if value["schema"] != json!({"id":"photara.storage.allocation-claim","version":1})
+        let selected_records =
+            value["schema"] == json!({"id":"photara.storage.allocation-claim","version":2});
+        if selected_records && !snapshot {
+            return Err(PackageError::UnsupportedVersion);
+        }
+        let mut names = vec![
+            "schema",
+            "project_id",
+            "extensions",
+            "allocation_id",
+            "arena",
+            "layout",
+            "owned_extent",
+            "sealed",
+            "sealed_charge",
+        ];
+        names.push(if selected_records {
+            "verification"
+        } else {
+            "authenticated_prefix"
+        });
+        fields(&value, &names)?;
+        if value["schema"]
+            != json!({"id":"photara.storage.allocation-claim","version":if selected_records { 2 } else { 1 }})
             || value["project_id"] != context.project.to_string()
         {
             return Err(PackageError::UnsupportedVersion);
+        }
+        if selected_records
+            && (value["extensions"] != json!({})
+                || value["verification"] != "selected-records"
+                || value["layout"] != "framed-json")
+        {
+            return Err(PackageError::Record);
         }
         if value["extensions"]
             .as_object()
@@ -158,43 +196,55 @@ pub fn audit_ownership<P: LogicalRecords, A: AllocationInspection>(
         {
             return Err(PackageError::Integrity);
         }
-        fields(&value["authenticated_prefix"], &["byte_length", "sha256"])?;
-        let length = number(&value["authenticated_prefix"]["byte_length"])?;
-        let expected = Sha256Hex::parse(
-            value["authenticated_prefix"]["sha256"]
-                .as_str()
-                .ok_or(PackageError::Record)?,
-        )?;
-        if length > observed.extent {
-            return Err(PackageError::Integrity);
-        }
-        match observed.layout {
-            AllocationLayout::FramedJson => {
-                prefix_bytes = prefix_bytes
-                    .checked_add(length)
-                    .ok_or(PackageError::Limit)?;
-                if prefix_bytes > context.max_prefix_bytes {
-                    return Err(PackageError::Limit);
+        let length = if selected_records {
+            if observed.layout != AllocationLayout::FramedJson || context.blobs.contains_key(&id) {
+                return Err(PackageError::Integrity);
+            }
+            if value["sealed"] == true {
+                observed.extent
+            } else {
+                0
+            }
+        } else {
+            fields(&value["authenticated_prefix"], &["byte_length", "sha256"])?;
+            let length = number(&value["authenticated_prefix"]["byte_length"])?;
+            let expected = Sha256Hex::parse(
+                value["authenticated_prefix"]["sha256"]
+                    .as_str()
+                    .ok_or(PackageError::Record)?,
+            )?;
+            if length > observed.extent {
+                return Err(PackageError::Integrity);
+            }
+            match observed.layout {
+                AllocationLayout::FramedJson => {
+                    prefix_bytes = prefix_bytes
+                        .checked_add(length)
+                        .ok_or(PackageError::Limit)?;
+                    if prefix_bytes > context.max_prefix_bytes {
+                        return Err(PackageError::Limit);
+                    }
+                    if context.blobs.contains_key(&id)
+                        || inspection.framed_prefix_digest(id, length, length)? != expected
+                    {
+                        return Err(PackageError::Integrity);
+                    }
                 }
-                if context.blobs.contains_key(&id)
-                    || inspection.framed_prefix_digest(id, length, length)? != expected
-                {
-                    return Err(PackageError::Integrity);
+                AllocationLayout::WholeBlob => {
+                    let blob = context.blobs.get(&id).ok_or(PackageError::Integrity)?;
+                    if observed.arena != Arena::Data
+                        || blob.kind != ObjectKind::Blob
+                        || value["sealed"] != true
+                        || length != observed.extent
+                        || blob.byte_length.get() != length
+                        || blob.sha256 != expected
+                    {
+                        return Err(PackageError::Integrity);
+                    }
                 }
             }
-            AllocationLayout::WholeBlob => {
-                let blob = context.blobs.get(&id).ok_or(PackageError::Integrity)?;
-                if observed.arena != Arena::Data
-                    || blob.kind != ObjectKind::Blob
-                    || value["sealed"] != true
-                    || length != observed.extent
-                    || blob.byte_length.get() != length
-                    || blob.sha256 != expected
-                {
-                    return Err(PackageError::Integrity);
-                }
-            }
-        }
+            length
+        };
         if value["sealed"] == true {
             let reference: ObjectRef = serde_json::from_value(value["sealed_charge"].clone())
                 .map_err(|_| PackageError::Record)?;
@@ -285,7 +335,64 @@ mod tests {
             ))
         }
     }
+    struct NoPrefix<'a>(&'a Inspection);
+    impl AllocationInspection for NoPrefix<'_> {
+        fn observe(&self, allocation: PackageUuid) -> Result<AllocationObservation, PackageError> {
+            self.0.observe(allocation)
+        }
+        fn framed_prefix_digest(
+            &self,
+            _: PackageUuid,
+            _: u64,
+            _: u64,
+        ) -> Result<Sha256Hex, PackageError> {
+            Err(PackageError::Integrity)
+        }
+    }
+    fn put(records: &mut super::super::accounting::tests::Records, value: Value) -> Value {
+        let bytes = photara_core::canonical_json(&value).unwrap();
+        let reference =
+            json!({"kind":"json","sha256":digest(&bytes),"byte_length":bytes.len().to_string()});
+        records.0.insert(
+            (digest(&bytes).as_str().to_owned(), bytes.len() as u64),
+            value,
+        );
+        reference
+    }
+    fn selected_tree(
+        source: &super::super::accounting::tests::Records,
+        target: &mut super::super::accounting::tests::Records,
+        reference: &ObjectRef,
+    ) -> Value {
+        let mut page = source.resolve(reference, Membership::Ownership).unwrap();
+        if let Some(entries) = page.get_mut("entries").and_then(Value::as_array_mut) {
+            for entry in entries {
+                let claim_ref = serde_json::from_value(entry["claim"].clone()).unwrap();
+                let mut claim = source.resolve(&claim_ref, Membership::Ownership).unwrap();
+                claim["schema"]["version"] = json!(2);
+                claim
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("authenticated_prefix");
+                claim["verification"] = json!("selected-records");
+                entry["claim"] = put(target, claim);
+            }
+        } else {
+            for child in page["children"].as_array_mut().unwrap() {
+                child["child"] = selected_tree(
+                    source,
+                    target,
+                    &serde_json::from_value(child["child"].clone()).unwrap(),
+                );
+            }
+        }
+        put(target, page)
+    }
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Existing corpus verifies both ownership dispatches against identical live observations"
+    )]
     fn frozen_owned_tips_match_exact_witnesses_and_allocation_set() {
         let (provider, ledger, holds, limits) = setup();
         let accounting = audit_settled_accounting(&ledger, &holds, &provider, limits).unwrap();
@@ -346,6 +453,23 @@ mod tests {
             };
             let proof = audit_ownership(&provider, &inspection, &root, &context).unwrap();
             assert_eq!(proof.allocations, expected);
+            // Reuse these same claims/observations for the additive snapshot
+            // dispatch; no prefix hashing is allowed for a selected-record claim.
+            let mut selected_provider =
+                super::super::accounting::tests::Records(provider.0.clone());
+            let selected_root: ObjectRef =
+                serde_json::from_value(selected_tree(&provider, &mut selected_provider, &root))
+                    .unwrap();
+            let no_prefix = NoPrefix(&inspection);
+            let selected_proof =
+                audit_snapshot_ownership(&selected_provider, &no_prefix, &selected_root, &context)
+                    .unwrap();
+            assert_eq!(selected_proof.allocations, expected);
+            assert!(
+                audit_ownership(&selected_provider, &no_prefix, &selected_root, &context).is_err()
+            );
+            // Old v1 claim obligations are never waived even in a snapshot root.
+            assert!(audit_snapshot_ownership(&provider, &no_prefix, &root, &context).is_err());
             let bounded = OwnershipContext {
                 max_prefix_bytes: 0,
                 ..context
@@ -360,6 +484,10 @@ mod tests {
                 ));
             }
             inspection.replace_inode = true;
+            assert!(
+                audit_snapshot_ownership(&selected_provider, &inspection, &selected_root, &context)
+                    .is_err()
+            );
             assert!(audit_ownership(&provider, &inspection, &root, &context).is_err());
             inspection.replace_inode = false;
             let empty = BTreeSet::new();

@@ -5,7 +5,7 @@
 //! audited package closure, or an Accepted/Saved acknowledgement.
 
 mod packed;
-pub use packed::{Arena, FrameKind, FrameLimits, PackedAllocation, PhysicalRef, encode_frame};
+pub use packed::{Arena, FrameKind, FrameLimits, PackedAllocation, SelectedAllocation, PhysicalRef, encode_frame};
 
 mod tree;
 pub use tree::{PhysicalRecords, PhysicalTree, PhysicalTreeAudit, PhysicalTreeKind, TreeLimits};
@@ -23,6 +23,8 @@ pub use logical_tree::{
     LogicalKey, LogicalRecords, LogicalTree, LogicalTreeAudit, LogicalTreeKind,
 };
 
+pub mod snapshot;
+
 mod operations;
 pub use operations::{OperationAudit, audit_operations};
 
@@ -37,7 +39,7 @@ pub use resources::{ResourceLimits, ResourceMetadata, inspect_resources};
 mod ownership;
 pub use ownership::{
     AllocationInspection, AllocationLayout, AllocationObservation, OwnershipAudit,
-    OwnershipContext, audit_ownership,
+    OwnershipContext, audit_ownership, audit_snapshot_ownership,
 };
 
 pub mod repeatable;
