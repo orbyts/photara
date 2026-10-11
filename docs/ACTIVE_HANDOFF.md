@@ -52,7 +52,8 @@ and requested dedupe/history corruption still refuses. No checksum is treated as
 issuer authentication; current authority, custody and rollback checks remain.
 This integrity/traversal decision is approved; do not request it again. The
 [consolidated candidate byte packet](architecture/PS2_RETENTION_STORAGE_DECISION.md#consolidated-candidate-byte-contract--review-draft-2026-10-11)
-now defines proposed reader1.4/feature dispatch, acceptance base and suffix index,
+was approved on 2026-10-11 for Rust implementation/disposable validation. It freezes
+reader1.4/feature dispatch, acceptance base and suffix index,
 archive placement, selected-record allocation claims, PHPSJ002/local selector,
 acyclic turnover and v4 continuation corridors. Old formats retain exact meanings.
 The four documented canonical vectors were independently reproduced against the
@@ -60,12 +61,13 @@ existing integrated corpus and pinned by Rust tests. Three isolated candidate te
 pass (exact adoption/empty suffix, requested-vs-unrequested frame corruption,
 identity/extent/overlap refusals and explicit dependency-cycle negatives); strict
 store lib/tests lint passes. Logs: `/private/tmp/ps2-checkpoint-candidate-tests.log`
-and `/private/tmp/ps2-checkpoint-candidate-clippy.log`. The packet is reviewable for
-the remaining permanent-format boundary; no runtime format is enabled. Complete
+and `/private/tmp/ps2-checkpoint-candidate-clippy.log`. The user has approved the
+permanent-format packet; do not request that approval again. Shared Rust
+implementation is now active; no native format is enabled yet. Complete
 nonempty suffix/placement/accounting, actual phase/crash and native performance
 validation remain implementation gates. Do not present the packet as qualification
-or deletion authorization. Snapshot semantics do not need approval again; proposed
-new IDs/versions/framing/dispatch are still unfrozen.
+or deletion authorization. The exact new IDs/versions/framing/dispatch in the
+packet are approved; changes beyond them still require the documented boundary.
 Only isolated test code changed during this candidate pass; no native data changed. Existing data remains
 untouched. User direction does not authorize
 real-library conversion, deletion, arbitrary undo/output expiry or numeric limits.

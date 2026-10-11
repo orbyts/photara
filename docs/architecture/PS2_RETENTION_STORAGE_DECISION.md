@@ -252,8 +252,11 @@ product's retention architecture.
 
 ## Consolidated candidate byte contract — review draft, 2026-10-11
 
-Snapshot-recovery semantics above are approved. **The identifiers, encodings and
-new dispatch below are proposed, not approved or implemented.** This section
+**Approved by the user on 2026-10-11 for Rust implementation and disposable
+validation.** Snapshot-recovery semantics and the exact identifiers, encodings and
+new dispatch below are now frozen within this packet's scope. Implementation and
+qualification remain required; approval does not enable real-library writes,
+conversion, deletion, expiry, new production limits or deployment. This section
 supersedes the earlier field sketch where they differ. It is one bounded packet:
 latest-position turnover, exact old-operation lookup, no deletion, no new commands,
 no production thresholds, and no arbitrary import or real-library conversion.
@@ -416,7 +419,7 @@ hot semantic work, **not total disk use or lifetime index metadata**.
 
 ### Readiness and bounded validation
 
-The above is an exact proposed field/dispatch packet, not a completed implementation
+The above is an approved field/dispatch packet, not a completed implementation
 proof. The test-only candidate checks below make the listed subset reviewable;
 they do not qualify a runtime implementation. Before enablement, prove exact
 current versus archive inventory partition, physical archive placement ownership
