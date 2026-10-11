@@ -4,12 +4,12 @@
     clippy::expect_used,
     reason = "Private fixed-fixture helpers operate on validated registration and reader proofs"
 )]
+use super::shared::{Allocation, OriginalPackage};
 use super::wire::{encode, hash, reference};
 use super::{
-    Allocation, AssociationId, Attempt, Corridor, EffectFailure, ExecutionError, Limits,
-    Observation, OriginalPackage, PlannerInputs, RepeatableIo, RepeatablePlan, RestartContext,
-    RoleAllocation, SelectedStage, SelectorIds, TreeGeometry, VerifiedOriginal, execute, journal,
-    restart,
+    AssociationId, Attempt, Corridor, EffectFailure, ExecutionError, Limits, Observation,
+    PlannerInputs, RepeatableIo, RepeatablePlan, RestartContext, RoleAllocation, SelectedStage,
+    SelectorIds, TreeGeometry, VerifiedOriginal, execute, journal, restart,
 };
 use crate::package::{self, v1_3};
 use serde_json::{Value, json};
@@ -223,7 +223,7 @@ fn package(f: &support::Fixture) -> OriginalPackage {
                 (
                     id.to_string(),
                     Allocation {
-                        bytes: a.bytes.clone(),
+                        bytes: a.bytes.clone().into(),
                         arena: serde_json::to_value(a.arena)
                             .unwrap()
                             .as_str()
@@ -374,7 +374,7 @@ fn snapshot(base: &support::Fixture, p: &OriginalPackage) -> support::Fixture {
             .allocations
             .get_mut(&package::PackageUuid::parse(id).unwrap())
             .unwrap();
-        dest.bytes.clone_from(&a.bytes);
+        dest.bytes = a.bytes.to_vec();
         dest.charge = (a.bytes.len() as u64).max(1).div_ceil(4096) * 4096;
     }
     f.loose = p

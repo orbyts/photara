@@ -1,7 +1,8 @@
 //! Actual Core/PS1 replay from authenticated original packed semantic bytes.
+use super::shared::OriginalPackage;
 use super::{
     Limits, PlannerInputs,
-    input::{OriginalPackage, OriginalProof, PreparedChange},
+    input::{OriginalProof, PreparedChange},
     layout,
     wire::{self, Result, encode, ensure, hash, key, number, reference, text},
 };

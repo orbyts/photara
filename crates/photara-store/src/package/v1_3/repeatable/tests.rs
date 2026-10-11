@@ -1,5 +1,7 @@
 //! Existing integrated corpus, exercised through the shared repeatable path.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
+use super::restart::restore_shared_plan as restore_plan;
+use super::shared::{Allocation, OriginalPackage};
 use super::wire::{encode, hash, reference};
 use super::*;
 use crate as photara_store;
@@ -51,7 +53,7 @@ fn package(f: &support::Fixture) -> OriginalPackage {
                 (
                     id.to_string(),
                     Allocation {
-                        bytes: a.bytes.clone(),
+                        bytes: a.bytes.clone().into(),
                         arena: serde_json::to_value(a.arena)
                             .unwrap()
                             .as_str()
@@ -74,7 +76,7 @@ fn identity(p: &OriginalPackage) -> v1_3::SelectionIdentity {
 }
 fn verify(f: &support::Fixture) -> VerifiedOriginal {
     let p = package(f);
-    v1_3::verify_original(
+    v1_3::reader::verify_shared_original(
         p.clone(),
         identity(&p),
         f,
@@ -273,7 +275,7 @@ fn snapshot(base: &support::Fixture, p: &OriginalPackage) -> support::Fixture {
             .allocations
             .get_mut(&package::PackageUuid::parse(id).unwrap())
             .unwrap();
-        dest.bytes = a.bytes.clone();
+        dest.bytes = a.bytes.to_vec();
         dest.charge = (a.bytes.len() as u64).max(1).div_ceil(4096) * 4096;
     }
     f.loose = p
@@ -363,7 +365,7 @@ impl RepeatableIo for Mock {
                 .current
                 .allocations
                 .iter()
-                .map(|(id, a)| (id.clone(), a.bytes.clone()))
+                .map(|(id, a)| (id.clone(), a.bytes.to_vec()))
                 .collect(),
         })
     }
@@ -649,7 +651,7 @@ fn two_consecutive_operations_resume_the_same_original_after_partial_append() {
     assert_eq!(io.effects, effects);
     let observed = snapshot(&io.base, &io.current);
     let last = second
-        .verify_next_original(
+        .verify_next_shared_original(
             io.current.clone(),
             identity(&io.current),
             &observed,
@@ -836,10 +838,10 @@ mod journal_ps3_tests;
 #[path = "journal_tests.rs"]
 mod journal_tests;
 
-#[path = "session_tests.rs"]
-mod session_tests;
 #[path = "activation_tests.rs"]
 mod activation_tests;
+#[path = "session_tests.rs"]
+mod session_tests;
 
 #[path = "compiler_benchmark.rs"]
 mod compiler_benchmark;

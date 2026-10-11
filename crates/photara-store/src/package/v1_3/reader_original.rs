@@ -27,7 +27,7 @@ pub struct DirectoryObservation {
     pub inode: u64,
 }
 struct Bytes<'a, M> {
-    package: &'a repeatable::OriginalPackage,
+    package: &'a repeatable::shared::OriginalPackage,
     inspection: &'a M,
     frames: FrameLimits,
     checked: RefCell<BTreeMap<PackageUuid, PackedAllocation<'a>>>,
@@ -35,7 +35,7 @@ struct Bytes<'a, M> {
 impl<'a, M> PhysicalRecords for Bytes<'a, M> {
     fn resolve(&self, r: &PhysicalRef, k: FrameKind) -> Result<Value, PackageError> {
         if !self.checked.borrow().contains_key(&r.allocation_id) {
-            let package: &'a repeatable::OriginalPackage = self.package;
+            let package: &'a repeatable::shared::OriginalPackage = self.package;
             let a = package
                 .allocations
                 .get(&r.allocation_id.to_string())
@@ -148,6 +148,26 @@ pub fn verify_original(
     limits: &ReaderLimits,
 ) -> Result<repeatable::VerifiedOriginal, PackageError> {
     verify_original_inner(
+        package.into(),
+        identity,
+        inspection,
+        registration,
+        directory,
+        frames,
+        limits,
+        None,
+    )
+}
+pub(crate) fn verify_shared_original(
+    package: repeatable::shared::OriginalPackage,
+    identity: SelectionIdentity,
+    inspection: &impl AllocationInspection,
+    registration: &SettledRegistration,
+    directory: DirectoryObservation,
+    frames: FrameLimits,
+    limits: &ReaderLimits,
+) -> Result<repeatable::VerifiedOriginal, PackageError> {
+    verify_original_inner(
         package,
         identity,
         inspection,
@@ -163,7 +183,7 @@ pub fn verify_original(
     reason = "Separate raw bytes, trusted registration and exact regenerated operation"
 )]
 fn verify_original_inner(
-    package: repeatable::OriginalPackage,
+    package: repeatable::shared::OriginalPackage,
     identity: SelectionIdentity,
     inspection: &impl AllocationInspection,
     registration: &SettledRegistration,
@@ -243,7 +263,7 @@ fn verify_original_inner(
     reason = "Plan-bound selected inspection with independent physical observations"
 )]
 pub(crate) fn inspect_operation_package(
-    package: &repeatable::OriginalPackage,
+    package: &repeatable::shared::OriginalPackage,
     identity: SelectionIdentity,
     inspection: &impl AllocationInspection,
     registration: &SettledRegistration,
@@ -291,7 +311,7 @@ pub(crate) fn inspect_operation_package(
     reason = "Only exact clean operation may mint a subsequent planning input"
 )]
 pub(crate) fn verify_operation_original(
-    package: repeatable::OriginalPackage,
+    package: repeatable::shared::OriginalPackage,
     identity: SelectionIdentity,
     inspection: &impl AllocationInspection,
     registration: &SettledRegistration,

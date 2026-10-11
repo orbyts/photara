@@ -53,7 +53,13 @@ Do not request the same approval again.
 from 8.47/9.43 seconds to 4.47/4.60 seconds on the same grown disposable Project.
 Exact Saved and return-to-original pass; normal close takes 0.368 seconds. Exact reopen also passes (14.57 seconds). Peak
 RSS is 915,210,240 bytes, and live RSS after work is about 721 MiB. This is not the requested low-resource seamless autosave experience.
-All writers are stopped at **B Saved revision 30, x=13/y=14**. The following
+Latest native trial reaches **B Saved revision 32, x=13/y=14** and closes normally.
+The private shared-buffer refactor passes 17 session + 5 reader tests and both
+strict configurations; same-capture RSS drops 855→479 MB with exact bytes. However,
+full native workspace RSS peaks at 1,143,570,432 bytes and saves still take
+4.49/4.70 seconds. Native ownership/heap diagnosis is active; capture results are
+not native acceptance. No app handover. Only a snapshot/heap/close diagnostic
+session may run; no further graph writes until a concrete improvement is measured. The following
 4.47/4.60-second measurements describe the pre-grouping baseline. No app rebuild or
 human handover yet. Release CLI hash and phase logs are in the existing
 [acceptance evidence](architecture/verification/ll2a-disposable-local-acceptance.json).

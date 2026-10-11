@@ -40,7 +40,7 @@ fn captured_original_compiler_exact_output() {
             .insert(sha.into(), read(&format!("{sha}.control")));
     }
     for (id, a) in &mut current.allocations {
-        a.bytes = read(&format!("pack-{id}"));
+        a.bytes = read(&format!("pack-{id}")).into();
     }
     let mut observed = snapshot(&base, &current);
     for (id, a) in &mut observed.allocations {
@@ -84,9 +84,10 @@ fn captured_original_compiler_exact_output() {
         .find(|r| r.value()["kind"] == "CheckpointIntent")
         .unwrap();
     let body = &record.value()["body"];
-    let old = recovery::reconstruct_original(&current, &body["original"], budget()).unwrap();
+    let old = recovery::reconstruct_shared_original(&current, &body["original"], budget()).unwrap();
     let verified = restart::verify_original_prefix(old, &context).unwrap();
     layout::take_load_work();
+    super::super::shared::take_copied();
     let before = std::time::Instant::now();
     let plan = recovery::recover(
         &verified,
@@ -99,7 +100,10 @@ fn captured_original_compiler_exact_output() {
     let elapsed = before.elapsed();
     let work = layout::take_load_work();
     assert_eq!(work.0, 1);
-    eprintln!("compiler load work={work:?}");
+    eprintln!(
+        "compiler load work={work:?} allocation_copy_bytes={}",
+        super::super::shared::take_copied()
+    );
     for (id, bytes) in &plan.files {
         assert_eq!(bytes, &current.allocations[id].bytes);
     }
@@ -107,7 +111,7 @@ fn captured_original_compiler_exact_output() {
     eprintln!(
         "captured compiler: elapsed={elapsed:?} vector={} bytes={}",
         vector(&plan),
-        plan.files.values().map(Vec::len).sum::<usize>()
+        plan.files.values().map(|b| b.len()).sum::<usize>()
     );
     if std::env::var_os("PHOTARA_COMPILER_COMPLETE_PROFILE").is_some() {
         let mut memo = restart::CompiledPlans::default();
@@ -140,7 +144,7 @@ fn captured_original_compiler_exact_output() {
                 },
             )
             .unwrap();
-            let mut prior_observed = snapshot(&base, verified.package());
+            let mut prior_observed = snapshot(&base, verified.shared_package());
             for (id, a) in &mut prior_observed.allocations {
                 a.charge = a.charge.max(base.allocations[id].charge);
             }
@@ -149,7 +153,7 @@ fn captured_original_compiler_exact_output() {
                 ..context
             };
             previous_journal
-                .verify_cached(verified.package(), &prior_context, &mut memo)
+                .verify_cached(verified.shared_package(), &prior_context, &mut memo)
                 .unwrap();
             let baseline = std::env::var_os("PHOTARA_COMPILER_NO_PREFIX_REUSE").is_some();
             if baseline {
@@ -182,7 +186,7 @@ fn captured_original_compiler_exact_output() {
                 ..context
             };
             let before = std::time::Instant::now();
-            memo.inspect_candidate(&package, &ctx, &plan, stage)
+            memo.inspect_shared_candidate(&package, &ctx, &plan, stage)
                 .unwrap();
             eprintln!(
                 "captured complete candidate: stage={stage} elapsed={:?} full_checks={}",
@@ -202,6 +206,7 @@ fn captured_original_compiler_exact_output() {
             memo.reader_work()
         );
         for pass in 0..2 {
+            super::super::shared::take_copied();
             let before = std::time::Instant::now();
             j.verify_cached(&current, &context, &mut memo).unwrap();
             eprintln!(
@@ -212,6 +217,10 @@ fn captured_original_compiler_exact_output() {
                 memo.journal_replayed,
                 memo.journal_hits,
                 memo.retained()
+            );
+            eprintln!(
+                "journal allocation_copy_bytes={}",
+                super::super::shared::take_copied()
             );
         }
         if std::env::var_os("PHOTARA_COMPILER_MEMORY_PROFILE").is_some() {
@@ -225,7 +234,7 @@ fn captured_original_compiler_exact_output() {
     if v3 || std::env::var_os("PHOTARA_COMPILER_V2").is_some() {
         let directory = context.directory;
         let mut old = plan
-            .verify_next_original(
+            .verify_next_shared_original(
                 current.clone(),
                 super::identity(&current),
                 &observed,
@@ -362,7 +371,7 @@ fn captured_original_compiler_exact_output() {
                 a.charge = base.allocations[id].charge.max(a.charge);
             }
             old = next
-                .verify_next_original(
+                .verify_next_shared_original(
                     current.clone(),
                     super::identity(&current),
                     &observed,

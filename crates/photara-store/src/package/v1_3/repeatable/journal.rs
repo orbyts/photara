@@ -1,6 +1,7 @@
 //! Approved PHPSJ001 checkpoints and PS3 local records. Append preparation
 //! never establish native durability or mint Accepted/Saved acknowledgements.
-use super::{OriginalPackage, RepeatablePlan, RestartContext, plan, restart, wire};
+use super::shared::OriginalPackage;
+use super::{RepeatablePlan, RestartContext, plan, restart, wire};
 use crate::package::v1_3::{AllocationInspection, selected, tree};
 use crate::package::{JsonLimits, PackageError, PackageUuid, Sha256Hex, parse_canonical_json};
 use serde_json::{Value, json};
@@ -531,6 +532,13 @@ impl Journal {
     /// Refuses unsupported originals, changed intent/receipt identities, false
     /// completed selectors, missing original bytes, or explicit recovery bounds.
     pub fn verify<'a, I: AllocationInspection>(
+        &'a self,
+        current: &super::input::OriginalPackage,
+        context: &RestartContext<'_, I>,
+    ) -> Result<VerifiedJournal<'a>, PackageError> {
+        self.verify_shared(&current.clone().into(), context)
+    }
+    pub(crate) fn verify_shared<'a, I: AllocationInspection>(
         &'a self,
         current: &OriginalPackage,
         context: &RestartContext<'_, I>,

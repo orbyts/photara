@@ -8,7 +8,7 @@ use std::process::Command;
 fn fixture() -> (Value, SelectedStage) {
     let f = host::support::Fixture::load("integrated");
     let p = host::package(&f);
-    let old = host::v1_3::verify_original(
+    let old = host::v1_3::reader::verify_shared_original(
         p.clone(),
         host::identity(&p),
         &f,

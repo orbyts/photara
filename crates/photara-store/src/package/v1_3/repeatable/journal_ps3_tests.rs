@@ -103,7 +103,7 @@ fn ps3_core_patch_restart_undo_redo_and_finite_barrier() {
     macro_rules! session {
         ($journal:ident) => {
             $journal
-                .verify(&original.package, &context)
+                .verify_shared(&original.package, &context)
                 .unwrap()
                 .verify_session(&original, &inputs.planner, budget())
                 .unwrap()
@@ -141,7 +141,7 @@ fn ps3_core_patch_restart_undo_redo_and_finite_barrier() {
     let forged_journal = Journal::read(&forged_bytes, &header, limits()).unwrap();
     assert!(
         forged_journal
-            .verify(&original.package, &context)
+            .verify_shared(&original.package, &context)
             .unwrap()
             .verify_session(&original, &inputs.planner, budget())
             .is_err()
@@ -155,7 +155,7 @@ fn ps3_core_patch_restart_undo_redo_and_finite_barrier() {
     let forged_journal = Journal::read(&forged_bytes, &header, limits()).unwrap();
     assert!(
         forged_journal
-            .verify(&original.package, &context)
+            .verify_shared(&original.package, &context)
             .unwrap()
             .verify_session(&original, &inputs.planner, budget())
             .is_err()
@@ -306,7 +306,7 @@ fn ps3_core_patch_restart_undo_redo_and_finite_barrier() {
     let forged_journal = Journal::read(&forged_bytes, &header, limits()).unwrap();
     assert!(
         forged_journal
-            .verify(&original.package, &context)
+            .verify_shared(&original.package, &context)
             .unwrap()
             .verify_session(&original, &inputs.planner, budget())
             .is_err()
@@ -334,7 +334,7 @@ fn ps3_core_patch_restart_undo_redo_and_finite_barrier() {
     let forged_journal = Journal::read(&forged_bytes, &header, limits()).unwrap();
     assert!(
         forged_journal
-            .verify(&original.package, &context)
+            .verify_shared(&original.package, &context)
             .unwrap()
             .verify_session(&original, &inputs.planner, budget())
             .is_err()

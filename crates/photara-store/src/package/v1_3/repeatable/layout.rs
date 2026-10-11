@@ -1,7 +1,8 @@
 //! Deterministic append compiler for the additive persisted-input layout.
+use super::shared::OriginalPackage;
 use super::{
     Limits,
-    input::{OriginalPackage, OriginalProof, PlannerInputs, PreparedChange, TreeGeometry},
+    input::{OriginalProof, PlannerInputs, PreparedChange, TreeGeometry},
     wire,
 };
 use serde_json::{Value, json};
@@ -34,7 +35,7 @@ pub(super) struct Builder {
     geometry: TreeGeometry,
     limits: Limits,
     pub(super) pool: super::object_pool::ObjectPool,
-    files: BTreeMap<String, Vec<u8>>,
+    files: BTreeMap<String, super::shared::Bytes>,
     locations: BTreeMap<String, BTreeMap<wire::Key, Value>>,
     corridors: BTreeMap<String, u64>,
 }
@@ -639,7 +640,7 @@ impl Builder {
     }
 }
 pub(crate) struct Layout {
-    pub files: BTreeMap<String, Vec<u8>>,
+    pub files: BTreeMap<String, super::shared::Bytes>,
     pub target: Value,
     pub base_inventory: Value,
     pub root_placements: Value,

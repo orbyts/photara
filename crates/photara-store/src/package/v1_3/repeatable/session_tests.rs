@@ -66,7 +66,7 @@ impl Backend {
         let id = identity(&self.mock.current);
         let reader = support::limits();
         if self.mock.current.head == package(&self.mock.base).head {
-            return v1_3::verify_original(
+            return v1_3::reader::verify_shared_original(
                 self.mock.current.clone(),
                 id,
                 &observed,
@@ -589,15 +589,15 @@ fn fresh_admission_reuses_compilation_before_package_effects() {
         "Core/layout/cache share one original decoding pass"
     );
     assert_eq!(memo.compilations, 1);
-    let mut header = super::journal_tests::header(original.package());
+    let mut header = super::journal_tests::header(original.shared_package());
     header["journal_id"] = receipt["journal_id"].clone();
     let bytes = Journal::create(&header, limits()).unwrap();
-    let id = identity(original.package());
+    let id = identity(original.shared_package());
     let reader = support::limits();
     let ctx = super::journal_tests::context(&base, &id, &reader);
     let journal = Journal::read(&bytes, &header, limits()).unwrap();
     let prepared = journal
-        .verify(original.package(), &ctx)
+        .verify_shared(original.shared_package(), &ctx)
         .unwrap()
         .prepare_intent(&plan, rid(120_001), limits())
         .unwrap();
@@ -607,7 +607,7 @@ fn fresh_admission_reuses_compilation_before_package_effects() {
     // No package effect or journal append has occurred: this is the exact next
     // immutable journal candidate inspected before its first durable write.
     parsed
-        .verify_cached(original.package(), &ctx, &mut memo)
+        .verify_cached(original.shared_package(), &ctx, &mut memo)
         .unwrap();
     assert_eq!(
         memo.compilations, 1,
@@ -615,7 +615,7 @@ fn fresh_admission_reuses_compilation_before_package_effects() {
     );
     assert!(memo.hits > 0);
     let retry = super::super::restart::restore_intent_plan_cached(
-        original.package(),
+        original.shared_package(),
         plan.original(),
         &intent,
         &receipt,
@@ -630,7 +630,7 @@ fn fresh_admission_reuses_compilation_before_package_effects() {
         "original retry must not compile again"
     );
     assert!(memo.retained().1 <= usize::try_from(budget().max_total_allocation_bytes).unwrap());
-    let mut changed = original.package().clone();
+    let mut changed = original.shared_package().clone();
     changed.allocations.values_mut().next().unwrap().bytes[16] ^= 1;
     assert!(parsed.verify_cached(&changed, &ctx, &mut memo).is_err());
     assert_eq!(bytes, Journal::create(&header, limits()).unwrap());
@@ -658,7 +658,7 @@ fn fresh_admission_reuses_compilation_before_package_effects() {
     assert!(memo.retained().1 <= cache_ceiling);
     let before_work = memo.compilations;
     let retry = super::super::restart::restore_intent_plan_cached(
-        original.package(),
+        original.shared_package(),
         fresh.original(),
         &intent2,
         &receipt2,
@@ -691,7 +691,7 @@ fn journal_snapshot_prefix_work_is_linear_and_changed_bytes_never_reuse_hash() {
     use super::super::restart::prefix_index::Prefixes;
     let base = fixture();
     let original = verify(&base);
-    let source = original.package();
+    let source = original.shared_package();
     let maximum = usize::try_from(budget().max_total_allocation_bytes).unwrap();
     let indexed = Prefixes::new(source, maximum);
     let disabled = Prefixes::new(source, 0);
@@ -779,7 +779,7 @@ fn completed_journal_prefix_extends_without_historical_replay() {
     let context = backend.context(&observed, &identity, &reader);
     let base = verify(&backend.mock.base);
     let planner = attempt(&base, 1000).planner;
-    let expected = j.verify(current, &context).unwrap();
+    let expected = j.verify_shared(current, &context).unwrap();
     let mut memo = super::super::restart::CompiledPlans::default();
     j.verify_cached(current, &context, &mut memo).unwrap();
     let cold_records = memo.journal_replayed;
@@ -792,7 +792,10 @@ fn completed_journal_prefix_extends_without_historical_replay() {
     let native_original = memo.current_original(current, &context).unwrap().unwrap();
     assert_eq!((memo.compilations, memo.reader_work()), work);
     let full_original = backend.original();
-    assert_eq!(native_original.package().head, full_original.package().head);
+    assert_eq!(
+        native_original.shared_package().head,
+        full_original.shared_package().head
+    );
     assert_eq!(native_original.proof.global, full_original.proof.global);
     assert_eq!(
         native_original.proof.roles["active"].state,
@@ -908,7 +911,7 @@ fn completed_journal_prefix_extends_without_historical_replay() {
 fn original_pool_dedup_preserves_physical_budgets_and_malformed_refusal() {
     let original = verify(&fixture());
     let inputs = attempt(&original, 1000).planner;
-    let mut duplicate = original.package().clone();
+    let mut duplicate = original.shared_package().clone();
     let ids = duplicate.allocations.keys().cloned().collect::<Vec<_>>();
     let copied = duplicate.allocations[&ids[0]].bytes.clone();
     duplicate.allocations.get_mut(&ids[1]).unwrap().bytes = copied;
@@ -956,14 +959,26 @@ fn clean_executor_proof_reused_by_receipt_with_fresh_observations() {
         budget(),
     )
     .unwrap();
+    super::super::shared::take_copied();
     let current = selected(&plan, 6);
+    assert_eq!(super::super::shared::take_copied(), 0);
+    super::super::restart::check_compact_ownership(&plan, budget());
+    let public: &BTreeMap<String, Vec<u8>> = plan.target_allocations();
+    assert!(std::ptr::eq(public, plan.target_allocations()));
+    let mut external = public.clone();
+    external.values_mut().next().unwrap()[0] ^= 1;
+    assert_ne!(
+        external.values().next().unwrap().as_slice(),
+        plan.files.values().next().unwrap().as_slice()
+    );
+
     let observed = snapshot(&base, &current);
     let identity = identity(&current);
     let reader = support::limits();
     let context = super::journal_tests::context(&observed, &identity, &reader);
     let mut memo = super::super::restart::CompiledPlans::default();
     crate::package::v1_3::locator::take_full_audits();
-    memo.inspect_candidate(&current, &context, &plan, 6)
+    memo.inspect_shared_candidate(&current, &context, &plan, 6)
         .unwrap();
     assert_eq!(
         crate::package::v1_3::locator::take_full_audits(),
@@ -980,7 +995,7 @@ fn clean_executor_proof_reused_by_receipt_with_fresh_observations() {
     )
     .unwrap();
     assert_eq!(memo.reader_work(), (before.0, before.1 + 1));
-    assert_eq!(proved.package().head, current.head);
+    assert_eq!(proved.shared_package().head, current.head);
     let mut changed = current.clone();
     changed.allocations.values_mut().next().unwrap().bytes[16] ^= 1;
     assert!(
@@ -1026,4 +1041,102 @@ fn clean_executor_proof_reused_by_receipt_with_fresh_observations() {
     );
     #[cfg(target_os = "macos")]
     super::super::disposable::check_borrowed_snapshot(base.data.clone(), &current);
+}
+
+#[test]
+fn shared_allocation_views_copy_only_on_mutation_and_preserve_public_dtos() {
+    use super::super::shared::{Bytes, take_copied};
+    let original: Bytes = (0_u8..64).collect::<Vec<_>>().into();
+    take_copied();
+    let mut prefix = original.prefix(8).unwrap();
+    let retained = prefix.clone();
+    assert_eq!(take_copied(), 0);
+    assert!(prefix.prefix(9).is_none());
+    prefix[0] = 99;
+    assert_eq!(take_copied(), 8);
+    assert_eq!(&retained[..], &(0_u8..8).collect::<Vec<_>>());
+    assert_eq!(original[0], 0);
+    prefix.extend_from_slice(&[100, 101]);
+    prefix.resize(16, 200);
+    assert_eq!(&prefix[8..10], &[100, 101]);
+    assert_eq!(&prefix[10..], &[200; 6], "hidden suffix never reappears");
+    assert_eq!(take_copied(), 0);
+    let base = fixture();
+    let source = package(&base);
+    let total = source
+        .allocations
+        .values()
+        .map(|a| a.bytes.len())
+        .sum::<usize>();
+    take_copied();
+    let shared_clone = source.clone();
+    assert_eq!(
+        take_copied(),
+        0,
+        "whole-package clone shares actual allocation bytes"
+    );
+    let verified = v1_3::reader::verify_shared_original(
+        shared_clone,
+        identity(&source),
+        &base,
+        &base.registration,
+        v1_3::DirectoryObservation {
+            device: 7,
+            inode: 900,
+        },
+        frames(),
+        &support::limits(),
+    )
+    .unwrap();
+    assert_eq!(
+        take_copied(),
+        0,
+        "reader does not materialize compatibility DTO"
+    );
+    let public: &super::super::OriginalPackage = verified.package();
+    assert_eq!(take_copied(), total);
+    assert!(std::ptr::eq(public, verified.package()));
+    assert_eq!(take_copied(), 0);
+    let mut mutable_public = public.clone();
+    mutable_public
+        .allocations
+        .values_mut()
+        .next()
+        .unwrap()
+        .bytes[0] ^= 1;
+    assert_ne!(
+        mutable_public.allocations.values().next().unwrap().bytes,
+        verified
+            .shared_package()
+            .allocations
+            .values()
+            .next()
+            .unwrap()
+            .bytes
+    );
+    assert!(
+        v1_3::verify_original(
+            mutable_public,
+            identity(&source),
+            &base,
+            &base.registration,
+            v1_3::DirectoryObservation {
+                device: 7,
+                inode: 900
+            },
+            frames(),
+            &support::limits()
+        )
+        .is_err()
+    );
+    assert_eq!(
+        source.allocations.values().next().unwrap().bytes,
+        verified
+            .shared_package()
+            .allocations
+            .values()
+            .next()
+            .unwrap()
+            .bytes
+    );
 }

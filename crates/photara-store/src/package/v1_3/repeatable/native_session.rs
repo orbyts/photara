@@ -95,7 +95,7 @@ impl Host {
             return Ok(original);
         }
         if current.head == self.io.journal_header["base_head"] {
-            v1_3::verify_original(
+            v1_3::reader::verify_shared_original(
                 current.clone(),
                 id,
                 &observed,

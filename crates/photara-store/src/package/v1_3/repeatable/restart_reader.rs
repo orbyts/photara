@@ -172,7 +172,7 @@ impl ReaderMemo {
     /// Reuse the exact clean executor closure at the receipt reader. This path
     /// never owns package bytes and retains only the already authenticated proof.
     #[cfg(any(test, feature = "controlled-disposable"))]
-    pub(super) fn inspect_candidate<I: AllocationInspection>(
+    pub(super) fn inspect_shared_candidate<I: AllocationInspection>(
         &mut self,
         package: &OriginalPackage,
         context: &RestartContext<'_, I>,

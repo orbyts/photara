@@ -133,7 +133,7 @@ fn selected_chain(codec: &str, operations: u64) {
                 (io.current.clone(), &observed, narrow),
             ] {
                 assert!(
-                    plan.verify_next_original(
+                    plan.verify_next_shared_original(
                         current.clone(),
                         identity(&current),
                         observed,
@@ -150,7 +150,7 @@ fn selected_chain(codec: &str, operations: u64) {
             }
         }
         old = plan
-            .verify_next_original(
+            .verify_next_shared_original(
                 io.current.clone(),
                 identity(&io.current),
                 &observed,

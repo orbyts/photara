@@ -191,7 +191,7 @@ fn phpsj001_strict_bytes_torn_tail_and_original_retry() {
         hash_raw(&bytes[bytes.len() - 32..])
     );
     let j = Journal::read(&bytes, &h, limits()).unwrap();
-    let checked = j.verify(&original.package, &ctx).unwrap();
+    let checked = j.verify_shared(&original.package, &ctx).unwrap();
     let next = checked
         .prepare_intent(&p, record(91_001), limits())
         .unwrap();
@@ -207,7 +207,7 @@ fn phpsj001_strict_bytes_torn_tail_and_original_retry() {
         j.records()[0].value()["body"]["accepted_frame"]["sequence"],
         receipt["journal_sequence"]
     );
-    let checked = j.verify(&original.package, &ctx).unwrap();
+    let checked = j.verify_shared(&original.package, &ctx).unwrap();
     let retry = checked
         .prepare_intent(&p, record(91_001), limits())
         .unwrap();
@@ -237,7 +237,7 @@ fn phpsj001_strict_bytes_torn_tail_and_original_retry() {
         assert_eq!(j.tail(), JournalTail::Incomplete);
         assert_eq!(j.verified_bytes(), bytes.len());
         assert!(
-            j.verify(&original.package, &ctx)
+            j.verify_shared(&original.package, &ctx)
                 .unwrap()
                 .prepare_intent(&p, record(91_001), limits())
                 .is_err()
@@ -307,7 +307,7 @@ fn hash_raw(bytes: &[u8]) -> String {
 fn phpsj001_two_completed_operations_bind_exact_selectors() {
     let base = fixture();
     let original = verify(&base);
-    audited_locator_equivalence(original.package());
+    audited_locator_equivalence(original.shared_package());
     let (intent, receipt) = request();
     let reader = support::limits();
     let p = plan::compile_inner(
@@ -324,7 +324,7 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
     let id = identity(&original.package);
     let ctx = context(&base, &id, &reader);
     let j = Journal::read(&bytes, &h, limits()).unwrap();
-    let checked = j.verify(&original.package, &ctx).unwrap();
+    let checked = j.verify_shared(&original.package, &ctx).unwrap();
     let first = checked
         .prepare_intent(&p, record(92_001), limits())
         .unwrap();
@@ -334,7 +334,7 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
     let id = identity(&after1);
     let ctx1 = context(&observed1, &id, &reader);
     let j = Journal::read(&bytes, &h, limits()).unwrap();
-    let checked = j.verify(&after1, &ctx1).unwrap();
+    let checked = j.verify_shared(&after1, &ctx1).unwrap();
     let first_receipt = checked
         .prepare_receipt(&p, record(92_001).record_id, record(92_002), limits())
         .unwrap();
@@ -348,7 +348,7 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
     assert_eq!(memo.retained().0, 1);
     let one_cost = memo.retained().1;
     let next = p
-        .verify_next_original(
+        .verify_next_shared_original(
             after1.clone(),
             identity(&after1),
             &observed1,
@@ -391,13 +391,13 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
         Journal::read(&bytes[..first_receipt.expected_extent()], &h, limits()).unwrap();
     assert!(
         unresolved
-            .verify(&after1, &ctx1)
+            .verify_shared(&after1, &ctx1)
             .unwrap()
             .prepare_intent(&second, record(92_003), limits())
             .is_err()
     );
     let j = Journal::read(&bytes, &h, limits()).unwrap();
-    let checked = j.verify(&after1, &ctx1).unwrap();
+    let checked = j.verify_shared(&after1, &ctx1).unwrap();
     // Dedupe is before latest-head admission: original IDs remain exact retries.
     assert!(
         checked
@@ -449,7 +449,7 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
     assert_eq!(
         pending_cached.retained_metadata_bytes(),
         pending
-            .verify(&after1, &ctx1)
+            .verify_shared(&after1, &ctx1)
             .unwrap()
             .retained_metadata_bytes()
     );
@@ -459,22 +459,25 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
     let ctx2 = context(&observed2, &id, &reader);
     // The executor revisits prospective clean, published, then selected clean.
     // Reuse the deterministic proof but reread independent observations each time.
-    memo.inspect_candidate(&after2, &ctx2, &second, 6).unwrap();
-    memo.inspect_candidate(&after2, &ctx2, &second, 6).unwrap();
+    memo.inspect_shared_candidate(&after2, &ctx2, &second, 6)
+        .unwrap();
+    memo.inspect_shared_candidate(&after2, &ctx2, &second, 6)
+        .unwrap();
     assert_eq!(memo.candidate_checks, 1);
     let published = selected(&second, 5);
-    memo.inspect_candidate(&published, &ctx2, &second, 5)
+    memo.inspect_shared_candidate(&published, &ctx2, &second, 5)
         .unwrap();
-    memo.inspect_candidate(&after2, &ctx2, &second, 6).unwrap();
+    memo.inspect_shared_candidate(&after2, &ctx2, &second, 6)
+        .unwrap();
     assert_eq!(memo.candidate_checks, 2);
     let j = Journal::read(&bytes, &h, limits()).unwrap();
-    let checked = j.verify(&after2, &ctx2).unwrap();
+    let checked = j.verify_shared(&after2, &ctx2).unwrap();
     let second_receipt = checked
         .prepare_receipt(&second, record(92_003).record_id, record(92_004), limits())
         .unwrap();
     bytes.extend(second_receipt.bytes());
     let j = Journal::read(&bytes, &h, limits()).unwrap();
-    let checked = j.verify(&after2, &ctx2).unwrap();
+    let checked = j.verify_shared(&after2, &ctx2).unwrap();
     assert_eq!(checked.records().len(), 4);
     // A changed selector without its new completed receipt cannot use the
     // historical prefix shortcut. Nor can altered current loose controls.
@@ -618,7 +621,7 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
         .inode += 1;
     let changed_context = context(&altered_observation, &id, &reader);
     assert!(
-        memo.inspect_candidate(&after2, &changed_context, &second, 6)
+        memo.inspect_shared_candidate(&after2, &changed_context, &second, 6)
             .is_err()
     );
     assert!(
@@ -634,7 +637,7 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
         .charge = 0;
     let changed_context = context(&altered_charge, &id, &reader);
     assert!(
-        memo.inspect_candidate(&after2, &changed_context, &second, 6)
+        memo.inspect_shared_candidate(&after2, &changed_context, &second, 6)
             .is_err()
     );
     assert!(
@@ -645,7 +648,7 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
     narrow_reader.tree.max_pages = 0;
     let narrow_context = context(&observed2, &id, &narrow_reader);
     assert!(
-        memo.inspect_candidate(&after2, &narrow_context, &second, 6)
+        memo.inspect_shared_candidate(&after2, &narrow_context, &second, 6)
             .is_err()
     );
     assert!(
@@ -694,16 +697,19 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
     let mut bounded = context(&observed2, &id, &reader);
     bounded.max_originals = 1;
     assert!(matches!(
-        j.verify(&after2, &bounded),
+        j.verify_shared(&after2, &bounded),
         Err(crate::package::PackageError::Limit)
     ));
     bounded.max_originals = 2;
-    assert!(j.verify(&after2, &bounded).is_ok());
+    assert!(j.verify_shared(&after2, &bounded).is_ok());
     // A new verification must read current bytes again, never inherit the cache.
     let mut changed = after2.clone();
     changed.allocations.values_mut().next().unwrap().bytes[16] ^= 1;
-    assert!(j.verify(&changed, &ctx2).is_err());
-    assert!(memo.inspect_candidate(&changed, &ctx2, &second, 6).is_err());
+    assert!(j.verify_shared(&changed, &ctx2).is_err());
+    assert!(
+        memo.inspect_shared_candidate(&changed, &ctx2, &second, 6)
+            .is_err()
+    );
     assert!(j.verify_cached(&changed, &ctx2, &mut memo).is_err());
     let mut changed_witness = after2.clone();
     changed_witness
@@ -757,7 +763,7 @@ fn phpsj001_two_completed_operations_bind_exact_selectors() {
         &forged,
     );
     let j = Journal::read(&forged, &h, limits()).unwrap();
-    assert!(j.verify(&after2, &ctx2).is_err());
+    assert!(j.verify_shared(&after2, &ctx2).is_err());
     assert!(j.verify_cached(&after2, &ctx2, &mut memo).is_err());
     assert_eq!(
         hash(&bytes),

@@ -1,5 +1,6 @@
 //! Additive repeatable layout. Older codec implementations and bytes stay unchanged.
 mod input;
+pub(crate) mod shared;
 pub use input::{
     Allocation, AssociationId, Corridor, OriginalPackage, OriginalProof, PlannerInputs, Role,
     RoleAllocation, TreeGeometry, parse_inputs,

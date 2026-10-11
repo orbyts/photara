@@ -1,4 +1,4 @@
-use super::wire::{Result, ensure, key, number, uuid};
+use super::wire::{Result, ensure, number, uuid};
 use crate::package::{JsonLimits, PackageError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -19,17 +19,6 @@ pub struct OriginalPackage {
     pub commit: Value,
     pub loose: BTreeMap<String, Vec<u8>>,
     pub allocations: BTreeMap<String, Allocation>,
-}
-impl OriginalPackage {
-    pub(crate) fn loose(&self, r: &Value) -> Result<Value> {
-        let k = key(r)?;
-        let bytes = self.loose.get(&k.0).ok_or("missing original control")?;
-        ensure(
-            bytes.len() as u64 == k.1 && super::wire::hash(bytes) == k.0,
-            "original control commitment",
-        )?;
-        super::wire::parse(bytes)
-    }
 }
 #[derive(Clone)]
 pub struct Role {
@@ -99,7 +88,7 @@ impl PlannerInputs {
     )]
     pub(crate) fn validate(
         &self,
-        old: &OriginalPackage,
+        old: &super::shared::OriginalPackage,
         proof: &OriginalProof,
         limits: super::Limits,
     ) -> Result<()> {

@@ -7,7 +7,7 @@ use super::{
     journal, json, package, reference, request, restart, selected, support, v1_3,
 };
 #[cfg(test)]
-use crate::package::v1_3::repeatable::{plan, restore_plan};
+use crate::package::v1_3::repeatable::{plan, restart::restore_shared_plan as restore_plan};
 #[cfg(test)]
 use rustix::fs::mkdirat;
 use rustix::fs::{
@@ -949,7 +949,7 @@ impl Native {
         }
         p.loose.retain(|sha, _| selected.contains(sha));
         for (id, a) in &mut p.allocations {
-            a.bytes = read(&self.root, &pack_name(id))?;
+            a.bytes = read(&self.root, &pack_name(id))?.into();
         }
         package::PackageUuid::parse(
             p.commit["root_set"]["library_id"]
@@ -990,7 +990,7 @@ impl Native {
         };
         self.compiled
             .borrow_mut()
-            .inspect_candidate(p, &context, plan, stage)
+            .inspect_shared_candidate(p, &context, plan, stage)
             .map_err(|_| ExecutionError::InvalidObservation)
     }
     fn allow(&mut self, plan: &RepeatablePlan) {
@@ -1400,7 +1400,7 @@ impl RepeatableIo for Native {
             allocations: p
                 .allocations
                 .into_iter()
-                .map(|(id, a)| (id, a.bytes))
+                .map(|(id, a)| (id, a.bytes.into_vec()))
                 .collect(),
         })
     }
@@ -1682,7 +1682,7 @@ fn run(mut io: Native, phase: &str) -> IoResult<()> {
         max_originals: 2,
     };
     checkpoint
-        .verify(&actual, &context)
+        .verify_shared(&actual, &context)
         .map_err(|_| invalid())?;
     let persisted = checkpoint
         .records()
@@ -1702,7 +1702,7 @@ fn run(mut io: Native, phase: &str) -> IoResult<()> {
         if original_record.is_some() {
             return Err(invalid());
         }
-        let original = v1_3::verify_original(
+        let original = v1_3::reader::verify_shared_original(
             actual.clone(),
             identity(&actual),
             &observed,

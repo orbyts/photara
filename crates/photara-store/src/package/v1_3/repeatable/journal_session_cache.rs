@@ -92,7 +92,7 @@ impl Owned {
     }
 }
 fn basis(base: &VerifiedOriginal, inputs: &PlannerInputs, limits: Limits) -> String {
-    let p = base.package();
+    let p = base.shared_package();
     wire::hash(&wire::encode(
         &json!({"manifest":p.manifest,"head":p.head,"commit":p.commit,
         "loose":p.loose.iter().map(|(k,b)|json!([k,wire::hash(b),b.len()])).collect::<Vec<_>>(),

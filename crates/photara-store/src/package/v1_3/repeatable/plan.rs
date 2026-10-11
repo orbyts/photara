@@ -1,7 +1,8 @@
 //! Original-bound repeatable admission and finite selected O/P/F states.
+use super::shared::OriginalPackage;
 use super::{
     Limits, core,
-    input::{OriginalPackage, OriginalProof, PlannerInputs, PreparedChange},
+    input::{OriginalProof, PlannerInputs, PreparedChange},
     layout,
     wire::{self, Result, encode, ensure, hash, key, number, reference, text},
 };
@@ -21,6 +22,7 @@ pub const STAGES: [&str; 7] = [
 /// Only the complete shared reader may construct this wrapper. DTOs and matching
 /// public identifiers do not grant a path into publication.
 pub struct VerifiedOriginal {
+    public_package: std::sync::OnceLock<super::input::OriginalPackage>,
     pub(crate) package: OriginalPackage,
     pub(crate) proof: OriginalProof,
     pub(crate) scope: Value,
@@ -38,6 +40,7 @@ impl VerifiedOriginal {
         empty_hold: crate::package::ObjectRef,
     ) -> Self {
         Self {
+            public_package: std::sync::OnceLock::new(),
             package,
             proof,
             scope,
@@ -46,9 +49,12 @@ impl VerifiedOriginal {
             retained_controls: BTreeMap::new(),
         }
     }
-    #[must_use]
-    pub fn package(&self) -> &OriginalPackage {
+    pub(crate) fn shared_package(&self) -> &OriginalPackage {
         &self.package
+    }
+    #[must_use]
+    pub fn package(&self) -> &super::input::OriginalPackage {
+        self.public_package.get_or_init(|| self.package.public())
     }
 }
 #[derive(Clone, Serialize, Deserialize)]
@@ -79,12 +85,13 @@ pub struct SelectedStage {
     pub loose: BTreeMap<String, Vec<u8>>,
 }
 pub struct RepeatablePlan {
+    pub(crate) public_files: std::sync::OnceLock<BTreeMap<String, Vec<u8>>>,
     pub(crate) extra_global: BTreeMap<crate::package::ObjectRef, crate::package::v1_3::Membership>,
     pub(crate) original_objects: std::sync::Arc<BTreeSet<wire::Key>>,
     pub(crate) old: OriginalPackage,
     pub(crate) original: Value,
     pub(crate) stages: Vec<SelectedStage>,
-    pub(crate) files: BTreeMap<String, Vec<u8>>,
+    pub(crate) files: BTreeMap<String, super::shared::Bytes>,
     pub(crate) payload_ends: BTreeMap<String, usize>,
     pub(crate) prepared: PreparedChange,
     pub(crate) reservation: u64,
@@ -129,7 +136,12 @@ impl RepeatablePlan {
     }
     #[must_use]
     pub fn target_allocations(&self) -> &BTreeMap<String, Vec<u8>> {
-        &self.files
+        self.public_files.get_or_init(|| {
+            self.files
+                .iter()
+                .map(|(id, b)| (id.clone(), b.to_vec()))
+                .collect()
+        })
     }
     #[must_use]
     pub fn reserved(&self) -> u64 {
@@ -177,7 +189,7 @@ fn decimal(s: &str) -> Result<u64> {
     number(&json!(s))
 }
 type Split = (Vec<Value>, Vec<Value>, BTreeMap<String, usize>);
-fn split(old: &OriginalPackage, files: &BTreeMap<String, Vec<u8>>) -> Result<Split> {
+fn split(old: &OriginalPackage, files: &BTreeMap<String, super::shared::Bytes>) -> Result<Split> {
     let mut payload = Vec::new();
     let mut writes = Vec::new();
     let mut stops = BTreeMap::new();
@@ -232,7 +244,7 @@ fn span(old: &OriginalPackage, id: &str, bytes: &[u8], lo: usize, hi: usize) -> 
         json!({"allocation_id":id,"arena":old.allocations[id].arena,"witness":old.allocations[id].witness,"original_end":lo.to_string(),"final_end":hi.to_string(),"frame_count":count.to_string(),"framed_sha256":hash(&bytes[lo..hi])}),
     )
 }
-fn packed(files: &BTreeMap<String, Vec<u8>>, r: &Value) -> Result<Value> {
+fn packed(files: &BTreeMap<String, super::shared::Bytes>, r: &Value) -> Result<Value> {
     let k = key(r)?;
     for bytes in files.values() {
         let mut at = 0;
@@ -613,6 +625,7 @@ pub(super) fn compile_cached(
         });
     }
     Ok(RepeatablePlan {
+        public_files: std::sync::OnceLock::new(),
         extra_global,
         original_objects,
         old: old.clone(),
@@ -640,6 +653,32 @@ impl RepeatablePlan {
         reason = "Independent reader boundary inputs"
     )]
     pub fn inspect_candidate(
+        &self,
+        package: &super::input::OriginalPackage,
+        stage: usize,
+        identity: crate::package::v1_3::SelectionIdentity,
+        inspection: &impl crate::package::v1_3::AllocationInspection,
+        registration: &crate::package::v1_3::SettledRegistration,
+        frames: crate::package::v1_3::FrameLimits,
+        limits: &crate::package::v1_3::ReaderLimits,
+    ) -> std::result::Result<crate::package::v1_3::SettledPackage, crate::package::PackageError>
+    {
+        self.inspect_shared_candidate(
+            &package.clone().into(),
+            stage,
+            identity,
+            inspection,
+            registration,
+            frames,
+            limits,
+        )
+    }
+
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Private equivalent shared ownership boundary"
+    )]
+    pub(crate) fn inspect_shared_candidate(
         &self,
         package: &OriginalPackage,
         stage: usize,
@@ -670,6 +709,30 @@ impl RepeatablePlan {
         reason = "Independent reader boundary inputs"
     )]
     pub fn verify_next_original(
+        &self,
+        package: super::input::OriginalPackage,
+        identity: crate::package::v1_3::SelectionIdentity,
+        inspection: &impl crate::package::v1_3::AllocationInspection,
+        registration: &crate::package::v1_3::SettledRegistration,
+        directory: crate::package::v1_3::DirectoryObservation,
+        frames: crate::package::v1_3::FrameLimits,
+        limits: &crate::package::v1_3::ReaderLimits,
+    ) -> std::result::Result<VerifiedOriginal, crate::package::PackageError> {
+        self.verify_next_shared_original(
+            package.into(),
+            identity,
+            inspection,
+            registration,
+            directory,
+            frames,
+            limits,
+        )
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Private equivalent shared ownership boundary"
+    )]
+    pub(crate) fn verify_next_shared_original(
         &self,
         package: OriginalPackage,
         identity: crate::package::v1_3::SelectionIdentity,

@@ -1,7 +1,8 @@
 //! Original reconstruction and exact retry dispatch. Neither operation grants
 //! writable admission or turns selected receipt JSON into a Saved acknowledgment.
+use super::shared::OriginalPackage;
 use super::{
-    Attempt, Limits, OriginalPackage, RepeatablePlan, VerifiedOriginal, compile, layout,
+    Attempt, Limits, RepeatablePlan, VerifiedOriginal, compile, layout,
     wire::{self, encode, hash, key, number},
 };
 use crate::package::PackageError;
@@ -67,6 +68,15 @@ pub fn recover(
 /// Refuses malformed recipe, missing controls, changed witness, truncated original
 /// allocations, altered original prefix, or explicit caller resource bounds.
 pub fn reconstruct_original(
+    current: &super::input::OriginalPackage,
+    record: &Value,
+    limits: Limits,
+) -> Result<super::input::OriginalPackage, PackageError> {
+    reconstruct(&current.clone().into(), record, limits, None, None)
+        .map(|p| p.public())
+        .map_err(|_| PackageError::Integrity)
+}
+pub(crate) fn reconstruct_shared_original(
     current: &OriginalPackage,
     record: &Value,
     limits: Limits,
@@ -152,8 +162,8 @@ fn reconstruct(
             total <= limits.max_total_allocation_bytes,
             "prefix total budget",
         )?;
-        let copy = super::Allocation {
-            bytes: prefix.to_vec(),
+        let copy = super::shared::Allocation {
+            bytes: a.bytes.prefix(end).ok_or("original truncated")?,
             arena: a.arena.clone(),
             witness: a.witness.clone(),
         };

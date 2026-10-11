@@ -1,6 +1,7 @@
 //! Restart from selected original records and current supplied bytes, without a
 //! retained in-memory plan. Historical prefix views never certify current tails.
-use super::{Limits, OriginalPackage, RepeatablePlan, VerifiedOriginal, recovery, wire};
+use super::shared::OriginalPackage;
+use super::{Limits, RepeatablePlan, VerifiedOriginal, recovery, wire};
 #[cfg(any(test, feature = "controlled-disposable"))]
 use crate::package::Sha256Hex;
 use crate::package::v1_3::{
@@ -146,7 +147,7 @@ pub(crate) fn original_json(
     frames: FrameLimits,
     reader: &v1_3::ReaderLimits,
 ) -> Result<Value, PackageError> {
-    let package = original.package();
+    let package = original.shared_package();
     let selection = v1_3::SelectionIdentity {
         project: PackageUuid::parse(
             package.manifest["project_id"]
@@ -317,7 +318,7 @@ impl<I: AllocationInspection> Replayer<'_, '_, I> {
             tip_charges,
         };
         if !terminal {
-            return v1_3::verify_original(
+            return v1_3::reader::verify_shared_original(
                 package.clone(),
                 identity(self.context.identity),
                 &prefix,
@@ -380,7 +381,7 @@ impl<I: AllocationInspection> Replayer<'_, '_, I> {
         let old = if let Some(memo) = self.memo.as_deref() {
             memo.reconstruct(current, &original, self.context.planner)?
         } else {
-            recovery::reconstruct_original(current, &original, self.context.planner)?
+            recovery::reconstruct_shared_original(current, &original, self.context.planner)?
         };
         let verified = self.verified(old)?;
         let intent = request(current, &original["request"]["intent"], self.context)?;
@@ -470,6 +471,12 @@ impl<I: AllocationInspection> Replayer<'_, '_, I> {
 /// Refuses malformed/unsupported original chains, changed actual witnesses,
 /// invalid old prefixes, unknown suffixes, selector differences and work limits.
 pub fn restore_plan<I: AllocationInspection>(
+    current: &super::input::OriginalPackage,
+    context: &RestartContext<'_, I>,
+) -> Result<RepeatablePlan, PackageError> {
+    restore_shared_plan(&current.clone().into(), context)
+}
+pub(crate) fn restore_shared_plan<I: AllocationInspection>(
     current: &OriginalPackage,
     context: &RestartContext<'_, I>,
 ) -> Result<RepeatablePlan, PackageError> {
@@ -697,7 +704,7 @@ impl CompiledPlans {
         }
     }
     #[cfg(any(test, feature = "controlled-disposable"))]
-    pub(crate) fn inspect_candidate<I: AllocationInspection>(
+    pub(crate) fn inspect_shared_candidate<I: AllocationInspection>(
         &mut self,
         package: &OriginalPackage,
         context: &RestartContext<'_, I>,
@@ -748,7 +755,7 @@ impl CompiledPlans {
         };
         let maximum = self.maximum(context.planner).saturating_sub(self.bytes);
         self.reader
-            .inspect_candidate(package, &fresh, plan, stage, maximum)?;
+            .inspect_shared_candidate(package, &fresh, plan, stage, maximum)?;
         #[cfg(test)]
         {
             self.candidate_checks += 1;
@@ -836,7 +843,7 @@ impl CompiledPlans {
                 prefixes,
             );
         }
-        recovery::reconstruct_original(current, original, limits)
+        recovery::reconstruct_shared_original(current, original, limits)
     }
     #[expect(
         clippy::too_many_arguments,
@@ -857,7 +864,7 @@ impl CompiledPlans {
         let key = wire::hash(&basis);
         if let Some((cached, _)) = self.entries.get(&key) {
             check(cached.plan.original == *original && cached.plan.prepared.receipt == *receipt)?;
-            let plan = cached.materialize(verified.package(), prefixes)?;
+            let plan = cached.materialize(verified.shared_package(), prefixes)?;
             let supplied = wire::encode(intent);
             check(
                 plan.stages[0].loose.get(
@@ -1062,10 +1069,10 @@ impl CachedPlan {
                 .map(|(id, a)| {
                     (
                         id.clone(),
-                        super::input::Allocation {
+                        super::shared::Allocation {
                             arena: a.arena.clone(),
                             witness: a.witness.clone(),
-                            bytes: Vec::new(),
+                            bytes: super::shared::Bytes::default(),
                         },
                     )
                 })
@@ -1078,7 +1085,7 @@ impl CachedPlan {
             prefixes.insert(id.clone(), (len, wire::hash(&allocation.bytes)));
             let target = p.files.get(id).ok_or(PackageError::Integrity)?;
             check(target.starts_with(&allocation.bytes))?;
-            files.insert(id.clone(), target[len..].to_vec());
+            files.insert(id.clone(), target[len..].to_vec().into());
         }
         check(files.len() == p.files.len())?;
         let mut controls = BTreeMap::new();
@@ -1102,6 +1109,7 @@ impl CachedPlan {
             .collect::<Result<Vec<_>, PackageError>>()?;
         Ok(Self {
             plan: RepeatablePlan {
+                public_files: std::sync::OnceLock::new(),
                 original_objects: p.original_objects.clone(),
                 old,
                 files,
@@ -1158,7 +1166,7 @@ impl CachedPlan {
             );
             bytes.extend_from_slice(&actual.bytes);
             bytes.extend_from_slice(suffix);
-            files.insert(id.clone(), bytes);
+            files.insert(id.clone(), bytes.into());
         }
         let stages = p
             .stages
@@ -1185,6 +1193,7 @@ impl CachedPlan {
             })
             .collect::<Result<_, PackageError>>()?;
         Ok(RepeatablePlan {
+            public_files: std::sync::OnceLock::new(),
             original_objects: p.original_objects.clone(),
             old: current.clone(),
             files,
@@ -1212,10 +1221,17 @@ impl CachedPlan {
             "attempt":p.attempt,"empty_hold":p.empty_hold,"prefixes":self.prefixes,"keys":self.stage_keys,
             "payload_ends":p.payload_ends,"retained_refs":p.retained_controls.keys().collect::<Vec<_>>(),"objects":p.original_objects.iter().collect::<Vec<_>>(),"limits":self.limits});
         let mut bytes = value_storage(&metadata)?;
-        for (key, value) in p.old.loose.iter().chain(&p.files).chain(&self.controls) {
+        for (key, capacity) in p
+            .old
+            .loose
+            .iter()
+            .chain(&self.controls)
+            .map(|(k, v)| (k, v.capacity()))
+            .chain(p.files.iter().map(|(k, v)| (k, v.capacity())))
+        {
             bytes = bytes
                 .checked_add(key.capacity())?
-                .checked_add(value.capacity())?
+                .checked_add(capacity)?
                 .checked_add(128)?;
         }
         // Authored-map digest keys and retained Membership tags are separate
@@ -1324,7 +1340,7 @@ impl<'a, 'b, I: AllocationInspection> IntentReplay<'a, 'b, I> {
                 Some(&self.prefixes),
             )?
         } else {
-            recovery::reconstruct_original(self.current, original, context.planner)?
+            recovery::reconstruct_shared_original(self.current, original, context.planner)?
         };
         let mut replay = Replayer {
             context,
@@ -1373,7 +1389,7 @@ impl<'a, 'b, I: AllocationInspection> IntentReplay<'a, 'b, I> {
         let plan = if let Some((verified, ancestry)) = &self.completed {
             // A matching HEAD alone cannot authorize reuse of altered controls,
             // witnesses or payloads. Reconstruction checks actual current prefixes.
-            check(same_package(&old, verified.package()))?;
+            check(same_package(&old, verified.shared_package()))?;
             check(!ancestry.contains(&key))?;
             if ancestry.len() >= context.max_originals {
                 return Err(PackageError::Limit);
@@ -1519,7 +1535,7 @@ pub(super) fn verify_completed_plan<I: AllocationInspection>(
                 .map(|(id, a)| {
                     (
                         id.clone(),
-                        super::Allocation {
+                        super::shared::Allocation {
                             arena: a.arena.clone(),
                             witness: a.witness.clone(),
                             bytes: plan.files[id].clone(),
@@ -1639,8 +1655,8 @@ impl CompactOriginal {
                 .map(|(id, a)| {
                     (
                         id.clone(),
-                        super::Allocation {
-                            bytes: Vec::new(),
+                        super::shared::Allocation {
+                            bytes: super::shared::Bytes::default(),
                             arena: a.arena.clone(),
                             witness: a.witness.clone(),
                         },
@@ -1716,9 +1732,8 @@ impl CompactOriginal {
             check(actual.arena == a.arena && actual.witness == a.witness)?;
             a.bytes = actual
                 .bytes
-                .get(..*self.lengths.get(id).ok_or(PackageError::Integrity)?)
-                .ok_or(PackageError::Integrity)?
-                .to_vec();
+                .prefix(*self.lengths.get(id).ok_or(PackageError::Integrity)?)
+                .ok_or(PackageError::Integrity)?;
         }
         let mut verified = VerifiedOriginal::from_reader(
             package,
@@ -1825,4 +1840,18 @@ pub(super) fn lookup_profile(
         all.len()
     );
     assert!(scoped.1 < full.1);
+}
+
+#[cfg(test)]
+pub(super) fn check_compact_ownership(plan: &RepeatablePlan, limits: Limits) {
+    let compact = CachedPlan::compact(plan, limits).unwrap();
+    for (id, old) in &plan.old.allocations {
+        let cached_old = &compact.plan.old.allocations[id].bytes;
+        assert!(cached_old.is_empty());
+        assert!(!cached_old.shares_backing(&old.bytes));
+        let suffix = &compact.plan.files[id];
+        assert!(!suffix.shares_backing(&plan.files[id]));
+        assert_eq!(&suffix[..], &plan.files[id][old.bytes.len()..]);
+    }
+    assert!(compact.plan.public_files.get().is_none());
 }

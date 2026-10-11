@@ -1635,6 +1635,96 @@
             "status": "PASS exact Saved30 at x13/y14 and normal close",
             "log": "/private/tmp/ll2a-grouped-reopen.log"
           }
+        },
+        "shared_allocation_validation": {
+          "date": "2026-10-11",
+          "session_tests": 17,
+          "reader_tests": 5,
+          "controlled_store_bridge_strict": "PASS",
+          "default_strict": "PASS",
+          "capture_before_rss_bytes": 855441408,
+          "capture_after_rss_bytes": 478576640,
+          "capture_exact_vector": "14321db76f92883868bdee98ff5f8204b49c15c4445f3e75607d36bc9b2dee03",
+          "capture_logs": [
+            "/private/tmp/ps2-shared-before-capture.log",
+            "/private/tmp/ps2-shared-after-capture.log"
+          ],
+          "public_api": "unchanged Vec DTOs and reference-returning getters",
+          "native_timing": {
+            "timings": [
+              {
+                "stage": "open",
+                "seconds": 17.3793874590192,
+                "live_rss_kib": null
+              },
+              {
+                "stage": "submit-1",
+                "seconds": 2.0429388330085203,
+                "live_rss_kib": 807536
+              },
+              {
+                "stage": "complete-1",
+                "seconds": 2.4432944159489125,
+                "live_rss_kib": 811856
+              },
+              {
+                "stage": "submit-2",
+                "seconds": 2.1057562089990824,
+                "live_rss_kib": 840576
+              },
+              {
+                "stage": "complete-2",
+                "seconds": 2.5923668750328943,
+                "live_rss_kib": 853344
+              },
+              {
+                "stage": "state",
+                "seconds": 0.19574937503784895,
+                "live_rss_kib": 855136
+              },
+              {
+                "stage": "close",
+                "seconds": 0.624237708048895,
+                "live_rss_kib": null
+              }
+            ],
+            "before": [
+              {
+                "id": "62000000-0000-4000-8000-000000020103",
+                "title": "example.review.inspect",
+                "x": 13,
+                "y": 14
+              }
+            ],
+            "after": [
+              {
+                "id": "62000000-0000-4000-8000-000000020103",
+                "title": "example.review.inspect",
+                "x": 13,
+                "y": 14
+              }
+            ],
+            "child_user_seconds": 24.2294,
+            "child_system_seconds": 1.298244,
+            "child_maxrss_bytes": 1143570432,
+            "saved_revision": 32,
+            "status": "Exact save/out-back/close PASS; performance FAIL; capture memory reduction not reproduced in native workspace",
+            "log": "/private/tmp/ll2a-shared-native-timing.log",
+            "cli_sha256": "ac359dce7f13bc68b80ba01797544a20b6153ccb2a5d4c05d44410dcd57746c3"
+          },
+          "next": "Inspect live native heap/owners with snapshot-only session; no further native graph operations before concrete diagnosis",
+          "instrumented_native_heap": {
+            "status": "Snapshot-only diagnostic capped at300 seconds; stdout closed on timeout, child exited BrokenPipe, process absence verified. No mutation/select/retry commands or Accepted edits.",
+            "live_malloc_reported_mb": 421.2,
+            "owners_reported_mb": {
+              "Builder_pack_buffers": 165.4,
+              "Native_current_snapshots": 117.8,
+              "PackedAllocation_decoded_values": 47.5,
+              "compact_plan_memo": 38.9,
+              "Fixture_bytes_approx": 2
+            },
+            "note": "During-open instrumented sample, not steady-state or normal latency measurement; no duplicate Host found. Next inspect capacity growth and steady heap without stack logging."
+          }
         }
       }
     }

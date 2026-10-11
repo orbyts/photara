@@ -242,7 +242,7 @@ fn activation_saved_confirmation_and_capsule_exact_evidence() {
     let identity0 = identity(&old.package);
     let context0 = jt::context(&base, &identity0, &reader);
     let journal = Journal::read(&bytes, &header, jt::limits()).unwrap();
-    let verified = journal.verify(&old.package, &context0).unwrap();
+    let verified = journal.verify_shared(&old.package, &context0).unwrap();
     let original = verified
         .prepare_intent(&plan, jt::record(92_001), jt::limits())
         .unwrap();
@@ -252,7 +252,7 @@ fn activation_saved_confirmation_and_capsule_exact_evidence() {
     let identity1 = identity(&selected);
     let context1 = jt::context(&observed, &identity1, &reader);
     let journal = Journal::read(&bytes, &header, jt::limits()).unwrap();
-    let verified = journal.verify(&selected, &context1).unwrap();
+    let verified = journal.verify_shared(&selected, &context1).unwrap();
     let completed = verified
         .prepare_receipt(
             &plan,
@@ -262,7 +262,7 @@ fn activation_saved_confirmation_and_capsule_exact_evidence() {
         )
         .unwrap();
     let next = plan
-        .verify_next_original(
+        .verify_next_shared_original(
             selected.clone(),
             identity(&selected),
             &observed,
