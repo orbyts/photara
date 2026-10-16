@@ -314,10 +314,6 @@ fn retained(
 /// # Errors
 /// Refuses substituted selectors/base/receipt, current-base mismatch, missing
 /// included checkpoint or historical lookup evidence, or any changed bounds.
-#[expect(
-    clippy::too_many_lines,
-    reason = "One ordered exact selector, base and package binding proof"
-)]
 pub fn reopen<I: CheckpointRecoveryIo>(
     io: &mut I,
     lease: &RegisteredCooperativeLease<I::Lease>,
@@ -325,6 +321,24 @@ pub fn reopen<I: CheckpointRecoveryIo>(
     limits: ActivationLimits<'_>,
 ) -> Result<ActivatedCheckpoint, PackageError> {
     let state = io.read_checkpoint(lease, limits)?;
+    let (selector, base, journal) = custody(&state, identity, limits)?;
+    let seed = recover_seed(&state, &base, &journal, identity, limits)?;
+    let segment = journal.base_prefix()?.to_vec();
+    Ok(ActivatedCheckpoint {
+        base,
+        selector,
+        header: state.header,
+        segment,
+        clean: state.current,
+        seed,
+    })
+}
+
+fn custody(
+    state: &ReopenState,
+    identity: &CheckpointIdentity,
+    limits: ActivationLimits<'_>,
+) -> Result<(LocalSelection, LocalBase, Journal), PackageError> {
     let selector = LocalSelection::parse(&state.selector, identity, limits.reader.json)?;
     check(
         selector.value()["pending"].is_null()
@@ -417,28 +431,51 @@ pub fn reopen<I: CheckpointRecoveryIo>(
         limits.frames,
         limits.reader,
     )?;
+    Ok((selector, base, journal))
+}
+fn recover_seed(
+    state: &ReopenState,
+    base: &LocalBase,
+    journal: &Journal,
+    identity: &CheckpointIdentity,
+    limits: ActivationLimits<'_>,
+) -> Result<crate::package::v1_3::repeatable::journal::session::CheckpointSeed, PackageError> {
     let history = std::sync::Arc::new(super::lookup::History {
         base: base.clone(),
-        source: state.records,
+        source: state.records.clone(),
         identity: identity.clone(),
         limits: *limits.reader,
     });
-    let seed = crate::package::v1_3::repeatable::journal::session::CheckpointSeed::recover(
-        &base,
+    crate::package::v1_3::repeatable::journal::session::CheckpointSeed::recover(
+        base,
         history,
         &state.current,
-        &journal,
+        journal,
         limits.frames,
         limits.reader,
         limits.planner,
-    )?;
-    let segment = journal.base_prefix()?.to_vec();
-    Ok(ActivatedCheckpoint {
-        base,
-        selector,
-        header: state.header,
-        segment,
-        clean: state.current,
-        seed,
-    })
+    )
+}
+/// Prepare a missing local receipt when publication completed before the crash.
+/// The registered adapter must rebarrier the exact current package before this
+/// call and append/rebarrier the returned bytes before ordinary reopen. Neither
+/// this result nor matching package JSON is a Saved acknowledgment.
+/// # Errors
+/// Refuses absent exact clean-plan reader evidence, substituted custody/base,
+/// changed original/Mutation, incomplete suffix or any conflicting receipt.
+pub fn prepare_recovery_receipt<I: CheckpointRecoveryIo>(
+    io: &mut I,
+    lease: &RegisteredCooperativeLease<I::Lease>,
+    identity: &CheckpointIdentity,
+    receipt: JournalRecordIdentity,
+    limits: ActivationLimits<'_>,
+) -> Result<crate::package::v1_3::repeatable::journal::JournalAppend, PackageError> {
+    let state = io.read_checkpoint(lease, limits)?;
+    let (_, base, journal) = custody(&state, identity, limits)?;
+    let append = journal.reconcile_snapshot_receipt(&state.current, receipt, limits.journal)?;
+    let mut bytes = state.segment.clone();
+    bytes.extend_from_slice(append.bytes());
+    let repaired = Journal::read(&bytes, &state.header, limits.journal)?;
+    recover_seed(&state, &base, &repaired, identity, limits)?;
+    Ok(append)
 }

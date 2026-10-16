@@ -23,6 +23,7 @@ struct Entry {
     scope: Value,
     charge: u64,
     empty: ObjectRef,
+    completed_original: Option<ObjectRef>,
     retained: BTreeMap<ObjectRef, v1_3::Membership>,
     observations: BTreeMap<PackageUuid, Value>,
     prefixes: BTreeMap<(PackageUuid, u64, u64), Sha256Hex>,
@@ -119,6 +120,9 @@ impl ReaderMemo {
                     entry.empty.clone(),
                 );
                 result.retained_controls = entry.retained.clone();
+                result
+                    .completed_original
+                    .clone_from(&entry.completed_original);
                 return Ok(result);
             }
         }
@@ -141,6 +145,7 @@ impl ReaderMemo {
             scope: result.scope.clone(),
             charge: result.charge_unit,
             empty: result.empty_hold.clone(),
+            completed_original: result.completed_original.clone(),
             retained: result.retained_controls.clone(),
             observations: recorder.observations.into_inner(),
             prefixes: recorder.prefixes.into_inner(),
@@ -153,7 +158,7 @@ impl ReaderMemo {
         if let Some(previous) = self.entries.remove(&key) {
             self.bytes -= previous.cost;
         }
-        let metadata = json!({"roles":entry.proof.roles.iter().map(|(name,r)| json!([name,r.state,r.semantic,r.receipts])).collect::<Vec<_>>(),"global":entry.proof.global,"scope":entry.scope,"empty":entry.empty,"retained":entry.retained.keys().collect::<Vec<_>>(),"observations":entry.observations,"prefixes":entry.prefixes.iter().map(|(k,v)|json!([k.0,k.1,k.2,v])).collect::<Vec<_>>()});
+        let metadata = json!({"roles":entry.proof.roles.iter().map(|(name,r)| json!([name,r.state,r.semantic,r.receipts])).collect::<Vec<_>>(),"global":entry.proof.global,"scope":entry.scope,"empty":entry.empty,"completed_original":entry.completed_original,"retained":entry.retained.keys().collect::<Vec<_>>(),"observations":entry.observations,"prefixes":entry.prefixes.iter().map(|(k,v)|json!([k.0,k.1,k.2,v])).collect::<Vec<_>>()});
         let cost = value_storage(&metadata)
             .and_then(|n| n.checked_add(entry.retained.len().checked_mul(256)?))
             .and_then(|n| n.checked_add(512));
@@ -252,6 +257,10 @@ impl ReaderMemo {
             charge: context.registration.charge_unit,
             // controls() selects this exact packed hold for operation overlays.
             empty: plan.empty_hold.clone(),
+            completed_original: Some(
+                serde_json::from_value(wire::reference(&plan.original))
+                    .map_err(|_| PackageError::Record)?,
+            ),
             retained: plan.retained_controls.clone(),
             observations: recorder.observations.into_inner(),
             prefixes: recorder.prefixes.into_inner(),

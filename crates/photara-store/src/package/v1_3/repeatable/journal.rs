@@ -518,6 +518,70 @@ impl Journal {
         };
         verified.prepare_receipt(plan, intent, identity, limits)
     }
+    // Fresh exact clean-plan reader evidence permits finishing a local receipt
+    // lost after package publication. This prepares bytes, never durability.
+    pub(crate) fn reconcile_snapshot_receipt(
+        &self,
+        current: &super::VerifiedOriginal,
+        identity: JournalRecordIdentity,
+        limits: JournalLimits,
+    ) -> Result<JournalAppend, PackageError> {
+        check(self.header["format_version"] == 2)?;
+        let original = current
+            .completed_original
+            .as_ref()
+            .ok_or(PackageError::Integrity)?;
+        let intent = self
+            .records
+            .iter()
+            .find(|r| {
+                r.value["kind"] == "CheckpointIntent"
+                    && reference(&r.value["body"]["original"]) == json!(original)
+            })
+            .ok_or(PackageError::Integrity)?;
+        let body = &intent.value["body"];
+        let receipt = &body["operation_receipt"];
+        let active = current
+            .proof
+            .roles
+            .get("active")
+            .ok_or(PackageError::Integrity)?;
+        check(
+            body["original"]["original_codec"] == "photara.codec.ps2-repeatable-admission-v4"
+                && body["original"]["payload_recipe"]["checkpoint_base"] == self.header["base"]
+                && body["original"]["scope"] == current.scope
+                && active.receipts.last() == Some(receipt)
+                && self.records.iter().any(|r| {
+                    r.value["kind"] == "Mutation"
+                        && r.value["body"]["operation_receipt"] == *receipt
+                        && r.value["body"]["semantic_intent"] == body["semantic_intent"]
+                        && r.value["body"]["base_head"] == body["original"]["old"]["head"]
+                }),
+        )?;
+        let body = json!({"intent_record_id":intent.value["record_id"],"intent_record_checksum":intent.checksum(),"original_sha256":original.sha256,"operation_receipt":receipt,"selected_head":current.package.head,"selected_commit":current.package.commit});
+        let append = VerifiedJournal {
+            journal: self,
+            plans: BTreeMap::new(),
+        }
+        .prepare("CheckpointReceipt", &body, identity, limits)?;
+        if !append.existing() {
+            // Do not move the cold-replay boundary past newer accepted work.
+            // Existing receipts keep their original location and remain retryable.
+            let included = n(&receipt["acceptance_ordinal"])?;
+            for record in &self.records {
+                if matches!(
+                    record.value["kind"].as_str(),
+                    Some("Mutation" | "CheckpointIntent")
+                ) {
+                    check(
+                        n(&record.value["body"]["operation_receipt"]["acceptance_ordinal"])?
+                            <= included,
+                    )?;
+                }
+            }
+        }
+        Ok(append)
+    }
     pub(crate) fn base_prefix(&self) -> Result<&[u8], PackageError> {
         let first = self.records.first().ok_or(PackageError::Integrity)?;
         check(first.value["kind"] == "CheckpointBaseReceipt")?;

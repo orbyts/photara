@@ -928,6 +928,11 @@ fn completed_journal_prefix_extends_without_historical_replay() {
     );
     assert_eq!(native_original.proof.global, full_original.proof.global);
     assert_eq!(
+        native_original.completed_original,
+        full_original.completed_original
+    );
+    assert!(native_original.completed_original.is_some());
+    assert_eq!(
         native_original.proof.roles["active"].state,
         full_original.proof.roles["active"].state
     );
@@ -1077,6 +1082,10 @@ fn original_pool_dedup_preserves_physical_budgets_and_malformed_refusal() {
 mod incremental_tests;
 
 #[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "One exact clean candidate/cache proof with changed observation refusals"
+)]
 fn clean_executor_proof_reused_by_receipt_with_fresh_observations() {
     let base = fixture();
     let original = verify(&base);
@@ -1131,6 +1140,10 @@ fn clean_executor_proof_reused_by_receipt_with_fresh_observations() {
     )
     .unwrap();
     assert_eq!(memo.reader_work(), (before.0, before.1 + 1));
+    assert_eq!(
+        proved.completed_original,
+        Some(serde_json::from_value(reference(plan.original())).unwrap())
+    );
     assert_eq!(proved.shared_package().head, current.head);
     let mut changed = current.clone();
     changed.allocations.values_mut().next().unwrap().bytes[16] ^= 1;
@@ -2288,18 +2301,160 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                                 .unwrap()
                                 .existing()
                         );
-                        settled.extend_from_slice(
-                            pending
-                                .prepare_receipt(
-                                    &parsed,
-                                    &selected,
-                                    compiled,
-                                    intent_id.record_id,
-                                    rid(690_003 + n as u64 * 3),
-                                    limits,
+                        let receipt_identity = rid(690_003 + n as u64 * 3);
+                        let expected_receipt = pending
+                            .prepare_receipt(
+                                &parsed,
+                                &selected,
+                                compiled,
+                                intent_id.record_id,
+                                receipt_identity,
+                                limits,
+                            )
+                            .unwrap();
+                        let advanced = |segment: &[u8]| {
+                            Cold(Some(super::super::checkpoint::ReopenState {
+                                selector: encode(active.selector().value()),
+                                base: encode(active.base().value()),
+                                header: active.header().clone(),
+                                segment: segment.to_vec(),
+                                current: prove(compiled),
+                                records: records.clone(),
+                            }))
+                        };
+                        if n == 1 {
+                            let mut prior = advanced(&settled);
+                            prior.0.as_mut().unwrap().current = prove(&first);
+                            assert!(
+                                super::super::checkpoint::prepare_recovery_receipt(
+                                    &mut prior,
+                                    &held,
+                                    &id,
+                                    rid(690_003),
+                                    activation_limits(),
                                 )
                                 .unwrap()
-                                .bytes(),
+                                .existing()
+                            );
+                        }
+                        // Crash after clean package publication, before local receipt:
+                        // ordinary open still refuses, and plain selected closure
+                        // proof cannot be substituted for exact operation completion.
+                        assert!(
+                            super::super::checkpoint::reopen(
+                                &mut advanced(&settled),
+                                &held,
+                                &id,
+                                activation_limits(),
+                            )
+                            .is_err()
+                        );
+                        let mut generic = advanced(&settled);
+                        generic.0.as_mut().unwrap().current.completed_original = None;
+                        assert!(
+                            super::super::checkpoint::prepare_recovery_receipt(
+                                &mut generic,
+                                &held,
+                                &id,
+                                receipt_identity,
+                                activation_limits(),
+                            )
+                            .is_err()
+                        );
+                        let mut wrong = advanced(&settled);
+                        wrong.0.as_mut().unwrap().current.completed_original =
+                            Some(serde_json::from_value(reference(plan.original())).unwrap());
+                        assert!(
+                            super::super::checkpoint::prepare_recovery_receipt(
+                                &mut wrong,
+                                &held,
+                                &id,
+                                receipt_identity,
+                                activation_limits(),
+                            )
+                            .is_err()
+                        );
+                        let intent_end = parsed.record_end(&json!(intent_id.record_id)).unwrap();
+                        assert!(
+                            super::super::checkpoint::prepare_recovery_receipt(
+                                &mut advanced(&settled[..intent_end]),
+                                &held,
+                                &id,
+                                receipt_identity,
+                                activation_limits(),
+                            )
+                            .is_err()
+                        );
+                        let mut narrow = activation_limits();
+                        narrow.journal.max_work_bytes = 1;
+                        assert!(
+                            super::super::checkpoint::prepare_recovery_receipt(
+                                &mut advanced(&settled),
+                                &held,
+                                &id,
+                                receipt_identity,
+                                narrow,
+                            )
+                            .is_err()
+                        );
+                        if n == 0 {
+                            let mut newer = suffix.records()[2].value().clone();
+                            newer["sequence"] = json!(
+                                (wire::number(
+                                    &parsed.records().last().unwrap().value()["sequence"]
+                                )
+                                .unwrap()
+                                    + 1)
+                                .to_string()
+                            );
+                            let overshadowed = super::journal_tests::append_raw(
+                                &settled,
+                                &support::unhex(&parsed.records().last().unwrap().checksum()),
+                                &newer,
+                            );
+                            assert!(Journal::read(&overshadowed, active.header(), limits).is_ok());
+                            assert!(
+                                super::super::checkpoint::prepare_recovery_receipt(
+                                    &mut advanced(&overshadowed),
+                                    &held,
+                                    &id,
+                                    receipt_identity,
+                                    activation_limits(),
+                                )
+                                .is_err()
+                            );
+                        }
+                        let repaired = super::super::checkpoint::prepare_recovery_receipt(
+                            &mut advanced(&settled),
+                            &held,
+                            &id,
+                            receipt_identity,
+                            activation_limits(),
+                        )
+                        .unwrap();
+                        assert_eq!(repaired.bytes(), expected_receipt.bytes());
+                        assert_eq!(repaired.expected_extent(), settled.len());
+                        settled.extend_from_slice(repaired.bytes());
+                        assert!(
+                            super::super::checkpoint::prepare_recovery_receipt(
+                                &mut advanced(&settled),
+                                &held,
+                                &id,
+                                receipt_identity,
+                                activation_limits(),
+                            )
+                            .unwrap()
+                            .existing()
+                        );
+                        assert!(
+                            super::super::checkpoint::prepare_recovery_receipt(
+                                &mut advanced(&settled),
+                                &held,
+                                &id,
+                                rid(695_000 + n as u64),
+                                activation_limits(),
+                            )
+                            .is_err()
                         );
                         let mut cold = Cold(Some(super::super::checkpoint::ReopenState {
                             selector: encode(active.selector().value()),

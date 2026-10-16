@@ -28,6 +28,9 @@ pub struct VerifiedOriginal {
     pub(crate) scope: Value,
     pub(crate) charge_unit: u64,
     pub(crate) empty_hold: crate::package::ObjectRef,
+    // Minted only after the reader verifies the exact clean operation plan.
+    // A selected package/receipt JSON alone never grants this capability.
+    pub(crate) completed_original: Option<crate::package::ObjectRef>,
     pub(crate) selected_frames: Option<
         Vec<(
             crate::package::v1_3::PhysicalRef,
@@ -52,6 +55,7 @@ impl VerifiedOriginal {
             scope,
             charge_unit,
             empty_hold,
+            completed_original: None,
             retained_controls: BTreeMap::new(),
             selected_frames: None,
         }

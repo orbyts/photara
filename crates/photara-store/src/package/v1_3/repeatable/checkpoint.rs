@@ -347,7 +347,7 @@ pub use plan::{TurnoverIds, TurnoverPlan};
 mod activate;
 pub use activate::{
     ActivatedCheckpoint, ActivationLimits, CheckpointIo, CheckpointRecoveryIo, ReopenState,
-    activate, reopen,
+    activate, prepare_recovery_receipt, reopen,
 };
 
 #[path = "checkpoint_continue.rs"]

@@ -28,17 +28,17 @@ experiment reports are reference material only.
 commitment correction is implemented and verified in local commit `3015282`.
 Shared v4 save/retry and cold-reopen tests pass, with on-demand archived
 dedupe and conservative position-only undo retirement at turnover. Next are
-native original-bound reconciliation/adapter and measured
-save/reopen/resource-use gates. The running review app has not been replaced;
+native adapter/dispatch and measured save/reopen/resource-use gates. The running review app has not been replaced;
 this is not hands-on performance acceptance.
 
 The [two-field v4 correction](architecture/PS2_RETENTION_STORAGE_DECISION.md#narrow-v4-commitment-correction--pending-approval-2026-10-11)
 was approved by Suhail on **2026-10-11**. Both v4-only inherited commitments now
 use `base_head_sha256`; old codecs and all other checks retain their meanings.
 Do not ask again. Native/session runtime dispatch remains gated on the remaining
-implementation and qualification. Normal SSH publication of `3015282` failed
-with repository access unavailable; local commits are preserved. Do not change
-authentication or remotes to work around this.
+implementation and qualification. On 2026-10-15, normal SSH publication recovered:
+verified local history through `680a2e5` was pushed to `origin/main` from
+`ce9aa39`, without authentication or remote changes. Earlier publication failures
+below are historical; preserve the published history.
 
 The independent activation slice now passes: registered local-selector protocol
 with five post-effect cuts, exact retry and third-selector refusal; PHPSJ002
@@ -88,8 +88,23 @@ Strict store checks pass in 29.48s
 (`/private/tmp/ps2-checkpoint-rotation-clippy.log`).
 This implementation still rebuilds historical index metadata at turnover, so it
 is a correctness bridge, not constant-cost maintenance or performance acceptance.
-Remaining: original-bound reconciliation when the package advanced before local
-receipt, native adapter/dispatch and disposable performance qualification. Existing stored
+**Missing-receipt recovery passes (2026-10-15):** fresh exact clean-plan
+verification retains the Original reference privately, including through exact
+reader/compact caches with accounting. Recovery validates selected local custody
+and prepares the missing original-bound receipt, then verifies recovery against
+the repaired journal. This only prepares bytes: native package rebarriers and
+journal append/rebarriers remain mandatory before Saved. The existing connected
+test covers published-package/no-receipt, exact-byte completion/retry, generic or
+wrong Original evidence, missing Mutation, tighter bounds and conflicting receipt
+identity. A new receipt refuses to advance past newer accepted work; exact
+existing-receipt retry preserves the pending suffix. Final connected check passes
+in 6.29s (`/private/tmp/ps2-receipt-reconcile-pending-retry.log`), all 21 session
+regressions pass in 10.43s (`/private/tmp/ps2-receipt-reconcile-final.log`), ten
+compatibility checks pass (`/private/tmp/ps2-receipt-reconcile-compat.log`), and
+strict store checks pass in 4.24s (`/private/tmp/ps2-receipt-reconcile-clippy.log`).
+No wire changes.
+Remaining: native selected local custody/turnover executor, PHPSJ002 SessionIo
+dispatch, and disposable performance qualification. Existing stored
 bytes/charges are retained; no deletion, native effects or app replacement.
 Do not claim indefinitely bounded recovery or seamless app performance yet.
 

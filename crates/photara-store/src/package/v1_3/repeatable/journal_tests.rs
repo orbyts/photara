@@ -38,7 +38,7 @@ pub(super) fn context<'a>(
         max_originals: 4,
     }
 }
-fn append_raw(prefix: &[u8], previous: &[u8], value: &Value) -> Vec<u8> {
+pub(super) fn append_raw(prefix: &[u8], previous: &[u8], value: &Value) -> Vec<u8> {
     use sha2::{Digest, Sha256};
     let raw = encode(value);
     let len = u32::try_from(raw.len()).unwrap().to_le_bytes();

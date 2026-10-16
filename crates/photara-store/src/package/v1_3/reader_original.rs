@@ -442,6 +442,7 @@ pub(crate) fn verify_operation_original(
         Some(&selected),
     )?;
     verified.retained_controls = plan.retained_controls.clone();
+    verified.completed_original = Some(super::object_ref(plan.original())?);
     Ok(verified)
 }
 

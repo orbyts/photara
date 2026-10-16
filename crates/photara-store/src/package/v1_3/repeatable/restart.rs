@@ -1636,6 +1636,7 @@ pub(super) struct CompactOriginal {
     scope: Value,
     charge: u64,
     empty: ObjectRef,
+    completed_original: Option<ObjectRef>,
     retained: BTreeMap<ObjectRef, v1_3::Membership>,
 }
 impl CompactOriginal {
@@ -1696,6 +1697,7 @@ impl CompactOriginal {
             scope: v.scope.clone(),
             charge: v.charge_unit,
             empty: v.empty_hold.clone(),
+            completed_original: v.completed_original.clone(),
             retained: v.retained_controls.clone(),
         }
     }
@@ -1763,12 +1765,15 @@ impl CompactOriginal {
             self.empty.clone(),
         );
         verified.retained_controls = self.retained.clone();
+        verified
+            .completed_original
+            .clone_from(&self.completed_original);
         Ok(verified)
     }
     #[cfg(any(test, feature = "controlled-disposable"))]
     pub(super) fn cost(&self) -> Option<usize> {
         let p = &self.package;
-        let data = serde_json::json!({"manifest":p.manifest,"head":p.head,"commit":p.commit,"allocations":p.allocations.iter().map(|(id,a)|serde_json::json!([id,a.arena,a.witness])).collect::<Vec<_>>(),"lengths":self.lengths,"roles":self.proof.roles.iter().map(|(id,r)|serde_json::json!([id,r.state,r.semantic,r.receipts])).collect::<Vec<_>>(),"global":self.proof.global,"scope":self.scope,"empty":self.empty,"retained":self.retained.iter().map(|(r,m)|serde_json::json!([r,format!("{m:?}")])).collect::<Vec<_>>()});
+        let data = serde_json::json!({"manifest":p.manifest,"head":p.head,"commit":p.commit,"allocations":p.allocations.iter().map(|(id,a)|serde_json::json!([id,a.arena,a.witness])).collect::<Vec<_>>(),"lengths":self.lengths,"roles":self.proof.roles.iter().map(|(id,r)|serde_json::json!([id,r.state,r.semantic,r.receipts])).collect::<Vec<_>>(),"global":self.proof.global,"scope":self.scope,"empty":self.empty,"completed_original":self.completed_original,"retained":self.retained.iter().map(|(r,m)|serde_json::json!([r,format!("{m:?}")])).collect::<Vec<_>>()});
         p.loose.iter().try_fold(value_storage(&data)?, |n, (k, v)| {
             n.checked_add(k.capacity())?
                 .checked_add(v.capacity())?
