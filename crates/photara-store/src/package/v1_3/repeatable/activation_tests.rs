@@ -337,6 +337,11 @@ fn activation_saved_confirmation_and_capsule_exact_evidence() {
     let base_body = body.clone();
     let sr = add(&mut body, saved.clone());
     snapshot(&body);
+    let mut unsupported_segment = saved.clone();
+    unsupported_segment["body"]["checkpoint_intent"]["value"]["format_version"] = json!(2);
+    let mut unsupported_body = base_body.clone();
+    add(&mut unsupported_body, unsupported_segment);
+    assert!(activation::Snapshot::from_body(unsupported_body, limits()).is_err());
     let capsule = row(
         7,
         "RollbackCapsule",

@@ -38,34 +38,58 @@ impl CheckpointSeed {
         frames: crate::package::v1_3::FrameLimits,
         reader: &crate::package::v1_3::ReaderLimits,
     ) -> Result<Option<Value>, PackageError> {
-        let operation = intent["operation_id"]
-            .as_str()
-            .ok_or(PackageError::Record)?;
-        let value = if let Some(prior) = self.mutations.get(operation) {
-            Some(prior.record.value.clone())
-        } else if let Some(history) = &self.history {
-            history.mutation(operation)?
-        } else {
-            None
-        };
-        let Some(record) = value else {
+        let Some((record, _)) = self.retained_mutation(
+            current,
+            intent["operation_id"]
+                .as_str()
+                .ok_or(PackageError::Record)?,
+            frames,
+            reader,
+        )?
+        else {
             return Ok(None);
         };
         let body = &record["body"];
         check(
             body["semantic_intent"] == *intent
                 && body["owner"] == *owner
-                && body["action"] == *action
+                && body["action"] == *action,
+        )?;
+        Ok(Some(record))
+    }
+    pub(crate) fn retained_mutation(
+        &self,
+        current: &VerifiedOriginal,
+        operation: &str,
+        frames: crate::package::v1_3::FrameLimits,
+        reader: &crate::package::v1_3::ReaderLimits,
+    ) -> Result<Option<(Value, String)>, PackageError> {
+        let value = if let Some(prior) = self.mutations.get(operation) {
+            Some((
+                prior.record.value.clone(),
+                prior.record.checksum().clone(),
+            ))
+        } else if let Some(history) = &self.history {
+            history.mutation_evidence(operation)?
+        } else {
+            None
+        };
+        let Some((record, checksum)) = value else {
+            return Ok(None);
+        };
+        let body = &record["body"];
+        check(
+            body["semantic_intent"]["operation_id"] == operation
                 && crate::package::v1_3::reader::snapshot_receipt(
                     current,
-                    id(&intent["operation_id"])?,
+                    id(&json!(operation))?,
                     frames,
                     reader,
                 )?
                 .as_ref()
                     == Some(&body["operation_receipt"]),
         )?;
-        Ok(Some(record))
+        Ok(Some((record, checksum)))
     }
     #[expect(
         clippy::too_many_lines,

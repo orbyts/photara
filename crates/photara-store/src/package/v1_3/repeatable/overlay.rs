@@ -8,19 +8,19 @@ use crate::package::{
     },
 };
 use std::collections::{BTreeMap, BTreeSet};
-fn limits(b: &Builder, physical: bool) -> TreeLimits {
+fn limits(b: &Builder) -> TreeLimits {
+    // Seeds were independently reader-verified before reaching the planner.
+    // New-page geometry does not retroactively bound their existing fanout.
+    // The caller's aggregate work/page/depth bounds still apply to every audit.
     TreeLimits {
         max_depth: b.limits.semantic.json.max_depth,
         max_pages: b.limits.max_objects,
         max_entries: b.limits.max_entries,
-        max_leaf_entries: if physical {
-            b.geometry.physical_leaf
-        } else {
-            b.geometry.semantic_leaf
-        } as usize,
-        max_branch_children: b.geometry.branch as usize,
+        max_leaf_entries: b.limits.max_entries,
+        max_branch_children: b.limits.max_entries,
     }
 }
+
 fn read(b: &Builder, r: &Value, allocation: Option<&str>) -> Result<Value> {
     if allocation.is_some() {
         b.physical_value(r)
@@ -49,7 +49,7 @@ pub(in super::super) fn resolve(
         root,
         PackageUuid::parse(&b.project).map_err(|_| "overlay project")?,
         family,
-        limits(b, role.is_some()),
+        limits(b),
     )
     .map_err(|_| "overlay typed audit")
 }
@@ -190,7 +190,7 @@ pub(in super::super) fn put_locator(
             role: Some("archive"),
             allocation,
         },
-        limits(b, true),
+        limits(b),
         entries,
     )
     .map_err(|_| "archive scoped locator update")?;

@@ -22,6 +22,46 @@ fn session_error(error: impl std::fmt::Debug) -> SessionError {
     );
     SessionError::Failure(SessionFailure::Storage)
 }
+fn lifecycle_controls(current: &super::OriginalPackage) -> IoResult<BTreeMap<String, Vec<u8>>> {
+    let overlay = &current.commit["root_set"]["inventory"];
+    let bytes = current
+        .loose
+        .get(overlay["sha256"].as_str().ok_or_else(invalid)?)
+        .ok_or_else(invalid)?;
+    let value =
+        package::parse_canonical_json(bytes, support::limits().json).map_err(|_| invalid())?;
+    let mut controls = BTreeMap::new();
+    for reference in
+        std::iter::once(overlay).chain(value["controls"].as_array().ok_or_else(invalid)?)
+    {
+        let sha = reference["sha256"].as_str().ok_or_else(invalid)?;
+        let bytes = current.loose.get(sha).ok_or_else(invalid)?;
+        if reference
+            != &json!({"kind":"json","sha256":hash(bytes),"byte_length":bytes.len().to_string()})
+        {
+            return Err(invalid());
+        }
+        controls.insert(sha.to_owned(), bytes.clone());
+    }
+    Ok(controls)
+}
+
+#[test]
+fn session_tests_native_cold_selection_controls_are_exact() {
+    let fixture = support::Fixture::load("integrated");
+    let mut current = super::package(&fixture);
+    let selected = lifecycle_controls(&current).unwrap();
+    assert_eq!(selected, current.loose);
+    let unrelated = canonical(&json!({"unselected":true}));
+    current.loose.insert(hash(&unrelated), unrelated);
+    assert_eq!(lifecycle_controls(&current).unwrap(), selected);
+    let sha = current.commit["root_set"]["inventory"]["sha256"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    current.loose.get_mut(&sha).unwrap().push(b' ');
+    assert!(lifecycle_controls(&current).is_err());
+}
 // One optional live checkpoint capability. Its immutable inputs are compared
 // against fresh bytes and observations; authority and durability are never cached.
 struct SnapshotView {
@@ -324,27 +364,21 @@ impl Host {
             .borrow()
             .reconstruct(current, original, budget())
             .map_err(|_| invalid())?;
-        let observed = snapshot(&self.io.base, current);
         let reader = support::limits();
-        let old = v1_3::reader::verify_shared_original(
-            raw,
-            identity(current),
-            &observed,
-            &self.io.base.registration,
-            v1_3::DirectoryObservation {
-                device: self.io.root_pin[0],
-                inode: self.io.root_pin[1],
-            },
-            frames(),
-            &reader,
-        )
-        .map_err(|_| invalid())?;
         let limits = checkpoint::ActivationLimits {
             journal: self.io.journal_bounds(),
             frames: frames(),
             reader: &reader,
             planner: budget(),
         };
+        let source = self
+            .io
+            .checkpoint_source(&self.lease, limits)
+            .map_err(|_| invalid())?;
+        let old = self
+            .io
+            .verify_checkpoint_prefix(&source, &raw, current, limits)
+            .map_err(|_| invalid())?;
         let mut state = self
             .io
             .read_checkpoint_state_at(&self.lease, limits, Some(old.shared_clone()))
@@ -536,6 +570,14 @@ impl Host {
         Ok(())
     }
     fn prepare_snapshot_lifecycle(&mut self, current: &VerifiedOriginal) -> IoResult<()> {
+        // A cold Native has no prior executor allow-set. Admit only the exact
+        // controls of this independently verified selection before accounting
+        // its namespace; candidate-only coexisting controls remain refused.
+        self.io.allowed = lifecycle_controls(&current.package)?;
+        self.io.commits = BTreeMap::from([(
+            hash(&canonical(&current.package.commit)),
+            canonical(&current.package.commit),
+        )]);
         let ceiling = super::charges(&self.io.base, &current.package);
         let footprint = self.io.footprint(&ceiling)?;
         let used = super::checkpoint_native::standing_charge(&footprint).map_err(|_| invalid())?;
@@ -595,6 +637,31 @@ impl Host {
             )));
         }
         Ok(None)
+    }
+    fn archived_retry(&self, req: &Value) -> Result<Option<(Value, String)>, SessionError> {
+        if !self.snapshot_mode() {
+            return Ok(None);
+        }
+        let operation = req["id"].as_str().ok_or(SessionError::InvalidRequest)?;
+        let journal = self.io.checkpoint().map_err(session_error)?;
+        if journal.records().iter().any(|r| {
+            r.value()["kind"] == "Mutation"
+                && r.value()["body"]["operation_receipt"]["operation_id"] == operation
+        }) {
+            return Ok(None);
+        }
+        self.authorize(&self.binding, None)?;
+        let Some((record, checksum)) = self.snapshot_capability(&journal)?.retained_mutation(
+            operation,
+            frames(),
+            &support::limits(),
+        )?
+        else {
+            return Ok(None);
+        };
+        check_archived_request(req, &record, &self.binding.owner)?;
+        self.authorize(&self.binding, Some(&record["body"]["semantic_intent"]))?;
+        Ok(Some((record, checksum)))
     }
 }
 impl SessionIo for Host {
@@ -904,6 +971,34 @@ fn matches_request(req: &Value, intent: &Value, action: &Value) -> bool {
         _ => false,
     }
 }
+fn check_archived_request(req: &Value, record: &Value, owner: &Value) -> Result<(), SessionError> {
+    let body = &record["body"];
+    if record["kind"] != "Mutation"
+        || body["operation_receipt"]["operation_id"] != req["id"]
+        || body["owner"] != *owner
+        || !matches_request(req, &body["semantic_intent"], &body["action"])
+    {
+        return Err(SessionError::InvalidRequest);
+    }
+    Ok(())
+}
+#[test]
+fn session_tests_native_archived_retry_matches_exact_request_and_owner() {
+    let (intent, receipt) = request();
+    let command = &intent["command"]["envelope"]["command"];
+    let owner = json!({"attachment_id":"registered-original-stream","attachment_generation":"1","principal":receipt["provenance"]["principal"]});
+    let record = json!({"kind":"Mutation","body":{"semantic_intent":intent,"operation_receipt":receipt,"owner":owner,"action":{"kind":"edit"}}});
+    let req = json!({"id":receipt["operation_id"],"command":"submit","node_id":command["node_id"],"x":command["x"],"y":command["y"]});
+    assert!(check_archived_request(&req, &record, &owner).is_ok());
+    for field in ["x", "y", "node_id", "id", "command"] {
+        let mut changed = req.clone();
+        changed[field] = json!("different");
+        assert!(check_archived_request(&changed, &record, &owner).is_err());
+    }
+    let mut changed_owner = owner.clone();
+    changed_owner["attachment_id"] = json!("new-segment-is-not-the-attachment");
+    assert!(check_archived_request(&req, &record, &changed_owner).is_err());
+}
 /// The app, CLI and historical test host share this exact coordinator/adapter.
 pub(in crate::package::v1_3::repeatable::disposable) struct OpenSession {
     session: Session<Host>,
@@ -965,6 +1060,12 @@ impl OpenSession {
         if !io.session_mode {
             return Err(invalid());
         }
+        if io.pending_turnover()? {
+            let candidate = io.current_candidate()?;
+            let lease = io.lease(&candidate)?;
+            io.activate_checkpoint(&lease)
+                .map_err(|e| std::io::Error::other(format!("maintenance recovery: {e:?}")))?;
+        }
         io.load_selected_journal()?;
         let current = if io.journal_header["format_version"] == 2 {
             io.current_candidate()?
@@ -990,7 +1091,7 @@ impl OpenSession {
             .map_err(|_| invalid())?,
             owner_epoch: package::PackageUuid::parse(&uuid::Uuid::new_v4().to_string())
                 .map_err(|_| invalid())?,
-            owner: json!({"attachment_id":io.journal_header["stream_id"],"attachment_generation":registration["generation"].as_u64().ok_or_else(invalid)?.to_string(),"principal":io.local_provenance.as_ref().unwrap_or(&request().1["provenance"])["principal"]}),
+            owner: json!({"attachment_id":io.registered_journal_header["stream_id"],"attachment_generation":registration["generation"].as_u64().ok_or_else(invalid)?.to_string(),"principal":io.local_provenance.as_ref().unwrap_or(&request().1["provenance"])["principal"]}),
         };
         let mut host = Host {
             io,
@@ -1032,6 +1133,23 @@ impl OpenSession {
             generation,
             start: std::time::Instant::now(),
         })
+    }
+    #[cfg(test)]
+    pub(super) fn checkpoint_turnover(mut self) -> IoResult<Self> {
+        let flush = self
+            .session
+            .begin_flush("flush", identity_new(self.generation))
+            .map_err(|e| std::io::Error::other(format!("maintenance flush: {e:?}")))?;
+        self.session
+            .finish_flush(&flush)
+            .map_err(|e| std::io::Error::other(format!("maintenance flush: {e:?}")))?;
+        let mut host = self.session.into_io();
+        host.io
+            .activate_checkpoint(&host.lease)
+            .map_err(|e| std::io::Error::other(format!("maintenance activation: {e:?}")))?;
+        let Host { io, lease, .. } = host;
+        drop(lease);
+        Self::open(io)
     }
     #[expect(
         clippy::too_many_lines,
@@ -1086,6 +1204,15 @@ impl OpenSession {
                     s.retry()?;
                 }
                 "submit" | "undo" | "redo" => {
+                    if let Some((original, checksum)) = s.io_mut().archived_retry(req)? {
+                        let body = &original["body"];
+                        // Exact retry acknowledges historical acceptance. It
+                        // neither submits again nor changes current Saved.
+                        ack = json!({"binding":binding_dto(&s.snapshot().binding),"operation_id":id,
+                            "accepted":projected(&AcceptedCoordinate{coordinate:body["result"].clone(),mutation:Some(json!({"record_id":original["record_id"],"record_checksum":checksum})),accepted_frame:Some(body["accepted_frame"].clone())}),
+                            "operation_receipt_sha256":hash(&canonical(&body["operation_receipt"]))});
+                        return Ok(());
+                    }
                     let prior = s.io_mut().prior(id).map_err(session_error)?;
                     let (intent, receipt, action, record) = if let Some(v) =
                         prior.or_else(|| requests.get(id).cloned())

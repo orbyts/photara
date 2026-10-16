@@ -172,15 +172,25 @@ impl<'a> PreparedHistory<'a> {
         let last = journal.records().last().ok_or(PackageError::Integrity)?;
         let through = json!({"record_id":last.value()["record_id"],"checksum":last.checksum(),"sequence":last.value()["sequence"]});
         let mutation = if let Some(link) = session.through() {
-            let row = journal
-                .records()
-                .iter()
-                .find(|r| {
-                    r.value()["record_id"] == link["record_id"]
-                        && r.checksum() == link["record_checksum"]
-                })
-                .ok_or(PackageError::Integrity)?;
-            json!({"record_id":row.value()["record_id"],"checksum":row.checksum(),"sequence":row.value()["sequence"]})
+            let row = journal.records().iter().find(|r| {
+                r.value()["record_id"] == link["record_id"]
+                    && r.checksum() == link["record_checksum"]
+            });
+            if let Some(row) = row {
+                json!({"record_id":row.value()["record_id"],"checksum":row.checksum(),"sequence":row.value()["sequence"]})
+            } else {
+                // An empty suffix retains the accepted Mutation from the
+                // authenticated previous base, not a record in this segment.
+                let prior = previous.ok_or(PackageError::Integrity)?.0.value();
+                check(
+                    prior["mutation"]["record_id"] == link["record_id"]
+                        && prior["mutation"]["checksum"] == link["record_checksum"]
+                        && prior["coordinate"] == session.coordinate()
+                        && prior["accepted_frame"]
+                            == session.accepted_frame().unwrap_or(Value::Null),
+                )?;
+                prior["mutation"].clone()
+            }
         } else {
             Value::Null
         };

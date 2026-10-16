@@ -706,6 +706,108 @@ pub(crate) fn verify_checkpoint_original(
     )
 }
 
+/// The registered local selector/BaseReceipt has already authenticated this
+/// exact clean maintenance HEAD and Original. Independently audit its complete
+/// required closure; do not replay retired pre-base authored transitions.
+#[cfg(any(test, feature = "controlled-disposable"))]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Local anchor plus independent physical reader inputs"
+)]
+pub(crate) fn verify_checkpoint_anchor(
+    package: &repeatable::shared::OriginalPackage,
+    identity: SelectionIdentity,
+    inspection: &impl AllocationInspection,
+    registration: &SettledRegistration,
+    directory: DirectoryObservation,
+    frames: FrameLimits,
+    limits: &ReaderLimits,
+    base: &Value,
+    original: &Value,
+) -> Result<repeatable::VerifiedOriginal, PackageError> {
+    use serde_json::json;
+    let reference = |value: &Value| -> Result<Value, PackageError> {
+        serde_json::to_value(super::super::snapshot::object_ref(value)?)
+            .map_err(|_| PackageError::Record)
+    };
+    check(
+        package.head == base["package_head"]
+            && reference(&package.commit)? == base["package_commit"]
+            && package.commit["root_set"]["schema"]["version"] == 3,
+    )?;
+    let read = |r: &Value| -> Result<Value, PackageError> {
+        let r = super::super::selected::json_ref(r)?;
+        let b = package
+            .loose
+            .get(r.sha256.as_str())
+            .ok_or(PackageError::Integrity)?;
+        check(b.len() as u64 == r.byte_length.get() && digest(b) == r.sha256)?;
+        crate::package::parse_canonical_json(b, limits.json)
+    };
+    let envelope_ref = &package.commit["root_set"]["placement"]["accounting"];
+    let envelope = read(envelope_ref)?;
+    let holds = super::super::selected::json_ref(&envelope["holds"])?;
+    let original_ref = reference(original)?;
+    check(read(&original_ref)? == *original)?;
+    let mut phase = None;
+    for bytes in package.loose.values() {
+        let value = crate::package::parse_canonical_json(bytes, limits.json)?;
+        if value["schema"]["id"] == "photara.storage.checkpoint-turnover-phase" {
+            check(phase.is_none())?;
+            phase = Some(value);
+        }
+    }
+    let phase = phase.ok_or(PackageError::Integrity)?;
+    let consumed = super::super::tree::number(&phase["consumed"])?;
+    check(
+        phase
+            == json!({"schema":{"id":"photara.storage.checkpoint-turnover-phase","version":1},"project_id":original["project_id"],"library_id":original["library_id"],"bootstrap_sha256":original["bootstrap_sha256"],"extensions":{},"maintenance_id":original["maintenance_id"],"original":original_ref,"stage":"clean","consumed":consumed.to_string(),"remaining":"0"}),
+    )?;
+    let expected = [
+        envelope_ref.clone(),
+        envelope["ledger"].clone(),
+        original_ref,
+        reference(&phase)?,
+        package.commit["root_set"]["inventory"].clone(),
+    ]
+    .into_iter()
+    .map(|r| super::super::selected::json_ref(&r))
+    .collect::<Result<BTreeSet<_>, _>>()?;
+    check(
+        expected.len() == 5
+            && expected
+                .iter()
+                .map(|r| r.sha256.as_str())
+                .collect::<BTreeSet<_>>()
+                == package.loose.keys().map(String::as_str).collect(),
+    )?;
+    let selected = OperationSelection {
+        original,
+        expected_commit: &package.commit,
+        expected_loose: &package.loose,
+        packed_hold: &holds,
+        packed_selected_hold: true,
+        extra_global: &BTreeMap::new(),
+    };
+    let verified = verify_original_inner(
+        package.clone(),
+        identity,
+        inspection,
+        registration,
+        directory,
+        frames,
+        limits,
+        Some(&selected),
+    )?;
+    snapshot_base_binding(
+        &verified,
+        &super::super::selected::json_ref(&base["checkpoint"])?,
+        frames,
+        limits,
+    )?;
+    Ok(verified)
+}
+
 struct Pinned<'a, P> {
     provider: &'a P,
     allowed: BTreeSet<PackageUuid>,

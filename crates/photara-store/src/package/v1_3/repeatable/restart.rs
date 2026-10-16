@@ -242,6 +242,52 @@ struct Prefix<'a, I> {
     unit: u64,
     tip_charges: BTreeMap<String, u64>,
 }
+fn prefix<'a, I>(
+    package: &'a OriginalPackage,
+    context: &'a RestartContext<'_, I>,
+) -> Result<Prefix<'a, I>, PackageError> {
+    let envelope = loose(
+        package,
+        &package.commit["root_set"]["placement"]["accounting"],
+        context.reader.json,
+    )?;
+    let ledger = loose(package, &envelope["ledger"], context.reader.json)?;
+    let mut tip_charges = BTreeMap::new();
+    for tip in ledger["tips"].as_array().ok_or(PackageError::Record)? {
+        let id = tip["allocation_id"].as_str().ok_or(PackageError::Record)?;
+        let allocation = package.allocations.get(id).ok_or(PackageError::Integrity)?;
+        check(
+            number(&tip["extent"])? == allocation.bytes.len() as u64
+                && tip_charges
+                    .insert(id.to_owned(), number(&tip["registered_charge"])?)
+                    .is_none(),
+        )?;
+    }
+    Ok(Prefix {
+        package,
+        actual: context.inspection,
+        unit: context.registration.charge_unit,
+        tip_charges,
+    })
+}
+#[cfg(any(test, feature = "controlled-disposable"))]
+pub(crate) fn verify_plan_prefix<I: AllocationInspection>(
+    package: &OriginalPackage,
+    plan: &RepeatablePlan,
+    context: &RestartContext<'_, I>,
+) -> Result<VerifiedOriginal, PackageError> {
+    v1_3::reader::verify_operation_original(
+        package.clone(),
+        identity(context.identity),
+        &prefix(package, context)?,
+        context.registration,
+        context.directory,
+        context.frames,
+        context.reader,
+        plan,
+        6,
+    )
+}
 impl<I: AllocationInspection> AllocationInspection for Prefix<'_, I> {
     fn observe(&self, id: PackageUuid) -> Result<AllocationObservation, PackageError> {
         let current = self.actual.observe(id)?;
@@ -298,6 +344,25 @@ impl<I: AllocationInspection> AllocationInspection for Prefix<'_, I> {
         Ok(actual)
     }
 }
+#[cfg(any(test, feature = "controlled-disposable"))]
+pub(crate) fn verify_anchor_prefix<I: AllocationInspection>(
+    package: &OriginalPackage,
+    base: &Value,
+    original: &Value,
+    context: &RestartContext<'_, I>,
+) -> Result<VerifiedOriginal, PackageError> {
+    v1_3::reader::verify_checkpoint_anchor(
+        package,
+        identity(context.identity),
+        &prefix(package, context)?,
+        context.registration,
+        context.directory,
+        context.frames,
+        context.reader,
+        base,
+        original,
+    )
+}
 struct Replayer<'a, 'm, I> {
     context: &'a RestartContext<'a, I>,
     memo: Option<&'m mut CompiledPlans>,
@@ -319,24 +384,9 @@ impl<I: AllocationInspection> Replayer<'_, '_, I> {
         let terminal = package
             .loose
             .contains_key(e["holds"]["sha256"].as_str().ok_or(PackageError::Record)?);
-        let ledger = loose(&package, &e["ledger"], self.context.reader.json)?;
-        let mut tip_charges = BTreeMap::new();
-        for tip in ledger["tips"].as_array().ok_or(PackageError::Record)? {
-            let id = tip["allocation_id"].as_str().ok_or(PackageError::Record)?;
-            let allocation = package.allocations.get(id).ok_or(PackageError::Integrity)?;
-            check(
-                number(&tip["extent"])? == allocation.bytes.len() as u64
-                    && tip_charges
-                        .insert(id.to_owned(), number(&tip["registered_charge"])?)
-                        .is_none(),
-            )?;
-        }
-        let prefix = Prefix {
-            package: &package,
-            actual: self.context.inspection,
-            unit: self.context.registration.charge_unit,
-            tip_charges,
-        };
+        let prefix = prefix(&package, self.context)?;
+        // Empty settled holds independently prove their selected closure.
+        // Terminal operations still require exact original regeneration.
         if !terminal {
             return v1_3::reader::verify_shared_original(
                 package.clone(),

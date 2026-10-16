@@ -1029,3 +1029,90 @@ critical path: it can reduce repeated reads within one session but cannot remove
 obsolete recovery ancestry, bound cold replay or establish the user's useful-history
 policy. Sealed checkpoints address that structural boundary while retaining the
 existing fresh authority, conditional durability and truthful Saved requirements.
+
+### Snapshot-checkpoint activation evidence — pending approval, 2026-10-16
+
+**UNAPPROVED additive record contract; no activation dispatch is enabled.** The
+approved [snapshot checkpoint protocol](PS2_RETENTION_STORAGE_DECISION.md#consolidated-candidate-byte-contract--review-draft-2026-10-11)
+can establish current Saved with a `CheckpointBaseReceipt`, which is not an
+authored operation and has no `CheckpointIntent`. Subsequent operation receipts
+use PHPSJ002. Frozen `SavedProof` version 1 requires complete PHPSJ001 intent and
+receipt records; synthesizing either record or accepting a different kind under
+that version is forbidden. Core checkpoint save/reopen qualification does not
+qualify this activation extension or the main-app switching flow.
+
+Propose only `Record = {id:Id,kind:"SavedProof",version:2,body:B}` in the existing
+activation record envelope. Its reference remains SHA-256 of that entire canonical
+record, with existing ID ordering, immutable retention and snapshot limits.
+`B` has exactly
+`{binding:SessionBinding,accepted:AcceptedCoordinate,registration_sha256:Digest,
+journal_header:Header2,local_base:LocalBase1,acceptance_base:AcceptanceBase1,
+checkpoint:Checkpoint}`. `Header2` is the complete approved PHPSJ002 header;
+`LocalBase1` and `AcceptanceBase1` are the complete existing
+`photara.session.checkpoint-base` and `photara.package.acceptance-base` records,
+not their bodies or references. All aliases retain the approved canonical bytes,
+identity spellings and exact field checks. `Checkpoint` is exactly one of:
+
+- `{kind:"operation",intent:EnvelopeProof,receipt:EnvelopeProof}`. Values are
+  complete PHPSJ002 `CheckpointIntent` and `CheckpointReceipt` envelopes.
+- `{kind:"base",receipt:EnvelopeProof,selected_commit:CommitV1,
+  original:TurnoverOriginal1,old_selection:LocalSelection1}`. Receipt is a complete
+  PHPSJ002 `CheckpointBaseReceipt`; original and old selection are the complete
+  existing turnover-original and checkpoint-selection records.
+
+`EnvelopeProof` is exactly `{value:JournalEnvelope2,record_checksum:Digest}`,
+copying the actual journal record and its checksum. There are no optional fields,
+flattened aliases, embedded host paths or new package/journal encodings.
+
+**Exact binding and refusal rules.** In both variants, `header.base` must equal
+the JRef of `local_base`, and `local_base.checkpoint` the JRef of `acceptance_base`.
+Project, Library, bootstrap, device, incarnation and logical journal identities
+must agree wherever present and match the activation target and independently
+registered source. The header's previous-segment link/sequence base must match
+the local base's through boundary. Existing local-base/acceptance-base validators
+and all source binding, owner, Graph, registration and finite Accepted checks
+remain required; these embedded values are evidence, not custody authority.
+
+For `operation`, preserve the existing exact intent/receipt/original/request,
+selected HEAD/commit, accepted coordinate and accepted-frame checks. Both envelopes
+must match this header and its post-base sequence rules; the v4 payload recipe's
+`checkpoint_base` must equal `header.base`. The current operation coordinate may
+advance beyond the base coordinate; it cannot be replaced by the base coordinate.
+
+For `base`, require the first-record sequence `header.sequence_base+1`, matching
+receipt `journal_base`, and receipt `original` equal to the complete original's
+JRef. `original.old.selector` must equal the old selection's JRef. The receipt's
+maintenance/record ID and session generation are exactly the original-bound ID
+and old selector generation plus one. Its selected HEAD/commit must equal the
+local base's package commitments, with the complete commit hashing to that JRef;
+the original's target base/state must match the supplied acceptance base and
+selected active StateRoot reference. Header next-stream/previous-segment and
+original journal through commitments must agree. Full `accepted.coordinate`
+equals `local_base.coordinate`; its Mutation link equals the base Mutation link
+after the existing `checksum` ↔ `record_checksum` spelling conversion, and its
+accepted frame is identical, including nullability. Maintenance never invents an
+operation receipt, Mutation, undo ownership or advanced authored coordinate.
+
+Before presenting current Saved or detaching, resolve every envelope/checksum
+against the actual registered selected journal, verify original-bound checkpoint
+completion and current package closure, and recheck the live finite target,
+lease/owner, authorization, namespace/physical pins, qualification and barriers.
+The post-confirmation freeze/flush/recheck remains mandatory. A stored proof,
+canonical hash or well-formed base alone never grants these capabilities.
+
+Both existing activation snapshot consumers may resolve a `SavedProof` reference
+to version 1 or 2 after implementation. Outer snapshot versions, other record
+versions, SQL publication, rollback capsule and transition rules do not change.
+Version 1 stays byte-for-byte PHPSJ001-only; old readers reject version 2. Unknown
+versions/kinds/fields, mixed variants, wrong identity/base/sequence/commit/frame,
+unresolved checksums or exhausted existing bounds refuse; there is no downgrade
+or optional-view fallback for authority evidence.
+
+**Approval requested:** freeze this additive record and authorize Rust/native
+implementation plus existing disposable activation validation. Before enabling,
+pin both canonical variants; retain old version-1 goldens; test the above mismatch
+and cross-version refusals, immediate post-turnover and subsequent-save evidence,
+pre/post-confirmation current-Saved binding, exact activation retry, capsule
+recovery, and native save/switch/reopen. Reuse the existing corpus and registered
+disposable scope. No real-Library conversion, deletion, quota increase, automatic
+turnover policy or performance acceptance is included.

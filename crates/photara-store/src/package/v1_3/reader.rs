@@ -1049,3 +1049,6 @@ pub(crate) use original::{
 pub(crate) use original::{
     inspect_operation_package, verify_checkpoint_original, verify_operation_original,
 };
+
+#[cfg(any(test, feature = "controlled-disposable"))]
+pub(crate) use original::verify_checkpoint_anchor;

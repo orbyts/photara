@@ -430,3 +430,53 @@ unchanged authority/barriers, full reopen audit, bounded cache memory and reduce
 hashed/read bytes with same-input latency/CPU evidence. This is a live-session
 performance review boundary, **not** a claim of history-independent cold opens
 or a solution for indefinite retained-history growth.
+
+
+## Native snapshot checkpoint qualification — 2026-10-16
+
+Source-bound test host SHA-256:
+`f46c3c56e389d7ae0885801cf5eabff9294b75bb0a3fd7198eaea5192f88314e`.
+The existing 128 MiB private-image fixture and its original limits are unchanged.
+On `photara-ps2-remount-i2uo_w8j`, two PHPSJ002 saves reach Saved6, exact retry
+remains revision6, and interruption immediately before receipt append recovers
+original revision7 at x31/y32 with successful Close. Clean remount preserves all
+59 file hashes and registered pins; generation2 reopens Saved7 and closes.
+Whole-process timings: two saves plus open/close 6.160s; receipt recovery/retry
+4.012s; post-remount open/barrier/close 1.960s. These are not isolated save latency
+or UI responsiveness measurements. No power-loss experiment was performed.
+
+A later turnover needs 70 coexisting control files against the fixture's bound64
+and refuses before publication; Saved7 remains recoverable. The count includes
+25 package controls, five commits, 16 new local records, 20 retained local files,
+and four namespace coexistence slots. Limits were not raised; no bytes deleted.
+This is a fixture bound, not an approved production limit.
+
+Seven first-turnover process cuts recover Saved4 and Close using fresh instances
+of the same fixture: pending/jxcq0ryh, reserved/cwuv2vs1, written/bxxciw30,
+published/6rtl7qzp, clean/m2zn766p, segment/mpjitwnf, selected/070aj203.
+Each root is `/private/tmp/photara-ps2-remount-<suffix>`; per-phase stdout, stderr,
+result JSON and immutable original requests are retained. The first six images
+are cleanly detached. The zero-suffix repeated-turnover defect was fixed by retaining the authenticated
+previous-base Mutation only when exact link, coordinate and accepted frame match.
+Corrected host SHA-256
+`6e5469e5b761b772b59c1be1e8de02e9569af59025c21a00832ade38ebb4dd11`
+passes all 26 release session tests and strict lint. On `070aj203`, second-turnover
+selected-commit interruption exits86; fresh reopen restores Saved4 x13/y14 and
+closes in 1.527s (`second-turnover-fixed`, `second-turnover-recovered`).
+Core results do not enable the proposed SavedProof2 format,
+automatic maintenance scheduling, main-app performance acceptance or real Libraries.
+
+
+Final native adapter correctness uses development host SHA-256
+`eaf80338189e4664bc2118d09d0521029db08cb79ebb6cf6ffd03598a7981d81`.
+On `070aj203`, `archive-retry-fixed` returns the bootstrap operation's exact
+accepted coordinate and receipt digest after two turnovers, preserving Saved4;
+`archive-changed-refusal` rejects changed x under the original ID and closes.
+On `i2uo_w8j` binding2, `final-saved7-reopen` preserves earlier Saved7 and closes.
+Logical attachment now uses the registered original stream. Historical records
+with a different stored owner remain readable; retry does not transplant ownership.
+No record conversion was performed. Development timings are correctness-only.
+Final controlled strict and focused connected/matcher tests pass. The last release
+suite had 26 passes and one new test-helper failure (placeholder archive reader);
+that helper was corrected and the connected case passed in development. No claim
+of a final 27/27 release run or sustained main-app performance is made.

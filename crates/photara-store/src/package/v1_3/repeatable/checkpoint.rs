@@ -354,3 +354,7 @@ pub(crate) use activate::{prepare_installation, reopen_state};
 
 #[path = "checkpoint_continue.rs"]
 mod continuation;
+
+#[cfg(any(test, feature = "controlled-disposable"))]
+#[path = "checkpoint_proof.rs"]
+pub(crate) mod proof;

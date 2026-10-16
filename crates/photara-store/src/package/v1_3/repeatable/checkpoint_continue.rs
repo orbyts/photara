@@ -9,6 +9,18 @@ use crate::package::v1_3::repeatable::{
 use serde_json::{Value, json};
 
 impl ActivatedCheckpoint {
+    /// Authenticated original retry input for private adapter request matching.
+    /// This neither appends a Mutation nor reactivates retired undo history.
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(crate) fn retained_mutation(
+        &self,
+        operation: &str,
+        frames: crate::package::v1_3::FrameLimits,
+        reader: &crate::package::v1_3::ReaderLimits,
+    ) -> Result<Option<(Value, String)>, PackageError> {
+        self.seed
+            .retained_mutation(&self.clean, operation, frames, reader)
+    }
     /// Prepare the original-bound journal completion after independently
     /// verifying the clean selected package. Journal barriers remain required.
     /// # Errors

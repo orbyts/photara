@@ -6,13 +6,13 @@ use super::super::{
 };
 use super::*;
 use crate::package::PackageError;
-struct Archived<'a> {
+struct Archived {
     objects: BTreeMap<super::super::wire::Key, Value>,
-    stream: &'a Value,
-    bytes: &'a [u8],
+    stream: Value,
+    bytes: Vec<u8>,
     reads: std::sync::atomic::AtomicUsize,
 }
-impl super::super::checkpoint::CheckpointRecords for Archived<'_> {
+impl super::super::checkpoint::CheckpointRecords for Archived {
     fn record(&self, reference: &Value, max: usize) -> Result<Vec<u8>, PackageError> {
         self.reads
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -32,7 +32,7 @@ impl super::super::checkpoint::CheckpointRecords for Archived<'_> {
         offset: u64,
         length: usize,
     ) -> Result<Vec<u8>, PackageError> {
-        if self.stream != &json!(stream.to_string()) {
+        if self.stream != json!(stream.to_string()) {
             return Err(PackageError::Integrity);
         }
         let start = usize::try_from(offset).map_err(|_| PackageError::Limit)?;
@@ -1503,8 +1503,8 @@ fn session_checkpoint_history_requires_drained_exact_mutation_evidence() {
                 .unwrap();
         let source = Archived {
             objects,
-            stream: &journal.header()["stream_id"],
-            bytes: &io.bytes,
+            stream: journal.header()["stream_id"].clone(),
+            bytes: io.bytes.clone(),
             reads: std::sync::atomic::AtomicUsize::new(0),
         };
         let operation =
@@ -1529,8 +1529,8 @@ fn session_checkpoint_history_requires_drained_exact_mutation_evidence() {
         damaged[offset + 4] ^= 1;
         let damaged = Archived {
             objects: source.objects.clone(),
-            stream: source.stream,
-            bytes: &damaged,
+            stream: source.stream.clone(),
+            bytes: damaged,
             reads: std::sync::atomic::AtomicUsize::new(0),
         };
         assert!(
@@ -2285,6 +2285,86 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                         settled.extend_from_slice(mutation.bytes());
                         let parsed = Journal::read(&settled, active.header(), limits).unwrap();
                         let selected = prove(compiled);
+                        let source = super::super::checkpoint::proof::Source {
+                            selector: encode(active.selector().value()),
+                            base: encode(active.base().value()),
+                            header: active.header().clone(),
+                            segment: settled.clone(),
+                            records: records.clone(),
+                        };
+                        let observed = snapshot(&fixture, &selected.package);
+                        let context =
+                            super::journal_tests::context(&observed, &id.package, &reader);
+                        let mut memo = super::super::restart::CompiledPlans::default();
+                        let checked = source
+                            .verify(
+                                &selected.package,
+                                &context,
+                                &mut memo,
+                                &id,
+                                activation_limits(),
+                            )
+                            .unwrap();
+                        assert_eq!(checked.package.head, selected.package.head);
+                        assert!(checked.completed_original.is_some());
+                        // Old prefixes are proven against the actually grown files too.
+                        let old = source
+                            .verify(&compiled.old, &context, &mut memo, &id, activation_limits())
+                            .unwrap();
+                        assert_eq!(old.package.head, compiled.old.head);
+                        let mut bounded =
+                            super::journal_tests::context(&observed, &id.package, &reader);
+                        bounded.frames.max_frames = 1;
+                        assert!(
+                            source
+                                .verify(
+                                    &selected.package,
+                                    &bounded,
+                                    &mut memo,
+                                    &id,
+                                    activation_limits()
+                                )
+                                .is_err()
+                        );
+                        let mut changed = compiled.old.clone();
+                        changed.allocations.values_mut().next().unwrap().witness["inode"] =
+                            json!("1");
+                        assert!(
+                            source
+                                .verify(&changed, &context, &mut memo, &id, activation_limits())
+                                .is_err()
+                        );
+                        let mut missing = super::super::checkpoint::proof::Source {
+                            selector: source.selector.clone(),
+                            base: source.base.clone(),
+                            header: source.header.clone(),
+                            segment: active.segment().to_vec(),
+                            records: records.clone(),
+                        };
+                        assert!(
+                            missing
+                                .verify(
+                                    &selected.package,
+                                    &context,
+                                    &mut memo,
+                                    &id,
+                                    activation_limits()
+                                )
+                                .is_err()
+                        );
+                        missing.segment = source.segment.clone();
+                        missing.header["base"]["sha256"] = json!("0".repeat(64));
+                        assert!(
+                            missing
+                                .verify(
+                                    &selected.package,
+                                    &context,
+                                    &mut memo,
+                                    &id,
+                                    activation_limits()
+                                )
+                                .is_err()
+                        );
                         let before = if n == 0 {
                             let observed = snapshot(&fixture, &clean.package);
                             plan.verify_candidate(
@@ -2668,7 +2748,12 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                         header: rotated.header().clone(),
                         segment: rotated.segment().to_vec(),
                         current: next_io.verify(&next_plan).unwrap(),
-                        records: std::sync::Arc::new(LocalRecords(next_records)),
+                        records: std::sync::Arc::new(Archived {
+                            objects: next_records.clone(),
+                            stream: recovered.header()["stream_id"].clone(),
+                            bytes: settled.clone(),
+                            reads: std::sync::atomic::AtomicUsize::new(0),
+                        }),
                     }));
                     let reopened = super::super::checkpoint::reopen(
                         &mut cold,
@@ -2686,6 +2771,93 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                     assert_eq!(view.through(), session.through());
                     assert_eq!(view.accepted_frame(), session.accepted_frame());
                     assert!(view.undo_targets(&owner).is_empty());
+                    let original = first_body.as_ref().unwrap();
+                    let (retry_record, retry_checksum) = reopened
+                        .retained_mutation(
+                            original["operation_receipt"]["operation_id"]
+                                .as_str()
+                                .unwrap(),
+                            frames(),
+                            &reader,
+                        )
+                        .unwrap()
+                        .unwrap();
+                    assert_eq!(retry_record["body"], *original);
+                    let prior_journal =
+                        Journal::read(&settled, recovered.header(), limits).unwrap();
+                    assert_eq!(
+                        retry_checksum,
+                        prior_journal
+                            .records()
+                            .iter()
+                            .find(|r| r.value()["record_id"] == retry_record["record_id"])
+                            .unwrap()
+                            .checksum()
+                    );
+                    let mut changed_intent = original["semantic_intent"].clone();
+                    changed_intent["command"]["envelope"]["command"]["x"] = json!(999);
+                    assert!(
+                        reopened
+                            .original_mutation(
+                                &changed_intent,
+                                &original["owner"],
+                                &original["action"],
+                                frames(),
+                                &reader
+                            )
+                            .is_err()
+                    );
+                    // No new Mutation exists in this segment. Its accepted
+                    // link still names the authenticated previous-base record.
+                    assert!(
+                        parsed
+                            .records()
+                            .iter()
+                            .all(|r| r.value()["kind"] != "Mutation")
+                    );
+                    assert!(view.through().is_some());
+                    let empty_history = PreparedHistory::prepare_next(
+                        &view,
+                        reopened.package(),
+                        &id,
+                        package::PackageUuid::parse(&uid(730_003)).unwrap(),
+                        (2, 2),
+                        &reader,
+                        reopened.base(),
+                        &LocalRecords(next_records),
+                    )
+                    .unwrap();
+                    let mut empty_attempt = super::attempt(reopened.package(), 740_000);
+                    empty_attempt.selectors.truncate(4);
+                    let mut empty_raw = serde_json::to_value(empty_attempt).unwrap();
+                    empty_raw["planner"]["codec"] =
+                        json!("photara.codec.ps2-checkpoint-turnover-layout-v1");
+                    for corridor in empty_raw["planner"]["corridors"].as_array_mut().unwrap() {
+                        corridor.as_object_mut().unwrap().remove("original_sha256");
+                        corridor["base_head_sha256"] =
+                            json!(hash(&encode(&reopened.package().package.head)));
+                    }
+                    let empty_plan = TurnoverPlan::compile_inner(
+                        &empty_history,
+                        reopened.selector(),
+                        TurnoverIds {
+                            maintenance_id: uid(750_000),
+                            checkpoint_id: uid(750_001),
+                            next_stream_id: uid(750_002),
+                        },
+                        empty_raw,
+                        budget(),
+                    )
+                    .unwrap();
+                    let empty_retry = TurnoverPlan::restore(
+                        &empty_history,
+                        reopened.selector(),
+                        &encode(empty_plan.original()),
+                        &encode(empty_plan.acceptance_base()),
+                        budget(),
+                    )
+                    .unwrap();
+                    assert_eq!(empty_plan.files, empty_retry.files);
                     continued.pop();
                     let torn = Journal::read(&continued, active.header(), limits).unwrap();
                     assert!(
@@ -2849,4 +3021,56 @@ impl super::super::checkpoint::CheckpointIo for CheckpointMemory<'_> {
         self.installed = Some(candidate);
         self.effect()
     }
+}
+
+#[test]
+fn session_overlay_import_preserves_verified_legacy_fanout() {
+    let fixture = fixture();
+    let old = verify(&fixture);
+    let (intent, receipt) = request();
+    let mut inputs = attempt(&old, 980_000);
+    inputs.planner.codec = "photara.codec.ps2-repeatable-layout-v3".into();
+    assert_eq!(inputs.planner.geometry.physical_leaf, 4);
+    let plan = plan::compile_inner(&old, &intent, &receipt, inputs.clone(), budget()).unwrap();
+    let retry = plan::compile_inner(&old, &intent, &receipt, inputs.clone(), budget()).unwrap();
+    assert_eq!(vector(&plan), vector(&retry));
+    let selected = super::selected(&plan, 6);
+    let observed = snapshot(&fixture, &selected);
+    v1_3::reader::verify_operation_original(
+        selected.clone(),
+        identity(&selected),
+        &observed,
+        &fixture.registration,
+        v1_3::DirectoryObservation {
+            device: 7,
+            inode: 900,
+        },
+        frames(),
+        &support::limits(),
+        &plan,
+        6,
+    )
+    .unwrap();
+    let mut restricted = budget();
+    restricted.max_entries = 4;
+    assert!(plan::compile_inner(&old, &intent, &receipt, inputs, restricted).is_err());
+    // Trust remains with the original reader: the legacy locator has 64-entry
+    // pages, and a genuinely smaller reader bound still refuses that package.
+    let mut reader = support::limits();
+    reader.tree.max_leaf_entries = 4;
+    assert!(
+        v1_3::reader::verify_shared_original(
+            old.package.clone(),
+            identity(&old.package),
+            &fixture,
+            &fixture.registration,
+            v1_3::DirectoryObservation {
+                device: 7,
+                inode: 900
+            },
+            frames(),
+            &reader
+        )
+        .is_err()
+    );
 }

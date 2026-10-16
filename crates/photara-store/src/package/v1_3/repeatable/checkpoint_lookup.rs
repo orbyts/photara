@@ -391,6 +391,28 @@ pub(crate) struct History {
     pub(crate) limits: ReaderLimits,
 }
 impl History {
+    pub(crate) fn mutation_evidence(
+        &self,
+        operation: &str,
+    ) -> Result<Option<(Value, String)>, PackageError> {
+        let Some(record) = self.mutation(operation)? else {
+            return Ok(None);
+        };
+        let entry = self
+            .base
+            .lookup_operation(
+                self.source.as_ref(),
+                &self.identity,
+                PackageUuid::parse(operation)?,
+                &self.limits,
+            )?
+            .ok_or(PackageError::Integrity)?;
+        let checksum = entry["local"]["mutation"]["checksum"]
+            .as_str()
+            .ok_or(PackageError::Record)?
+            .to_owned();
+        Ok(Some((record, checksum)))
+    }
     pub(crate) fn contains(&self, operation: &str) -> Result<bool, PackageError> {
         let id = PackageUuid::parse(operation)?;
         Ok(self

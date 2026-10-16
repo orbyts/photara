@@ -388,19 +388,51 @@ fn custody(
     identity: &CheckpointIdentity,
     limits: ActivationLimits<'_>,
 ) -> Result<(LocalSelection, LocalBase, Journal), PackageError> {
-    let selector = LocalSelection::parse(&state.selector, identity, limits.reader.json)?;
+    let (selector, base, journal, _) = custody_records(
+        &state.selector,
+        &state.base,
+        &state.header,
+        &state.segment,
+        state.records.as_ref(),
+        &state.current.scope,
+        identity,
+        limits,
+    )?;
+    crate::package::v1_3::reader::snapshot_base_binding(
+        &state.current,
+        &crate::package::v1_3::selected::json_ref(&base.value()["checkpoint"])?,
+        limits.frames,
+        limits.reader,
+    )?;
+    Ok((selector, base, journal))
+}
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Exact registered local custody inputs precede package proof"
+)]
+pub(super) fn custody_records(
+    selector_bytes: &[u8],
+    base_bytes: &[u8],
+    header: &Value,
+    segment: &[u8],
+    records: &dyn super::CheckpointRecords,
+    scope: &Value,
+    identity: &CheckpointIdentity,
+    limits: ActivationLimits<'_>,
+) -> Result<(LocalSelection, LocalBase, Journal, Value), PackageError> {
+    let selector = LocalSelection::parse(selector_bytes, identity, limits.reader.json)?;
     check(
         selector.value()["pending"].is_null()
             && selector.value()["selected"]["format"] == "PHPSJ002",
     )?;
-    let base = LocalBase::parse(&state.base, identity, limits.reader.json)?;
-    base.check_header(&state.header)?;
-    let header_bytes = Journal::create(&state.header, limits.journal)?;
+    let base = LocalBase::parse(base_bytes, identity, limits.reader.json)?;
+    base.check_header(header)?;
+    let header_bytes = Journal::create(header, limits.journal)?;
     check(
         selector.value()["selected"]
-            == json!({"format":"PHPSJ002","stream_id":state.header["stream_id"],"header_sha256":wire::hash(&header_bytes),"base":wire::reference(base.value())}),
+            == json!({"format":"PHPSJ002","stream_id":header["stream_id"],"header_sha256":wire::hash(&header_bytes),"base":wire::reference(base.value())}),
     )?;
-    let journal = Journal::read(&state.segment, &state.header, limits.journal)?;
+    let journal = Journal::read(segment, header, limits.journal)?;
     let first = journal
         .records()
         .first()
@@ -412,11 +444,7 @@ fn custody(
             && first["body"]["selected_head"] == base.value()["package_head"]
             && first["body"]["selected_commit"] == base.value()["package_commit"],
     )?;
-    let original = retained(
-        state.records.as_ref(),
-        &first["body"]["original"],
-        limits.reader,
-    )?;
+    let original = retained(records, &first["body"]["original"], limits.reader)?;
     tree::fields(
         &original,
         &[
@@ -438,11 +466,11 @@ fn custody(
         original["schema"]
             == json!({"id":"photara.storage.checkpoint-turnover-original","version":1})
             && original["extensions"] == json!({})
-            && original["scope"] == state.current.scope
+            && original["scope"] == *scope
             && original["maintenance_id"] == first["record_id"]
             && first["record_id"] == first["body"]["maintenance_id"]
             && original["target"]["base"] == base.value()["checkpoint"]
-            && original["journal"]["next_stream_id"] == state.header["stream_id"]
+            && original["journal"]["next_stream_id"] == header["stream_id"]
             && original["journal"]["through"] == base.value()["through"]
             && original["journal"]["lookup"] == base.value()["lookup"]
             && original["journal"]["archive"] == base.value()["archive"],
@@ -450,11 +478,7 @@ fn custody(
     for key in ["project_id", "library_id", "bootstrap_sha256"] {
         check(original[key] == base.value()[key])?;
     }
-    let old = retained(
-        state.records.as_ref(),
-        &original["old"]["selector"],
-        limits.reader,
-    )?;
+    let old = retained(records, &original["old"]["selector"], limits.reader)?;
     let old = LocalSelection::parse(&wire::encode(&old), identity, limits.reader.json)?;
     let pending = successor(
         &old,
@@ -474,14 +498,9 @@ fn custody(
         expected.value() == selector.value()
             && first["session_generation"] == pending.value()["generation"],
     )?;
-    crate::package::v1_3::reader::snapshot_base_binding(
-        &state.current,
-        &crate::package::v1_3::selected::json_ref(&base.value()["checkpoint"])?,
-        limits.frames,
-        limits.reader,
-    )?;
-    Ok((selector, base, journal))
+    Ok((selector, base, journal, original))
 }
+
 fn recover_seed(
     state: &ReopenState,
     base: &LocalBase,

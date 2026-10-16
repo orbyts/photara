@@ -24,21 +24,74 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
-**Current work — efficient checkpoint recovery:** the approved two-field v4
-commitment correction is implemented and verified in local commit `3015282`.
-Shared v4 save/retry and cold-reopen tests pass, with on-demand archived
-dedupe and conservative position-only undo retirement at turnover. Next are
-native adapter/dispatch and measured save/reopen/resource-use gates. The running review app has not been replaced;
-this is not hands-on performance acceptance.
+**Current work — efficient checkpoint recovery:** native save/retry, interrupted
+receipt recovery, seven turnover cuts, clean remount and zero-suffix repeated
+turnover now pass in registered disposable fixtures. The next permanent-format
+boundary is the exact additive SavedProof2 proposal linked below; it is not yet
+approved or implemented. Automatic maintenance scheduling, sustained performance
+and main-app hands-on acceptance remain open. The running review app is unchanged.
+
+**Latest native trial (2026-10-16, in progress):** registered image
+`/private/tmp/photara-ps2-remount-i2uo_w8j` remains binding generation 2.
+Old A/B and the running app remain untouched. Baseline overlay geometry and cold
+selected-control initialization defects are fixed. Binary SHA-256:
+`f46c3c56e389d7ae0885801cf5eabff9294b75bb0a3fd7198eaea5192f88314e`.
+The 26 release session tests, legacy SavedProof regression and strict checks pass.
+Native two consecutive saves reach Saved6 (x23/y24); exact retry stays at revision6.
+An interruption immediately before the receipt exits86; fresh recovery and exact
+original retry reach Saved7 (x31/y32), then Close succeeds. The next repeated
+turnover correctly refuses before publication: 70 coexisting control files exceed
+the unchanged fixture count bound of 64 (not a production limit).
+Fresh reopen after refusal still verifies Saved7 and closes. Clean remount
+preserves all 59 file hashes and the registered pins; binding generation 2
+reopens Saved7 and closes in 1.960s. This is not power-loss or performance proof. Two-save whole-process
+elapsed time was 6.160s; recovery was 4.012s, not per-save latency measurements.
+Logs (`two-saves`, `exact-retry`, `receipt-cut`, `receipt-recovery`,
+`turnover-none`, `after-turnover-refusal`) are under the registered root.
+All seven first-turnover interruption stages (`pending`, `reserved`, `written`,
+`published`, `clean`, `segment`, `selected`) recover Saved4 and Close in fresh
+instances of the same fixture. Exact roots are in
+`/private/tmp/ps2-checkpoint-cut-roots.jsonl`. The zero-suffix second-turnover defect is fixed: it reuses the authenticated
+previous-base Mutation only after exact link, coordinate and frame checks.
+Corrected host `6e5469e5b761b772b59c1be1e8de02e9569af59025c21a00832ade38ebb4dd11`
+passes 26 release session tests and strict checks. On
+`/private/tmp/photara-ps2-remount-070aj203`, second turnover exits86 at selected
+commit; fresh reopen verifies Saved4 at x13/y14 and Close (1.527s).
+Logs: `second-turnover-fixed`, `second-turnover-recovered`.
+The native archived-retry adapter now authenticates the retained Mutation and
+receipt, checks the exact request/current authority, and returns the original
+acknowledgement without a new write. Logical attachment identity stays bound to
+the registered original stream rather than rotating with journal segments.
+Final development host SHA-256:
+`eaf80338189e4664bc2118d09d0521029db08cb79ebb6cf6ffd03598a7981d81`.
+Native exact archived retry, changed-request refusal, Saved4/Close and preserved
+older Saved7/Close all pass (`archive-retry-fixed`, `archive-changed-refusal`,
+`final-saved7-reopen`). Historical rotated-owner records remain readable and
+unchanged; retries under a different current owner refuse, without conversion.
+Final strict checks and focused connected/matcher tests pass. The last release
+suite passed 26/27; its sole failure was a placeholder archive reader in the new
+test. The test helper was corrected and the connected test passed in development;
+do not claim 27/27 release or use development timings as performance evidence.
+Controller/phase runner: `/private/tmp/photara-checkpoint-controller-20261015.py`
+and `/private/tmp/photara-checkpoint-phase-20261015.py`; gate driver is
+`/private/tmp/ps2-checkpoint-gates.py`. Preserve originals and registration.
+**Separate approval boundary:** frozen activation SavedProof requires
+CheckpointIntent/CheckpointReceipt; a clean checkpoint has CheckpointBaseReceipt.
+The exact [additive SavedProof2 proposal](architecture/PROJECT_SESSION_DURABILITY.md#snapshot-checkpoint-activation-evidence--pending-approval-2026-10-16)
+is prepared but **unapproved**. Do not fabricate the old pair or change activation
+wire semantics. The narrow core qualification is recorded below; request that exact
+approval before activation changes. Automatic turnover scheduling and app performance acceptance remain open.
 
 The [two-field v4 correction](architecture/PS2_RETENTION_STORAGE_DECISION.md#narrow-v4-commitment-correction--pending-approval-2026-10-11)
 was approved by Suhail on **2026-10-11**. Both v4-only inherited commitments now
 use `base_head_sha256`; old codecs and all other checks retain their meanings.
 Do not ask again. Native/session runtime dispatch remains gated on the remaining
 implementation and qualification. On 2026-10-15, normal SSH publication recovered:
-verified local history through `bc8c00e` was pushed to `origin/main` from
+verified local history through `fa3c074` was pushed to `origin/main` from
 `ce9aa39`, without authentication or remote changes. Earlier publication failures
-below are historical; preserve the published history.
+below are historical; preserve the published history. The later normal push of
+`246ebb1` and a follow-up `ls-remote` failed to read the remote; publication of
+that commit is unconfirmed. Keep the existing SSH remote/authentication.
 
 The independent activation slice now passes: registered local-selector protocol
 with five post-effect cuts, exact retry and third-selector refusal; PHPSJ002

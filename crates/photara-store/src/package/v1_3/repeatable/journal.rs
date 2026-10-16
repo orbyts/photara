@@ -1311,7 +1311,9 @@ pub(crate) fn validate_detached_checkpoint(value: &Value) -> Result<(), PackageE
         return Err(PackageError::UnsupportedVersion);
     }
     let receipt = &value["body"]["operation_receipt"];
-    let header = json!({"project_id":value["project_id"],"incarnation_id":value["incarnation_id"],"library_id":receipt["library_id"],"bootstrap_sha256":receipt["bootstrap_sha256"],"journal_id":receipt["journal_id"]});
+    // Detached SavedProof v1 retains its PHPSJ001 meaning. New segment proof
+    // variants require their own reviewed activation record dispatch.
+    let header = json!({"format_version":1,"project_id":value["project_id"],"incarnation_id":value["incarnation_id"],"library_id":receipt["library_id"],"bootstrap_sha256":receipt["bootstrap_sha256"],"journal_id":receipt["journal_id"]});
     let sequence = n(&value["sequence"])?;
     check(sequence > 0)?;
     envelope(value, &header, sequence)

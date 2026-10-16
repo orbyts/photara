@@ -866,6 +866,11 @@ impl CheckpointIo for Native {
             let bytes = canonical(value);
             records.insert(record_name(&bytes), bytes);
         }
+        // Exact selected old controls are restart dependencies after package cleanup.
+        // They are immutable records, charged before pending selector publication.
+        for bytes in plan.old.loose.values() {
+            records.insert(record_name(bytes), bytes.clone());
+        }
         let unit = self.base.registration.charge_unit;
         let mut extra = 0u64;
         let base = canonical(installation.base.value());
@@ -929,11 +934,23 @@ impl CheckpointIo for Native {
                 )
                 .ok_or(PackageError::Limit)?;
         }
+        // Retry must not count an already retained exact name twice. Byte
+        // compatibility was checked by additional() above, including torn files.
+        let mut new_records = 0usize;
+        for name in records.keys() {
+            match regular(&self.evidence, name, false) {
+                Ok(_) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    new_records = new_records.checked_add(1).ok_or(PackageError::Limit)?;
+                }
+                Err(error) => return Err(refused(error)),
+            }
+        }
         let count = self
             .allowed
             .len()
             .checked_add(self.commits.len())
-            .and_then(|n| n.checked_add(records.len()))
+            .and_then(|n| n.checked_add(new_records))
             .and_then(|n| n.checked_add(namespace.retained().ok()?.len()))
             .and_then(|n| n.checked_add(4))
             .ok_or(PackageError::Limit)?;
@@ -972,7 +989,14 @@ impl CheckpointIo for Native {
         }
         self.custody_namespace()?
             .select(old, new, |_, _| self.checkpoint_guard(lease))
-            .map_err(refused)
+            .map_err(refused)?;
+        #[cfg(test)]
+        turnover::cut(if after.value()["pending"].is_null() {
+            "selected"
+        } else {
+            "pending"
+        });
+        Ok(())
     }
     fn finish_package(
         &mut self,
@@ -1010,6 +1034,8 @@ impl CheckpointIo for Native {
             .map_err(refused)?;
             // Same original-owned sidecar cleanup as the existing executor.
             self.turnover_cleanup(lease, plan, next)?;
+            #[cfg(test)]
+            turnover::cut(["reserved", "written", "published", "clean"][next]);
             stage = Some(next);
             self.turnover_stage(plan)?;
             if next >= 2 {
@@ -1061,7 +1087,10 @@ impl CheckpointIo for Native {
             .map_err(refused)?;
         namespace
             .install_segment(stream, segment, |_, _| self.checkpoint_guard(lease))
-            .map_err(refused)
+            .map_err(refused)?;
+        #[cfg(test)]
+        turnover::cut("segment");
+        Ok(())
     }
 }
 
@@ -1079,6 +1108,51 @@ impl Native {
         limits: ActivationLimits<'_>,
         original: Option<VerifiedOriginal>,
     ) -> Result<ReopenState, PackageError> {
+        let source = self.checkpoint_source(lease, limits)?;
+        let current = if let Some(original) = original {
+            original
+        } else {
+            let current = self.current().map_err(refused)?;
+            self.verify_checkpoint_prefix(&source, &current, &current, limits)?
+        };
+        self.checkpoint_guard(lease).map_err(refused)?;
+        Ok(source.state(current))
+    }
+    pub(super) fn verify_checkpoint_prefix(
+        &self,
+        source: &crate::package::v1_3::repeatable::checkpoint::proof::Source,
+        package: &OriginalPackage,
+        actual: &OriginalPackage,
+        limits: ActivationLimits<'_>,
+    ) -> Result<VerifiedOriginal, PackageError> {
+        let observed = snapshot(&self.base, actual);
+        let id = self.checkpoint_identity()?;
+        let context = super::RestartContext {
+            inspection: &observed,
+            registration: &self.base.registration,
+            directory: v1_3::DirectoryObservation {
+                device: self.root_pin[0],
+                inode: self.root_pin[1],
+            },
+            identity: &id.package,
+            frames: limits.frames,
+            reader: limits.reader,
+            planner: limits.planner,
+            max_originals: limits.journal.max_records,
+        };
+        source.verify(
+            package,
+            &context,
+            &mut self.compiled.borrow_mut(),
+            &id,
+            limits,
+        )
+    }
+    pub(super) fn checkpoint_source(
+        &self,
+        lease: &NativeLease,
+        limits: ActivationLimits<'_>,
+    ) -> Result<crate::package::v1_3::repeatable::checkpoint::proof::Source, PackageError> {
         self.checkpoint_guard(lease).map_err(refused)?;
         let namespace = self.custody_namespace()?;
         let selector = namespace.selector().map_err(refused)?;
@@ -1119,33 +1193,16 @@ impl Native {
             limits.journal.json,
         )?;
         super::journal::Journal::read(&segment, &header, limits.journal)?;
-        let current = if let Some(original) = original {
-            original
-        } else {
-            let current = self.current().map_err(refused)?;
-            let observed = snapshot(&self.base, &current);
-            v1_3::reader::verify_shared_original(
-                current.clone(),
-                identity(&current),
-                &observed,
-                &self.base.registration,
-                v1_3::DirectoryObservation {
-                    device: self.root_pin[0],
-                    inode: self.root_pin[1],
-                },
-                limits.frames,
-                limits.reader,
-            )?
-        };
         self.checkpoint_guard(lease).map_err(refused)?;
-        Ok(ReopenState {
-            selector,
-            base,
-            header,
-            segment,
-            current,
-            records,
-        })
+        Ok(
+            crate::package::v1_3::repeatable::checkpoint::proof::Source {
+                selector,
+                base,
+                header,
+                segment,
+                records,
+            },
+        )
     }
 }
 
@@ -1163,3 +1220,6 @@ impl CheckpointRecoveryIo for Native {
 #[cfg(test)]
 #[path = "native_checkpoint_tests.rs"]
 mod tests;
+
+#[path = "native_turnover.rs"]
+mod turnover;

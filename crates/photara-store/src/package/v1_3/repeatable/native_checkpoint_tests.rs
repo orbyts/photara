@@ -2,7 +2,7 @@
 //! storage qualification or an assertion that a synthetic snapshot is Saved.
 use super::*;
 
-fn setup() -> (tempfile::TempDir, Namespace, Vec<u8>, Vec<u8>) {
+pub(super) fn setup() -> (tempfile::TempDir, Namespace, Vec<u8>, Vec<u8>) {
     let temp = tempfile::tempdir().unwrap();
     let parent = File::from(super::super::open(temp.path(), DIRECTORY, Mode::empty()).unwrap());
     super::super::mkdirat(&parent, EVIDENCE, Mode::RWXU).unwrap();

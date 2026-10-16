@@ -1740,6 +1740,16 @@ impl RepeatableIo for Native {
                     barrier(&regular(&self.evidence, &self.journal_name, true)?)?;
                     barrier(&self.evidence)
                 } else {
+                    #[cfg(test)]
+                    if self.journal_header["format_version"] == 2
+                        && std::env::var("PHOTARA_PS2_CHECKPOINT_CUT").as_deref()
+                            == Ok("before-receipt")
+                    {
+                        // Exact clean selection has passed its barriers, but
+                        // the local receipt has not been appended. Restart
+                        // must restore/rebarrier this same accepted original.
+                        std::process::exit(86);
+                    }
                     self.append_checkpoint(&completion)
                 }
             })();
@@ -1911,6 +1921,19 @@ pub(super) fn native_repeatable_phase() {
         prepare(&scope, false).unwrap();
     } else if phase == "prepare-session" {
         prepare(&scope, true).unwrap();
+    } else if phase == "checkpoint" {
+        let mut session = session_host::OpenSession::open(Native::load(scope).unwrap())
+            .unwrap()
+            .checkpoint_turnover()
+            .unwrap();
+        let binding = session.activation_binding();
+        let response = session.execute(&json!({"id":uuid::Uuid::new_v4().to_string(),
+            "command":"close","expected_owner_epoch":binding["owner_epoch"],
+            "expected_attachment_generation":number(&binding["owner"]["attachment_generation"]).unwrap()}));
+        assert!(response["error"].is_null(), "{response}");
+        assert_eq!(response["snapshot"]["closed"], true, "{response}");
+        assert!(!response["snapshot"]["saved"].is_null(), "{response}");
+        println!("PHOTARA_CHECKPOINT {}", response["snapshot"]);
     } else if phase == "session" {
         session_host::run(Native::load(scope).unwrap()).unwrap();
     } else {
