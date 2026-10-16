@@ -186,10 +186,6 @@ pub fn activate<I: CheckpointIo>(
     LocalSelection::parse(&observed, identity, limits.reader.json)?;
     let old_bytes = wire::encode(old.value());
     let pending_bytes = wire::encode(pending.value());
-    let receipt = JournalRecordIdentity {
-        record_id: crate::package::v1_3::selected::nonnil(&plan.original()["maintenance_id"])?,
-        session_generation: tree::number(&pending.value()["generation"])?,
-    };
     if observed == old_bytes || observed == pending_bytes {
         io.retain_original(lease, plan, history)?;
         io.select(lease, &old_bytes, &pending_bytes)?;
@@ -199,6 +195,63 @@ pub fn activate<I: CheckpointIo>(
         io.verify_clean(lease, plan)?
     } else {
         io.finish_package(lease, plan)?
+    };
+    let Installation {
+        base,
+        selector,
+        header,
+        segment,
+        pending: prepared_pending,
+    } = prepare_installation(plan, history, old, &clean, identity, limits)?;
+    check(prepared_pending.value() == pending.value())?;
+    let selected_bytes = wire::encode(selector.value());
+    check(observed == old_bytes || observed == pending_bytes || observed == selected_bytes)?;
+    if active_retry {
+        let stabilized = io.finish_package(lease, plan)?;
+        check(
+            stabilized.package.head == clean.package.head
+                && stabilized.package.commit == clean.package.commit,
+        )?;
+    }
+    io.install_segment(lease, &wire::encode(base.value()), &header, &segment)?;
+    io.select(lease, &pending_bytes, &selected_bytes)?;
+    Ok(ActivatedCheckpoint {
+        base,
+        selector,
+        header,
+        segment,
+        clean,
+        seed: history.seed.clone(),
+    })
+}
+
+/// Exact deterministic local outputs, shared by native coexistence preflight
+/// and post-barrier activation. Preparing bytes is never a custody/Saved grant.
+pub(crate) struct Installation {
+    pub(crate) pending: LocalSelection,
+    pub(crate) base: LocalBase,
+    pub(crate) selector: LocalSelection,
+    pub(crate) header: Value,
+    pub(crate) segment: Vec<u8>,
+}
+pub(crate) fn prepare_installation(
+    plan: &TurnoverPlan,
+    history: &PreparedHistory<'_>,
+    old: &LocalSelection,
+    clean: &VerifiedOriginal,
+    identity: &CheckpointIdentity,
+    limits: ActivationLimits<'_>,
+) -> Result<Installation, PackageError> {
+    let pending = successor(
+        old,
+        wire::reference(plan.original()),
+        old.value()["selected"].clone(),
+        identity,
+        limits.reader,
+    )?;
+    let receipt = JournalRecordIdentity {
+        record_id: crate::package::v1_3::selected::nonnil(&plan.original()["maintenance_id"])?,
+        session_generation: tree::number(&pending.value()["generation"])?,
     };
     check(
         clean.package.head == plan.stages()[3].head
@@ -211,7 +264,7 @@ pub fn activate<I: CheckpointIo>(
     )?;
     let base = history.bind_package(
         &base,
-        &clean,
+        clean,
         identity,
         limits.frames,
         limits.reader,
@@ -247,24 +300,12 @@ pub fn activate<I: CheckpointIo>(
     let selected = json!({"format":"PHPSJ002","stream_id":header["stream_id"],
         "header_sha256":header_hash,"base":header["base"]});
     let selector = successor(&pending, Value::Null, selected, identity, limits.reader)?;
-    let selected_bytes = wire::encode(selector.value());
-    check(observed == old_bytes || observed == pending_bytes || observed == selected_bytes)?;
-    if active_retry {
-        let stabilized = io.finish_package(lease, plan)?;
-        check(
-            stabilized.package.head == clean.package.head
-                && stabilized.package.commit == clean.package.commit,
-        )?;
-    }
-    io.install_segment(lease, &wire::encode(base.value()), &header, &segment)?;
-    io.select(lease, &pending_bytes, &selected_bytes)?;
-    Ok(ActivatedCheckpoint {
+    Ok(Installation {
+        pending,
         base,
         selector,
         header,
         segment,
-        clean,
-        seed: history.seed.clone(),
     })
 }
 

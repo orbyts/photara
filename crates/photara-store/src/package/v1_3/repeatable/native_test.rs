@@ -502,6 +502,8 @@ struct Native {
     root: File,
     evidence: File,
     evidence_pin: Pin,
+    checkpoint_namespace: Option<checkpoint_native::Namespace>,
+    checkpoint_control_limit: Option<u64>,
     base: support::Fixture,
     root_pin: Pin,
     lock_pin: Pin,
@@ -720,16 +722,36 @@ impl Native {
         {
             return Err(invalid());
         }
-        for entry in std::fs::read_dir(scope.path.parent().ok_or_else(invalid)?.join(EVIDENCE))? {
-            if entry?.file_name() != CHECKPOINT {
-                return Err(invalid());
-            }
-        }
         let journal_pin = pin(&regular(&evidence, CHECKPOINT, false)?)?;
         if registration["journal_pin"] != json!(journal_pin) {
             return Err(invalid());
         }
         let journal_header = registration["journal_header"].clone();
+        let checkpoint_namespace = match registration.get("checkpoint_selector") {
+            Some(Value::String(name)) => Some(checkpoint_native::Namespace::open(
+                scope.mount.try_clone()?,
+                evidence.try_clone()?,
+                name,
+                package::PackageUuid::parse(
+                    journal_header["stream_id"].as_str().ok_or_else(invalid)?,
+                )
+                .map_err(|_| invalid())?,
+                journal_pin,
+            )?),
+            None => None,
+            _ => return Err(invalid()),
+        };
+        if let Some(namespace) = &checkpoint_namespace {
+            namespace.retained()?;
+        } else {
+            // Missing registration must never downgrade an adopted namespace.
+            for entry in std::fs::read_dir(scope.path.parent().ok_or_else(invalid)?.join(EVIDENCE))?
+            {
+                if entry?.file_name() != CHECKPOINT {
+                    return Err(invalid());
+                }
+            }
+        }
         let root_pin = pin(&root)?;
         let lock_pin = pin(&lock)?;
         let mut base = support::Fixture::from_value(registration["data"].clone())?;
@@ -755,6 +777,8 @@ impl Native {
             root,
             evidence,
             evidence_pin,
+            checkpoint_namespace,
+            checkpoint_control_limit: None,
             base,
             root_pin,
             lock_pin,
@@ -1052,17 +1076,23 @@ impl Native {
                 );
             }
         }
-        for entry in
-            std::fs::read_dir(self.scope.path.parent().ok_or_else(invalid)?.join(EVIDENCE))?
-        {
-            if entry?.file_name() != CHECKPOINT {
-                return Err(invalid());
+        if let Some(namespace) = &self.checkpoint_namespace {
+            for file in namespace.retained()? {
+                standing.push(measure_allocation(&file).map_err(|_| invalid())?);
             }
+        } else {
+            for entry in
+                std::fs::read_dir(self.scope.path.parent().ok_or_else(invalid)?.join(EVIDENCE))?
+            {
+                if entry?.file_name() != CHECKPOINT {
+                    return Err(invalid());
+                }
+            }
+            standing.push(
+                measure_allocation(&regular(&self.evidence, CHECKPOINT, false)?)
+                    .map_err(|_| invalid())?,
+            );
         }
-        standing.push(
-            measure_allocation(&regular(&self.evidence, CHECKPOINT, false)?)
-                .map_err(|_| invalid())?,
-        );
         let charged = check_charge(&standing, unit, self.base.registration.standing_control)
             .map_err(|_| invalid())?;
         Ok(json!({"allocation_charges":allocations,"standing_observation":charged}))
@@ -1079,6 +1109,7 @@ impl Native {
         limits
     }
     fn checkpoint(&self) -> IoResult<journal::Journal> {
+        self.verify_legacy_custody()?;
         let bytes = read(&self.evidence, CHECKPOINT)?;
         let parsed = journal::Journal::read(&bytes, &self.journal_header, self.journal_bounds())
             .map_err(|_| invalid())?;
@@ -1853,3 +1884,6 @@ pub(super) fn local_database_config(
 
 #[path = "native_select.rs"]
 mod selection_group;
+
+#[path = "native_checkpoint.rs"]
+mod checkpoint_native;

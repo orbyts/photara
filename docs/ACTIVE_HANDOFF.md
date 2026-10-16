@@ -36,7 +36,7 @@ was approved by Suhail on **2026-10-11**. Both v4-only inherited commitments now
 use `base_head_sha256`; old codecs and all other checks retain their meanings.
 Do not ask again. Native/session runtime dispatch remains gated on the remaining
 implementation and qualification. On 2026-10-15, normal SSH publication recovered:
-verified local history through `680a2e5` was pushed to `origin/main` from
+verified local history through `bc8c00e` was pushed to `origin/main` from
 `ce9aa39`, without authentication or remote changes. Earlier publication failures
 below are historical; preserve the published history.
 
@@ -103,9 +103,24 @@ regressions pass in 10.43s (`/private/tmp/ps2-receipt-reconcile-final.log`), ten
 compatibility checks pass (`/private/tmp/ps2-receipt-reconcile-compat.log`), and
 strict store checks pass in 4.24s (`/private/tmp/ps2-receipt-reconcile-clippy.log`).
 No wire changes.
-Remaining: native selected local custody/turnover executor, PHPSJ002 SessionIo
-dispatch, and disposable performance qualification. Existing stored
-bytes/charges are retained; no deletion, native effects or app replacement.
+**Native custody/executor primitives pass (2026-10-15):** registered local
+namespace bindings, immutable record installation, exact selector retry,
+original-owned four-stage execution and complete coexistence preflight are
+implemented. Actual temporary-file tests cover interrupted writes/barriers/rename,
+torn exact-prefix completion, retained orphans, divergent bytes, and directory
+replacement before/after reads. All 23 session tests pass in 10.34s
+(`/private/tmp/ps2-native-checkpoint-session.log`); final two native primitive
+tests pass in 0.56s (`/private/tmp/ps2-native-checkpoint-final.log`); strict
+controlled-disposable checks pass in 23.70s
+(`/private/tmp/ps2-native-checkpoint-clippy.log`). These are primitive/shared
+regressions, not registered APFS or app qualification. Registrar initialization
+and PHPSJ002 SessionIo dispatch remain disabled and fail closed.
+Remaining: native registration/SessionIo dispatch, exact-original cold repair,
+and disposable performance qualification. Existing stored bytes/charges remain
+retained; no archive deletion or app replacement. Old A/B images remain, but
+their outer registration/config files were absent after the reset: preserve
+them and use a fresh registered instance of the existing disposable fixture
+for qualification, never reconstruct authority from package contents.
 Do not claim indefinitely bounded recovery or seamless app performance yet.
 
 **Approved snapshot implementation — package reader integration:** shared Rust
