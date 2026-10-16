@@ -1032,7 +1032,8 @@ existing fresh authority, conditional durability and truthful Saved requirements
 
 ### Snapshot-checkpoint activation evidence — pending approval, 2026-10-16
 
-**UNAPPROVED additive record contract; no activation dispatch is enabled.** The
+**Approved by Suhail on 2026-10-16. Implement this exact additive record contract;
+activation dispatch still requires the checks below.** The
 approved [snapshot checkpoint protocol](PS2_RETENTION_STORAGE_DECISION.md#consolidated-candidate-byte-contract--review-draft-2026-10-11)
 can establish current Saved with a `CheckpointBaseReceipt`, which is not an
 authored operation and has no `CheckpointIntent`. Subsequent operation receipts
@@ -1108,7 +1109,7 @@ versions/kinds/fields, mixed variants, wrong identity/base/sequence/commit/frame
 unresolved checksums or exhausted existing bounds refuse; there is no downgrade
 or optional-view fallback for authority evidence.
 
-**Approval requested:** freeze this additive record and authorize Rust/native
+**Approved scope:** freeze this additive record and authorize Rust/native
 implementation plus existing disposable activation validation. Before enabling,
 pin both canonical variants; retain old version-1 goldens; test the above mismatch
 and cross-version refusals, immediate post-turnover and subsequent-save evidence,

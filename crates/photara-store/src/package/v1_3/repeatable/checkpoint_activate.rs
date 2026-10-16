@@ -134,6 +134,54 @@ impl ActivatedCheckpoint {
     pub fn package(&self) -> &VerifiedOriginal {
         &self.clean
     }
+
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(crate) fn activation_checkpoint(
+        &self,
+        journal: &Journal,
+        receipt: &Value,
+        source: &dyn super::CheckpointRecords,
+        limits: &ReaderLimits,
+    ) -> Result<Value, PackageError> {
+        self.base.check_header(journal.header())?;
+        let record = journal
+            .records()
+            .iter()
+            .find(|record| {
+                record.value()["record_id"] == receipt["record_id"]
+                    && record.checksum() == receipt["record_checksum"]
+            })
+            .ok_or(PackageError::Integrity)?;
+        let evidence = json!({"value":record.value(),"record_checksum":record.checksum()});
+        let checkpoint = match record.value()["kind"].as_str() {
+            Some("CheckpointBaseReceipt") => {
+                let original = retained(source, &record.value()["body"]["original"], limits)?;
+                let old = retained(source, &original["old"]["selector"], limits)?;
+                check(
+                    record.value()["body"]["selected_commit"]
+                        == wire::reference(&self.clean.package.commit),
+                )?;
+                json!({"kind":"base","receipt":evidence,"selected_commit":self.clean.package.commit,"original":original,"old_selection":old})
+            }
+            Some("CheckpointReceipt") => {
+                let intent = journal
+                    .records()
+                    .iter()
+                    .find(|intent| {
+                        intent.value()["record_id"] == record.value()["body"]["intent_record_id"]
+                            && intent.checksum() == record.value()["body"]["intent_record_checksum"]
+                    })
+                    .ok_or(PackageError::Integrity)?;
+                check(record.value()["body"]["selected_commit"] == self.clean.package.commit)?;
+                json!({"kind":"operation","receipt":evidence,"intent":{"value":intent.value(),"record_checksum":intent.checksum()}})
+            }
+            _ => return Err(PackageError::UnsupportedVersion),
+        };
+        Ok(
+            json!({"journal_header":journal.header(),"local_base":self.base.value(),
+            "acceptance_base":retained(source, &self.base.value()["checkpoint"], limits)?,"checkpoint":checkpoint}),
+        )
+    }
 }
 
 fn successor(

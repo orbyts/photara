@@ -179,6 +179,17 @@ pub(crate) trait SessionIo {
         self.verify_session(&verified, base, inputs, limits)
     }
     fn selected_head(&self) -> Result<Value, SessionError>;
+    fn maintain_checkpoint(
+        &mut self,
+        _: bool,
+        _: &Value,
+    ) -> Result<Option<(VerifiedOriginal, Value)>, SessionError> {
+        Ok(None)
+    }
+    #[cfg(all(target_os = "macos", any(test, feature = "controlled-disposable")))]
+    fn activation_checkpoint(&self, _: &Journal, _: &Value) -> Result<Value, SessionError> {
+        Err(SessionError::InvalidRequest)
+    }
     /// After pure request/action validation, durably retain its exact original
     /// plan and full liability before Mutation admission. Complete earlier
     /// physical admission first; never construct an original from future bytes.
@@ -516,6 +527,7 @@ impl<I: SessionIo> Session<I> {
             return Err(SessionError::Closed);
         }
         self.io.authorize(&self.snapshot.binding, None)?;
+        self.recover_maintenance(false)?;
         if self.io.reconcile().is_err() {
             return Err(self.freeze(SessionFailure::Storage));
         }
@@ -526,6 +538,47 @@ impl<I: SessionIo> Session<I> {
         self.snapshot.failure = None;
         self.flight = None;
         self.snapshot.event_sequence = self.next_event()?;
+        Ok(())
+    }
+    fn recover_maintenance(&mut self, scheduled: bool) -> Result<bool, SessionError> {
+        let replacement = self
+            .io
+            .maintain_checkpoint(scheduled, &self.header)
+            .map_err(|_| self.freeze(SessionFailure::Storage))?;
+        if let Some((base, header)) = replacement {
+            if header["project_id"] != self.header["project_id"]
+                || header["incarnation_id"] != self.header["incarnation_id"]
+                || header["journal_id"] != self.header["journal_id"]
+            {
+                return Err(self.freeze(SessionFailure::Journal));
+            }
+            self.base = base;
+            self.header = header;
+            self.refresh()
+                .map_err(|_| self.freeze(SessionFailure::Journal))?;
+            return Ok(true);
+        }
+        Ok(false)
+    }
+    /// Idle maintenance follows a delivered Saved response; it never drains or
+    /// discards new Accepted work and never changes the live logical attachment.
+    pub(crate) fn maintain(&mut self) -> Result<(), SessionError> {
+        self.live()?;
+        self.io.authorize(&self.snapshot.binding, None)?;
+        if self.flight.is_some() || self.snapshot.dirty || self.snapshot.saved.is_none() {
+            return Ok(());
+        }
+        // Reserve the presentation event before effects. Turnover preserves
+        // Accepted but replaces Saved/HEAD and can retire undo presentation.
+        let event = self.next_event()?;
+        let accepted = self.snapshot.accepted.clone();
+        let replaced = self.recover_maintenance(true)?;
+        if self.snapshot.accepted != accepted {
+            return Err(self.freeze(SessionFailure::Journal));
+        }
+        if replaced {
+            self.snapshot.event_sequence = event;
+        }
         Ok(())
     }
     /// Existing PS0 tuning only; no persisted deadline or durability guarantee.
@@ -595,8 +648,16 @@ impl<I: SessionIo> Session<I> {
                 return Err(SessionError::Failure(SessionFailure::Checkpoint));
             }
             let receipt = journal.records().iter().find(|r| r.value()["record_id"] == saved.checkpoint_receipt["record_id"] && r.checksum() == saved.checkpoint_receipt["record_checksum"]).ok_or(SessionError::InvalidRequest)?;
-            let intent = journal.records().iter().find(|r| r.value()["record_id"] == receipt.value()["body"]["intent_record_id"] && r.checksum() == receipt.value()["body"]["intent_record_checksum"]).ok_or(SessionError::InvalidRequest)?;
             let graph = view.graph_objects()?.into_iter().find(|v| v["graph"]["id"] == graph_id).ok_or(SessionError::InvalidRequest)?;
+            if journal.header()["format_version"] == 2 {
+                let mut evidence = self.io.activation_checkpoint(journal, &saved.checkpoint_receipt)?;
+                evidence["binding"] = serde_json::to_value(&self.snapshot.binding).map_err(|_|SessionError::InvalidRequest)?;
+                evidence["accepted"] = serde_json::to_value(&self.snapshot.accepted).map_err(|_|SessionError::InvalidRequest)?;
+                evidence["registration_sha256"] = json!(registration);
+                let commit = if evidence["checkpoint"]["kind"] == "base" { &evidence["checkpoint"]["selected_commit"] } else { &receipt.value()["body"]["selected_commit"] };
+                return Ok(json!({"saved":evidence,"graph":graph["graph"],"head":head,"commit":commit}));
+            }
+            let intent = journal.records().iter().find(|r| r.value()["record_id"] == receipt.value()["body"]["intent_record_id"] && r.checksum() == receipt.value()["body"]["intent_record_checksum"]).ok_or(SessionError::InvalidRequest)?;
             Ok(json!({"saved":{"binding":self.snapshot.binding,"accepted":self.snapshot.accepted,"checkpoint_intent":{"value":intent.value(),"record_checksum":intent.checksum()},"checkpoint_receipt":{"value":receipt.value(),"record_checksum":receipt.checksum()},"registration_sha256":registration},"graph":graph["graph"],"head":head,"commit":receipt.value()["body"]["selected_commit"]}))
         })
     }

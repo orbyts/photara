@@ -159,6 +159,7 @@ private actor ControlledDisposableBridge: DisposableLibraryBridge {
         case "revalidate": command = .revalidate
         case "submit": command = .submit
         case "complete": command = .complete
+        case "maintain": command = .maintain
         case "barrier": command = .barrier
         case "undo": command = .undo
         case "redo": command = .redo
@@ -197,7 +198,7 @@ func makeControlledDisposableModel() -> DisposableAutosaveProcess {
 @MainActor
 func makeLocalLibrarySessionModel() -> DisposableAutosaveProcess {
     DisposableAutosaveProcess(bridge: ControlledDisposableBridge(environment: ProcessInfo.processInfo.environment,
-        localLibraryRoute: true))
+        localLibraryRoute: true), maintenanceDelay: .milliseconds(500))
 }
 
 struct ControlledDisposableScene: Scene {

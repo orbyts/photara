@@ -346,6 +346,7 @@ impl ControlledDisposableWorkspace {
             ControlledSessionCommand::Close => ControlledCommand::Close,
             ControlledSessionCommand::Retry => ControlledCommand::Retry,
             ControlledSessionCommand::Revalidate => ControlledCommand::Revalidate,
+            ControlledSessionCommand::Maintain => ControlledCommand::Maintain,
         };
         let id = request.id.clone();
         let value = self

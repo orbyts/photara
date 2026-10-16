@@ -24,12 +24,50 @@ experiment reports are reference material only.
 
 ## Critical path and active gate
 
-**Current work — efficient checkpoint recovery:** native save/retry, interrupted
-receipt recovery, seven turnover cuts, clean remount and zero-suffix repeated
-turnover now pass in registered disposable fixtures. The next permanent-format
-boundary is the exact additive SavedProof2 proposal linked below; it is not yet
-approved or implemented. Automatic maintenance scheduling, sustained performance
-and main-app hands-on acceptance remain open. The running review app is unchanged.
+**Current gate — LL2a hands-on review (2026-10-16):** the approved additive
+SavedProof2 implementation, serialized idle maintenance, verified recovery-cache
+reuse and smaller new-attempt corridor reservations are implemented. Previously
+frozen bytes, original retries, durability barriers and fixture limits remain
+unchanged. The maintenance receipt now advances the UI event sequence; this fixes
+a false Save Failed state after successful turnover. No production enablement.
+
+**Current review build:** `/private/tmp/photara-autosave-app-20261016/Photara Autosave.app`.
+Use this launcher, not the bare application or older launchers. It registers the
+existing fresh disposable pair in `/private/tmp/photara-autosave-review-20261016-sized.json`:
+A `photara-ps2-remount-x2os6jes`, B `photara-ps2-remount-ciglbptl` (both under
+`/private/tmp`). The old accumulated A fixture exhausted its unchanged tip capacity;
+its originals and Saved state remain preserved. The new pair uses the same fixture
+family and unchanged 128 MiB image / 8 MiB tips / 4 MiB standing allowance.
+
+**Validation:** final optimized build passes all 32 session tests, Swift interaction
+checks, and typed ABI/refusal checks. Connected checkpoint/cache/sizing/event-sequence
+regressions and strict clippy pass. The final native run verifies 18 further moves,
+turnover, changed-snapshot sequence monotonicity, Library switching and Close after
+a controlled restart. Native UI verifies move → Saved → normal Quit → reopen Saved.
+The review app is left open. A transient empty-Libraries UI was traced to automation
+starting an unconfigured second app; that process was stopped, not a storage failure.
+
+**Measured performance, not an optimality claim:** on the final accumulated pair,
+submit+complete median 2.234 s, maximum 2.916 s; peak whole-process RSS 337.5 MiB;
+Close 0.091 s. Maintenance maximum 5.407 s, serialized after Saved with queued edits
+remaining visible. Earlier fresh 32-move run peaked at 277.8 MiB, completion median
+0.972 s (admission measured separately). New-attempt sizing reduced the measured
+first two move reservations from 1.75 MiB each to 192/268 KiB; old originals are
+never rewritten. Timings vary with retained state; do not claim bounded long-run
+resource use or instantaneous durable save. Reports: `native-performance-sized.report.json`
+and `native-performance-ui-contract.report.json` under the new A root. Final CLI
+SHA-256: `a3e8ca71ac98315bf1df7b8381a8c67c9e1175f11c8284eedd97f0184b498299`.
+Build log: `/private/tmp/photara-autosave-app-20261016-build-event.log`.
+
+**Next:** user review of this move/undo/redo autosave surface, then resume Layout/import
+UI work with explicit durable adapters as each authoring command is added. Add/delete/
+connect persistence is still missing; the full-autosave gate must continue reporting
+those gaps. LL2a human acceptance and production readiness are not claimed. Avoid
+additional PS2 proof families or redesign without a concrete correctness gap.
+No deletion/expiry, real-library writes, migration, conversion or deployment is authorized.
+
+The trial notes below are historical evidence; the current status above supersedes
+their pending implementation/build statements.
 
 **Latest native trial (2026-10-16, in progress):** registered image
 `/private/tmp/photara-ps2-remount-i2uo_w8j` remains binding generation 2.
@@ -75,12 +113,13 @@ do not claim 27/27 release or use development timings as performance evidence.
 Controller/phase runner: `/private/tmp/photara-checkpoint-controller-20261015.py`
 and `/private/tmp/photara-checkpoint-phase-20261015.py`; gate driver is
 `/private/tmp/ps2-checkpoint-gates.py`. Preserve originals and registration.
-**Separate approval boundary:** frozen activation SavedProof requires
+**Approved activation amendment (2026-10-16):** frozen activation SavedProof1 requires
 CheckpointIntent/CheckpointReceipt; a clean checkpoint has CheckpointBaseReceipt.
 The exact [additive SavedProof2 proposal](architecture/PROJECT_SESSION_DURABILITY.md#snapshot-checkpoint-activation-evidence--pending-approval-2026-10-16)
-is prepared but **unapproved**. Do not fabricate the old pair or change activation
-wire semantics. The narrow core qualification is recorded below; request that exact
-approval before activation changes. Automatic turnover scheduling and app performance acceptance remain open.
+is **approved** by Suhail. Implement its exact additive version2 contract, preserving
+version1 bytes and all authority/Saved checks. Prioritize measured autosave and a
+hands-on build; avoid further proof or document expansion without a concrete gap.
+Automatic turnover scheduling and app performance acceptance remain open.
 
 The [two-field v4 correction](architecture/PS2_RETENTION_STORAGE_DECISION.md#narrow-v4-commitment-correction--pending-approval-2026-10-11)
 was approved by Suhail on **2026-10-11**. Both v4-only inherited commitments now

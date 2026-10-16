@@ -1051,4 +1051,4 @@ pub(crate) use original::{
 };
 
 #[cfg(any(test, feature = "controlled-disposable"))]
-pub(crate) use original::verify_checkpoint_anchor;
+pub(crate) use original::{inspect_operation_details, verify_checkpoint_anchor};

@@ -23,7 +23,12 @@ fn bad(e: impl std::fmt::Debug) -> std::io::Error {
     std::io::Error::other(format!("activation refused: {e:?}"))
 }
 fn record(id: &str, kind: &str, body: Value) -> Value {
-    let mut value = json!({"id":id,"kind":kind,"version":1,"body":null});
+    let version = if kind == "SavedProof" && body.get("journal_header").is_some() {
+        2
+    } else {
+        1
+    };
+    let mut value = json!({"id":id,"kind":kind,"version":version,"body":null});
     value["body"] = body;
     value
 }
@@ -493,8 +498,7 @@ impl Coordinator {
                 if let Some(expected) = expected {
                     let actual = session.activation_observe(&self.storage.target(&id)?)?;
                     if actual["saved"]["accepted"] != expected["accepted"]
-                        || actual["head"]
-                            != expected["checkpoint_receipt"]["value"]["body"]["selected_head"]
+                        || actual["head"] != *activation::saved_head(&expected)
                     {
                         return Err(std::io::Error::other(
                             "source changed since verified rollback checkpoint",

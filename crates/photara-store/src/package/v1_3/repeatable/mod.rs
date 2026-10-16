@@ -71,10 +71,13 @@ mod wire {
 }
 mod canonical_memo;
 mod layout;
+#[cfg(any(test, feature = "controlled-disposable"))]
+mod native_sizing;
 mod object_pool;
 
 mod core;
 mod plan;
+pub(crate) use plan::SelectedFrames;
 pub use plan::{Attempt, RepeatablePlan, SelectedStage, SelectorIds, VerifiedOriginal, compile};
 mod execute;
 pub use execute::{Completed, EffectFailure, ExecutionError, Observation, RepeatableIo, execute};

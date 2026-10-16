@@ -520,6 +520,23 @@ fn prepare(scope: &Scope, session: bool) -> IoResult<()> {
     )?;
     barrier(&scope.scratch)
 }
+fn operation_control_count(
+    package_allowance: usize,
+    retained: usize,
+    maximum: usize,
+) -> IoResult<usize> {
+    package_allowance
+        .checked_add(retained)
+        .and_then(|n| n.checked_add(5))
+        .filter(|n| *n <= maximum)
+        .ok_or_else(invalid)
+}
+#[test]
+fn session_tests_operation_count_includes_retained_custody() {
+    assert_eq!(operation_control_count(64, 70, 139).unwrap(), 139);
+    assert!(operation_control_count(64, 70, 138).is_err());
+    assert!(operation_control_count(64, usize::MAX, usize::MAX).is_err());
+}
 struct Native {
     scope: Scope,
     root: File,
@@ -869,6 +886,21 @@ impl Native {
         let mut candidate = super::attempt(old, n)?;
         if let Some(limit) = self.session_project_limit {
             candidate.project_limit = limit.to_string();
+        }
+        if let Some(custody) = &self.checkpoint_namespace {
+            // Keep the existing planned package-control allowance, and account
+            // separately for every retained local custody file. These are input
+            // bounds chosen before Original admission, never a changed retry.
+            let retained = custody.retained()?.len();
+            let count = operation_control_count(
+                candidate
+                    .aggregate_control_count
+                    .parse::<usize>()
+                    .map_err(|_| invalid())?,
+                retained,
+                budget().max_objects,
+            )?;
+            candidate.aggregate_control_count = count.to_string();
         }
         Ok(candidate)
     }

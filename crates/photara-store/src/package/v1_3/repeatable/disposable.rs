@@ -457,6 +457,7 @@ pub enum ControlledCommand {
     Close,
     Retry,
     Revalidate,
+    Maintain,
 }
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]

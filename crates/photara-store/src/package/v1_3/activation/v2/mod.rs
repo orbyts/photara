@@ -152,7 +152,7 @@ impl Snapshot {
             let key = id(&record["id"])?;
             check(prior.is_none_or(|p| p < key))?;
             prior = Some(key);
-            records::shape(record)?;
+            records::shape(record, limits.json)?;
             records.insert(key.to_string(), record.clone());
         }
         let snapshot = Self {

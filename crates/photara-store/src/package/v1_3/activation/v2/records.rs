@@ -43,14 +43,17 @@ fn target(body: &Value) -> Result<(), PackageError> {
     clippy::too_many_lines,
     reason = "Exact approved v2 record shape dispatch"
 )]
-pub(super) fn shape(record: &Value) -> Result<(), PackageError> {
+pub(super) fn shape(
+    record: &Value,
+    limits: crate::package::JsonLimits,
+) -> Result<(), PackageError> {
     let body = &record["body"];
     check(body.is_object())?;
     if matches!(
         record["kind"].as_str(),
         Some("SessionView" | "SavedProof" | "TargetOpenProof")
     ) {
-        return v1::shape(record);
+        return v1::shape(record, limits);
     }
     check(record["version"] == 2)?;
     match record["kind"].as_str() {
@@ -238,8 +241,7 @@ fn saved(proof: &Value, target: &Value) -> Result<(), PackageError> {
         proof["binding"]["project_id"] == target["project_id"]
             && proof["binding"]["incarnation_id"] == target["incarnation_id"]
             && proof["registration_sha256"] == target["registration_sha256"]
-            && proof["checkpoint_receipt"]["value"]["body"]["operation_receipt"]["library_id"]
-                == target["library_id"],
+            && *super::super::saved_library(proof) == target["library_id"],
     )
 }
 fn evidence(
@@ -298,6 +300,9 @@ fn ready(
 #[expect(clippy::too_many_lines, reason = "Exact linked v2 authority contracts")]
 pub(super) fn links(snapshot: &Snapshot, record: &Value) -> Result<(), PackageError> {
     let body = &record["body"];
+    if record["kind"] == "SavedProof" && record["version"] == 2 {
+        check(body["journal_header"]["device_id"] == snapshot.body()["device_id"])?;
+    }
     match record["kind"].as_str() {
         Some("SessionView" | "SavedProof" | "LocalContextProof") => {}
         Some("TargetOpenProof") => {

@@ -1319,6 +1319,32 @@ pub(crate) fn validate_detached_checkpoint(value: &Value) -> Result<(), PackageE
     envelope(value, &header, sequence)
 }
 
+/// Structural PHPSJ002 evidence validation. Checksums must still be resolved
+/// against the registered live journal before this evidence can mean Saved.
+pub(crate) fn validate_snapshot_checkpoint(
+    value: &Value,
+    header: &Value,
+    limits: crate::package::JsonLimits,
+) -> Result<(), PackageError> {
+    check(header["format_version"] == 2)?;
+    Journal::create(
+        header,
+        JournalLimits {
+            json: limits,
+            max_file_bytes: limits.max_bytes.saturating_add(44),
+            max_records: 1,
+            max_work_bytes: limits.max_bytes,
+        },
+    )?;
+    check(matches!(
+        value["kind"].as_str(),
+        Some("CheckpointIntent" | "CheckpointReceipt" | "CheckpointBaseReceipt")
+    ))?;
+    let sequence = n(&value["sequence"])?;
+    check(sequence > n(&header["sequence_base"])?)?;
+    envelope(value, header, sequence)
+}
+
 pub(super) fn validate_archived_mutation(
     value: &Value,
     identity: &super::checkpoint::CheckpointIdentity,

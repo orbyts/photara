@@ -320,17 +320,44 @@ impl Native {
                 super::super::budget(),
             )?
         } else {
-            TurnoverPlan::compile(
+            // First compile is private sizing only, under the existing object
+            // budget. Persist only the exact finite coexistence count below.
+            raw["aggregate_control_count"] =
+                serde_json::json!(super::super::budget().max_objects.to_string());
+            let ids = [
+                uuid::Uuid::new_v4().to_string(),
+                uuid::Uuid::new_v4().to_string(),
+                uuid::Uuid::new_v4().to_string(),
+            ];
+            let make_ids = || checkpoint::TurnoverIds {
+                maintenance_id: ids[0].clone(),
+                checkpoint_id: ids[1].clone(),
+                next_stream_id: ids[2].clone(),
+            };
+            let candidate = TurnoverPlan::compile(
                 &history,
                 &old_selection,
-                checkpoint::TurnoverIds {
-                    maintenance_id: uuid::Uuid::new_v4().to_string(),
-                    checkpoint_id: uuid::Uuid::new_v4().to_string(),
-                    next_stream_id: uuid::Uuid::new_v4().to_string(),
-                },
-                raw,
+                make_ids(),
+                raw.clone(),
                 super::super::budget(),
-            )?
+            )?;
+            let count = self.turnover_control_count(&candidate, &history, &old_selection)?;
+            raw["aggregate_control_count"] = serde_json::json!(count.to_string());
+            let (plan, _) = crate::package::v1_3::repeatable::native_sizing::compile(
+                raw,
+                |raw| {
+                    TurnoverPlan::compile(
+                        &history,
+                        &old_selection,
+                        make_ids(),
+                        raw.clone(),
+                        super::super::budget(),
+                    )
+                },
+                |plan| &plan.files,
+            )?;
+            checked(self.turnover_control_count(&plan, &history, &old_selection)? == count)?;
+            plan
         };
         // Exact regeneration precedes promotion of coexisting package controls.
         self.allow_turnover(&plan)?;

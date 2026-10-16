@@ -208,7 +208,17 @@ final class DisposableAutosaveProcess: ObservableObject {
     private var barrierRequested = false
     private let bridge: (any DisposableSessionBridge)?
     private var bridgeStarted = false
-    init(bridge: (any DisposableSessionBridge)? = nil) { self.bridge = bridge }
+    private let maintenanceDelay: Duration?
+    private var maintenanceTask: Task<Void, Never>?
+    private struct MaintenanceCoordinate: Equatable {
+        let binding: DisposableAutosaveBinding
+        let accepted: DisposableAcceptedCoordinate
+    }
+    private var maintenanceAttempted: MaintenanceCoordinate?
+    init(bridge: (any DisposableSessionBridge)? = nil, maintenanceDelay: Duration? = nil) {
+        self.bridge = bridge
+        self.maintenanceDelay = maintenanceDelay
+    }
     private var process: Process?
     private var input: FileHandle?
     private var outputPipe: Pipe?
@@ -255,7 +265,7 @@ final class DisposableAutosaveProcess: ObservableObject {
               closeCompletion == nil, transportFailure == nil, !closed,
               let snapshot = projection?.snapshot, !snapshot.frozen, !snapshot.closed,
               snapshot.failure == nil, projection?.submissionFailure == nil else { return false }
-        return !busy || pending.map { ["submit", "complete"].contains($0.command) } == true
+        return !busy || pending.map { ["submit", "complete", "maintain"].contains($0.command) } == true
     }
     var canEdit: Bool { queuedPositions.isEmpty && libraryPending == nil && !libraryWorking && !switching && !readOnly && !checkingStorage && !busy && closeCompletion == nil && transportFailure == nil && !closed && projection?.canSubmit == true }
 
@@ -436,6 +446,32 @@ final class DisposableAutosaveProcess: ObservableObject {
               projection?.pendingOperationID == nil else { return }
         if checkingStorage { send(.init(id: UUID(), command: "revalidate")) }
         else if barrierRequested { send(.init(id: UUID(), command: "barrier")) }
+        else { scheduleMaintenance() }
+    }
+
+    private var maintenanceCoordinate: MaintenanceCoordinate? {
+        guard bridge != nil, !busy, !closed, !readOnly, !switching, !switchInFlight,
+              switchRequest == nil, switchFailure == nil, !libraryWorking, libraryPending == nil,
+              !checkingStorage, !barrierRequested, closeCompletion == nil,
+              transportFailure == nil, failedRequest == nil, pendingPosition == nil,
+              queuedPositions.isEmpty, projection?.status == .saved,
+              let snapshot = projection?.snapshot, !snapshot.closed else { return nil }
+        return .init(binding: snapshot.binding, accepted: snapshot.accepted)
+    }
+
+    /// Saved is already visible. This optional normal-shell idle task shares the
+    /// exact request lane; its own response cannot recursively schedule more work.
+    private func scheduleMaintenance() {
+        guard let delay = maintenanceDelay, maintenanceTask == nil,
+              let coordinate = maintenanceCoordinate, maintenanceAttempted != coordinate else { return }
+        maintenanceTask = Task { [weak self] in
+            do { try await Task.sleep(for: delay) } catch { return }
+            guard let self else { return }
+            self.maintenanceTask = nil
+            guard self.maintenanceCoordinate == coordinate else { return }
+            self.maintenanceAttempted = coordinate
+            self.send(.init(id: UUID(), command: "maintain"))
+        }
     }
 
     func close(_ completion: @escaping (Bool) -> Void) {
@@ -690,6 +726,7 @@ final class DisposableAutosaveProcess: ObservableObject {
     }
 
     private func installWorkspace(_ state: DisposableWorkspaceState, replace: Bool, libraryOnly: Bool = false) throws {
+        maintenanceTask?.cancel(); maintenanceTask = nil
         guard Set(state.projects.map(\.id)).count == state.projects.count,
               Set(state.libraries.map(\.id)).count == state.libraries.count,
               Set(state.creatableLibraryIDs).count == state.creatableLibraryIDs.count,
@@ -723,6 +760,7 @@ final class DisposableAutosaveProcess: ObservableObject {
 
     private func send(_ originalRequest: DisposableHostRequest) {
         guard pending == nil else { return }
+        maintenanceTask?.cancel(); maintenanceTask = nil
         var request = originalRequest
         if bridge != nil, request.expectedOwnerEpoch == nil {
             request.expectedOwnerEpoch = projection?.binding.ownerEpoch
@@ -772,6 +810,15 @@ final class DisposableAutosaveProcess: ObservableObject {
     private func accept(_ response: DisposableHostResponse) {
         guard let request = pending ?? failedRequest, response.id == request.id else { return }
         deadline?.cancel(); pending = nil; busy = false; failedRequest = request
+        if request.command == "maintain" {
+            guard let before = projection?.snapshot, let after = response.snapshot,
+                  after.binding == before.binding, after.accepted == before.accepted,
+                  response.acknowledgement == nil,
+                  response.result?.nodes == nil || response.result?.nodes == nodes,
+                  response.error != nil || (after.saved?.target == after.accepted && !after.frozen && !after.closed && after.failure == nil) else {
+                fail("Storage maintenance returned inconsistent session evidence; retry the original request."); return
+            }
+        }
         if let snapshot = response.snapshot {
             if projection == nil { projection = .init(binding: snapshot.binding) }
             let unchanged = response.acknowledgement == nil && projection?.snapshot == snapshot

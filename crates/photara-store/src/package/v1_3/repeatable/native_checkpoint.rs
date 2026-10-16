@@ -1095,6 +1095,70 @@ impl CheckpointIo for Native {
 }
 
 impl Native {
+    pub(super) fn turnover_control_count(
+        &self,
+        plan: &TurnoverPlan,
+        history: &PreparedHistory<'_>,
+        old: &LocalSelection,
+    ) -> Result<usize, PackageError> {
+        let namespace = self.custody_namespace()?;
+        let mut controls = self
+            .allowed
+            .keys()
+            .cloned()
+            .collect::<std::collections::BTreeSet<_>>();
+        controls.extend(plan.old.loose.keys().cloned());
+        let mut commits = self
+            .commits
+            .keys()
+            .cloned()
+            .collect::<std::collections::BTreeSet<_>>();
+        commits.insert(hash(&canonical(&plan.old.commit)));
+        for stage in plan.stages() {
+            controls.extend(stage.loose.keys().cloned());
+            commits.insert(hash(&canonical(&stage.commit)));
+        }
+        let mut records = [
+            old.value(),
+            plan.original(),
+            plan.acceptance_base(),
+            history.archive(),
+            history.lookup(),
+        ]
+        .into_iter()
+        .chain(history.lookup_objects().values())
+        .map(|value| record_name(&canonical(value)))
+        .collect::<std::collections::BTreeSet<_>>();
+        records.extend(plan.old.loose.values().map(|bytes| record_name(bytes)));
+        let mut count = controls
+            .len()
+            .checked_add(commits.len())
+            .and_then(|n| n.checked_add(namespace.retained().ok()?.len()))
+            .and_then(|n| n.checked_add(4))
+            .ok_or(PackageError::Limit)?;
+        for name in records {
+            match regular(&self.evidence, &name, false) {
+                Ok(_) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    count = count.checked_add(1).ok_or(PackageError::Limit)?;
+                }
+                Err(error) => return Err(refused(error)),
+            }
+        }
+        if count > super::budget().max_objects {
+            return Err(PackageError::Limit);
+        }
+        Ok(count)
+    }
+    pub(super) fn activation_records(&self, lease: &NativeLease) -> Result<Records, PackageError> {
+        self.checkpoint_guard(lease).map_err(refused)?;
+        let mut records = self.custody_namespace()?.records().map_err(refused)?;
+        records.authority = self
+            .local_authority
+            .clone()
+            .zip(self.local_provenance.clone());
+        Ok(records)
+    }
     pub(super) fn read_checkpoint_state(
         &self,
         lease: &NativeLease,

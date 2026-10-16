@@ -18,6 +18,7 @@ pub enum ControlledSessionCommand {
     Close,
     Retry,
     Revalidate,
+    Maintain,
 }
 #[derive(Clone, Debug, uniffi::Record)]
 pub struct ControlledSessionRequest {
@@ -105,6 +106,7 @@ impl ControlledDisposableSession {
             ControlledSessionCommand::Close => ControlledCommand::Close,
             ControlledSessionCommand::Retry => ControlledCommand::Retry,
             ControlledSessionCommand::Revalidate => ControlledCommand::Revalidate,
+            ControlledSessionCommand::Maintain => ControlledCommand::Maintain,
         };
         let mut held = self
             .inner

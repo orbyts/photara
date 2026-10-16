@@ -24,11 +24,45 @@ impl Source {
             records: self.records.clone(),
         }
     }
+    fn completed<I: AllocationInspection>(
+        &self,
+        package: &OriginalPackage,
+        context: &restart::RestartContext<'_, I>,
+        memo: &mut restart::CompiledPlans,
+        journal: &super::super::journal::Journal,
+        scope: &Value,
+    ) -> Result<Option<VerifiedOriginal>, PackageError> {
+        // The executor has already independently checked the exact clean
+        // current closure. Reuse only that proof after fresh package/provider
+        // checks and after binding its Original to this validated local segment.
+        if let Some(verified) = memo.completed_current(package, context)? {
+            let completed = verified
+                .completed_original
+                .as_ref()
+                .ok_or(PackageError::Integrity)?;
+            let record = journal
+                .records()
+                .iter()
+                .find(|record| {
+                    record.value()["kind"] == "CheckpointIntent"
+                        && wire::reference(&record.value()["body"]["original"])
+                            == serde_json::to_value(completed).expect("typed reference")
+                })
+                .ok_or(PackageError::Integrity)?;
+            check(
+                record.value()["body"]["original"]["payload_recipe"]["checkpoint_base"]
+                    == self.header["base"]
+                    && record.value()["body"]["original"]["scope"] == *scope,
+            )?;
+            return Ok(Some(verified));
+        }
+        Ok(None)
+    }
     pub(crate) fn verify<I: AllocationInspection>(
         &self,
         package: &OriginalPackage,
         context: &restart::RestartContext<'_, I>,
-        _memo: &mut restart::CompiledPlans,
+        memo: &mut restart::CompiledPlans,
         identity: &CheckpointIdentity,
         limits: ActivationLimits<'_>,
     ) -> Result<VerifiedOriginal, PackageError> {
@@ -43,6 +77,9 @@ impl Source {
             identity,
             limits,
         )?;
+        if let Some(verified) = self.completed(package, context, memo, &journal, &scope)? {
+            return Ok(verified);
+        }
         let mut current = package.clone();
         let mut steps = Vec::new();
         let mut seen = BTreeSet::new();

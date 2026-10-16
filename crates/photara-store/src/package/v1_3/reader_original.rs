@@ -296,17 +296,7 @@ fn verify_original_inner(
         operation,
     )?;
     let empty_hold = controls(&envelope, &bytes, limits, operation)?.holds;
-    let selected_frames = if bytes.snapshot {
-        let mut selected = Vec::new();
-        for allocation in bytes.checked.borrow().values() {
-            if let Checked::Snapshot(allocation) = allocation {
-                selected.extend(allocation.selected_references()?);
-            }
-        }
-        Some(selected)
-    } else {
-        None
-    };
+    let selected_frames = selected_frames(&bytes)?;
     drop(bytes);
     let to_key = |r: &ObjectRef| -> Result<(String, u64), PackageError> {
         check(r.kind == ObjectKind::Json)?;
@@ -342,6 +332,25 @@ fn verify_original_inner(
     Ok(verified)
 }
 
+fn selected_frames(
+    bytes: &Bytes<'_, impl AllocationInspection>,
+) -> Result<repeatable::SelectedFrames, PackageError> {
+    if !bytes.snapshot {
+        return Ok(None);
+    }
+    let mut selected = Vec::new();
+    for allocation in bytes.checked.borrow().values() {
+        if let Checked::Snapshot(allocation) = allocation {
+            selected.extend(allocation.selected_references()?);
+        }
+    }
+    Ok(Some(selected))
+}
+pub(crate) struct OperationInspection {
+    pub proof: super::SettledPackage,
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub selected_frames: repeatable::SelectedFrames,
+}
 // V4 binds the prior selected HEAD and authenticates only required old frames.
 // Exact new suffix bytes remain mandatory; legacy codecs keep whole-file checks.
 fn operation_bytes(
@@ -379,6 +388,32 @@ pub(crate) fn inspect_operation_package(
     plan: &repeatable::RepeatablePlan,
     stage: usize,
 ) -> Result<super::SettledPackage, PackageError> {
+    Ok(inspect_operation_details(
+        package,
+        identity,
+        inspection,
+        registration,
+        frames,
+        limits,
+        plan,
+        stage,
+    )?
+    .proof)
+}
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Exact operation inspection and captured selected-frame closure"
+)]
+pub(crate) fn inspect_operation_details(
+    package: &repeatable::shared::OriginalPackage,
+    identity: SelectionIdentity,
+    inspection: &impl AllocationInspection,
+    registration: &SettledRegistration,
+    frames: FrameLimits,
+    limits: &ReaderLimits,
+    plan: &repeatable::RepeatablePlan,
+    stage: usize,
+) -> Result<OperationInspection, PackageError> {
     check(package.manifest == plan.old.manifest && package.allocations.len() == plan.files.len())?;
     operation_bytes(package, plan)?;
     let selected = plan.operation_selection(stage)?;
@@ -397,7 +432,7 @@ pub(crate) fn inspect_operation_package(
         snapshot: envelope.root["schema"]["version"] == 3,
         checked: RefCell::new(BTreeMap::new()),
     };
-    inspect_selected(
+    let proof = inspect_selected(
         &envelope,
         &bytes,
         &bytes,
@@ -405,7 +440,14 @@ pub(crate) fn inspect_operation_package(
         registration,
         limits,
         Some(&selected),
-    )
+    )?;
+    // Match the planning reader's selected closure, including packed hold edges.
+    controls(&envelope, &bytes, limits, Some(&selected))?;
+    Ok(OperationInspection {
+        proof,
+        #[cfg(any(test, feature = "controlled-disposable"))]
+        selected_frames: selected_frames(&bytes)?,
+    })
 }
 #[expect(
     clippy::too_many_arguments,

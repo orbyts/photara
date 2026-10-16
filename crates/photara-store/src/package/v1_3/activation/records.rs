@@ -61,7 +61,7 @@ pub(super) fn target(value: &Value) -> Result<(), PackageError> {
     }
     digest(&value["registration_sha256"])
 }
-fn selected(head: &Value, commit: &Value, project: &Value) -> Result<(), PackageError> {
+pub(super) fn selected(head: &Value, commit: &Value, project: &Value) -> Result<(), PackageError> {
     fields(
         head,
         &["schema", "project_id", "commit_id", "commit_sha256"],
@@ -208,12 +208,18 @@ pub fn default_view(device: &Value, target: &Value) -> Value {
     clippy::too_many_lines,
     reason = "Exact reviewed authority record dispatch"
 )]
-pub(super) fn shape(record: &Value) -> Result<(), PackageError> {
+pub(super) fn shape(
+    record: &Value,
+    limits: crate::package::JsonLimits,
+) -> Result<(), PackageError> {
     let body = &record["body"];
     check(body.is_object())?;
     if record["kind"] == "SessionView" {
         return Ok(());
     } // Optional content/version may need replacement; its raw immutable hash remains checked.
+    if record["kind"] == "SavedProof" && record["version"] == 2 {
+        return super::saved::validate(body, limits);
+    }
     if record["version"] != 1 {
         return Err(PackageError::UnsupportedVersion);
     }
@@ -489,8 +495,7 @@ fn saved_source(snapshot: &Snapshot, proof: &Value, active: &Value) -> Result<()
     let open = snapshot.kind(&active["target_open"], "TargetOpenProof")?;
     check(
         proof["registration_sha256"] == open["registration_sha256"]
-            && proof["checkpoint_receipt"]["value"]["body"]["operation_receipt"]["library_id"]
-                == active["library_id"],
+            && *super::saved_library(proof) == active["library_id"],
     )
 }
 fn target_open(snapshot: &Snapshot, reference: &Value, target: &Value) -> Result<(), PackageError> {
@@ -537,6 +542,9 @@ fn source_evidence(
 )]
 pub(super) fn links(snapshot: &Snapshot, record: &Value) -> Result<(), PackageError> {
     let body = &record["body"];
+    if record["kind"] == "SavedProof" && record["version"] == 2 {
+        check(body["journal_header"]["device_id"] == snapshot.body()["device_id"])?;
+    }
     match record["kind"].as_str() {
         Some("SessionView" | "SavedProof") => Ok(()),
         Some("ConfirmationEvidence") => {

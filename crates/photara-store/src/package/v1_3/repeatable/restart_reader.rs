@@ -19,11 +19,13 @@ pub(super) struct ReaderMemo {
 }
 struct Entry {
     cost: usize,
+    current_key: Option<String>,
     proof: super::super::input::OriginalProof,
     scope: Value,
     charge: u64,
     empty: ObjectRef,
     completed_original: Option<ObjectRef>,
+    selected_frames: super::super::plan::SelectedFrames,
     retained: BTreeMap<ObjectRef, v1_3::Membership>,
     observations: BTreeMap<PackageUuid, Value>,
     prefixes: BTreeMap<(PackageUuid, u64, u64), Sha256Hex>,
@@ -119,6 +121,7 @@ impl ReaderMemo {
                     entry.charge,
                     entry.empty.clone(),
                 );
+                result.selected_frames.clone_from(&entry.selected_frames);
                 result.retained_controls = entry.retained.clone();
                 result
                     .completed_original
@@ -141,11 +144,13 @@ impl ReaderMemo {
         let result = verify(&recorder)?;
         let entry = Entry {
             cost: 0,
+            current_key: None,
             proof: result.proof.clone(),
             scope: result.scope.clone(),
             charge: result.charge_unit,
             empty: result.empty_hold.clone(),
             completed_original: result.completed_original.clone(),
+            selected_frames: result.selected_frames.clone(),
             retained: result.retained_controls.clone(),
             observations: recorder.observations.into_inner(),
             prefixes: recorder.prefixes.into_inner(),
@@ -158,7 +163,7 @@ impl ReaderMemo {
         if let Some(previous) = self.entries.remove(&key) {
             self.bytes -= previous.cost;
         }
-        let metadata = json!({"roles":entry.proof.roles.iter().map(|(name,r)| json!([name,r.state,r.semantic,r.receipts])).collect::<Vec<_>>(),"global":entry.proof.global,"scope":entry.scope,"empty":entry.empty,"completed_original":entry.completed_original,"retained":entry.retained.keys().collect::<Vec<_>>(),"observations":entry.observations,"prefixes":entry.prefixes.iter().map(|(k,v)|json!([k.0,k.1,k.2,v])).collect::<Vec<_>>()});
+        let metadata = json!({"selected_frames":entry.selected_frames.as_ref().map(|v|v.iter().map(|(r,k)|json!([r,*k as u8])).collect::<Vec<_>>()),"current_key":entry.current_key,"roles":entry.proof.roles.iter().map(|(name,r)| json!([name,r.state,r.semantic,r.receipts])).collect::<Vec<_>>(),"global":entry.proof.global,"scope":entry.scope,"empty":entry.empty,"completed_original":entry.completed_original,"retained":entry.retained.keys().collect::<Vec<_>>(),"observations":entry.observations,"prefixes":entry.prefixes.iter().map(|(k,v)|json!([k.0,k.1,k.2,v])).collect::<Vec<_>>()});
         let cost = value_storage(&metadata)
             .and_then(|n| n.checked_add(entry.retained.len().checked_mul(256)?))
             .and_then(|n| n.checked_add(512));
@@ -173,6 +178,53 @@ impl ReaderMemo {
             self.entries.insert(key, entry);
             self.bytes += cost;
         }
+    }
+    // Only successful stage-6 executor inspection seeds this shortcut. The
+    // exact current bytes/context and all independent provider observations
+    // are checked again; no package or authority is retained by this entry.
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(super) fn completed<I: AllocationInspection>(
+        &mut self,
+        package: &OriginalPackage,
+        context: &RestartContext<'_, I>,
+    ) -> Result<Option<VerifiedOriginal>, PackageError> {
+        let key = fingerprint(package, context, None, None);
+        let Some(entry) = self.entries.values().find(|entry| {
+            entry.current_key.as_ref() == Some(&key) && entry.completed_original.is_some()
+        }) else {
+            return Ok(None);
+        };
+        for (id, expected) in &entry.observations {
+            if observation(&context.inspection.observe(*id)?) != *expected {
+                return Ok(None);
+            }
+        }
+        for ((id, length, max), expected) in &entry.prefixes {
+            if context
+                .inspection
+                .framed_prefix_digest(*id, *length, *max)?
+                != *expected
+            {
+                return Ok(None);
+            }
+        }
+        let mut result = VerifiedOriginal::from_reader(
+            package.clone(),
+            entry.proof.clone(),
+            entry.scope.clone(),
+            entry.charge,
+            entry.empty.clone(),
+        );
+        result.selected_frames.clone_from(&entry.selected_frames);
+        result.retained_controls.clone_from(&entry.retained);
+        result
+            .completed_original
+            .clone_from(&entry.completed_original);
+        #[cfg(test)]
+        {
+            self.hits += 1;
+        }
+        Ok(Some(result))
     }
     /// Reuse the exact clean executor closure at the receipt reader. This path
     /// never owns package bytes and retains only the already authenticated proof.
@@ -190,7 +242,7 @@ impl ReaderMemo {
             observations: RefCell::new(BTreeMap::new()),
             prefixes: RefCell::new(BTreeMap::new()),
         };
-        let proof = v1_3::reader::inspect_operation_package(
+        let inspection = v1_3::reader::inspect_operation_details(
             package,
             super::identity(context.identity),
             &recorder,
@@ -200,6 +252,7 @@ impl ReaderMemo {
             plan,
             stage,
         )?;
+        let proof = inspection.proof;
         // These are the additional requirements of verify_operation_original.
         // Ineligible candidates keep their original inspection result but cannot
         // seed that stronger proof. No failed inspection is ever retried here.
@@ -252,6 +305,8 @@ impl ReaderMemo {
         };
         let entry = Entry {
             cost: 0,
+            current_key: Some(fingerprint(package, context, None, None)),
+            selected_frames: inspection.selected_frames,
             proof,
             scope,
             charge: context.registration.charge_unit,

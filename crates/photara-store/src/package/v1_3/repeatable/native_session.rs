@@ -78,7 +78,7 @@ enum RecordRead {
     Frame(package::PackageUuid, u64, usize),
 }
 struct ObservedRecords {
-    source: std::sync::Arc<dyn checkpoint::CheckpointRecords>,
+    source: std::sync::RwLock<std::sync::Arc<dyn checkpoint::CheckpointRecords>>,
     reads: std::sync::Mutex<Option<BTreeMap<RecordRead, String>>>,
     overflow: std::sync::atomic::AtomicBool,
 }
@@ -102,27 +102,39 @@ impl ObservedRecords {
         }
         Ok(())
     }
-    fn recheck(&self, reads: &[(RecordRead, String)]) -> Result<(), package::PackageError> {
+    fn recheck(
+        &self,
+        reads: &[(RecordRead, String)],
+        source: std::sync::Arc<dyn checkpoint::CheckpointRecords>,
+    ) -> Result<(), package::PackageError> {
         for (key, expected) in reads {
             let bytes = match key {
-                RecordRead::Record(reference, maximum) => self.source.record(
+                RecordRead::Record(reference, maximum) => source.record(
                     &serde_json::from_str(reference).map_err(|_| package::PackageError::Record)?,
                     *maximum,
                 )?,
                 RecordRead::Frame(stream, offset, length) => {
-                    self.source.frame(*stream, *offset, *length)?
+                    source.frame(*stream, *offset, *length)?
                 }
             };
             if hash(&bytes) != *expected {
                 return Err(package::PackageError::Integrity);
             }
         }
+        *self
+            .source
+            .write()
+            .map_err(|_| package::PackageError::Integrity)? = source;
         Ok(())
     }
 }
 impl checkpoint::CheckpointRecords for ObservedRecords {
     fn record(&self, reference: &Value, maximum: usize) -> Result<Vec<u8>, package::PackageError> {
-        let bytes = self.source.record(reference, maximum)?;
+        let bytes = self
+            .source
+            .read()
+            .map_err(|_| package::PackageError::Integrity)?
+            .record(reference, maximum)?;
         self.capture(
             RecordRead::Record(
                 String::from_utf8(canonical(reference))
@@ -139,10 +151,68 @@ impl checkpoint::CheckpointRecords for ObservedRecords {
         offset: u64,
         length: usize,
     ) -> Result<Vec<u8>, package::PackageError> {
-        let bytes = self.source.frame(stream, offset, length)?;
+        let bytes = self
+            .source
+            .read()
+            .map_err(|_| package::PackageError::Integrity)?
+            .frame(stream, offset, length)?;
         self.capture(RecordRead::Frame(stream, offset, length), &bytes)?;
         Ok(bytes)
     }
+}
+#[test]
+fn session_tests_snapshot_observation_refresh_is_exact() {
+    use checkpoint::CheckpointRecords;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    struct Source(Vec<u8>, Arc<AtomicUsize>);
+    impl CheckpointRecords for Source {
+        fn record(&self, _: &Value, maximum: usize) -> Result<Vec<u8>, package::PackageError> {
+            self.1.fetch_add(1, Ordering::Relaxed);
+            if self.0.len() > maximum {
+                return Err(package::PackageError::Limit);
+            }
+            Ok(self.0.clone())
+        }
+        fn frame(
+            &self,
+            _: package::PackageUuid,
+            _: u64,
+            _: usize,
+        ) -> Result<Vec<u8>, package::PackageError> {
+            Err(package::PackageError::Integrity)
+        }
+    }
+    let count = Arc::new(AtomicUsize::new(0));
+    let source = || Arc::new(Source(vec![1, 2, 3], count.clone())) as Arc<dyn CheckpointRecords>;
+    let observed = ObservedRecords {
+        source: std::sync::RwLock::new(source()),
+        reads: std::sync::Mutex::new(Some(BTreeMap::new())),
+        overflow: std::sync::atomic::AtomicBool::new(false),
+    };
+    let r = json!({"test":"record"});
+    observed.record(&r, 3).unwrap();
+    let reads = observed
+        .reads
+        .lock()
+        .unwrap()
+        .take()
+        .unwrap()
+        .into_iter()
+        .collect::<Vec<_>>();
+    for _ in 0..2 {
+        observed.recheck(&reads, source()).unwrap();
+    }
+    assert_eq!(count.load(Ordering::Relaxed), 3);
+    assert!(
+        observed
+            .recheck(&reads, Arc::new(Source(vec![1, 2, 4], count.clone())))
+            .is_err()
+    );
+    assert_eq!(observed.record(&r, 3).unwrap(), vec![1, 2, 3]);
+    assert!(observed.record(&r, 2).is_err());
 }
 struct Host {
     io: Native,
@@ -177,9 +247,16 @@ impl Host {
         if let Some(saved) = cache.as_ref()
             && saved.key == key
             && saved.selector == selector
-            && bytes == saved.journal
+            && bytes.starts_with(&saved.journal)
         {
-            saved.records.recheck(&saved.reads)?;
+            saved.records.recheck(
+                &saved.reads,
+                std::sync::Arc::new(
+                    self.io
+                        .activation_records(&self.lease)
+                        .map_err(session_error)?,
+                ),
+            )?;
             if self
                 .io
                 .checkpoint_selector(&self.lease)
@@ -204,7 +281,7 @@ impl Host {
             return Err(SessionError::InvalidRequest);
         }
         let records = std::sync::Arc::new(ObservedRecords {
-            source: state.records,
+            source: std::sync::RwLock::new(state.records),
             reads: std::sync::Mutex::new(Some(BTreeMap::new())),
             overflow: std::sync::atomic::AtomicBool::new(false),
         });
@@ -353,6 +430,16 @@ impl Host {
             .map_err(|_| invalid())
         }
     }
+    fn snapshot_plan_key(&self, current: &super::OriginalPackage) -> IoResult<String> {
+        let observed = snapshot(&self.io.base, current);
+        let id = identity(current);
+        let reader = support::limits();
+        let context = self.context(&observed, &id, &reader);
+        Ok(hash(&canonical(&json!([
+            restart::CompiledPlans::snapshot_key(current, &context),
+            self.io.checkpoint_selector(&self.lease)?
+        ]))))
+    }
     fn snapshot_origin(
         &self,
         current: &super::OriginalPackage,
@@ -426,6 +513,27 @@ impl Host {
             .ok_or_else(invalid)?
             .value()["body"];
         if self.snapshot_mode() {
+            let key = self.snapshot_plan_key(&current)?;
+            if let Some(plan) = self
+                .io
+                .compiled
+                .borrow_mut()
+                .snapshot_plan(
+                    &key,
+                    &current,
+                    &b["original"],
+                    budget(),
+                    self.io.journal_bounds().max_records,
+                )
+                .map_err(|_| invalid())?
+            {
+                if plan.prepared.receipt != b["operation_receipt"]
+                    || plan.original()["request"]["intent"] != reference(&b["semantic_intent"])
+                {
+                    return Err(invalid());
+                }
+                return Ok(plan);
+            }
             let (old, base) = self.snapshot_origin(&current, &b["original"])?;
             return base
                 .restore_operation(
@@ -460,7 +568,11 @@ impl Host {
         }
         let journal = self.io.checkpoint()?;
         let current = self.io.current_candidate()?;
-        let (_, checkpoint) = self.snapshot_origin(&current, plan.original())?;
+        let checkpoint = if current.head == plan.old.head && current.commit == plan.old.commit {
+            self.snapshot_capability(&journal).map_err(|_| invalid())?
+        } else {
+            std::sync::Arc::new(self.snapshot_origin(&current, plan.original())?.1)
+        };
         let view = checkpoint
             .verify_session(&journal, frames(), &support::limits(), budget())
             .map_err(|_| invalid())?;
@@ -665,6 +777,64 @@ impl Host {
     }
 }
 impl SessionIo for Host {
+    fn maintain_checkpoint(
+        &mut self,
+        scheduled: bool,
+        prior: &Value,
+    ) -> Result<Option<(VerifiedOriginal, Value)>, SessionError> {
+        if self.io.checkpoint_namespace.is_none() {
+            return Ok(None);
+        }
+        self.authorize(&self.binding, None)?;
+        let pending = self.io.pending_turnover().map_err(session_error)?;
+        if pending {
+            self.io.activate_checkpoint(&self.lease)?;
+        }
+        self.io.load_selected_journal().map_err(session_error)?;
+        let journal = self.io.checkpoint().map_err(session_error)?;
+        let count = journal
+            .records()
+            .iter()
+            .filter(|r| r.value()["kind"] == "Mutation")
+            .count();
+        // Disposable scheduling batch only: neither acceptance nor retention
+        // limits change. An initial Saved legacy segment is adopted once.
+        let due = !pending
+            && scheduled
+            && count
+                >= if journal.header()["format_version"] == 1 {
+                    1
+                } else {
+                    8
+                };
+        if due {
+            self.io.activate_checkpoint(&self.lease)?;
+            self.io.load_selected_journal().map_err(session_error)?;
+        }
+        if *prior == self.io.journal_header {
+            return Ok(None);
+        }
+        *self.snapshot.borrow_mut() = None;
+        let journal = self.io.checkpoint().map_err(session_error)?;
+        let checkpoint = self.snapshot_capability(&journal)?;
+        Ok(Some((
+            checkpoint.package().shared_clone(),
+            journal.header().clone(),
+        )))
+    }
+    fn activation_checkpoint(
+        &self,
+        journal: &journal::Journal,
+        receipt: &Value,
+    ) -> Result<Value, SessionError> {
+        self.authorize(&self.binding, None)?;
+        let checkpoint = self.snapshot_capability(journal)?;
+        let records = self.io.activation_records(&self.lease)?;
+        let evidence =
+            checkpoint.activation_checkpoint(journal, receipt, &records, &support::limits())?;
+        self.authorize(&self.binding, None)?;
+        Ok(evidence)
+    }
     fn authorize(&self, b: &SessionBinding, intent: Option<&Value>) -> Result<(), SessionError> {
         if *b != self.binding
             || intent.is_some_and(|v| {
@@ -727,6 +897,10 @@ impl SessionIo for Host {
     fn selected_head(&self) -> Result<Value, SessionError> {
         Ok(self.io.current().map_err(session_error)?.head)
     }
+    #[expect(
+        clippy::too_many_lines,
+        reason = "One serialized admission keeps private sizing before all reservation and effects"
+    )]
     fn admit_mutation(
         &mut self,
         intent: &Value,
@@ -803,21 +977,43 @@ impl SessionIo for Host {
                     .remove("original_sha256");
                 corridor["base_head_sha256"] = json!(hash(&canonical(&original.package.head)));
             }
-            checkpoint.compile_operation(&original, intent, receipt, &raw, budget())?
+            crate::package::v1_3::repeatable::native_sizing::compile(
+                raw,
+                |raw| checkpoint.compile_operation(&original, intent, receipt, raw, budget()),
+                |plan| &plan.files,
+            )?
+            .0
         } else {
-            self.io
-                .compiled
-                .borrow_mut()
-                .compile(
-                    &original,
-                    intent,
-                    receipt,
-                    self.io.attempt(&original, n).map_err(session_error)?,
-                    budget(),
-                    self.io.journal_bounds().max_records,
-                )
-                .map_err(session_error)?
+            let raw = serde_json::to_value(self.io.attempt(&original, n).map_err(session_error)?)
+                .map_err(session_error)?;
+            crate::package::v1_3::repeatable::native_sizing::compile(
+                raw,
+                |raw| {
+                    self.io.compiled.borrow_mut().compile(
+                        &original,
+                        intent,
+                        receipt,
+                        serde_json::from_value(raw.clone()).map_err(|_| "sizing attempt")?,
+                        budget(),
+                        self.io.journal_bounds().max_records,
+                    )
+                },
+                |plan| &plan.files,
+            )
+            .map_err(session_error)?
+            .0
         };
+        if self.snapshot_mode() {
+            let key = self
+                .snapshot_plan_key(original.shared_package())
+                .map_err(session_error)?;
+            self.io.compiled.borrow_mut().remember_snapshot_plan(
+                &key,
+                &p,
+                budget(),
+                self.io.journal_bounds().max_records,
+            )?;
+        }
         self.reserve_mutation(mutation)?;
         self.io.allow(&p);
         self.prepare_plan(&p).map_err(session_error)
@@ -1278,6 +1474,7 @@ impl OpenSession {
                     s.finish_flush(&t)?;
                 }
                 "retry" => s.retry()?,
+                "maintain" => s.maintain()?,
                 _ => return Err(SessionError::InvalidRequest),
             }
             Ok(())

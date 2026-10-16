@@ -65,10 +65,7 @@ impl CheckpointSeed {
         reader: &crate::package::v1_3::ReaderLimits,
     ) -> Result<Option<(Value, String)>, PackageError> {
         let value = if let Some(prior) = self.mutations.get(operation) {
-            Some((
-                prior.record.value.clone(),
-                prior.record.checksum().clone(),
-            ))
+            Some((prior.record.value.clone(), prior.record.checksum().clone()))
         } else if let Some(history) = &self.history {
             history.mutation_evidence(operation)?
         } else {

@@ -66,6 +66,80 @@ impl super::super::checkpoint::CheckpointRecords for LocalRecords {
     }
 }
 struct Cold(Option<super::super::checkpoint::ReopenState>);
+fn saved2_proof(mut evidence: Value, binding: Value, accepted: Value, golden: bool) {
+    use crate::package::v1_3::activation;
+    evidence["binding"] = binding;
+    evidence["accepted"] = accepted;
+    evidence["registration_sha256"] = json!("b".repeat(64));
+    let record = json!({"id":uid(799_000),"kind":"SavedProof","version":2,"body":evidence});
+    let limits = activation::Limits {
+        json: support::limits().json,
+        max_records: 16,
+        max_snapshot_bytes: support::limits().json.max_bytes,
+    };
+    let parse = |record: &Value| {
+        let mut body = json!({"device_id":record["body"]["journal_header"]["device_id"],"workspace_slot_id":uid(799_001),"revision":"0","request_generation":"0","committed_generation":"0","authority_scope_sha256":"a".repeat(64),"active":null,"pending":null,"records":[record]});
+        let first = activation::Snapshot::from_body(body.clone(), limits);
+        let object = body.as_object_mut().unwrap();
+        object.remove("authority_scope_sha256");
+        object.insert("slot_scope_sha256".into(), json!("a".repeat(64)));
+        let second = activation::v2::Snapshot::from_body(
+            body,
+            activation::v2::Limits {
+                json: limits.json,
+                max_records: limits.max_records,
+                max_snapshot_bytes: limits.max_snapshot_bytes,
+            },
+        );
+        (first, second)
+    };
+    let (first, second) = parse(&record);
+    first.expect("SavedProof2 PS4 consumer");
+    second.expect("SavedProof2 LL2a consumer");
+    let expected = match record["body"]["accepted"]["coordinate"]["revision"]
+        .as_str()
+        .unwrap()
+    {
+        "3" => (
+            20659,
+            "727dcfbf4359f82a167da48da561f2cda5da894baad634d32e63117c179df218",
+        ),
+        "4" => (
+            39502,
+            "259424e72a8ba6963d2ebe97126d7034a1f996fa0a5dd381b0ebe6cecc65a71f",
+        ),
+        "5" => (
+            40518,
+            "53218f5e197b0526d64ada743bc34d72091132737dbff1e8f297853ce06e05a9",
+        ),
+        _ => unreachable!(),
+    };
+    if golden {
+        assert_eq!(
+            (encode(&record).len(), hash(&encode(&record))),
+            (expected.0, expected.1.to_owned())
+        );
+    }
+    for path in [
+        "/version",
+        "/body/journal_header/format_version",
+        "/body/checkpoint/receipt/value/sequence",
+        "/body/accepted/coordinate/revision",
+        "/body/local_base/checkpoint/sha256",
+        "/body/checkpoint/kind",
+    ] {
+        let mut changed = record.clone();
+        *changed.pointer_mut(path).unwrap() = json!(0);
+        let (first, second) = parse(&changed);
+        assert!(first.is_err() && second.is_err(), "{path}");
+    }
+    let mut changed = record.clone();
+    changed["body"]["checkpoint"]["extra"] = json!(true);
+    assert!(parse(&changed).0.is_err());
+    changed = record;
+    changed["version"] = json!(1);
+    assert!(parse(&changed).0.is_err());
+}
 impl super::super::checkpoint::CheckpointRecoveryIo for Cold {
     type Lease = ();
     fn read_checkpoint(
@@ -107,8 +181,74 @@ struct Backend {
     fail_after_append: bool,
     checkpoint_fail: bool,
     omit_checkpoint: bool,
+    maintenance_calls: usize,
+    maintenance_failure: Option<SessionFailure>,
     verifications: std::rc::Rc<std::cell::Cell<usize>>,
     memo: std::cell::RefCell<super::super::restart::CompiledPlans>,
+}
+/// Real independently verified checkpoint views; only the IO swap is synthetic.
+struct RotatingSession<'a> {
+    current: &'a super::super::checkpoint::ActivatedCheckpoint,
+    next: Option<&'a super::super::checkpoint::ActivatedCheckpoint>,
+    bytes: Vec<u8>,
+    binding: SessionBinding,
+}
+impl SessionIo for RotatingSession<'_> {
+    fn authorize(&self, binding: &SessionBinding, _: Option<&Value>) -> Result<(), SessionError> {
+        if binding == &self.binding {
+            Ok(())
+        } else {
+            Err(SessionError::InvalidRequest)
+        }
+    }
+    fn read_journal(&self) -> Result<Vec<u8>, SessionError> {
+        Ok(self.bytes.clone())
+    }
+    fn verify<'a>(&self, _: &'a Journal) -> Result<VerifiedJournal<'a>, SessionError> {
+        Err(SessionError::InvalidRequest)
+    }
+    fn verify_view<'a>(
+        &self,
+        journal: &'a Journal,
+        _: &VerifiedOriginal,
+        _: &PlannerInputs,
+        limits: Limits,
+    ) -> Result<super::super::journal::VerifiedSession<'a>, SessionError> {
+        Ok(self.current
+            .verify_session(journal, frames(), &support::limits(), limits)?)
+    }
+    fn selected_head(&self) -> Result<Value, SessionError> {
+        Ok(self.current.package().shared_package().head.clone())
+    }
+    fn maintain_checkpoint(
+        &mut self,
+        scheduled: bool,
+        _: &Value,
+    ) -> Result<Option<(VerifiedOriginal, Value)>, SessionError> {
+        if scheduled && let Some(next) = self.next.take() {
+            self.current = next;
+            self.bytes = next.segment().to_vec();
+            return Ok(Some((next.package().shared_clone(), next.header().clone())));
+        }
+        Ok(None)
+    }
+    fn admit_mutation(
+        &mut self,
+        _: &Value,
+        _: &Value,
+        _: &JournalAppend,
+    ) -> Result<(), SessionError> {
+        Err(SessionError::InvalidRequest)
+    }
+    fn append(&mut self, _: &JournalAppend) -> Result<(), EffectFailure> {
+        Err(EffectFailure::OutcomeUnknown)
+    }
+    fn checkpoint(&mut self, _: &AcceptedCoordinate) -> Result<(), EffectFailure> {
+        Err(EffectFailure::OutcomeUnknown)
+    }
+    fn reconcile(&mut self) -> Result<(), SessionError> {
+        Ok(())
+    }
 }
 impl Backend {
     fn context<'a>(
@@ -200,6 +340,19 @@ impl Backend {
     }
 }
 impl SessionIo for Backend {
+    fn maintain_checkpoint(
+        &mut self,
+        scheduled: bool,
+        _: &Value,
+    ) -> Result<Option<(VerifiedOriginal, Value)>, SessionError> {
+        if scheduled {
+            self.maintenance_calls += 1;
+            if let Some(failure) = self.maintenance_failure {
+                return Err(SessionError::Failure(failure));
+            }
+        }
+        Ok(None)
+    }
     fn authorize(&self, b: &SessionBinding, _: Option<&Value>) -> Result<(), SessionError> {
         if *b != binding() {
             return Err(SessionError::Failure(SessionFailure::Authorization));
@@ -372,6 +525,8 @@ fn open() -> Session<Backend> {
         fail_after_append: false,
         checkpoint_fail: false,
         omit_checkpoint: false,
+        maintenance_calls: 0,
+        maintenance_failure: None,
         verifications: std::rc::Rc::new(std::cell::Cell::new(0)),
         memo: std::cell::RefCell::default(),
     };
@@ -432,6 +587,37 @@ fn session_accepted_finite_flush_and_original_retry() {
     let end = s.begin_flush("close", rid(102_004)).unwrap();
     s.finish_flush(&end).unwrap();
     assert!(s.snapshot().closed && !s.snapshot().dirty);
+}
+
+#[test]
+fn session_idle_maintenance_requires_saved_and_preserves_failed_target() {
+    let mut session = open();
+    session.maintain().unwrap();
+    assert_eq!(session.io_mut().maintenance_calls, 0);
+    let (intent, receipt) = edit(&session, 109_001, 31);
+    session
+        .submit(&intent, &receipt, &json!({"kind":"edit"}), rid(109_002), 0)
+        .unwrap();
+    session.maintain().unwrap();
+    assert_eq!(session.io_mut().maintenance_calls, 0);
+    let target = session.begin_flush("flush", rid(109_003)).unwrap();
+    session.maintain().unwrap();
+    assert_eq!(session.io_mut().maintenance_calls, 0);
+    session.finish_flush(&target).unwrap();
+    let accepted = session.snapshot().accepted.clone();
+    let head = session.snapshot().saved.as_ref().unwrap().head.clone();
+    let bytes = session.io_mut().bytes.clone();
+    session.maintain().unwrap();
+    assert_eq!(session.io_mut().maintenance_calls, 1);
+    session.io_mut().maintenance_failure = Some(SessionFailure::Storage);
+    assert!(session.maintain().is_err());
+    assert!(session.snapshot().frozen);
+    assert_eq!(session.snapshot().accepted, accepted);
+    assert_eq!(session.snapshot().saved.as_ref().unwrap().head, head);
+    assert_eq!(session.io_mut().bytes, bytes);
+    session.retry().unwrap();
+    assert!(!session.snapshot().frozen);
+    assert_eq!(session.snapshot().accepted, accepted);
 }
 
 #[test]
@@ -638,6 +824,28 @@ fn generic_graph_batch_reopens_exactly_and_unavailable_edits_have_no_effects() {
     assert_eq!(reopened.io_mut().bytes, before_journal);
     assert_eq!(reopened.io_mut().mock.current.head, before_head);
     assert_eq!(reopened.io_mut().mock.effects, before_effects);
+}
+
+#[test]
+fn session_checkpoint_turnover_actual_append_and_four_selections() {
+    checkpoint_turnover_actual_append_and_four_selections(false);
+}
+#[test]
+fn session_sized_corridors_turnover_two_moves_and_retry() {
+    checkpoint_turnover_actual_append_and_four_selections(true);
+}
+
+fn sized_compile<T, E>(
+    sizing: bool,
+    raw: Value,
+    mut build: impl FnMut(&Value) -> Result<T, E>,
+    files: impl Fn(&T) -> &BTreeMap<String, super::super::shared::Bytes>,
+) -> Result<(T, Value), E> {
+    if sizing {
+        super::super::native_sizing::compile(raw, build, files)
+    } else {
+        Ok((build(&raw)?, raw))
+    }
 }
 
 #[test]
@@ -1130,6 +1338,25 @@ fn clean_executor_proof_reused_by_receipt_with_fresh_observations() {
         0,
         "native candidate uses authenticated canonical frame bodies"
     );
+    let completed = memo.completed_current(&current, &context).unwrap().unwrap();
+    assert_eq!(
+        completed.completed_original,
+        Some(serde_json::from_value(reference(plan.original())).unwrap())
+    );
+    let mut changed = current.clone();
+    changed.head["commit_sha256"] = json!("00".repeat(32));
+    assert!(
+        memo.completed_current(&changed, &context)
+            .unwrap()
+            .is_none()
+    );
+    let mut changed = current.clone();
+    changed.loose.values_mut().next().unwrap().push(b' ');
+    assert!(
+        memo.completed_current(&changed, &context)
+            .unwrap()
+            .is_none()
+    );
     let before = memo.reader_work();
     let proved = super::super::restart::verify_completed_plan(
         &current,
@@ -1166,6 +1393,11 @@ fn clean_executor_proof_reused_by_receipt_with_fresh_observations() {
         .inode += 1;
     let altered = super::journal_tests::context(&changed_observation, &identity, &reader);
     assert!(
+        memo.completed_current(&current, &altered)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
         super::super::restart::verify_completed_plan(
             &current,
             &plan,
@@ -1178,6 +1410,11 @@ fn clean_executor_proof_reused_by_receipt_with_fresh_observations() {
     let mut narrowed = reader;
     narrowed.max_roles = 0;
     let limited = super::journal_tests::context(&observed, &identity, &narrowed);
+    assert!(
+        memo.completed_current(&current, &limited)
+            .unwrap()
+            .is_none()
+    );
     assert!(
         super::super::restart::verify_completed_plan(
             &current,
@@ -1575,12 +1812,11 @@ fn session_checkpoint_history_requires_drained_exact_mutation_evidence() {
     inspect(session.io_mut(), true, false);
 }
 
-#[test]
 #[expect(
     clippy::too_many_lines,
     reason = "One real turnover verifies append, stages, bounds and exact retry"
 )]
-fn session_checkpoint_turnover_actual_append_and_four_selections() {
+fn checkpoint_turnover_actual_append_and_four_selections(sizing: bool) {
     use super::super::checkpoint::{
         CheckpointIdentity, LocalSelection, PreparedHistory, TurnoverIds, TurnoverPlan,
     };
@@ -1661,8 +1897,29 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
         too_small[bound] = json!("1");
         assert!(TurnoverPlan::compile(&history, &selector, ids(), too_small, budget()).is_err());
     }
-    let plan =
-        TurnoverPlan::compile_inner(&history, &selector, ids(), raw.clone(), budget()).unwrap();
+    let (plan, mut raw) = sized_compile(
+        sizing,
+        raw,
+        |raw| TurnoverPlan::compile_inner(&history, &selector, ids(), raw.clone(), budget()),
+        |plan| &plan.files,
+    )
+    .unwrap();
+    let appended = |files: &BTreeMap<String, super::super::shared::Bytes>,
+                    old: &OriginalPackage| {
+        files
+            .iter()
+            .map(|(id, bytes)| bytes.len() - old.allocations[id].bytes.len())
+            .sum::<usize>()
+    };
+    let turnover_bytes = appended(&plan.files, &plan.old);
+    assert!(turnover_bytes <= 7 * 262_144);
+    if sizing {
+        assert!(turnover_bytes < 7 * 262_144);
+    }
+    eprintln!(
+        "sized turnover append={turnover_bytes} versus fixed={}",
+        7 * 262_144
+    );
     assert_eq!(plan.stages().len(), 4);
     assert_eq!(plan.original()["attempt"], raw);
     let again =
@@ -1804,6 +2061,15 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                     let seeded = active
                         .verify_session(&journal, frames(), &reader, budget())
                         .unwrap();
+                    let source = LocalRecords(
+                        [plan.acceptance_base(), plan.original(), selector.value()]
+                            .into_iter()
+                            .map(|value| (wire::key(&reference(value)).unwrap(), value.clone()))
+                            .collect(),
+                    );
+                    saved2_proof(active.activation_checkpoint(&journal, &json!({"record_id":journal.records()[0].value()["record_id"],"record_checksum":journal.records()[0].checksum()}), &source, &reader).unwrap(),
+                        json!({"project_id":id.package.project,"incarnation_id":id.incarnation,"owner_epoch":uid(799_002),"owner":owner}),
+                        json!({"coordinate":seeded.coordinate(),"mutation":seeded.through(),"accepted_frame":seeded.accepted_frame()}), !sizing);
                     assert_eq!(seeded.coordinate(), view.coordinate());
                     assert_eq!(
                         seeded.next_receipt_coordinates().unwrap(),
@@ -1822,16 +2088,26 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                         }
                         raw
                     };
-                    let first_raw = make_raw(active.package(), 650_000);
-                    let first = active
-                        .compile_operation_inner(
-                            active.package(),
-                            &intent,
-                            &receipt,
-                            &first_raw,
-                            budget(),
-                        )
-                        .unwrap();
+                    let (first, first_raw) = sized_compile(
+                        sizing,
+                        make_raw(active.package(), 650_000),
+                        |raw| {
+                            active.compile_operation_inner(
+                                active.package(),
+                                &intent,
+                                &receipt,
+                                raw,
+                                budget(),
+                            )
+                        },
+                        |plan| &plan.files,
+                    )
+                    .unwrap();
+                    let first_bytes = appended(&first.files, &first.old);
+                    if sizing {
+                        assert!(first_bytes < 7 * 262_144 / 2);
+                    }
+                    eprintln!("sized first move append={first_bytes}");
                     assert_eq!(
                         first.original()["original_codec"],
                         "photara.codec.ps2-repeatable-admission-v4"
@@ -1884,6 +2160,90 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                                 .is_err()
                         );
                     }
+                    // The native v4 hot path keeps only compact deterministic
+                    // suffix output in the existing bounded plan memo. Fresh
+                    // package/custody context is still required on every reuse.
+                    let mut memo = restart::CompiledPlans::default();
+                    memo.remember_snapshot_plan("exact-current-and-selector", &first, budget(), 8)
+                        .unwrap();
+                    let hits = memo.hits;
+                    for _ in 0..2 {
+                        let reused = memo
+                            .snapshot_plan(
+                                "exact-current-and-selector",
+                                active.package().shared_package(),
+                                first.original(),
+                                budget(),
+                                8,
+                            )
+                            .unwrap()
+                            .unwrap();
+                        assert_eq!(reused.original_bytes(), first.original_bytes());
+                        assert_eq!(reused.files, first.files);
+                    }
+                    assert_eq!(memo.hits, hits + 2);
+                    assert_eq!(memo.compilations, 0);
+                    assert!(
+                        memo.snapshot_plan(
+                            "changed-selector",
+                            active.package().shared_package(),
+                            first.original(),
+                            budget(),
+                            8
+                        )
+                        .unwrap()
+                        .is_none()
+                    );
+                    let mut altered = active.package().shared_package().clone();
+                    altered.head["commit_sha256"] = json!("00".repeat(32));
+                    assert!(
+                        memo.snapshot_plan(
+                            "exact-current-and-selector",
+                            &altered,
+                            first.original(),
+                            budget(),
+                            8
+                        )
+                        .is_err()
+                    );
+                    let mut altered = active.package().shared_package().clone();
+                    altered.loose.values_mut().next().unwrap().push(b' ');
+                    assert!(
+                        memo.snapshot_plan(
+                            "exact-current-and-selector",
+                            &altered,
+                            first.original(),
+                            budget(),
+                            8
+                        )
+                        .is_err()
+                    );
+                    let mut changed = first.original().clone();
+                    changed["nonce"] = json!("different");
+                    assert!(
+                        memo.snapshot_plan(
+                            "exact-current-and-selector",
+                            active.package().shared_package(),
+                            &changed,
+                            budget(),
+                            8
+                        )
+                        .unwrap()
+                        .is_none()
+                    );
+                    let mut smaller = budget();
+                    smaller.max_objects -= 1;
+                    assert!(
+                        memo.snapshot_plan(
+                            "exact-current-and-selector",
+                            active.package().shared_package(),
+                            first.original(),
+                            smaller,
+                            8
+                        )
+                        .unwrap()
+                        .is_none()
+                    );
                     let finalizer = first.stages()[6]
                         .loose
                         .values()
@@ -2064,16 +2424,26 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                     let (intent, receipt) = super::journal_ps3_tests::next(
                         &current, &receipt, &owner, &action, 640_002,
                     );
-                    let second_raw = make_raw(&first_current, 660_000);
-                    let second = active
-                        .compile_operation_inner(
-                            &first_current,
-                            &intent,
-                            &receipt,
-                            &second_raw,
-                            budget(),
-                        )
-                        .unwrap();
+                    let (second, second_raw) = sized_compile(
+                        sizing,
+                        make_raw(&first_current, 660_000),
+                        |raw| {
+                            active.compile_operation_inner(
+                                &first_current,
+                                &intent,
+                                &receipt,
+                                raw,
+                                budget(),
+                            )
+                        },
+                        |plan| &plan.files,
+                    )
+                    .unwrap();
+                    let second_bytes = appended(&second.files, &second.old);
+                    if sizing {
+                        assert!(second_bytes < 7 * 262_144 / 2);
+                    }
+                    eprintln!("sized second move append={second_bytes}");
                     for compiled in [&first, &second] {
                         let selected = super::selected(compiled, 6);
                         let restored = super::super::recovery::reconstruct_shared_original(
@@ -2236,7 +2606,12 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                     // Cold recovery starts at each current included package,
                     // not by replaying the turnover graph through saved history.
                     let mut records = history.lookup_objects().clone();
-                    for value in [history.archive(), plan.original(), selector.value()] {
+                    for value in [
+                        history.archive(),
+                        plan.original(),
+                        plan.acceptance_base(),
+                        selector.value(),
+                    ] {
                         records.insert(
                             super::super::wire::key(&reference(value)).unwrap(),
                             value.clone(),
@@ -2296,6 +2671,9 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                         let context =
                             super::journal_tests::context(&observed, &id.package, &reader);
                         let mut memo = super::super::restart::CompiledPlans::default();
+                        memo.inspect_shared_candidate(&selected.package, &context, compiled, 6)
+                            .unwrap();
+                        let work = memo.reader_work();
                         let checked = source
                             .verify(
                                 &selected.package,
@@ -2307,6 +2685,34 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                             .unwrap();
                         assert_eq!(checked.package.head, selected.package.head);
                         assert!(checked.completed_original.is_some());
+                        assert_eq!(memo.reader_work(), (work.0, work.1 + 1));
+                        assert_eq!(memo.compilations, 0);
+                        assert_eq!(checked.selected_frames, selected.selected_frames);
+                        assert_eq!(checked.scope, selected.scope);
+                        assert_eq!(checked.charge_unit, selected.charge_unit);
+                        assert_eq!(checked.empty_hold, selected.empty_hold);
+                        assert_eq!(checked.retained_controls, selected.retained_controls);
+                        assert_eq!(checked.proof.global, selected.proof.global);
+                        for (role, expected) in &selected.proof.roles {
+                            let actual = &checked.proof.roles[role];
+                            assert_eq!(actual.state, expected.state);
+                            assert_eq!(actual.semantic, expected.semantic);
+                            assert_eq!(actual.receipts, expected.receipts);
+                        }
+                        super::super::restart::check_compact_verified(&checked);
+                        if n == 0 {
+                            let next = active
+                                .compile_operation_inner(
+                                    &checked,
+                                    &intent,
+                                    &receipt,
+                                    &second_raw,
+                                    budget(),
+                                )
+                                .unwrap();
+                            assert_eq!(next.original_bytes(), second.original_bytes());
+                            assert_eq!(next.files, second.files);
+                        }
                         // Old prefixes are proven against the actually grown files too.
                         let old = source
                             .verify(&compiled.old, &context, &mut memo, &id, activation_limits())
@@ -2595,6 +3001,19 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                         let opened_session = opened
                             .verify_session(&parsed, frames(), &reader, budget())
                             .unwrap();
+                        saved2_proof(
+                            opened
+                                .activation_checkpoint(
+                                    &parsed,
+                                    opened_session.completed_checkpoint().unwrap(),
+                                    records.as_ref(),
+                                    &reader,
+                                )
+                                .unwrap(),
+                            json!({"project_id":id.package.project,"incarnation_id":id.incarnation,"owner_epoch":uid(799_002),"owner":owner}),
+                            json!({"coordinate":opened_session.coordinate(),"mutation":opened_session.through(),"accepted_frame":opened_session.accepted_frame()}),
+                            !sizing,
+                        );
                         assert_eq!(opened_session.coordinate(), body["result"]);
                         assert_eq!(
                             opened_session.through(),
@@ -2729,6 +3148,41 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                     .unwrap();
                     assert_eq!(rotated.base().value()["coordinate"], session.coordinate());
                     assert_eq!(rotated.base().value()["undo_roots"], json!([]));
+                    // Exercise the real Session snapshot contract across this
+                    // actual verified turnover, not an unchanged mock response.
+                    let binding = SessionBinding {
+                        project_id: id.package.project,
+                        incarnation_id: id.incarnation,
+                        owner_epoch: package::PackageUuid::parse(&uid(799_002)).unwrap(),
+                        owner: owner.clone(),
+                    };
+                    let mut live = Session::open(
+                        RotatingSession {
+                            current: &recovered,
+                            next: Some(&rotated),
+                            bytes: settled.clone(),
+                            binding: binding.clone(),
+                        },
+                        recovered.package().shared_clone(),
+                        inputs.clone(),
+                        budget(),
+                        limits,
+                        recovered.header().clone(),
+                        binding,
+                    )
+                    .unwrap();
+                    let before = live.snapshot().clone();
+                    live.begin_response();
+                    live.maintain().unwrap();
+                    let after = live.snapshot().clone();
+                    assert_eq!(after.accepted, before.accepted);
+                    assert_ne!(after.saved, before.saved);
+                    assert_eq!(after.event_sequence, before.event_sequence + 1);
+                    assert!(!after.dirty && !after.frozen);
+                    let presentation = live.finish_response().unwrap();
+                    assert_eq!(presentation.graphs, session.graph_objects().unwrap());
+                    live.maintain().unwrap();
+                    assert_eq!(live.snapshot(), &after, "no-op maintenance is unchanged");
                     assert_eq!(
                         rotated.base().value()["archive"],
                         reference(next_history.archive())

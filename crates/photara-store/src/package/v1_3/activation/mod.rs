@@ -5,10 +5,26 @@ use crate::package::{JsonLimits, PackageError, PackageUuid, Sha256Hex, parse_can
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 mod records;
-pub mod v2;
+mod saved;
 mod transition;
+pub mod v2;
 pub use records::{default_view, validate_view};
 pub use transition::{Transition, validate_transition};
+pub(crate) fn saved_library(body: &Value) -> &Value {
+    if body.get("journal_header").is_some() {
+        &body["journal_header"]["library_id"]
+    } else {
+        &body["checkpoint_receipt"]["value"]["body"]["operation_receipt"]["library_id"]
+    }
+}
+#[cfg(all(target_os = "macos", any(test, feature = "controlled-disposable")))]
+pub(crate) fn saved_head(body: &Value) -> &Value {
+    if body.get("journal_header").is_some() {
+        &body["checkpoint"]["receipt"]["value"]["body"]["selected_head"]
+    } else {
+        &body["checkpoint_receipt"]["value"]["body"]["selected_head"]
+    }
+}
 #[derive(Clone, Copy)]
 pub struct Limits {
     pub json: JsonLimits,
@@ -149,7 +165,7 @@ impl Snapshot {
             let key = id(&record["id"])?;
             check(prior.is_none_or(|p| p < key))?;
             prior = Some(key);
-            records::shape(record)?;
+            records::shape(record, limits.json)?;
             records.insert(key.to_string(), record.clone());
         }
         let snapshot = Self {

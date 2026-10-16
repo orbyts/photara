@@ -25,7 +25,9 @@ fn rid(id: &str, role: &str) -> String {
     reason = "Canonical record builders take ownership of newly constructed bodies."
 )]
 fn record(id: &str, kind: &str, body: Value) -> Value {
-    let view = if matches!(kind, "SavedProof" | "SessionView" | "TargetOpenProof") {
+    let view = if kind == "SavedProof" && body.get("journal_header").is_some() {
+        2
+    } else if matches!(kind, "SavedProof" | "SessionView" | "TargetOpenProof") {
         1
     } else {
         2
@@ -321,8 +323,7 @@ impl Coordinator {
                 let proof = &self.current.record(&saved).map_err(bad)?["body"];
                 let actual = session.activation_observe(&active["target"]["project"])?;
                 if actual["saved"]["accepted"] != proof["accepted"]
-                    || actual["head"]
-                        != proof["checkpoint_receipt"]["value"]["body"]["selected_head"]
+                    || actual["head"] != *crate::package::v1_3::activation::saved_head(proof)
                 {
                     return Err(invalid());
                 }

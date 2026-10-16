@@ -124,6 +124,7 @@ private actor ScriptedWorkspace: DisposableWorkspaceBridge {
         preconditionFailure("confirmation was not delivered")
     }
     func preparedCount() -> Int { prepareIDs.count }
+    func commands() async -> [String] { await source.commands() }
 }
 
 private actor ScriptedLibraries: DisposableLibraryBridge {
@@ -207,7 +208,10 @@ private actor QueuedMoveBridge: DisposableSessionBridge {
     let binding = DisposableAutosaveBinding(projectID: UUID(), incarnationID: UUID(), ownerEpoch: UUID(),
         attachmentID: UUID(), attachmentGeneration: 1, principalSHA256: "test")
     let title: String
-    init(title: String = "Node") { self.title = title }
+    let holdsMaintenance: Bool
+    init(title: String = "Node", holdsMaintenance: Bool = false) {
+        self.title = title; self.holdsMaintenance = holdsMaintenance
+    }
     var sequence: UInt64 = 0
     var accepted = DisposableAcceptedCoordinate(revision: 1, authoredDigest: "old", coordinateSHA256: "old",
         mutation: nil, acceptedFrameSHA256: nil, operationID: nil)
@@ -220,7 +224,7 @@ private actor QueuedMoveBridge: DisposableSessionBridge {
     func execute(_ request: DisposableHostRequest) async throws -> DisposableHostResponse {
         calls.append(request)
         var reply = Reply.good
-        if ["submit", "complete"].contains(request.command) {
+        if ["submit", "complete"].contains(request.command) || (holdsMaintenance && request.command == "maintain") {
             waitingCommand = request.command
             reply = await withCheckedContinuation { waiting = $0 }
             waitingCommand = nil
@@ -320,6 +324,7 @@ struct ControlledSessionChecks {
         try await switchingChecks()
         try await libraryChecks()
         try await queuedMoveChecks()
+        try await maintenanceChecks()
         try await AutosaveInteractionChecks.run()
         print("PASS: controlled configuration, visible pending move, close queues, failed flush retains graph, exact retry, wake revalidation, sleep barrier, verified close")
     }
@@ -569,6 +574,69 @@ struct ControlledSessionChecks {
         await boundBridge.release("submit"); await boundBridge.release("complete")
         await wait { bound.canEdit }
         print("PASS: immediate overlay survives delayed/stale replies and failed checkpoint retry; 1,000 moves retain in-flight original plus final endpoint; different-node order preserved; cancel Quit keeps saving, final Quit drains; bounded rejection retains prior visible draft")
+    }
+
+    @MainActor static func maintenanceChecks() async throws {
+        let bridge = QueuedMoveBridge(holdsMaintenance: true)
+        let model = DisposableAutosaveProcess(bridge: bridge, maintenanceDelay: .milliseconds(100))
+        model.start(); await wait { model.canMove }
+        precondition(model.visualStatus == .saved && !model.busy)
+        model.move(model.nodes[0], x: 10, y: 0) // Beats the idle task.
+        await bridge.release("submit")
+        while !(await bridge.waitingFor("complete")) { await Task.yield() }
+        let beforeSave = await bridge.requests()
+        precondition(beforeSave.map(\.command) == ["snapshot", "submit", "complete"])
+        await bridge.release("complete")
+        await wait { model.visualStatus == .saved && !model.busy }
+        while !(await bridge.waitingFor("maintain")) { await Task.yield() }
+        precondition(model.visualStatus == .saved && model.canMove && !model.canEdit)
+        model.move(model.nodes[0], x: 20, y: 0)
+        model.move(model.nodes[0], x: 30, y: 0)
+        precondition(model.visibleNodes[0].x == 30 && model.queuedPositions.count == 1)
+        precondition(model.visualStatus == .saving)
+        let during = await bridge.requests()
+        precondition(during.last?.command == "maintain") // No concurrent submit.
+        await bridge.release("maintain", .fail)
+        await wait { model.transportFailure != nil }
+        precondition(!model.canMove && model.visibleNodes[0].x == 30)
+        model.retry(); await bridge.release("maintain")
+        while !(await bridge.waitingFor("submit")) { await Task.yield() }
+        var closed = false
+        model.close { closed = $0 }
+        await bridge.release("submit"); await bridge.release("complete")
+        await wait { model.closed }
+        precondition(closed && model.nodes[0].x == 30)
+        let calls = await bridge.requests()
+        precondition(calls.map(\.command) == ["snapshot", "submit", "complete", "maintain", "maintain", "submit", "complete", "close"])
+        precondition(calls[3].id == calls[4].id)
+
+        let idleBridge = QueuedMoveBridge(holdsMaintenance: true)
+        let idle = DisposableAutosaveProcess(bridge: idleBridge, maintenanceDelay: .milliseconds(10))
+        idle.start(); await wait { idle.canMove }
+        while !(await idleBridge.waitingFor("maintain")) { await Task.yield() }
+        precondition(idle.visualStatus == .saved)
+        await idleBridge.release("maintain")
+        await wait { !idle.busy }
+        try await Task.sleep(for: .milliseconds(50))
+        let once = await idleBridge.requests()
+        precondition(once.map(\.command) == ["snapshot", "maintain"])
+        idle.close { precondition($0) }; await wait { idle.closed }
+        let switchingBridge = ScriptedWorkspace()
+        await switchingBridge.permitSave()
+        let switching = DisposableAutosaveProcess(bridge: switchingBridge, maintenanceDelay: .milliseconds(100))
+        switching.start(); await wait { switching.canMove }
+        switching.beginSwitch(to: switching.projects[1].id, view: nil)
+        await wait { switching.switchPrompt != nil }
+        try await Task.sleep(for: .milliseconds(150))
+        let whileSheet = await switchingBridge.commands()
+        precondition(!whileSheet.contains("maintain"))
+        switching.answerSwitch(switching.switchPrompt!.id, confirmed: false)
+        await wait { !switching.switching }
+        switching.close { precondition($0) }
+        await wait { switching.closed }
+        let afterClose = await switchingBridge.commands()
+        precondition(!afterClose.contains("maintain"))
+        print("PASS: idle maintenance follows genuine Saved without hiding it; drafts win before start and queue during maintenance; failure freezes, exact retry drains edits; Close and switch sheet win; no recursive maintenance loop")
     }
 
 }

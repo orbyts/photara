@@ -19,6 +19,12 @@ pub const STAGES: [&str; 7] = [
     "published",
     "clean",
 ];
+pub(crate) type SelectedFrames = Option<
+    Vec<(
+        crate::package::v1_3::PhysicalRef,
+        crate::package::v1_3::FrameKind,
+    )>,
+>;
 /// Only the complete shared reader may construct this wrapper. DTOs and matching
 /// public identifiers do not grant a path into publication.
 pub struct VerifiedOriginal {
@@ -31,12 +37,7 @@ pub struct VerifiedOriginal {
     // Minted only after the reader verifies the exact clean operation plan.
     // A selected package/receipt JSON alone never grants this capability.
     pub(crate) completed_original: Option<crate::package::ObjectRef>,
-    pub(crate) selected_frames: Option<
-        Vec<(
-            crate::package::v1_3::PhysicalRef,
-            crate::package::v1_3::FrameKind,
-        )>,
-    >,
+    pub(crate) selected_frames: SelectedFrames,
     pub(crate) retained_controls:
         BTreeMap<crate::package::ObjectRef, crate::package::v1_3::Membership>,
 }

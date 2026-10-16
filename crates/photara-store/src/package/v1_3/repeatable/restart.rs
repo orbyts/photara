@@ -839,6 +839,15 @@ impl CompiledPlans {
         Ok(())
     }
     #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(super) fn completed_current<I: AllocationInspection>(
+        &mut self,
+        package: &OriginalPackage,
+        context: &RestartContext<'_, I>,
+    ) -> Result<Option<VerifiedOriginal>, PackageError> {
+        self.trim(context.planner, context.max_originals);
+        self.reader.completed(package, context)
+    }
+    #[cfg(any(test, feature = "controlled-disposable"))]
     pub(crate) fn current_original<I: AllocationInspection>(
         &mut self,
         current: &OriginalPackage,
@@ -1001,6 +1010,51 @@ impl CompiledPlans {
         self.remember(&basis, &plan, limits, max_entries, true)
             .map_err(|_| "compiled plan memo")?;
         Ok(plan)
+    }
+    // Private v4 admission memo: the caller supplies a fresh package/observation/
+    // custody fingerprint. Storage shares the existing compact-plan byte budget.
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(super) fn remember_snapshot_plan(
+        &mut self,
+        key: &str,
+        plan: &RepeatablePlan,
+        limits: Limits,
+        max_entries: usize,
+    ) -> Result<(), PackageError> {
+        let basis = wire::encode(&serde_json::json!([
+            "snapshot-plan",
+            key,
+            plan.original(),
+            planner_limits(limits)
+        ]));
+        self.remember(&basis, plan, limits, max_entries, true)
+    }
+    #[cfg(any(test, feature = "controlled-disposable"))]
+    pub(super) fn snapshot_plan(
+        &mut self,
+        key: &str,
+        current: &OriginalPackage,
+        original: &Value,
+        limits: Limits,
+        max_entries: usize,
+    ) -> Result<Option<RepeatablePlan>, PackageError> {
+        self.trim(limits, max_entries);
+        let basis = wire::encode(&serde_json::json!([
+            "snapshot-plan",
+            key,
+            original,
+            planner_limits(limits)
+        ]));
+        let Some((cached, _)) = self.entries.get(&wire::hash(&basis)) else {
+            return Ok(None);
+        };
+        check(cached.plan.original == *original)?;
+        let plan = cached.materialize(current, None)?;
+        #[cfg(test)]
+        {
+            self.hits += 1;
+        }
+        Ok(Some(plan))
     }
     fn remember(
         &mut self,
@@ -1687,6 +1741,7 @@ pub(super) struct CompactOriginal {
     charge: u64,
     empty: ObjectRef,
     completed_original: Option<ObjectRef>,
+    selected_frames: super::plan::SelectedFrames,
     retained: BTreeMap<ObjectRef, v1_3::Membership>,
 }
 impl CompactOriginal {
@@ -1748,6 +1803,7 @@ impl CompactOriginal {
             charge: v.charge_unit,
             empty: v.empty_hold.clone(),
             completed_original: v.completed_original.clone(),
+            selected_frames: v.selected_frames.clone(),
             retained: v.retained_controls.clone(),
         }
     }
@@ -1814,6 +1870,7 @@ impl CompactOriginal {
             self.charge,
             self.empty.clone(),
         );
+        verified.selected_frames.clone_from(&self.selected_frames);
         verified.retained_controls = self.retained.clone();
         verified
             .completed_original
@@ -1823,7 +1880,7 @@ impl CompactOriginal {
     #[cfg(any(test, feature = "controlled-disposable"))]
     pub(super) fn cost(&self) -> Option<usize> {
         let p = &self.package;
-        let data = serde_json::json!({"manifest":p.manifest,"head":p.head,"commit":p.commit,"allocations":p.allocations.iter().map(|(id,a)|serde_json::json!([id,a.arena,a.witness])).collect::<Vec<_>>(),"lengths":self.lengths,"roles":self.proof.roles.iter().map(|(id,r)|serde_json::json!([id,r.state,r.semantic,r.receipts])).collect::<Vec<_>>(),"global":self.proof.global,"scope":self.scope,"empty":self.empty,"completed_original":self.completed_original,"retained":self.retained.iter().map(|(r,m)|serde_json::json!([r,format!("{m:?}")])).collect::<Vec<_>>()});
+        let data = serde_json::json!({"selected_frames":self.selected_frames.as_ref().map(|v|v.iter().map(|(r,k)|serde_json::json!([r,*k as u8])).collect::<Vec<_>>()),"manifest":p.manifest,"head":p.head,"commit":p.commit,"allocations":p.allocations.iter().map(|(id,a)|serde_json::json!([id,a.arena,a.witness])).collect::<Vec<_>>(),"lengths":self.lengths,"roles":self.proof.roles.iter().map(|(id,r)|serde_json::json!([id,r.state,r.semantic,r.receipts])).collect::<Vec<_>>(),"global":self.proof.global,"scope":self.scope,"empty":self.empty,"completed_original":self.completed_original,"retained":self.retained.iter().map(|(r,m)|serde_json::json!([r,format!("{m:?}")])).collect::<Vec<_>>()});
         p.loose.iter().try_fold(value_storage(&data)?, |n, (k, v)| {
             n.checked_add(k.capacity())?
                 .checked_add(v.capacity())?
@@ -1929,4 +1986,18 @@ pub(super) fn check_compact_ownership(plan: &RepeatablePlan, limits: Limits) {
         assert_eq!(&suffix[..], &plan.files[id][old.bytes.len()..]);
     }
     assert!(compact.plan.public_files.get().is_none());
+}
+
+#[cfg(test)]
+pub(super) fn check_compact_verified(proof: &VerifiedOriginal) {
+    let compact = CompactOriginal::new(proof);
+    let restored = compact.materialize(proof.shared_package()).unwrap();
+    assert_eq!(restored.selected_frames, proof.selected_frames);
+    assert_eq!(restored.completed_original, proof.completed_original);
+    assert_eq!(restored.retained_controls, proof.retained_controls);
+    assert!(
+        compact.cost().unwrap()
+            >= restored.selected_frames.as_ref().map_or(0, |v| v.len()
+                * std::mem::size_of::<(v1_3::PhysicalRef, v1_3::FrameKind)>())
+    );
 }
