@@ -16,7 +16,7 @@ pub(super) struct Namespace {
     initial_pin: Pin,
 }
 
-fn safe_selector(name: &str) -> bool {
+pub(super) fn safe_selector(name: &str) -> bool {
     !name.is_empty()
         && name.len() <= 128
         && name.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
@@ -397,8 +397,23 @@ fn refused(_: impl std::fmt::Debug) -> PackageError {
     PackageError::Integrity
 }
 
+pub(super) fn standing_charge(footprint: &Value) -> Result<u64, PackageError> {
+    footprint["standing_observation"]["rounded_required_charge"]
+        .as_u64()
+        .ok_or(PackageError::Integrity)
+}
+fn preflight_charge(footprint: &Value, extra: u64, limit: u64) -> Result<(), PackageError> {
+    if standing_charge(footprint)?
+        .checked_add(extra)
+        .ok_or(PackageError::Limit)?
+        > limit
+    {
+        return Err(PackageError::Limit);
+    }
+    Ok(())
+}
 impl Native {
-    pub(super) fn verify_legacy_custody(&self) -> IoResult<()> {
+    pub(super) fn verify_active_custody(&self) -> IoResult<()> {
         if let Some(namespace) = &self.checkpoint_namespace {
             let selected = LocalSelection::parse(
                 &namespace.selector()?,
@@ -408,7 +423,12 @@ impl Native {
             .map_err(|_| invalid())?;
             let selected = selected.value();
             if !selected["pending"].is_null()
-                || selected["selected"]["format"] != "PHPSJ001"
+                || selected["selected"]["format"]
+                    != if self.journal_header["format_version"] == 1 {
+                        "PHPSJ001"
+                    } else {
+                        "PHPSJ002"
+                    }
                 || selected["selected"]["stream_id"] != self.journal_header["stream_id"]
                 || selected["selected"]["header_sha256"]
                     != hash(
@@ -424,10 +444,73 @@ impl Native {
         }
         Ok(())
     }
-    fn checkpoint_identity(&self) -> Result<CheckpointIdentity, PackageError> {
+    pub(super) fn load_selected_journal(&mut self) -> IoResult<bool> {
+        let Some(namespace) = &self.checkpoint_namespace else {
+            return Ok(false);
+        };
+        let selected = LocalSelection::parse(
+            &namespace.selector()?,
+            &self.checkpoint_identity().map_err(|_| invalid())?,
+            support::limits().json,
+        )
+        .map_err(|_| invalid())?;
+        let selected = selected.value();
+        if !selected["pending"].is_null() {
+            return Err(invalid());
+        }
+        if selected["selected"]["format"] == "PHPSJ001" {
+            self.verify_active_custody()?;
+            return Ok(false);
+        }
+        let stream = PackageUuid::parse(
+            selected["selected"]["stream_id"]
+                .as_str()
+                .ok_or_else(invalid)?,
+        )
+        .map_err(|_| invalid())?;
+        let name = segment_name(stream);
+        let bytes = read(&self.evidence, &name)?;
+        let length = u32::from_le_bytes(
+            bytes
+                .get(8..12)
+                .ok_or_else(invalid)?
+                .try_into()
+                .map_err(|_| invalid())?,
+        ) as usize;
+        let header = super::package::parse_canonical_json(
+            bytes
+                .get(12..12usize.checked_add(length).ok_or_else(invalid)?)
+                .ok_or_else(invalid)?,
+            self.journal_bounds().json,
+        )
+        .map_err(|_| invalid())?;
+        if header["format_version"] != 2 || header["base"] != selected["selected"]["base"] {
+            return Err(invalid());
+        }
+        for key in [
+            "project_id",
+            "library_id",
+            "bootstrap_sha256",
+            "device_id",
+            "incarnation_id",
+            "journal_id",
+        ] {
+            if header[key] != self.registered_journal_header[key] {
+                return Err(invalid());
+            }
+        }
+        super::journal::Journal::read(&bytes, &header, self.journal_bounds())
+            .map_err(|_| invalid())?;
+        self.active_journal_pin = pin(&regular(&self.evidence, &name, false)?)?;
+        self.journal_header = header;
+        self.journal_name = name;
+        self.verify_active_custody()?;
+        Ok(true)
+    }
+    pub(super) fn checkpoint_identity(&self) -> Result<CheckpointIdentity, PackageError> {
         let uuid = |key: &str| {
             PackageUuid::parse(
-                self.journal_header[key]
+                self.registered_journal_header[key]
                     .as_str()
                     .ok_or(PackageError::Integrity)?,
             )
@@ -437,7 +520,7 @@ impl Native {
                 project: uuid("project_id")?,
                 library: uuid("library_id")?,
                 bootstrap_sha256: crate::package::Sha256Hex::parse(
-                    self.journal_header["bootstrap_sha256"]
+                    self.registered_journal_header["bootstrap_sha256"]
                         .as_str()
                         .ok_or(PackageError::Integrity)?,
                 )?,
@@ -451,6 +534,11 @@ impl Native {
             .as_ref()
             .ok_or(PackageError::Integrity)
     }
+    pub(super) fn checkpoint_selector(&self, lease: &NativeLease) -> IoResult<Vec<u8>> {
+        self.checkpoint_guard(lease)?;
+        self.verify_active_custody()?;
+        self.custody_namespace().map_err(|_| invalid())?.selector()
+    }
     fn checkpoint_guard(&self, lease: &NativeLease) -> IoResult<()> {
         self.lease_ok(lease).map_err(|_| invalid())?;
         self.custody_namespace()
@@ -459,10 +547,7 @@ impl Native {
         if let Some(ceiling) = &self.ceiling {
             let actual = self.footprint(ceiling)?;
             if let Some(limit) = self.checkpoint_control_limit
-                && actual["standing_observation"]
-                    .as_u64()
-                    .ok_or_else(invalid)?
-                    > limit
+                && standing_charge(&actual).map_err(|_| invalid())? > limit
             {
                 return Err(invalid());
             }
@@ -473,17 +558,12 @@ impl Native {
         let footprint = self
             .footprint(self.ceiling.as_ref().ok_or(PackageError::Integrity)?)
             .map_err(refused)?;
-        let used = footprint["standing_observation"]
-            .as_u64()
-            .ok_or(PackageError::Integrity)?;
-        if used.checked_add(extra).ok_or(PackageError::Limit)?
-            > self
-                .checkpoint_control_limit
-                .ok_or(PackageError::Integrity)?
-        {
-            return Err(PackageError::Limit);
-        }
-        Ok(())
+        preflight_charge(
+            &footprint,
+            extra,
+            self.checkpoint_control_limit
+                .ok_or(PackageError::Integrity)?,
+        )
     }
     fn allow_turnover(&mut self, plan: &TurnoverPlan) -> Result<(), PackageError> {
         if plan.original()["scope"]
@@ -985,12 +1065,19 @@ impl CheckpointIo for Native {
     }
 }
 
-impl CheckpointRecoveryIo for Native {
-    type Lease = File;
-    fn read_checkpoint(
-        &mut self,
+impl Native {
+    pub(super) fn read_checkpoint_state(
+        &self,
         lease: &NativeLease,
         limits: ActivationLimits<'_>,
+    ) -> Result<ReopenState, PackageError> {
+        self.read_checkpoint_state_at(lease, limits, None)
+    }
+    pub(super) fn read_checkpoint_state_at(
+        &self,
+        lease: &NativeLease,
+        limits: ActivationLimits<'_>,
+        original: Option<VerifiedOriginal>,
     ) -> Result<ReopenState, PackageError> {
         self.checkpoint_guard(lease).map_err(refused)?;
         let namespace = self.custody_namespace()?;
@@ -1032,20 +1119,24 @@ impl CheckpointRecoveryIo for Native {
             limits.journal.json,
         )?;
         super::journal::Journal::read(&segment, &header, limits.journal)?;
-        let current = self.current().map_err(refused)?;
-        let observed = snapshot(&self.base, &current);
-        let current = v1_3::reader::verify_shared_original(
-            current.clone(),
-            identity(&current),
-            &observed,
-            &self.base.registration,
-            v1_3::DirectoryObservation {
-                device: self.root_pin[0],
-                inode: self.root_pin[1],
-            },
-            limits.frames,
-            limits.reader,
-        )?;
+        let current = if let Some(original) = original {
+            original
+        } else {
+            let current = self.current().map_err(refused)?;
+            let observed = snapshot(&self.base, &current);
+            v1_3::reader::verify_shared_original(
+                current.clone(),
+                identity(&current),
+                &observed,
+                &self.base.registration,
+                v1_3::DirectoryObservation {
+                    device: self.root_pin[0],
+                    inode: self.root_pin[1],
+                },
+                limits.frames,
+                limits.reader,
+            )?
+        };
         self.checkpoint_guard(lease).map_err(refused)?;
         Ok(ReopenState {
             selector,
@@ -1055,6 +1146,17 @@ impl CheckpointRecoveryIo for Native {
             current,
             records,
         })
+    }
+}
+
+impl CheckpointRecoveryIo for Native {
+    type Lease = File;
+    fn read_checkpoint(
+        &mut self,
+        lease: &NativeLease,
+        limits: ActivationLimits<'_>,
+    ) -> Result<ReopenState, PackageError> {
+        self.read_checkpoint_state(lease, limits)
     }
 }
 

@@ -489,7 +489,30 @@ fn prepare(scope: &Scope, session: bool) -> IoResult<()> {
     )?;
     barrier(&evidence)?;
     // Trusted experimental registration captured before any repeatable writer effect.
-    let registration = json!({"nonce":scope.nonce,"package_pin":pin(&root)?,"lock_pin":pin(&lock)?,"evidence_pin":pin(&evidence)?,"generation":scope.generation,"journal_header":journal_header,"journal_pin":pin(&checkpoint)?,"session":session,"tip_charges":captured.get("tip_charges"),"data":data});
+    let mut registration = json!({"nonce":scope.nonce,"package_pin":pin(&root)?,"lock_pin":pin(&lock)?,"evidence_pin":pin(&evidence)?,"generation":scope.generation,"journal_header":journal_header,"journal_pin":pin(&checkpoint)?,"session":session,"tip_charges":captured.get("tip_charges"),"data":data});
+    // Fresh registrar only. Runtime never takes custody configuration from env.
+    if let Some(name) = std::env::var_os("PHOTARA_PS2_CHECKPOINT_SELECTOR") {
+        let name = name.to_str().ok_or_else(invalid)?;
+        if !session || !checkpoint_native::safe_selector(name) {
+            return Err(invalid());
+        }
+        let mut selector = json!({"schema":{"id":"photara.session.checkpoint-selection","version":1},
+            "generation":"1","previous_sha256":null,"pending":null,"extensions":{},
+            "selected":{"format":"PHPSJ001","stream_id":journal_header["stream_id"],
+            "header_sha256":hash(&journal::Journal::create(&journal_header,journal_limits(standing)).map_err(|_|invalid())?),"base":null}});
+        for field in [
+            "project_id",
+            "library_id",
+            "bootstrap_sha256",
+            "device_id",
+            "incarnation_id",
+        ] {
+            selector[field] = journal_header[field].clone();
+        }
+        create(&evidence, name, &canonical(&selector))?;
+        barrier(&evidence)?;
+        registration["checkpoint_selector"] = json!(name);
+    }
     create(
         &scope.scratch,
         "repeatable-registration.json",
@@ -511,7 +534,10 @@ struct Native {
     allowed: BTreeMap<String, Vec<u8>>,
     commits: BTreeMap<String, Vec<u8>>,
     journal_header: Value,
+    registered_journal_header: Value,
+    journal_name: String,
     journal_pin: Pin,
+    active_journal_pin: Pin,
     journal_capacity: u64,
     journal_high_water: u64,
     completion: Option<journal::JournalAppend>,
@@ -785,8 +811,11 @@ impl Native {
             interrupt: false,
             allowed: BTreeMap::new(),
             commits: BTreeMap::new(),
+            registered_journal_header: journal_header.clone(),
             journal_header,
+            journal_name: CHECKPOINT.into(),
             journal_pin,
+            active_journal_pin: journal_pin,
             journal_capacity: 0,
             journal_high_water: 0,
             completion: None,
@@ -816,7 +845,12 @@ impl Native {
             let limit = number(&initial["total_charge"])?
                 .checked_add(4096)
                 .ok_or_else(invalid)?;
-            let journal = native.checkpoint()?;
+            let journal = journal::Journal::read(
+                &read(&native.evidence, CHECKPOINT)?,
+                &native.registered_journal_header,
+                native.journal_bounds(),
+            )
+            .map_err(|_| invalid())?;
             if journal
                 .records()
                 .iter()
@@ -876,6 +910,9 @@ impl Native {
         if pin(&regular(&evidence, CHECKPOINT, false)?)? != self.journal_pin {
             return Err(invalid());
         }
+        if pin(&regular(&evidence, &self.journal_name, false)?)? != self.active_journal_pin {
+            return Err(invalid());
+        }
         let root = File::from(open(&self.scope.path, DIRECTORY, Mode::empty())?);
         if pin(&root)? != self.root_pin
             || pin(&regular(&root, ".writer-lock", false)?)? != self.lock_pin
@@ -898,6 +935,14 @@ impl Native {
         Ok(())
     }
     fn current(&self) -> IoResult<OriginalPackage> {
+        self.current_with_coexistence(false)
+    }
+    // Untrusted read used solely to reconstruct an original before installing
+    // its exact allowed coexistence set. It grants no admission or phase proof.
+    fn current_candidate(&self) -> IoResult<OriginalPackage> {
+        self.current_with_coexistence(true)
+    }
+    fn current_with_coexistence(&self, candidate: bool) -> IoResult<OriginalPackage> {
         self.pins()?;
         let mut p = package(&self.base);
         p.head = serde_json::from_slice(&read(&self.root, "HEAD.json")?).map_err(|_| invalid())?;
@@ -967,11 +1012,13 @@ impl Native {
             selected.insert(r["sha256"].as_str().ok_or_else(invalid)?.into());
         }
         for (sha, bytes) in &p.loose {
-            if !selected.contains(sha) && self.allowed.get(sha) != Some(bytes) {
+            if !candidate && !selected.contains(sha) && self.allowed.get(sha) != Some(bytes) {
                 return Err(invalid());
             }
         }
-        p.loose.retain(|sha, _| selected.contains(sha));
+        if !candidate {
+            p.loose.retain(|sha, _| selected.contains(sha));
+        }
         for (id, a) in &mut p.allocations {
             a.bytes = read(&self.root, &pack_name(id))?.into();
         }
@@ -1109,8 +1156,8 @@ impl Native {
         limits
     }
     fn checkpoint(&self) -> IoResult<journal::Journal> {
-        self.verify_legacy_custody()?;
-        let bytes = read(&self.evidence, CHECKPOINT)?;
+        self.verify_active_custody()?;
+        let bytes = read(&self.evidence, &self.journal_name)?;
         let parsed = journal::Journal::read(&bytes, &self.journal_header, self.journal_bounds())
             .map_err(|_| invalid())?;
         if parsed.tail() != journal::JournalTail::Complete {
@@ -1120,13 +1167,14 @@ impl Native {
     }
     fn append_checkpoint(&mut self, append: &journal::JournalAppend) -> IoResult<()> {
         self.pins()?;
-        let bytes = read(&self.evidence, CHECKPOINT)?;
+        self.verify_active_custody()?;
+        let bytes = read(&self.evidence, &self.journal_name)?;
         if bytes.len() != append.expected_extent()
             || hash(&bytes) != append.expected_prefix_sha256()
         {
             return Err(invalid());
         }
-        let file = regular(&self.evidence, CHECKPOINT, false)?;
+        let file = regular(&self.evidence, &self.journal_name, false)?;
         self.journal_high_water = self.journal_high_water.max(
             file.metadata()?
                 .blocks()
@@ -1136,7 +1184,7 @@ impl Native {
         if self.journal_high_water > self.journal_capacity {
             return Err(invalid());
         }
-        append_exact(&self.evidence, CHECKPOINT, &bytes, append.bytes())?;
+        append_exact(&self.evidence, &self.journal_name, &bytes, append.bytes())?;
         self.journal_high_water = self.journal_high_water.max(
             file.metadata()?
                 .blocks()
@@ -1152,34 +1200,12 @@ impl Native {
     fn prepare_checkpoint(&mut self, plan: &RepeatablePlan) -> IoResult<()> {
         self.prepare_checkpoint_with(plan, None)
     }
-    #[expect(
-        clippy::too_many_lines,
-        reason = "Keep exact journal preflight and original-bound append ordering together"
-    )]
     fn prepare_checkpoint_with(
         &mut self,
         plan: &RepeatablePlan,
         session: Option<(&VerifiedOriginal, &PlannerInputs)>,
     ) -> IoResult<()> {
         let _timing = Timing::new("checkpoint-preflight");
-        if self.session_mode {
-            if plan.original()["project_limit"]
-                != json!(self.session_project_limit.ok_or_else(invalid)?.to_string())
-            {
-                return Err(invalid());
-            }
-            // Only the independently registered prepaid native corridor is
-            // available to this bounded lab. No future Accepted can grow it.
-            for (id, file) in &plan.files {
-                let key = package::PackageUuid::parse(id).map_err(|_| invalid())?;
-                let captured = self.base.allocations.get(&key).ok_or_else(invalid)?;
-                if u64::try_from(file.len()).map_err(|_| invalid())? > captured.charge {
-                    return Err(std::io::Error::other(
-                        "native prepaid corridor exhausted before admission",
-                    ));
-                }
-            }
-        }
         let current = self.current()?;
         let observed = snapshot(&self.base, &current);
         let identity = identity(&current);
@@ -1221,7 +1247,7 @@ impl Native {
             verified.prepare_intent(plan, identity, limits)
         }
         .map_err(|_| invalid())?;
-        let mut planned = read(&self.evidence, CHECKPOINT)?;
+        let mut planned = read(&self.evidence, &self.journal_name)?;
         planned.extend(intent.bytes());
         let intent_id = package::PackageUuid::parse(
             intent.record().value()["record_id"]
@@ -1270,10 +1296,47 @@ impl Native {
                 limits,
             )
             .map_err(|_| invalid())?;
+        self.install_checkpoint_plan(
+            plan,
+            &intent,
+            completion,
+            planned.len(),
+            worst.bytes().len(),
+        )
+    }
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Keep exact journal preflight and original-bound append ordering together"
+    )]
+    fn install_checkpoint_plan(
+        &mut self,
+        plan: &RepeatablePlan,
+        intent: &journal::JournalAppend,
+        completion: journal::JournalAppend,
+        planned_length: usize,
+        worst_length: usize,
+    ) -> IoResult<()> {
+        if self.session_mode {
+            if plan.original()["project_limit"]
+                != json!(self.session_project_limit.ok_or_else(invalid)?.to_string())
+            {
+                return Err(invalid());
+            }
+            // Only the independently registered prepaid native corridor is
+            // available to this bounded lab. No future Accepted can grow it.
+            for (id, file) in &plan.files {
+                let key = package::PackageUuid::parse(id).map_err(|_| invalid())?;
+                let captured = self.base.allocations.get(&key).ok_or_else(invalid)?;
+                if u64::try_from(file.len()).map_err(|_| invalid())? > captured.charge {
+                    return Err(std::io::Error::other(
+                        "native prepaid corridor exhausted before admission",
+                    ));
+                }
+            }
+        }
         let extent = u64::try_from(
-            planned
-                .len()
-                .checked_add(worst.bytes().len())
+            planned_length
+                .checked_add(worst_length)
                 .and_then(|n| n.checked_add(self.reserved_journal_extra))
                 .ok_or_else(invalid)?,
         )
@@ -1289,7 +1352,28 @@ impl Native {
             .and_then(|n| n.checked_add(1))
             .and_then(|n| n.checked_mul(unit))
             .ok_or_else(invalid)?;
-        let namespace = unit.checked_mul(4).ok_or_else(invalid)?;
+        let mut namespace = unit.checked_mul(4).ok_or_else(invalid)?;
+        let mut retained_count = 0u64;
+        if let Some(custody) = &self.checkpoint_namespace {
+            let mut retained = Vec::new();
+            for file in custody.retained()? {
+                if pin(&file)? != self.active_journal_pin {
+                    retained.push(
+                        v1_3::native_profile::measure_allocation(&file).map_err(|_| invalid())?,
+                    );
+                }
+            }
+            retained_count = u64::try_from(retained.len()).map_err(|_| invalid())?;
+            let charge = v1_3::native_profile::check_charge(
+                &retained,
+                unit,
+                self.base.registration.standing_control,
+            )
+            .map_err(|_| invalid())?;
+            namespace = namespace
+                .checked_add(charge.rounded_required_charge)
+                .ok_or_else(invalid)?;
+        }
         let fixed = [&self.root, &self.evidence];
         let mut namespace_usage = fixed
             .into_iter()
@@ -1301,8 +1385,12 @@ impl Native {
                     .map_err(|_| invalid())?,
             );
         }
-        v1_3::native_profile::check_charge(&namespace_usage, unit, namespace)
-            .map_err(|_| invalid())?;
+        v1_3::native_profile::check_charge(
+            &namespace_usage,
+            unit,
+            unit.checked_mul(4).ok_or_else(invalid)?,
+        )
+        .map_err(|_| invalid())?;
         let peak = plan
             .control_peak()
             .checked_add(capacity)
@@ -1310,7 +1398,11 @@ impl Native {
             .ok_or_else(invalid)?;
         if peak > self.base.registration.standing_control
             || peak > number(&plan.original()["control_bounds"]["aggregate_control_bytes"])?
-            || plan.control_role_peak.checked_add(5).ok_or_else(invalid)?
+            || plan
+                .control_role_peak
+                .checked_add(5)
+                .and_then(|n| n.checked_add(retained_count))
+                .ok_or_else(invalid)?
                 > number(&plan.original()["control_bounds"]["aggregate_control_count"])?
         {
             return Err(std::io::Error::other(format!(
@@ -1363,7 +1455,7 @@ impl Native {
         self.published_head.clone_from(&plan.stages[5].head);
         self.completed_head.clone_from(&plan.stages[6].head);
         self.completion = Some(completion);
-        self.append_checkpoint(&intent)?;
+        self.append_checkpoint(intent)?;
         self.check_effect_footprint()?;
         Ok(())
     }
@@ -1506,7 +1598,7 @@ impl RepeatableIo for Native {
                 true,
             )?)?;
             barrier(&regular(&self.root, "HEAD.json", true)?)?;
-            barrier(&regular(&self.evidence, CHECKPOINT, true)?)?;
+            barrier(&regular(&self.evidence, &self.journal_name, true)?)?;
             barrier(&self.root)?;
             barrier(&self.evidence)?;
             // Remove only previously authenticated operation-owned sidecars.
@@ -1563,7 +1655,7 @@ impl RepeatableIo for Native {
         }
         uncertain((|| {
             self.checkpoint()?;
-            barrier(&regular(&self.evidence, CHECKPOINT, true)?)?;
+            barrier(&regular(&self.evidence, &self.journal_name, true)?)?;
             barrier(&self.evidence)
         })())
     }
@@ -1629,7 +1721,7 @@ impl RepeatableIo for Native {
             if head == self.published_head {
                 // Intent already contains the exact original receipt. Stage 5
                 // barriers it; only selected clean stage 6 gets the wrapper.
-                barrier(&regular(&self.evidence, CHECKPOINT, true)?)?;
+                barrier(&regular(&self.evidence, &self.journal_name, true)?)?;
                 return barrier(&self.evidence);
             }
             if head != self.completed_head {
@@ -1645,7 +1737,7 @@ impl RepeatableIo for Native {
                     .iter()
                     .any(|record| record.value() == completion.record().value())
                 {
-                    barrier(&regular(&self.evidence, CHECKPOINT, true)?)?;
+                    barrier(&regular(&self.evidence, &self.journal_name, true)?)?;
                     barrier(&self.evidence)
                 } else {
                     self.append_checkpoint(&completion)

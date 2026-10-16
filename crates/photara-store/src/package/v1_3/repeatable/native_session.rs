@@ -1,11 +1,12 @@
 //! Private stdio adapter for the explicitly controlled disposable-image lab.
 //! No production lease constructor, public filesystem path, or network service.
 use super::{
-    BTreeMap, CHECKPOINT, EffectFailure, IoResult, Native, NativeLease, PlannerInputs,
-    RepeatablePlan, RestartContext, Timing, Value, VerifiedOriginal, attempt, barrier, budget,
-    canonical, execute, frames, hash, identity, invalid, journal, json, number, package, read,
-    record_identity, reference, regular, request, restart, snapshot, support, uncertain, v1_3,
+    BTreeMap, EffectFailure, IoResult, Native, NativeLease, PlannerInputs, RepeatablePlan,
+    RestartContext, Timing, Value, VerifiedOriginal, attempt, barrier, budget, canonical, execute,
+    frames, hash, identity, invalid, journal, json, number, package, read, record_identity,
+    reference, regular, request, restart, snapshot, support, uncertain, v1_3,
 };
+use crate::package::v1_3::repeatable::checkpoint;
 use crate::package::v1_3::repeatable::session::{
     AcceptedCoordinate, Presentation, Session, SessionBinding, SessionError, SessionFailure,
     SessionIo, SessionSnapshot,
@@ -21,13 +22,192 @@ fn session_error(error: impl std::fmt::Debug) -> SessionError {
     );
     SessionError::Failure(SessionFailure::Storage)
 }
+// One optional live checkpoint capability. Its immutable inputs are compared
+// against fresh bytes and observations; authority and durability are never cached.
+struct SnapshotView {
+    key: String,
+    selector: Vec<u8>,
+    journal: Vec<u8>,
+    checkpoint: std::sync::Arc<checkpoint::ActivatedCheckpoint>,
+    records: std::sync::Arc<ObservedRecords>,
+    reads: Vec<(RecordRead, String)>,
+}
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum RecordRead {
+    Record(String, usize),
+    Frame(package::PackageUuid, u64, usize),
+}
+struct ObservedRecords {
+    source: std::sync::Arc<dyn checkpoint::CheckpointRecords>,
+    reads: std::sync::Mutex<Option<BTreeMap<RecordRead, String>>>,
+    overflow: std::sync::atomic::AtomicBool,
+}
+impl ObservedRecords {
+    fn capture(&self, key: RecordRead, bytes: &[u8]) -> Result<(), package::PackageError> {
+        let mut reads = self
+            .reads
+            .lock()
+            .map_err(|_| package::PackageError::Integrity)?;
+        if let Some(map) = reads.as_mut() {
+            if map.len() >= budget().max_objects && !map.contains_key(&key) {
+                *reads = None;
+                self.overflow
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
+            } else if map
+                .insert(key, hash(bytes))
+                .is_some_and(|prior| prior != hash(bytes))
+            {
+                return Err(package::PackageError::Integrity);
+            }
+        }
+        Ok(())
+    }
+    fn recheck(&self, reads: &[(RecordRead, String)]) -> Result<(), package::PackageError> {
+        for (key, expected) in reads {
+            let bytes = match key {
+                RecordRead::Record(reference, maximum) => self.source.record(
+                    &serde_json::from_str(reference).map_err(|_| package::PackageError::Record)?,
+                    *maximum,
+                )?,
+                RecordRead::Frame(stream, offset, length) => {
+                    self.source.frame(*stream, *offset, *length)?
+                }
+            };
+            if hash(&bytes) != *expected {
+                return Err(package::PackageError::Integrity);
+            }
+        }
+        Ok(())
+    }
+}
+impl checkpoint::CheckpointRecords for ObservedRecords {
+    fn record(&self, reference: &Value, maximum: usize) -> Result<Vec<u8>, package::PackageError> {
+        let bytes = self.source.record(reference, maximum)?;
+        self.capture(
+            RecordRead::Record(
+                String::from_utf8(canonical(reference))
+                    .map_err(|_| package::PackageError::Record)?,
+                maximum,
+            ),
+            &bytes,
+        )?;
+        Ok(bytes)
+    }
+    fn frame(
+        &self,
+        stream: package::PackageUuid,
+        offset: u64,
+        length: usize,
+    ) -> Result<Vec<u8>, package::PackageError> {
+        let bytes = self.source.frame(stream, offset, length)?;
+        self.capture(RecordRead::Frame(stream, offset, length), &bytes)?;
+        Ok(bytes)
+    }
+}
 struct Host {
     io: Native,
     lease: NativeLease,
     binding: SessionBinding,
     seed: Option<PlannerInputs>,
+    snapshot: std::cell::RefCell<Option<SnapshotView>>,
 }
 impl Host {
+    fn snapshot_mode(&self) -> bool {
+        self.io.journal_header["format_version"] == 2
+    }
+    fn snapshot_capability(
+        &self,
+        journal: &journal::Journal,
+    ) -> Result<std::sync::Arc<checkpoint::ActivatedCheckpoint>, SessionError> {
+        let reader = support::limits();
+        let current = self.io.current().map_err(session_error)?;
+        let observed = snapshot(&self.io.base, &current);
+        let identity = identity(&current);
+        let context = self.context(&observed, &identity, &reader);
+        let key = restart::CompiledPlans::snapshot_key(&current, &context);
+        let selector = self
+            .io
+            .checkpoint_selector(&self.lease)
+            .map_err(session_error)?;
+        let bytes = self.read_journal()?;
+        if journal.exact_bytes() != bytes {
+            return Err(SessionError::InvalidRequest);
+        }
+        let mut cache = self.snapshot.borrow_mut();
+        if let Some(saved) = cache.as_ref()
+            && saved.key == key
+            && saved.selector == selector
+            && bytes == saved.journal
+        {
+            saved.records.recheck(&saved.reads)?;
+            if self
+                .io
+                .checkpoint_selector(&self.lease)
+                .map_err(session_error)?
+                != selector
+            {
+                return Err(SessionError::InvalidRequest);
+            }
+            return Ok(saved.checkpoint.clone());
+        }
+        let limits = checkpoint::ActivationLimits {
+            journal: self.io.journal_bounds(),
+            frames: frames(),
+            reader: &reader,
+            planner: budget(),
+        };
+        let mut state = self.io.read_checkpoint_state(&self.lease, limits)?;
+        if state.selector != selector
+            || state.segment != bytes
+            || restart::CompiledPlans::snapshot_key(state.current.shared_package(), &context) != key
+        {
+            return Err(SessionError::InvalidRequest);
+        }
+        let records = std::sync::Arc::new(ObservedRecords {
+            source: state.records,
+            reads: std::sync::Mutex::new(Some(BTreeMap::new())),
+            overflow: std::sync::atomic::AtomicBool::new(false),
+        });
+        state.records = records.clone();
+        let checkpoint = std::sync::Arc::new(checkpoint::reopen_state(
+            state,
+            &self.io.checkpoint_identity()?,
+            limits,
+        )?);
+        let reads = records
+            .reads
+            .lock()
+            .map_err(|_| SessionError::InvalidRequest)?
+            .take()
+            .unwrap_or_default()
+            .into_iter()
+            .collect::<Vec<_>>();
+        // Optional metadata is bounded; overflow changes speed only.
+        if records.overflow.load(std::sync::atomic::Ordering::Relaxed) {
+            *cache = None;
+        } else {
+            *cache = Some(SnapshotView {
+                key,
+                selector,
+                journal: bytes,
+                checkpoint: checkpoint.clone(),
+                records,
+                reads,
+            });
+        }
+        Ok(checkpoint)
+    }
+    fn snapshot_view<'a>(
+        &self,
+        journal: &'a journal::Journal,
+    ) -> Result<journal::VerifiedSession<'a>, SessionError> {
+        Ok(self.snapshot_capability(journal)?.verify_session(
+            journal,
+            frames(),
+            &support::limits(),
+            budget(),
+        )?)
+    }
     fn context<'a>(
         &'a self,
         observed: &'a super::Snapshot<'_>,
@@ -50,6 +230,13 @@ impl Host {
     }
     fn header_original(&self) -> IoResult<VerifiedOriginal> {
         let _timing = Timing::new("header-original");
+        if self.snapshot_mode() {
+            let journal = self.io.checkpoint()?;
+            return self
+                .snapshot_capability(&journal)
+                .map(|p| p.package().shared_clone())
+                .map_err(|e| std::io::Error::other(format!("snapshot header: {e:?}")));
+        }
         let current = self.io.current()?;
         let j = self.io.checkpoint()?;
         let raw = if let Some(first) = j
@@ -79,6 +266,9 @@ impl Host {
         .map_err(|_| invalid())
     }
     fn original(&self) -> IoResult<VerifiedOriginal> {
+        if self.snapshot_mode() {
+            return self.header_original();
+        }
         let current = self.io.current()?;
         let observed = snapshot(&self.io.base, &current);
         let id = identity(&current);
@@ -123,9 +313,74 @@ impl Host {
             .map_err(|_| invalid())
         }
     }
+    fn snapshot_origin(
+        &self,
+        current: &super::OriginalPackage,
+        original: &Value,
+    ) -> IoResult<(VerifiedOriginal, checkpoint::ActivatedCheckpoint)> {
+        let raw = self
+            .io
+            .compiled
+            .borrow()
+            .reconstruct(current, original, budget())
+            .map_err(|_| invalid())?;
+        let observed = snapshot(&self.io.base, current);
+        let reader = support::limits();
+        let old = v1_3::reader::verify_shared_original(
+            raw,
+            identity(current),
+            &observed,
+            &self.io.base.registration,
+            v1_3::DirectoryObservation {
+                device: self.io.root_pin[0],
+                inode: self.io.root_pin[1],
+            },
+            frames(),
+            &reader,
+        )
+        .map_err(|_| invalid())?;
+        let limits = checkpoint::ActivationLimits {
+            journal: self.io.journal_bounds(),
+            frames: frames(),
+            reader: &reader,
+            planner: budget(),
+        };
+        let mut state = self
+            .io
+            .read_checkpoint_state_at(&self.lease, limits, Some(old.shared_clone()))
+            .map_err(|_| invalid())?;
+        let journal =
+            journal::Journal::read(&state.segment, &state.header, self.io.journal_bounds())
+                .map_err(|_| invalid())?;
+        if let Some(index) = journal.records().iter().position(|r| {
+            r.value()["kind"] == "CheckpointIntent" && r.value()["body"]["original"] == *original
+        }) {
+            let end = if index == 0 {
+                journal::Journal::create(&state.header, self.io.journal_bounds())
+                    .map_err(|_| invalid())?
+                    .len()
+            } else {
+                journal
+                    .record_end(&journal.records()[index - 1].value()["record_id"])
+                    .ok_or_else(invalid)?
+            };
+            state.segment.truncate(end);
+        }
+        let base = checkpoint::reopen_state(
+            state,
+            &self.io.checkpoint_identity().map_err(|_| invalid())?,
+            limits,
+        )
+        .map_err(|_| invalid())?;
+        Ok((old, base))
+    }
     fn persisted(&self, operation: &Value) -> IoResult<RepeatablePlan> {
         let _timing = Timing::new("persisted-original");
-        let current = self.io.current()?;
+        let current = if self.snapshot_mode() {
+            self.io.current_candidate()?
+        } else {
+            self.io.current()?
+        };
         let j = self.io.checkpoint()?;
         let b = &j
             .records()
@@ -136,6 +391,18 @@ impl Host {
             })
             .ok_or_else(invalid)?
             .value()["body"];
+        if self.snapshot_mode() {
+            let (old, base) = self.snapshot_origin(&current, &b["original"])?;
+            return base
+                .restore_operation(
+                    &old,
+                    &b["semantic_intent"],
+                    &b["operation_receipt"],
+                    &canonical(&b["original"]),
+                    budget(),
+                )
+                .map_err(|_| invalid());
+        }
         let observed = snapshot(&self.io.base, &current);
         let id = identity(&current);
         let reader = support::limits();
@@ -149,20 +416,98 @@ impl Host {
         )
         .map_err(|_| invalid())
     }
+    fn prepare_plan(&mut self, plan: &RepeatablePlan) -> IoResult<()> {
+        if !self.snapshot_mode() {
+            let base = self.header_original()?;
+            return self.io.prepare_checkpoint_with(
+                plan,
+                Some((&base, self.seed.as_ref().expect("initialized header seed"))),
+            );
+        }
+        let journal = self.io.checkpoint()?;
+        let current = self.io.current_candidate()?;
+        let (_, checkpoint) = self.snapshot_origin(&current, plan.original())?;
+        let view = checkpoint
+            .verify_session(&journal, frames(), &support::limits(), budget())
+            .map_err(|_| invalid())?;
+        let prior = journal.records().iter().find(|r| {
+            r.value()["kind"] == "CheckpointIntent"
+                && r.value()["body"]["operation_receipt"]["operation_id"]
+                    == plan.prepared.receipt["operation_id"]
+        });
+        let intent = view
+            .prepare_snapshot_intent(
+                plan,
+                record_identity(
+                    prior.map(journal::JournalRecord::value),
+                    self.io.scope.generation,
+                )?,
+                self.io.journal_bounds(),
+            )
+            .map_err(|_| invalid())?;
+        let mut planned = journal.exact_bytes().to_vec();
+        planned.extend_from_slice(intent.bytes());
+        let next = journal::Journal::read_reusing(
+            &planned,
+            &self.io.journal_header,
+            self.io.journal_bounds(),
+            &journal,
+        )
+        .map_err(|_| invalid())?;
+        let intent_id = package::PackageUuid::parse(
+            intent.record().value()["record_id"]
+                .as_str()
+                .ok_or_else(invalid)?,
+        )
+        .map_err(|_| invalid())?;
+        let prior = next.records().iter().find(|r| {
+            r.value()["kind"] == "CheckpointReceipt"
+                && r.value()["body"]["operation_receipt"]["operation_id"]
+                    == plan.prepared.receipt["operation_id"]
+        });
+        let receipt_id = record_identity(
+            prior.map(journal::JournalRecord::value),
+            self.io.scope.generation,
+        )?;
+        let completion = next
+            .snapshot_receipt_plan(plan, intent_id, receipt_id, self.io.journal_bounds())
+            .map_err(|_| invalid())?;
+        let prefix = journal::Journal::read_reusing(
+            &planned[..next
+                .record_end(&intent.record().value()["record_id"])
+                .ok_or_else(invalid)?],
+            &self.io.journal_header,
+            self.io.journal_bounds(),
+            &next,
+        )
+        .map_err(|_| invalid())?;
+        let worst = prefix
+            .snapshot_receipt_plan(
+                plan,
+                intent_id,
+                journal::JournalRecordIdentity {
+                    session_generation: u64::MAX,
+                    ..receipt_id
+                },
+                self.io.journal_bounds(),
+            )
+            .map_err(|_| invalid())?;
+        self.io.install_checkpoint_plan(
+            plan,
+            &intent,
+            completion,
+            planned.len(),
+            worst.bytes().len(),
+        )
+    }
     fn execute_original(&mut self, operation: &Value) -> IoResult<()> {
         let _timing = Timing::new("execute-original-total");
         let plan = self
             .persisted(operation)
             .map_err(|e| std::io::Error::other(format!("restore original: {e}")))?;
         self.io.allow(&plan);
-        let base = self.header_original()?;
-        // The actual Mutation/barrier are now retained in the parsed journal;
-        // count them once, not again as pre-Mutation future capacity.
         self.io.reserved_journal_extra = 0;
-        self.io.prepare_checkpoint_with(
-            &plan,
-            Some((&base, self.seed.as_ref().expect("initialized header seed"))),
-        )?;
+        self.prepare_plan(&plan)?;
         let _execute_timing = Timing::new("executor-effects-and-checks");
         execute(&mut self.io, &self.lease, &plan)
             .map_err(|e| std::io::Error::other(format!("native checkpoint execute: {e:?}")))?;
@@ -190,12 +535,35 @@ impl Host {
             .ok_or(SessionError::Failure(SessionFailure::Capacity))?;
         Ok(())
     }
+    fn prepare_snapshot_lifecycle(&mut self, current: &VerifiedOriginal) -> IoResult<()> {
+        let ceiling = super::charges(&self.io.base, &current.package);
+        let footprint = self.io.footprint(&ceiling)?;
+        let used = super::checkpoint_native::standing_charge(&footprint).map_err(|_| invalid())?;
+        let file = regular(&self.io.evidence, &self.io.journal_name, false)?;
+        let usage = v1_3::native_profile::measure_allocation(&file).map_err(|_| invalid())?;
+        let charge = v1_3::native_profile::check_charge(
+            &[usage],
+            self.io.base.registration.charge_unit,
+            self.io.base.registration.standing_control,
+        )
+        .map_err(|_| invalid())?;
+        self.io.journal_capacity = self
+            .io
+            .base
+            .registration
+            .standing_control
+            .checked_sub(used)
+            .and_then(|n| n.checked_add(charge.rounded_required_charge))
+            .ok_or_else(invalid)?;
+        self.io.journal_high_water = charge.allocated_bytes;
+        self.io.ceiling = Some(ceiling);
+        self.io.check_effect_footprint()
+    }
     fn current_target(&self) -> Result<AcceptedCoordinate, SessionError> {
         let j = self.io.checkpoint().map_err(session_error)?;
-        let v = self.verify(&j)?;
         let base = self.header_original().map_err(session_error)?;
-        let s = self.verify_session(
-            &v,
+        let s = self.verify_view(
+            &j,
             &base,
             self.seed.as_ref().expect("initialized header seed"),
             budget(),
@@ -243,7 +611,7 @@ impl SessionIo for Host {
         self.io.pins().map_err(session_error)
     }
     fn read_journal(&self) -> Result<Vec<u8>, SessionError> {
-        read(&self.io.evidence, CHECKPOINT).map_err(session_error)
+        read(&self.io.evidence, &self.io.journal_name).map_err(session_error)
     }
     fn verify<'a>(
         &self,
@@ -275,6 +643,20 @@ impl SessionIo for Host {
             &mut self.io.compiled.borrow_mut(),
         )?)
     }
+    fn verify_view<'a>(
+        &self,
+        journal: &'a journal::Journal,
+        base: &VerifiedOriginal,
+        inputs: &PlannerInputs,
+        limits: super::super::Limits,
+    ) -> Result<journal::VerifiedSession<'a>, SessionError> {
+        if self.snapshot_mode() {
+            self.snapshot_view(journal)
+        } else {
+            let verified = self.verify(journal)?;
+            self.verify_session(&verified, base, inputs, limits)
+        }
+    }
     fn selected_head(&self) -> Result<Value, SessionError> {
         Ok(self.io.current().map_err(session_error)?.head)
     }
@@ -305,17 +687,13 @@ impl SessionIo for Host {
             if !has_mutation {
                 self.reserve_mutation(mutation)?;
                 self.io.allow(&p);
-                let base = self.header_original().map_err(session_error)?;
-                self.io
-                    .prepare_checkpoint_with(
-                        &p,
-                        Some((&base, self.seed.as_ref().expect("initialized header seed"))),
-                    )
-                    .map_err(session_error)?;
+                self.prepare_plan(&p).map_err(session_error)?;
             }
             // Exact original retry has no new capacity or physical admission.
-            barrier(&regular(&self.io.evidence, CHECKPOINT, true).map_err(session_error)?)
-                .map_err(session_error)?;
+            barrier(
+                &regular(&self.io.evidence, &self.io.journal_name, true).map_err(session_error)?,
+            )
+            .map_err(session_error)?;
             barrier(&self.io.evidence).map_err(session_error)?;
             return Ok(());
         }
@@ -341,34 +719,47 @@ impl SessionIo for Host {
             .map_err(session_error)?
             .checked_mul(1000)
             .ok_or(SessionError::Failure(SessionFailure::Capacity))?;
-        let p = self
-            .io
-            .compiled
-            .borrow_mut()
-            .compile(
-                &original,
-                intent,
-                receipt,
-                self.io.attempt(&original, n).map_err(session_error)?,
-                budget(),
-                self.io.journal_bounds().max_records,
-            )
-            .map_err(session_error)?;
+        let p = if self.snapshot_mode() {
+            let journal = self.io.checkpoint().map_err(session_error)?;
+            let checkpoint = self.snapshot_capability(&journal)?;
+            let mut raw =
+                serde_json::to_value(self.io.attempt(&original, n).map_err(session_error)?)
+                    .map_err(session_error)?;
+            raw["planner"]["codec"] = json!("photara.codec.ps2-repeatable-layout-v4");
+            for corridor in raw["planner"]["corridors"]
+                .as_array_mut()
+                .ok_or(SessionError::InvalidRequest)?
+            {
+                corridor
+                    .as_object_mut()
+                    .ok_or(SessionError::InvalidRequest)?
+                    .remove("original_sha256");
+                corridor["base_head_sha256"] = json!(hash(&canonical(&original.package.head)));
+            }
+            checkpoint.compile_operation(&original, intent, receipt, &raw, budget())?
+        } else {
+            self.io
+                .compiled
+                .borrow_mut()
+                .compile(
+                    &original,
+                    intent,
+                    receipt,
+                    self.io.attempt(&original, n).map_err(session_error)?,
+                    budget(),
+                    self.io.journal_bounds().max_records,
+                )
+                .map_err(session_error)?
+        };
         self.reserve_mutation(mutation)?;
         self.io.allow(&p);
-        let base = self.header_original().map_err(session_error)?;
-        self.io
-            .prepare_checkpoint_with(
-                &p,
-                Some((&base, self.seed.as_ref().expect("initialized header seed"))),
-            )
-            .map_err(session_error)
+        self.prepare_plan(&p).map_err(session_error)
     }
     fn append(&mut self, a: &journal::JournalAppend) -> Result<(), EffectFailure> {
         if a.existing() {
             return uncertain(
                 barrier(
-                    &regular(&self.io.evidence, CHECKPOINT, true)
+                    &regular(&self.io.evidence, &self.io.journal_name, true)
                         .map_err(|_| EffectFailure::OutcomeUnknown)?,
                 )
                 .and_then(|()| barrier(&self.io.evidence)),
@@ -391,14 +782,33 @@ impl SessionIo for Host {
             .io
             .checkpoint()
             .map_err(|_| EffectFailure::OutcomeUnknown)?;
+        if self.snapshot_mode() {
+            let view = self
+                .snapshot_view(&j)
+                .map_err(|_| EffectFailure::OutcomeUnknown)?;
+            if view.checkpoint_target()["accepted_frame"] == *frame {
+                return uncertain(
+                    barrier(
+                        &regular(&self.io.evidence, &self.io.journal_name, true)
+                            .map_err(|_| EffectFailure::OutcomeUnknown)?,
+                    )
+                    .and_then(|()| barrier(&self.io.evidence)),
+                );
+            }
+        }
         if j.records().iter().any(|r| {
             r.value()["kind"] == "CheckpointReceipt"
                 && r.value()["body"]["operation_receipt"]["operation_id"] == *operation
         }) {
-            self.verify(&j).map_err(|_| EffectFailure::OutcomeUnknown)?;
+            if self.snapshot_mode() {
+                self.snapshot_view(&j)
+                    .map_err(|_| EffectFailure::OutcomeUnknown)?;
+            } else {
+                self.verify(&j).map_err(|_| EffectFailure::OutcomeUnknown)?;
+            }
             return uncertain(
                 barrier(
-                    &regular(&self.io.evidence, CHECKPOINT, true)
+                    &regular(&self.io.evidence, &self.io.journal_name, true)
                         .map_err(|_| EffectFailure::OutcomeUnknown)?,
                 )
                 .and_then(|()| barrier(&self.io.evidence)),
@@ -414,7 +824,11 @@ impl SessionIo for Host {
             .map_err(session_error)?;
         self.io.pins().map_err(session_error)?;
         let j = self.io.checkpoint().map_err(session_error)?;
-        self.verify(&j)?;
+        if self.snapshot_mode() {
+            self.snapshot_view(&j)?;
+        } else {
+            self.verify(&j)?;
+        }
         // A pre-Mutation intent alone is not accepted and is never checkpointed
         // by reopen. Exact request resubmission is required to retain its action.
         for r in j.records() {
@@ -429,7 +843,7 @@ impl SessionIo for Host {
                 self.execute_original(op).map_err(session_error)?;
             }
         }
-        barrier(&regular(&self.io.evidence, CHECKPOINT, true).map_err(session_error)?)
+        barrier(&regular(&self.io.evidence, &self.io.journal_name, true).map_err(session_error)?)
             .map_err(session_error)?;
         barrier(&self.io.evidence).map_err(session_error)
     }
@@ -547,11 +961,16 @@ impl OpenSession {
         }
         Ok(evidence)
     }
-    pub(super) fn open(io: Native) -> IoResult<Self> {
+    pub(super) fn open(mut io: Native) -> IoResult<Self> {
         if !io.session_mode {
             return Err(invalid());
         }
-        let current = io.current()?;
+        io.load_selected_journal()?;
+        let current = if io.journal_header["format_version"] == 2 {
+            io.current_candidate()?
+        } else {
+            io.current()?
+        };
         let lease = io.lease(&current)?;
         let registration: Value =
             serde_json::from_slice(&read(&io.scope.scratch, "repeatable-registration.json")?)
@@ -578,8 +997,28 @@ impl OpenSession {
             lease,
             binding: binding.clone(),
             seed: None,
+            snapshot: std::cell::RefCell::new(None),
         };
+        if host.snapshot_mode() {
+            // Reconcile exact accepted originals before cold selection needs
+            // their missing receipt; execute revalidates stages and barriers.
+            let journal = host.io.checkpoint()?;
+            for record in journal.records() {
+                if record.value()["kind"] == "Mutation" {
+                    let operation = &record.value()["body"]["operation_receipt"]["operation_id"];
+                    if !journal.records().iter().any(|r| {
+                        r.value()["kind"] == "CheckpointReceipt"
+                            && r.value()["body"]["operation_receipt"]["operation_id"] == *operation
+                    }) {
+                        host.execute_original(operation)?;
+                    }
+                }
+            }
+        }
         let base = host.header_original()?;
+        if host.snapshot_mode() {
+            host.prepare_snapshot_lifecycle(&base)?;
+        }
         host.seed = Some(attempt(&base, 1000)?.planner);
         let seed = host.seed.clone().expect("initialized header seed");
         let header = host.io.journal_header.clone();

@@ -63,7 +63,7 @@ pub(super) fn build(
                 && phase["original"] == entry["original"],
             "completed retained predecessor",
         )?;
-        let base = match original["original_codec"].as_str() {
+        match original["original_codec"].as_str() {
             Some("photara.codec.ps2-repeatable-admission-v1") => {
                 inherited = entries(
                     original["payload_recipe"]["retained_controls"]
@@ -93,7 +93,11 @@ pub(super) fn build(
                 json!({"kind":"tree","root":r})
             }
             _ => return Err("retained predecessor codec"),
-        };
+        }
+    } else {
+        json!({"kind":"empty"})
+    };
+    if !hold_entries.is_empty() || root["schema"]["version"] == 3 {
         let overlay = old.loose(&root["inventory"])?;
         for r in overlay["controls"]
             .as_array()
@@ -115,10 +119,7 @@ pub(super) fn build(
             }
             additions.push(json!({"record":r,"membership":label(membership)?}));
         }
-        base
-    } else {
-        json!({"kind":"empty"})
-    };
+    }
     additions.sort_by_key(|e| key(&e["record"]).expect("checked retained ref"));
     ensure(inherited == *expected, "exact inherited retained controls")?;
     let values = expected

@@ -330,7 +330,10 @@ impl<P: PhysicalRecords> Audit<'_, '_, P> {
                 .ok_or(PackageError::Record)?,
         )?;
         let mut actual = BTreeMap::new();
-        if !hold_entries.is_empty() {
+        if !hold_entries.is_empty()
+            || (original["original_codec"] == "photara.codec.ps2-repeatable-admission-v4"
+                && original["old"]["commit"]["root_set"]["schema"]["version"] == 3)
+        {
             let overlay = &original["old"]["overlay"];
             check(
                 reference(overlay)?

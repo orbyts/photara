@@ -362,6 +362,14 @@ pub fn reopen<I: CheckpointRecoveryIo>(
     limits: ActivationLimits<'_>,
 ) -> Result<ActivatedCheckpoint, PackageError> {
     let state = io.read_checkpoint(lease, limits)?;
+    reopen_state(state, identity, limits)
+}
+
+pub(crate) fn reopen_state(
+    state: ReopenState,
+    identity: &CheckpointIdentity,
+    limits: ActivationLimits<'_>,
+) -> Result<ActivatedCheckpoint, PackageError> {
     let (selector, base, journal) = custody(&state, identity, limits)?;
     let seed = recover_seed(&state, &base, &journal, identity, limits)?;
     let segment = journal.base_prefix()?.to_vec();

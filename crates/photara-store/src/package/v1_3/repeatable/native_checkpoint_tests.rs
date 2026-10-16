@@ -27,6 +27,26 @@ fn setup() -> (tempfile::TempDir, Namespace, Vec<u8>, Vec<u8>) {
 
 #[test]
 fn session_tests_native_checkpoint_custody_cut_retry_and_orphans() {
+    let (_temp, namespace, _, _) = setup();
+    let usage = v1_3::native_profile::measure_allocation(
+        &regular(&namespace.root, CHECKPOINT, false).unwrap(),
+    )
+    .unwrap();
+    let charge =
+        v1_3::native_profile::check_charge(&[usage], 4096, u64::MAX / 4096 * 4096).unwrap();
+    let footprint = serde_json::json!({"standing_observation":charge});
+    assert_eq!(
+        standing_charge(&footprint).unwrap(),
+        charge.rounded_required_charge
+    );
+    assert!(preflight_charge(&footprint, 4096, charge.rounded_required_charge + 4096).is_ok());
+    assert!(preflight_charge(&footprint, 4097, charge.rounded_required_charge + 4096).is_err());
+    assert!(
+        standing_charge(
+            &serde_json::json!({"standing_observation":charge.rounded_required_charge})
+        )
+        .is_err()
+    );
     let cuts = [
         Step::Write,
         Step::FileBarrier,

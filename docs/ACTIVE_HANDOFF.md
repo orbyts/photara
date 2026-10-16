@@ -115,8 +115,23 @@ controlled-disposable checks pass in 23.70s
 (`/private/tmp/ps2-native-checkpoint-clippy.log`). These are primitive/shared
 regressions, not registered APFS or app qualification. Registrar initialization
 and PHPSJ002 SessionIo dispatch remain disabled and fail closed.
-Remaining: native registration/SessionIo dispatch, exact-original cold repair,
-and disposable performance qualification. Existing stored bytes/charges remain
+**Selected-journal routing slice (2026-10-15):** fresh registration can name an
+initial checkpoint selector; selected-segment IO and the private SessionIo view
+hook are implemented. V4 admission/restoration uses the existing executor;
+old selected controls survive cleanup through exact retained-inventory additions.
+The matching planner/reader correction is limited to the checkpoint path.
+Native coexistence checks now read the measured charge object's
+`rounded_required_charge`, with a regression assertion. The connected two-operation
+turnover/reconstruction test passes in 6.72s
+(`/private/tmp/ps2-native-route-connected.log`), 23 session regressions pass in
+10.47s (`/private/tmp/ps2-native-route-session.log`), and strict checks pass in
+26.36s (`/private/tmp/ps2-native-route-clippy.log`). No native fixture effects ran.
+Initial turnover invocation and pending-maintenance startup remain unconnected;
+the native missing-receipt path still needs actual connected qualification,
+including its preflight against an advanced package. Do not treat the pure
+reconstruction test as proof of the entire native repair path.
+Remaining: those native turnover/recovery hooks and disposable performance
+qualification. Existing stored bytes/charges remain
 retained; no archive deletion or app replacement. Old A/B images remain, but
 their outer registration/config files were absent after the reset: preserve
 them and use a fresh registered instance of the existing disposable fixture

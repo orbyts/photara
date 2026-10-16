@@ -509,6 +509,33 @@ impl Journal {
                 && record.value["body"]["operation_receipt"] == plan.prepared.receipt
                 && record.value["body"]["semantic_intent"] == intent_body(plan)["semantic_intent"]
         }))?;
+        self.snapshot_receipt_bound(plan, intent, identity, limits)
+    }
+    // Private preflight only: binds a hypothetical completion to the exact
+    // admitted intent/plan. The native executor may append it only after its
+    // fresh exact clean-stage proof and package barriers, as for legacy plans.
+    #[cfg(all(target_os = "macos", any(test, feature = "controlled-disposable")))]
+    pub(crate) fn snapshot_receipt_plan(
+        &self,
+        plan: &RepeatablePlan,
+        intent: PackageUuid,
+        identity: JournalRecordIdentity,
+        limits: JournalLimits,
+    ) -> Result<JournalAppend, PackageError> {
+        check(
+            self.header["format_version"] == 2
+                && plan.original["original_codec"] == "photara.codec.ps2-repeatable-admission-v4"
+                && plan.original["payload_recipe"]["checkpoint_base"] == self.header["base"],
+        )?;
+        self.snapshot_receipt_bound(plan, intent, identity, limits)
+    }
+    fn snapshot_receipt_bound(
+        &self,
+        plan: &RepeatablePlan,
+        intent: PackageUuid,
+        identity: JournalRecordIdentity,
+        limits: JournalLimits,
+    ) -> Result<JournalAppend, PackageError> {
         let verified = VerifiedJournal {
             journal: self,
             plans: BTreeMap::from([(
@@ -782,6 +809,10 @@ impl Journal {
     #[must_use]
     pub fn tail(&self) -> JournalTail {
         self.tail
+    }
+    #[cfg(all(target_os = "macos", any(test, feature = "controlled-disposable")))]
+    pub(crate) fn exact_bytes(&self) -> &[u8] {
+        &self.bytes
     }
     #[must_use]
     pub fn verified_bytes(&self) -> usize {

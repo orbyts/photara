@@ -166,6 +166,18 @@ pub(crate) trait SessionIo {
     ) -> Result<VerifiedSession<'a>, SessionError> {
         Ok(verified.verify_session(base, inputs, limits)?)
     }
+    /// Snapshot journals enter through independently recovered local custody;
+    /// legacy adapters preserve the original storage-then-semantic proof path.
+    fn verify_view<'a>(
+        &self,
+        journal: &'a Journal,
+        base: &VerifiedOriginal,
+        inputs: &PlannerInputs,
+        limits: Limits,
+    ) -> Result<VerifiedSession<'a>, SessionError> {
+        let verified = self.verify(journal)?;
+        self.verify_session(&verified, base, inputs, limits)
+    }
     fn selected_head(&self) -> Result<Value, SessionError>;
     /// After pure request/action validation, durably retain its exact original
     /// plan and full liability before Mutation admission. Complete earlier
@@ -255,10 +267,9 @@ impl<I: SessionIo> Session<I> {
         if journal.tail() != super::journal::JournalTail::Complete {
             return Err(SessionError::Failure(SessionFailure::Journal));
         }
-        let verified = self.io.verify(&journal)?;
         let view = self
             .io
-            .verify_session(&verified, &self.base, &self.inputs, self.limits)?;
+            .verify_view(&journal, &self.base, &self.inputs, self.limits)?;
         f(&journal, &view)
     }
     fn refresh(&mut self) -> Result<(), SessionError> {

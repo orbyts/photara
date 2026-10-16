@@ -2074,6 +2074,46 @@ fn session_checkpoint_turnover_actual_append_and_four_selections() {
                             budget(),
                         )
                         .unwrap();
+                    for compiled in [&first, &second] {
+                        let selected = super::selected(compiled, 6);
+                        let restored = super::super::recovery::reconstruct_shared_original(
+                            &selected,
+                            compiled.original(),
+                            budget(),
+                        )
+                        .unwrap();
+                        assert_eq!(restored.head, compiled.old.head);
+                        assert_eq!(restored.commit, compiled.old.commit);
+                        assert_eq!(restored.loose, compiled.old.loose);
+                        for (id, allocation) in &restored.allocations {
+                            assert_eq!(
+                                &allocation.bytes[..],
+                                &compiled.old.allocations[id].bytes[..]
+                            );
+                        }
+                        let mut changed = compiled.original().clone();
+                        changed["payload_recipe"]["allocations"][0]["base_head_sha256"] =
+                            json!("0".repeat(64));
+                        assert!(
+                            super::super::recovery::reconstruct_shared_original(
+                                &selected,
+                                &changed,
+                                budget()
+                            )
+                            .is_err()
+                        );
+                        changed = compiled.original().clone();
+                        changed["payload_recipe"]["allocations"][0]["original_sha256"] =
+                            json!("0".repeat(64));
+                        assert!(
+                            super::super::recovery::reconstruct_shared_original(
+                                &selected,
+                                &changed,
+                                budget()
+                            )
+                            .is_err()
+                        );
+                    }
                     // Retry must ignore an unrequested archived receipt body,
                     // while regenerating exactly the same original and new suffix.
                     let archived = encode(old.proof.roles["active"].receipts.last().unwrap());

@@ -345,12 +345,12 @@ pub use plan::{TurnoverIds, TurnoverPlan};
 
 #[path = "checkpoint_activate.rs"]
 mod activate;
-#[cfg(all(target_os = "macos", any(test, feature = "controlled-disposable")))]
-pub(crate) use activate::prepare_installation;
 pub use activate::{
     ActivatedCheckpoint, ActivationLimits, CheckpointIo, CheckpointRecoveryIo, ReopenState,
     activate, prepare_recovery_receipt, reopen,
 };
+#[cfg(all(target_os = "macos", any(test, feature = "controlled-disposable")))]
+pub(crate) use activate::{prepare_installation, reopen_state};
 
 #[path = "checkpoint_continue.rs"]
 mod continuation;

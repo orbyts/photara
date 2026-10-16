@@ -60,6 +60,20 @@ impl VerifiedOriginal {
             selected_frames: None,
         }
     }
+    #[cfg(all(target_os = "macos", any(test, feature = "controlled-disposable")))]
+    pub(crate) fn shared_clone(&self) -> Self {
+        Self {
+            public_package: std::sync::OnceLock::new(),
+            package: self.package.clone(),
+            proof: self.proof.clone(),
+            scope: self.scope.clone(),
+            charge_unit: self.charge_unit,
+            empty_hold: self.empty_hold.clone(),
+            completed_original: self.completed_original.clone(),
+            selected_frames: self.selected_frames.clone(),
+            retained_controls: self.retained_controls.clone(),
+        }
+    }
     pub(crate) fn shared_package(&self) -> &OriginalPackage {
         &self.package
     }
@@ -363,7 +377,8 @@ pub(super) fn compile_context(
         &builder.pool,
     )?;
     let mut retained_controls = original.retained_controls.clone();
-    if !original.retained_controls.is_empty()
+    if checkpoint.is_some()
+        || !original.retained_controls.is_empty()
         || old.loose.values().any(|bytes| {
             wire::parse(bytes)
                 .is_ok_and(|v| v["schema"]["id"] == "photara.storage.original-admission")
